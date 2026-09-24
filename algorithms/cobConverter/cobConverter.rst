@@ -10,8 +10,8 @@ correction uses the "Binary" method, which assumes a brightness of either 1 or 0
 applied on every cycle. The COM offset itself, along with the uncorrected COB heading, is reported on the diagnostic
 message.
 
-Optionally, Brown-Conrady distortion coefficients can be provided to correct the normalized image-plane coordinate
-for lens distortion before the heading vector is computed.
+Optionally, Brown-Conrady distortion coefficients can be provided; the measured normalized image-plane coordinate is
+then undistorted by inverting the Brown-Conrady model before the heading vector is computed.
 
 Message Connection Descriptions
 -------------------------------
@@ -98,6 +98,7 @@ With this, the unit vector in the camera frame from focal point to center of bri
 where :math:`\mathbf{\bar{u}}_{COB} = [\mathrm{cob}_x, \mathrm{cob}_y, 1]^T` with the pixel coordinates of the center of
 brightness :math:`\mathrm{cob}_x` and :math:`\mathrm{cob}_y`, :math:`[K]` is the camera calibration matrix and
 :math:`\mathbf{r}_{COB}^C` is the unit vector describing the physical heading to the target in the camera frame.
+With distortion coefficients set, :math:`[K]^{-1} \mathbf{\bar{u}}` is first undistorted (see `Camera distortion calibration`_).
 
 The covariance of the COB error is found using the number of detected pixels and the camera parameters, given by:
 
@@ -144,9 +145,7 @@ pixel space is then computed using
     \mathrm{com}_x = \mathrm{cob}_x - \gamma \frac{R d_x}{\rho} \cos\phi \\
     \mathrm{com}_y = \mathrm{cob}_y - \gamma \frac{R d_y}{\rho} \sin\phi
 
-where the per-axis pixel scales :math:`d_x` and :math:`d_y` convert the angular offset
-:math:`\tan\beta = \gamma R / \rho` into pixels along each image axis (with :math:`d_x = d_y` this reduces to
-:math:`\gamma R_c`).
+where :math:`d_x` and :math:`d_y` scale the angular offset :math:`\gamma R / \rho` into pixels per axis.
 
 Finally, similar to the COB unit vector, the COM unit vector is obtained by
 
@@ -154,7 +153,7 @@ Finally, similar to the COB unit vector, the COM unit vector is obtained by
 
     \mathbf{r}_{COM}^C &= [K]^{-1} \mathbf{\bar{u}}_{COM}
 
-where :math:`\mathbf{\bar{u}}_{COM} = [\mathrm{com}_x, \mathrm{com}_y, 1]^T`.
+where :math:`\mathbf{\bar{u}}_{COM} = [\mathrm{com}_x, \mathrm{com}_y, 1]^T`, undistorted as for the COB.
 
 
 The covariance of the COM error is found by firstly computing the total derivative of the angular error. Which can be
@@ -282,21 +281,27 @@ If the incoming image is not valid, the module writes empty messages.
 Camera distortion calibration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-After mapping the pixel coordinates into the normalized image plane via :math:`[K]^{-1}`, the resulting coordinate
-:math:`(x, y)` can be corrected for lens distortion using the Brown-Conrady model. With
-:math:`r^2 = x^2 + y^2`, the corrected coordinate :math:`(x', y')` is given by
+The Brown-Conrady model maps the ideal normalized coordinate :math:`(x_u, y_u)` to the measured (distorted) one
+:math:`(x_d, y_d)`. With :math:`r^2 = x_u^2 + y_u^2` and :math:`L = 1 + k_1 r^2 + k_2 r^4 + k_3 r^6`,
 
 .. math::
 
-    x' &= x \left( 1 + k_1 r^2 + k_2 r^4 + k_3 r^6 \right) + 2 p_1 x y + p_2 \left( r^2 + 2 x^2 \right) \\
-    y' &= y \left( 1 + k_1 r^2 + k_2 r^4 + k_3 r^6 \right) + 2 p_2 x y + p_1 \left( r^2 + 2 y^2 \right)
+    x_d &= x_u L + \Delta x_t, \quad \Delta x_t = 2 p_1 x_u y_u + p_2 \left( r^2 + 2 x_u^2 \right) \\
+    y_d &= y_u L + \Delta y_t, \quad \Delta y_t = 2 p_2 x_u y_u + p_1 \left( r^2 + 2 y_u^2 \right)
 
-where :math:`k_1, k_2, k_3` are the radial distortion coefficients and :math:`p_1, p_2` are the tangential
-distortion coefficients. The radial polynomial :math:`1 + k_1 r^2 + k_2 r^4 + k_3 r^6` characterizes the type of
-radial distortion: a polynomial that is monotonically decreasing in :math:`r` represents barrel distortion (image
-features pulled toward the optical center), while a monotonically increasing polynomial represents pincushion
-distortion (features pushed away from the optical center). All coefficients default to zero, in which case the
-correction reduces to the identity and the module behaves as an ideal pinhole camera.
+where :math:`k_1, k_2, k_3` are the radial and :math:`p_1, p_2` the tangential distortion coefficients. A radial
+polynomial :math:`L` decreasing in :math:`r` is barrel distortion; increasing is pincushion.
+
+The module inverts this model by fixed-point iteration from :math:`(x_u, y_u) = (x_d, y_d)`:
+
+.. math::
+
+    x_u \leftarrow \frac{x_d - \Delta x_t}{L}, \qquad y_u \leftarrow \frac{y_d - \Delta y_t}{L}
+
+stopping when :math:`\max(|x_d - x_u L - \Delta x_t|, |y_d - y_u L - \Delta y_t|) \le 10^{-6} S`, with
+:math:`S = \max(1, |x_d|, |y_d|, |x_u L|, |y_u L|)` finite, or after 50 iterations. Strong distortion near the edge
+of the field of view may not converge; this is flagged but does not invalidate the heading. With all coefficients
+zero (the default) the module is an ideal pinhole camera.
 
 An outlier detection may be performed for the COB. In this case, the filter message :ref:`FilterMsgPayload` is used to
 predict the location of the COB. If the location of the COB coming from the image is significantly different from the

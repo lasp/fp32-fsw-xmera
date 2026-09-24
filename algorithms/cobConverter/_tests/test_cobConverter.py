@@ -8,6 +8,11 @@ from xmera.fp32 import cobConverterF32 as cobConverter
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.utilities import SimulationBaseClass, macros
 
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
@@ -471,12 +476,22 @@ def apply_brown_conrady(uncalibrated, k1, k2, k3, p1, p2):
     return out
 
 
+def opencv_undistort_normalized(x_distorted, y_distorted, k1, k2, k3, p1, p2):
+    """Undistort a normalized image-plane coordinate with cv2.undistortPointsIter (identity K)."""
+    # OpenCV coefficient order is (k1, k2, p1, p2, k3); tight criteria makes the result effectively exact.
+    dist_coeffs = np.array([k1, k2, p1, p2, k3])
+    criteria = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 100, 1e-12)
+    src = np.array([[[x_distorted, y_distorted]]], dtype=np.float64)
+    return cv2.undistortPointsIter(src, np.eye(3), dist_coeffs, None, None, criteria).reshape(2)
+
+
 def map_state_with_calibration(state, input_camera, k1, k2, k3, p1, p2):
-    """Mirror of mapState that also applies Brown-Conrady distortion."""
+    """Mirror of mapState that also removes Brown-Conrady distortion (OpenCV reference)."""
     K = compute_camera_calibration_matrix(input_camera)
     Kinv = np.linalg.inv(K)
     raw = Kinv @ np.array([state[0], state[1], 1])
-    cal = apply_brown_conrady(raw, k1, k2, k3, p1, p2)
+    xu, yu = opencv_undistort_normalized(raw[0], raw[1], k1, k2, k3, p1, p2)
+    cal = np.array([xu, yu, 1.0])
     rhat_BN_C = -cal / np.linalg.norm(cal)
     return rhat_BN_C
 
@@ -510,6 +525,7 @@ def test_brown_conrady_polynomial_monotonicity(k1, k2, k3, label):
     (-0.5, -1.0, -2.0, 0.2, -0.1, "combined"),
 ])
 @pytest.mark.parametrize("centerOfBrightness", [[152, 251], [400, 350], [256, 256]])
+@pytest.mark.skipif(cv2 is None, reason="OpenCV not installed")
 def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness):
     """Verify that the Brown-Conrady coefficients are wired into the COB unit-vector pipeline.
     Asserts on the diagnostic COB heading, which is unaffected by the phase-angle correction."""
@@ -617,23 +633,53 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     np.testing.assert_allclose(rhat_COB_N_out, rhat_COB_N_true, rtol=0, atol=tolerance,
                                err_msg=f"rhat_COB_N ({label})")
 
-    # For a non-centered COB, barrel and pincushion should push the calibrated radius in opposite
-    # directions relative to the identity case. Skip this check when the COB happens to land at
-    # the principal point (no radial term).
+    # For a non-centered COB, removing barrel and pincushion distortion should push the undistorted
+    # radius in opposite directions relative to the identity case. Skip this check when the COB
+    # happens to land at the principal point (no radial term).
     radius_pixels = np.linalg.norm(np.array(centerOfBrightness) - np.array(cameraResolution) / 2.0)
     if label in ("barrel", "pincushion") and radius_pixels > 0.0:
         rhat_identity = map_state_with_calibration(centerOfBrightness, inputCamera, 0, 0, 0, 0, 0)
-        # In the camera frame, +z is the boresight; bigger radial distortion -> larger |x|, |y|.
+        # In the camera frame, +z is the boresight. Barrel compresses the image, so undoing it
+        # increases |x|, |y|; undoing pincushion decreases them.
         radial_identity = np.hypot(rhat_identity[0], rhat_identity[1])
         radial_distorted = np.hypot(rhat_COB_C_out[0], rhat_COB_C_out[1])
         if label == "barrel":
-            assert radial_distorted < radial_identity, (
-                f"Barrel distortion should reduce the off-axis component "
-                f"({radial_distorted} >= {radial_identity})")
-        else:
             assert radial_distorted > radial_identity, (
-                f"Pincushion distortion should increase the off-axis component "
+                f"Removing barrel distortion should increase the off-axis component "
                 f"({radial_distorted} <= {radial_identity})")
+        else:
+            assert radial_distorted < radial_identity, (
+                f"Removing pincushion distortion should reduce the off-axis component "
+                f"({radial_distorted} >= {radial_identity})")
+
+
+@pytest.mark.skipif(cv2 is None, reason="OpenCV not installed")
+@pytest.mark.parametrize("k1, k2, k3, p1, p2, label", [
+    (0.0, 0.0, 0.0, 0.0, 0.0, "identity"),
+    (-1.0, -2.0, -5.0, 0.0, 0.0, "barrel"),
+    (1.0, 2.0, 5.0, 0.0, 0.0, "pincushion"),
+    (0.0, 0.0, 0.0, 0.5, 0.3, "tangential"),
+    (-0.5, -1.0, -2.0, 0.2, -0.1, "combined"),
+    (-0.3, 0.1, -0.02, 1e-3, -5e-4, "realistic"),
+])
+@pytest.mark.parametrize("xDistorted, yDistorted", [
+    (0.0, 0.0), (0.05, -0.08), (0.12, 0.12), (-0.17, 0.05), (0.2, -0.15),
+])
+def test_undistort_normalized_coordinate_vs_opencv(k1, k2, k3, p1, p2, label, xDistorted, yDistorted):
+    """Compare the fixed-point Brown-Conrady inverse against cv2.undistortPointsIter."""
+    coefficients = cobConverter.CalibrationCoefficients()
+    coefficients.k1 = k1
+    coefficients.k2 = k2
+    coefficients.k3 = k3
+    coefficients.p1 = p1
+    coefficients.p2 = p2
+    result = cobConverter.CobConverterAlgorithm.undistortNormalizedCoordinate(xDistorted, yDistorted, coefficients)
+
+    expected = opencv_undistort_normalized(xDistorted, yDistorted, k1, k2, k3, p1, p2)
+
+    assert result.valid, f"{label}: solver did not converge"
+    np.testing.assert_allclose([result.xUndistorted, result.yUndistorted], expected, rtol=0, atol=1e-5,
+                               err_msg=f"{label}: undistortNormalizedCoordinate vs OpenCV")
 
 
 if __name__ == '__main__':
