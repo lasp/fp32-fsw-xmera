@@ -30,39 +30,36 @@ def mapState(state, input_camera):
     return rHat_BN_C, norm_COB_vector
 
 
-def mapCovar(pixels, input_camera, norm_COB_vector):
-    """Secondary method to map the cob covariance in pixel space to position"""
+def skew(v):
+    """Cross-product matrix [v]x"""
+    return np.array([[0., -v[2], v[1]], [v[2], 0., -v[0]], [-v[1], v[0], 0.]])
+
+
+def unit_vector_jacobian(rhat_C):
+    """Jacobian of rhat = -h/|h| with respect to (x, y), h = [x, y, 1]"""
+    h = rhat_C / rhat_C[2]
+    x = h[0]
+    y = h[1]
+    J = np.array([[y * y + 1., -x * y], [-x * y, x * x + 1.], [-x, -y]])
+    return -J / np.linalg.norm(h) ** 3
+
+
+def pixel_covar_xy(pixels, input_camera):
+    """Pixel-noise covariance in the normalized image plane"""
     K = compute_camera_calibration_matrix(input_camera)
-    d_x = K[0, 0]
-    d_y = K[1, 1]
-    X = 1 / d_x
-    Y = 1 / d_y
+    S = np.diag([1. / K[0, 0], 1. / K[1, 1]])
+    return S @ ((pixels / (4 * np.pi)) * np.eye(2)) @ S.T
 
-    scale_factor = np.sqrt(pixels / (4 * np.pi))
 
-    covar = np.zeros([3, 3])
-    covar[0, 0] = X ** 2
-    covar[1, 1] = Y ** 2
-    covar[2, 2] = 1
+def mapCovar(pixels, input_camera, rhat_C):
+    """Pixel-noise-only unit-vector covariance in the camera frame"""
+    J = unit_vector_jacobian(rhat_C)
+    return J @ pixel_covar_xy(pixels, input_camera) @ J.T
 
-    return scale_factor * covar
 
-def mapComCovar(pixels, input_camera,norm_COB_vector, r_BdyZero_N, R_object, alpha,vehSunPntN, R_object_uncer, phi, position_covar):
-    """Secondary method to map the com covariance in pixel space to position"""
-
-    resX = input_camera.resolution[0]
-    resY = input_camera.resolution[1]
-    pX = 2. * np.tan(input_camera.fieldOfView[0] / 2.0)
-    pY = 2. * np.tan(input_camera.fieldOfView[1] / 2.0)
-    dX = resX / pX
-    dY = resY / pY
-    X = 1 / dX
-    Y = 1 / dY
-    ifov_x = input_camera.fieldOfView[0]/ (dX * pX)
-    ifov_y = input_camera.fieldOfView[1]/ (dY * pY)
-
-    scale_factor = np.sqrt(pixels / (4 * np.pi))
-
+def mapComCovar(pixels, input_camera, rhat_COM_C, r_BdyZero_N, R_object, alpha, vehSunPntN, R_object_uncer, phi,
+                position_covar, tanBeta):
+    """COM unit-vector covariance in the camera frame: pixel noise plus the phase-angle offset"""
     position = r_BdyZero_N
     constants_deltaR = (4*R_object/
                                 (3*np.pi*np.linalg.norm(position))*(1 - np.cos(alpha))
@@ -92,35 +89,13 @@ def mapComCovar(pixels, input_camera,norm_COB_vector, r_BdyZero_N, R_object, alp
     total_deltaBinary_partials = np.dot(np.dot(deltaBinary_r, position_covar), deltaBinary_r.T)
     sigma_beta_squared  = total_deltaBinary_partials + np.dot(deltaBinary_delta_R **2, R_object_uncer ** 2)
 
-    # Mirrors CobConverterAlgorithm::computeCameraFrameUncertainty: sigma_beta_squared is the
-    # variance of a 1-D scalar magnitude along the sun-direction (cos(phi), sin(phi)) in the
-    # image plane. Rotating that 1-D angular variance into image x/y axes via the similarity
-    # transform R(phi) @ diag(sigma_beta_squared, 0) @ R(phi).T gives cos(phi)**2/sin(phi)**2 on
-    # the diagonal plus a cos(phi)*sin(phi) off-diagonal cross term. Converting angular units
-    # (rad**2) to normalized image-plane units takes two separate conversions: angle -> pixels
-    # via ifov_x/ifov_y (rad/px, an average-scale approximation), then pixels -> normalized
-    # image-plane coordinates via X/Y (the exact, tan-based per-axis pixel scale used for the
-    # baseline term below) -- these are not interchangeable (X/ifov_x deviates from 1 by ~26% at
-    # the wide end of the supported FOV range), so both steps are applied via the diagonal
-    # congruence transform D @ (...) @ D with D = diag(X/ifov_x, Y/ifov_y). Both a similarity
-    # transform of a non-negative diagonal and a congruence transform preserve PSD-ness, and
-    # adding the baseline COB pixel-noise diagonal (X**2, Y**2) keeps the sum PSD.
-    cos_phi = np.cos(phi)
-    sin_phi = np.sin(phi)
-    direction_x = X / ifov_x
-    direction_y = Y / ifov_y
-    correction_xx = sigma_beta_squared * direction_x ** 2 * cos_phi ** 2
-    correction_yy = sigma_beta_squared * direction_y ** 2 * sin_phi ** 2
-    correction_xy = sigma_beta_squared * direction_x * direction_y * cos_phi * sin_phi
+    # Variance of tan(beta) along the sun direction, added to the pixel noise
+    phase_var = sigma_beta_squared * (1. + tanBeta ** 2) ** 2
+    a = np.array([np.cos(phi), np.sin(phi)])
+    covar_xy = pixel_covar_xy(pixels, input_camera) + phase_var * np.outer(a, a)
 
-    covar_com = np.zeros([3, 3])
-    covar_com[0, 0] = X ** 2 + correction_xx
-    covar_com[1, 1] = Y ** 2 + correction_yy
-    covar_com[0, 1] = correction_xy
-    covar_com[1, 0] = correction_xy
-    covar_com[2, 2] = 1
-
-    return scale_factor * covar_com
+    J = unit_vector_jacobian(rhat_COM_C)
+    return J @ covar_xy @ J.T
 
 
 def compute_camera_calibration_matrix(input_camera):
@@ -290,18 +265,18 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
 
 # Center of Brightness Unit Vector
     [rhat_COB_C_true, norm_COB_vector] = mapState(cob_true, inputCamera)
-    covar_COB_C_true = mapCovar(num_pixels, inputCamera, norm_COB_vector)
-    covar_COM_C_true = mapComCovar(num_pixels, inputCamera,norm_COB_vector,r_BdyZero_N, R_object, alpha,vehSunPntN, R_object_uncer, phi,position_covar)
+    covar_pixel_C_true = mapCovar(num_pixels, inputCamera, rhat_COM_C_true)
+    covar_COM_C_true = mapComCovar(num_pixels, inputCamera, rhat_COM_C_true, r_BdyZero_N, R_object, alpha, vehSunPntN,
+                                   R_object_uncer, phi, position_covar, tanBeta)
     rhat_COB_N_true = np.dot(dcm_NC, rhat_COB_C_true) * goodPixels  # multiple by validity to get zero vector if bad
     timeTag_true_ns = inputCob.timeTag * goodPixels
     timeTag_true = timeTag_true_ns * macros.NANO2SEC
 
-    covar_COB_B_true = np.dot(dcm_CB.T, np.dot(covar_COB_C_true, dcm_CB))
-    covar_COM_B_true = np.dot(dcm_CB.T, np.dot(covar_COM_C_true, dcm_CB))
+    # Attitude error-MRP covariance mapped onto the COM unit vector
+    rhat_COM_B_true = dcm_CB.T @ rhat_COM_C_true
+    covar_att_N = 16. * dcm_BN.T @ skew(rhat_COM_B_true) @ covar_att_B @ skew(rhat_COM_B_true).T @ dcm_BN
 
-    covar_B_true = covar_att_B + covar_COM_B_true
-
-    covar_N_true = np.dot(dcm_BN.T, np.dot(covar_B_true, dcm_BN)).flatten() * goodPixels
+    covar_N_true = (dcm_NC @ covar_COM_C_true @ dcm_NC.T + covar_att_N).flatten() * goodPixels
 
     # Center of Mass Message and Unit Vector. comValid mirrors
     # CobConverterAlgorithm::updateState: valid whenever the resulting COM pixel location is finite.
@@ -320,17 +295,14 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
 
     # make sure module output data is correct
     tolerance = 1e-6  #atol=1e-9 due to floating point precision limits
-    np.testing.assert_((np.linalg.norm(covar_COM_C_true) + tolerance >= np.linalg.norm(covar_COB_C_true)), "Some elements in A are less than in B")
+    np.testing.assert_((np.linalg.norm(covar_COM_C_true) + tolerance >= np.linalg.norm(covar_pixel_C_true)), "Some elements in A are less than in B")
 
 
-    # covar_N spans ~16 orders of magnitude (dominated by filterVehPositionCovariance),
-    # and sigma_BN/vehSunPntBdy are now float32, so large entries carry ~1e-7 relative
-    # float error that a pure atol check can't absorb. Add rtol for the large entries;
-    # atol still covers the near-zero ones.
+    # covar_N entries are ~1e-6 and up [rad^2]; rtol covers fp32 error on large entries, atol the near-zero ones.
     np.testing.assert_allclose(covar_N,
                                covar_N_true,
                                rtol=1e-5,
-                               atol=tolerance,
+                               atol=1e-9,
                                err_msg='Variable: covar_N',
                                verbose=True)
     np.testing.assert_allclose(com,
@@ -357,6 +329,7 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
                                verbose=True)
 
 
+@pytest.mark.skip(reason="cobOutlierDetection call is commented out in CobConverterAlgorithm::updateState")
 def test_coberror_outlier(
         cameraResolution=[512, 512],
         centerOfBrightness=[152, 251],

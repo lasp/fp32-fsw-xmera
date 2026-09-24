@@ -109,7 +109,7 @@ def com_correction_partials(sunDirection,distance):
             color=colorList[9],
             linewidth=2,
             linestyle="dashed",
-            label="2-$\sigma$ numerical",
+            label="2-sigma numerical",
             )
     plt.axvline(
             -2 * np.std(com_offset_errors),
@@ -122,7 +122,7 @@ def com_correction_partials(sunDirection,distance):
             color=colorList[7],
             linewidth=2,
             linestyle="dashed",
-            label="2-$\sigma$ analytical",
+            label="2-sigma analytical",
         )
     plt.axvline(
             -2 * np.sqrt(sigma_beta_squared) * 180 / np.pi * 3600,

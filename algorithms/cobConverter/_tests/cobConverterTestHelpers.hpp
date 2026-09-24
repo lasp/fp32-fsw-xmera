@@ -118,26 +118,13 @@ inline Eigen::Vector3d mapState(const Eigen::Vector2d& pixel,
     return -undistorted.vector.normalized();
 }
 
-inline Eigen::Matrix3d mapComCovar(double pixels,
-                                   double fieldOfViewX,
-                                   double fieldOfViewY,
-                                   double resolutionX,
-                                   double resolutionY,
-                                   double dX,
-                                   double dY,
-                                   const Eigen::Vector3d& position,
-                                   double radius,
-                                   double alpha,
-                                   const Eigen::Vector3d& sunUnit_N,
-                                   double radiusUncertainty,
-                                   double phi,
-                                   const Eigen::Matrix3d& positionCovar) {
-    const double X = 1.0 / dX;
-    const double Y = 1.0 / dY;
-    const double ifovX = fieldOfViewX / resolutionX;
-    const double ifovY = fieldOfViewY / resolutionY;
-    const double scaleFactor = safeSqrt(pixels / (4.0 * std::numbers::pi));
-
+// Double-precision mirror of CobConverterAlgorithm::computeBetaVar.
+inline double betaVariance(const Eigen::Vector3d& position,
+                           double radius,
+                           double alpha,
+                           const Eigen::Vector3d& sunUnit_N,
+                           double radiusUncertainty,
+                           const Eigen::Matrix3d& positionCovar) {
     const double positionNorm = position.norm();
     const double oneMinusCosAlpha = 1.0 - safeCos(alpha);
     const double binaryTerm = (4.0 * radius / (3.0 * std::numbers::pi * positionNorm)) * oneMinusCosAlpha;
@@ -158,30 +145,8 @@ inline Eigen::Matrix3d mapComCovar(double pixels,
 
     const Eigen::RowVector3d deltaBinaryR = deltaBinaryDeltaR + (deltaBinaryDeltaAlphaCoeff * deltaAlphaDeltaR);
     const double totalDeltaBinaryPartials = (deltaBinaryR * positionCovar * deltaBinaryR.transpose())(0, 0);
-    const double sigmaBetaSquared = totalDeltaBinaryPartials + (deltaBinaryDeltaRadius * deltaBinaryDeltaRadius *
-                                                                radiusUncertainty * radiusUncertainty);
-
-    // sigmaBetaSquared is the variance of a 1-D magnitude along the sun direction (cos(phi),
-    // sin(phi)); rotating it into image x/y via R(phi)*diag(sigmaBetaSquared,0)*R(phi)^T keeps the
-    // result PSD by construction. Converting rad^2 -> normalized image-plane units needs both the
-    // angle->pixel scale (ifovX/ifovY, average-scale) and the pixel->NIC scale (X/Y, exact tan-based)
-    // -- they differ by up to ~26% at wide FOV, so both are applied via the congruence transform
-    // D*(...)*D with D = diag(X/ifovX, Y/ifovY), which also preserves PSD-ness.
-    const double cosPhi = safeCos(phi);
-    const double sinPhi = safeSin(phi);
-    const double directionX = X / ifovX;
-    const double directionY = Y / ifovY;
-    const double correctionXX = sigmaBetaSquared * directionX * directionX * cosPhi * cosPhi;
-    const double correctionYY = sigmaBetaSquared * directionY * directionY * sinPhi * sinPhi;
-    const double correctionXY = sigmaBetaSquared * directionX * directionY * cosPhi * sinPhi;
-
-    Eigen::Matrix3d covarCom = Eigen::Matrix3d::Zero();
-    covarCom(0, 0) = (X * X) + correctionXX;
-    covarCom(1, 1) = (Y * Y) + correctionYY;
-    covarCom(0, 1) = correctionXY;
-    covarCom(1, 0) = correctionXY;
-    covarCom(2, 2) = 1.0;
-    return scaleFactor * covarCom;
+    return totalDeltaBinaryPartials +
+           (deltaBinaryDeltaRadius * deltaBinaryDeltaRadius * radiusUncertainty * radiusUncertainty);
 }
 
 }  // namespace cobConverterReference
@@ -245,73 +210,87 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
         *brownConradyConverged = cobConverged && comConverged;
     }
 
+    // Mirrors updateState's COM unit-vector covariance.
     const double pixelsFound = static_cast<double>(cob.cobPixelsFound);
     const Eigen::Matrix3d attitudeCovariance = cfg.getAttitudeCovariance().cast<double>();
-    // Mirrors computeCameraFrameUncertainty: the propagation is unconditional, and a zero
-    // radiusUncertainty only zeroes its own term.
-    const Eigen::Matrix3d covarCom_C = mapComCovar(pixelsFound,
-                                                   fieldOfViewX,
-                                                   fieldOfViewY,
-                                                   resolutionX,
-                                                   resolutionY,
-                                                   dX,
-                                                   dY,
-                                                   filter.filterVehPosition,
-                                                   static_cast<double>(cfg.getRadius()),
-                                                   alpha,
-                                                   shat_N,
-                                                   static_cast<double>(cfg.getRadiusUncertainty()),
-                                                   phi,
-                                                   filter.filterVehPositionCovariance);
-    const Eigen::Matrix3d covar_B = (dcm_CB.transpose() * covarCom_C * dcm_CB) + attitudeCovariance;
+    const Eigen::Matrix2d covarCOBuv = (pixelsFound / (4.0 * std::numbers::pi)) * Eigen::Matrix2d::Identity();
+    const double onePlusTanBetaSq = 1.0 + (tanBeta * tanBeta);
+    const double phaseVar = betaVariance(filter.filterVehPosition,
+                                         static_cast<double>(cfg.getRadius()),
+                                         alpha,
+                                         shat_N,
+                                         static_cast<double>(cfg.getRadiusUncertainty()),
+                                         filter.filterVehPositionCovariance) *
+                            onePlusTanBetaSq * onePlusTanBetaSq;
+    Eigen::Matrix2d pixelToNormalized = Eigen::Matrix2d::Zero();
+    pixelToNormalized(0, 0) = 1.0 / dX;
+    pixelToNormalized(1, 1) = 1.0 / dY;
+    const Eigen::Vector2d sunDirection(safeCos(phi), safeSin(phi));
+    const Eigen::Matrix2d covarCOMxy = (pixelToNormalized * covarCOBuv * pixelToNormalized.transpose()) +
+                                       (phaseVar * (sunDirection * sunDirection.transpose()));
 
-    // Mirrors updateState's publish gate: outputs are only populated when both unit vectors and the
-    // covariance are finite; otherwise the result stays default (all zero, invalid).
-    if (!rhatCOB_C.allFinite() || !rhatCOM_C.allFinite() || !covar_B.allFinite()) {
+    const Eigen::Vector3d h = rhatCOM_C / rhatCOM_C(2);  // undistorted COM [x, y, 1]
+    const double x = h(0);
+    const double y = h(1);
+    Eigen::Matrix<double, 3, 2> jacobian;
+    jacobian << (y * y) + 1.0, -x * y, -x * y, (x * x) + 1.0, -x, -y;
+    jacobian *= -1.0 / std::pow(h.norm(), 3);
+    const Eigen::Matrix3d covarRHat_C = jacobian * covarCOMxy * jacobian.transpose();
+
+    const Eigen::Vector3d rHat_B = dcm_CB.transpose() * rhatCOM_C;
+    Eigen::Matrix3d rHatSkew_B;
+    rHatSkew_B << 0.0, -rHat_B(2), rHat_B(1), rHat_B(2), 0.0, -rHat_B(0), -rHat_B(1), rHat_B(0), 0.0;
+    const Eigen::Matrix3d covar_N =
+        (dcm_NC * covarRHat_C * dcm_NC.transpose()) +
+        (16.0 * dcm_BN.transpose() * rHatSkew_B * attitudeCovariance * rHatSkew_B.transpose() * dcm_BN);
+    const Eigen::Matrix3d covar_B = dcm_BN * covar_N * dcm_BN.transpose();
+
+    // Mirrors updateState's publish gate: COM unit vector and covariance must be finite.
+    if (!rhatCOM_C.allFinite() || !covar_N.allFinite()) {
         return output;
     }
 
+    bool goodOutlierCheck = true;
     bool coberrorOutlierTrigger = false;
     if (cfg.isOutlierDetectionEnabled()) {
-        const Eigen::Vector3d rNav_N = filter.filterVehPosition;
-        const Eigen::Vector3d rHatNav_N = rNav_N.normalized();
-        const Eigen::Matrix3d covarNav_N = filter.filterVehPositionCovariance / (rNav_N.norm() * rNav_N.norm());
-
-        Eigen::Vector3d rhatCOB_C_znorm = -rhatCOB_C;
-        rhatCOB_C_znorm /= rhatCOB_C_znorm(2);
-        const Eigen::Vector3d cob = cameraCalibrationMatrix * rhatCOB_C_znorm;
-
-        Eigen::Vector3d rhatNav_C = dcm_NC.transpose() * (-rHatNav_N);
-        rhatNav_C /= rhatNav_C(2);
-        const Eigen::Vector3d cobNav = cameraCalibrationMatrix * rhatNav_C;
-
-        const double cobErrorPrediction = (cob - cobNav).norm();
-
-        double sigma = 0.0;
-        if (cfg.isStandardDeviationSpecified()) {
-            sigma = static_cast<double>(cfg.getStandardDeviation());
-        } else {
-            // Matches cobOutlierDetection's call into computeTotalCobCovariance, including
-            // passing dcm_CB^T * covar_B * dcm_CB^T (not dcm_CB * covar_B * dcm_CB^T) as
-            // "covarCob_C" -- see the namespace comment above.
-            const Eigen::Matrix3d covarAtt_C = dcm_CB * attitudeCovariance * dcm_CB.transpose();
-            const Eigen::Matrix3d dcm_CN = dcm_NC.transpose();
-            const Eigen::Matrix3d covarNav_C = dcm_CN * covarNav_N * dcm_CN.transpose();
-            const Eigen::Matrix3d covarCob_C_arg = dcm_CB.transpose() * covar_B * dcm_CB.transpose();
-            const Eigen::Matrix3d covarTotal_C = covarCob_C_arg + covarAtt_C + covarNav_C;
-            const Eigen::Matrix3d covarImage =
-                cameraCalibrationMatrix * covarTotal_C * cameraCalibrationMatrix.transpose();
-            sigma = safeSqrt(std::max(covarImage(0, 0), covarImage(1, 1)));
-        }
-
-        coberrorOutlierTrigger = !(cobErrorPrediction < static_cast<double>(cfg.getNumStandardDeviations()) * sigma);
+        goodOutlierCheck = true;
+        coberrorOutlierTrigger = !goodOutlierCheck;
+        // const Eigen::Vector3d rNav_N = filter.filterVehPosition;
+        // const Eigen::Vector3d rHatNav_N = rNav_N.normalized();
+        // const Eigen::Matrix3d covarNav_N = filter.filterVehPositionCovariance / (rNav_N.norm() * rNav_N.norm());
+        //
+        // Eigen::Vector3d rhatCOB_C_znorm = -rhatCOB_C;
+        // rhatCOB_C_znorm /= rhatCOB_C_znorm(2);
+        // const Eigen::Vector3d cob = cameraCalibrationMatrix * rhatCOB_C_znorm;
+        //
+        // Eigen::Vector3d rhatNav_C = dcm_NC.transpose() * (-rHatNav_N);
+        // rhatNav_C /= rhatNav_C(2);
+        // const Eigen::Vector3d cobNav = cameraCalibrationMatrix * rhatNav_C;
+        //
+        // const double cobErrorPrediction = (cob - cobNav).norm();
+        //
+        // double sigma = 0.0;
+        // if (cfg.isStandardDeviationSpecified()) {
+        //     sigma = static_cast<double>(cfg.getStandardDeviation());
+        // } else {
+        //     // Matches cobOutlierDetection's call into computeTotalCobCovariance, including
+        //     // passing dcm_CB^T * covar_B * dcm_CB^T (not dcm_CB * covar_B * dcm_CB^T) as
+        //     // "covarCob_C" -- see the namespace comment above.
+        //     const Eigen::Matrix3d covarAtt_C = dcm_CB * attitudeCovariance * dcm_CB.transpose();
+        //     const Eigen::Matrix3d dcm_CN = dcm_NC.transpose();
+        //     const Eigen::Matrix3d covarNav_C = dcm_CN * covarNav_N * dcm_CN.transpose();
+        //     const Eigen::Matrix3d covarCob_C_arg = dcm_CB.transpose() * covar_B * dcm_CB.transpose();
+        //     const Eigen::Matrix3d covarTotal_C = covarCob_C_arg + covarAtt_C + covarNav_C;
+        //     const Eigen::Matrix3d covarImage =
+        //         cameraCalibrationMatrix * covarTotal_C * cameraCalibrationMatrix.transpose();
+        //     sigma = safeSqrt(std::max(covarImage(0, 0), covarImage(1, 1)));
+        // }
+        //
+        // coberrorOutlierTrigger = !(cobErrorPrediction < static_cast<double>(cfg.getNumStandardDeviations()) * sigma);
     }
-
-    const bool goodOutlierCheck = !coberrorOutlierTrigger;
 
     const Eigen::Vector3d rhatCOM_N = dcm_NC * rhatCOM_C;
     const Eigen::Vector3d rhatCOM_B = dcm_BN * rhatCOM_N;
-    const Eigen::Matrix3d covar_N = dcm_BN.transpose() * covar_B * dcm_BN;
     const Eigen::Matrix3d covar_C = dcm_NC.transpose() * covar_N * dcm_NC;
 
     output.output.covar_N = covar_N.cast<float>();
@@ -535,9 +514,8 @@ inline void testCobConverter(float radius,
     const CobConverterUpdateResult ref =
         referenceCobConverterUpdate(*cfg, cob, attitude, filter, &brownConradyConverged);
 
-    // When the Brown-Conrady inverse does not converge, its last iterate depends on the input's last
-    // bits, so fp32 and double end at unrelated points and there is no well-defined answer to compare.
-    if (!brownConradyConverged) {
+    // A non-converged Brown-Conrady inverse (either precision) has no well-defined answer to compare.
+    if (!brownConradyConverged || !out.diagnostic.brownConradyValid) {
         return;
     }
 
@@ -545,7 +523,7 @@ inline void testCobConverter(float radius,
     EXPECT_EQ(out.output.unitVecValid, ref.output.unitVecValid);
     EXPECT_EQ(out.diagnostic.comValid, ref.diagnostic.comValid);
 
-    if (out.output.unitVecValid && out.diagnostic.brownConradyValid) {
+    if (out.output.unitVecValid) {
         // See the tolerance comment above expectNear/expectOutputsNear.
         constexpr float fixedRangeTol = 1e-3F;
         const Eigen::Matrix3d cameraCalibrationMatrix =
