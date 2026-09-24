@@ -150,37 +150,6 @@ PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(co
 }
 
 /**
- * @brief Apply the Brown-Conrady distortion model to a normalized image-plane coordinate.
- *
- * Uses the stored radial (k1, k2, k3) and tangential (p1, p2) coefficients. With all
- * coefficients zero, the input is returned unchanged.
- *
- * @param unCalibratedVector Normalized image-plane coordinate in homogeneous form (z = 1).
- * @return Corrected coordinate in the same homogeneous form.
- */
-Eigen::Vector3f CobConverterAlgorithm::calibrateDistortions(const Eigen::Vector3f& unCalibratedVector) const {
-    Eigen::Vector3f calibratedVector{0.0F, 0.0F, 1.0F};
-    float const x = unCalibratedVector(0);
-    float const y = unCalibratedVector(1);
-    float const r2 = (x * x) + (y * y);
-    float const r4 = r2 * r2;
-    float const r6 = r2 * r4;
-    const CalibrationCoefficients calibrationCoefficients = this->cfg.getCalibrationCoefficients();
-    float const k1 = calibrationCoefficients.k1;
-    float const k2 = calibrationCoefficients.k2;
-    float const k3 = calibrationCoefficients.k3;
-    float const p1 = calibrationCoefficients.p1;
-    float const p2 = calibrationCoefficients.p2;
-
-    float const kPolynomial = (1 + (k1 * r2) + (k2 * r4) + (k3 * r6));
-
-    calibratedVector(0) = (x * kPolynomial) + (2 * p1 * x * y) + (p2 * (r2 + (2 * x * x)));
-    calibratedVector(1) = (y * kPolynomial) + (2 * p2 * x * y) + (p1 * (r2 + (2 * y * y)));
-
-    return calibratedVector;
-}
-
-/**
  * @brief Invert the Brown-Conrady model by fixed-point iteration.
  *
  * Starting from x_u = x_d, iterates x_u <- (x_d - dx_t) / L (same for y), with
@@ -251,23 +220,16 @@ UndistortedCoordinate CobConverterAlgorithm::undistortNormalizedCoordinate(
 }
 
 /**
- * @brief Compute the measurement uncertainty in the camera frame.
+ * @brief Variance of the phase-angle offset beta from the position and radius uncertainties.
  *
- * Propagates the phase-angle uncertainty from the filter position covariance and the object
- * radius uncertainty, rotates it into the body frame and adds the attitude covariance.
- *
- * @param cobPixelsFound detected-pixel count
- * @param filterVehPositionCovariance Filter position covariance
+ * @param filterVehPositionCovariance [m^2] filter position covariance, inertial frame.
  * @param correction Phase-angle correction terms for the current cycle (from
  *        computePhaseAngleCorrection).
- * @return Total COM/COB covariance in the body frame for the current cycle.
+ * @return [rad^2] beta variance.
  */
-Eigen::Matrix3f CobConverterAlgorithm::computeCameraFrameUncertainty(
-    const int32_t& cobPixelsFound,
-    const Eigen::Matrix3d& filterVehPositionCovariance,
-    const PhaseAngleCorrectionResult& correction) const {
+float CobConverterAlgorithm::computeBetaVar(const Eigen::Matrix3d& filterVehPositionCovariance,
+                                            const PhaseAngleCorrectionResult& correction) const {
     // Compute partials of the phase angle and Geometric model correction
-    const float scaleFactor = safeSqrtf(static_cast<float>(cobPixelsFound) / kSphereSolidAngle);
     const float radius = this->cfg.getRadius();
 
     const float oneMinusCosAlpha = 2.0F * powf(safeSinf(correction.alphaPA / 2.0F), 2.0F);
@@ -298,31 +260,8 @@ Eigen::Matrix3f CobConverterAlgorithm::computeCameraFrameUncertainty(
     const double total_deltaBinary_partials = deltaBinary_r * filterVehPositionCovariance * deltaBinary_r.transpose();
     // Vanishes for a perfectly known radius; the nav-position partials above still propagate.
     const float term2 = powf(deltaBinary_delta_R, 2.0F) * powf(this->cfg.getRadiusUncertainty(), 2.0F);
-    const double sigma_beta_squared = total_deltaBinary_partials + static_cast<double>(term2);
-
-    // Rotates the 1-D phase-angle variance into a 2-D image-plane covariance and applies the
-    // angle->pixel/pixel->NIC scale conversion; see the "corrected equation" derivation in
-    // cobConverter.rst.
-    const float cosPhi = safeCosf(correction.phi);
-    const float sinPhi = safeSinf(correction.phi);
-    const float directionX = this->X / this->ifov_x;
-    const float directionY = this->Y / this->ifov_y;
-    const double correctionXX = sigma_beta_squared * static_cast<double>(directionX * directionX * cosPhi * cosPhi);
-    const double correctionYY = sigma_beta_squared * static_cast<double>(directionY * directionY * sinPhi * sinPhi);
-    const double correctionXY = sigma_beta_squared * static_cast<double>(directionX * directionY * cosPhi * sinPhi);
-
-    // Define COM covariance in C (with the off-diagonal cross term) and rotate to B
-    Eigen::Matrix3f covarCom_C = Eigen::Matrix3f::Zero();
-    covarCom_C(0, 0) = powf(this->X, 2) + static_cast<float>(correctionXX);
-    covarCom_C(1, 1) = powf(this->Y, 2) + static_cast<float>(correctionYY);
-    covarCom_C(0, 1) = static_cast<float>(correctionXY);
-    covarCom_C(1, 0) = static_cast<float>(correctionXY);
-    covarCom_C(2, 2) = 1.0F;
-    covarCom_C *= scaleFactor;
-    const Eigen::Matrix3f covarCom_B = this->dcm_CB.transpose() * covarCom_C * this->dcm_CB;
-
-    // Add COM covariance in B frame to get total covariance
-    return covarCom_B + this->cfg.getAttitudeCovariance();
+    const float sigma_beta_squared = static_cast<float>(total_deltaBinary_partials) + term2;
+    return sigma_beta_squared;
 }
 
 /**
@@ -347,18 +286,13 @@ void CobConverterAlgorithm::populateOutputMessages(const uint64_t timeTag,
                                                    const PhaseAngleCorrectionResult& correction,
                                                    const Eigen::Vector3f& rhatCOM_C,
                                                    const Eigen::Vector3f& rhatCOB_C,
-                                                   const Eigen::Matrix3f& covar_B,
                                                    const bool goodOutlierCheck,
                                                    CobConverterOutput& output,
                                                    CobConverterDiagnosticOutput& diagnostic) {
     const Eigen::Vector3f rhatCOM_N = rotations.dcm_NC * rhatCOM_C;
-    output.covar_N = rotations.dcm_BN.transpose() * covar_B * rotations.dcm_BN;
-    output.rhat_BN_N = rhatCOM_N;
     output.unitVecTimeTag = static_cast<double>(timeTag) * kNano2Sec;
     output.unitVecValid = correction.validCom && goodOutlierCheck;
 
-    diagnostic.covar_C = rotations.dcm_NC.transpose() * output.covar_N * rotations.dcm_NC;
-    diagnostic.covar_B = covar_B;
     diagnostic.rhat_BN_C = rhatCOM_C;
     diagnostic.rhat_BN_B = rotations.dcm_BN * rhatCOM_N;
     diagnostic.rhat_COB_C = rhatCOB_C;
@@ -379,8 +313,8 @@ void CobConverterAlgorithm::populateOutputMessages(const uint64_t timeTag,
 /**
  * @brief Update step: convert pixel-based COB into unit vectors and return all outputs.
  *
- * Computes rotations, the phase-angle correction and outlier detection, then populates the
- * essential output and its diagnostic snapshot. Camera parameters are precomputed by setConfig().
+ * Publishes the COM heading and its covariance; the COB heading only feeds outlier detection
+ * and the diagnostic. Camera parameters are precomputed by setConfig().
  *
  * @param cob COB measurement payload.
  * @param attitude Vehicle attitude knowledge (body orientation and sun direction).
@@ -400,7 +334,7 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
             this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.vehSunPntBdy, rotations.dcm_BN);
 
         Eigen::Vector3f rhatCOM_SC_C_Buffer = Eigen::Vector3f::Zero();
-        Eigen::Vector3f rhatCOB_SC_C_Buffer = Eigen::Vector3f::Zero();
+        // Eigen::Vector3f rhatCOB_SC_C_Buffer = Eigen::Vector3f::Zero();
         const float uCOB = cob.cobCenterOfBrightness(0);
         const float vCOB = cob.cobCenterOfBrightness(1);
         const float tanBeta = static_cast<float>(this->cfg.getRadius() * correction.gamma / correction.spacecraftRange);
@@ -411,30 +345,64 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         const auto [xCOMCorrected, yCOMCorrected, brownConradyCOMValid, brownConradyCOMIterations] =
             this->undistortNormalizedCoordinate(xy1COM(0), xy1COM(1), this->cfg.getCalibrationCoefficients());
         const Eigen::Vector3f xy1COMCorrected{xCOMCorrected, yCOMCorrected, 1.0F};
-        // const Eigen::Vector3f xy1COMCorrected = this->calibrateDistortions(xy1COM);
         rhatCOM_SC_C_Buffer = -xy1COMCorrected.stableNormalized();
+        const Eigen::Vector3f rhatCOM_SC_N_Buffer = rotations.dcm_NC * rhatCOM_SC_C_Buffer;
 
         const Eigen::Vector3f centerOfBrightness{uCOB, vCOB, 1.0F};
         const Eigen::Vector3f xy1COB = this->cameraCalibrationMatrixInverse * centerOfBrightness;
         const auto [xCOBCorrected, yCOBCorrected, brownConradyCOBValid, brownConradyCOBIterations] =
             this->undistortNormalizedCoordinate(xy1COB(0), xy1COB(1), this->cfg.getCalibrationCoefficients());
         const Eigen::Vector3f xy1COBCorrected{xCOBCorrected, yCOBCorrected, 1.0F};
-        // const Eigen::Vector3f xy1COBCorrected = this->calibrateDistortions(xy1COB);
-        rhatCOB_SC_C_Buffer = -xy1COBCorrected.stableNormalized();
+        result.diagnostic.brownConradyValid =
+            brownConradyCOMValid && brownConradyCOBValid;  // depends on both solver validity
 
         correction.validCom = centerOfMass.allFinite();
 
-        const Eigen::Matrix3f covar_B =
-            this->computeCameraFrameUncertainty(cob.cobPixelsFound, filter.filterVehPositionCovariance, correction);
+        // P_cob_uv
+        const Eigen::Matrix2f covarCOBuv =
+            (static_cast<float>(cob.cobPixelsFound) / kSphereSolidAngle) * Eigen::Matrix2f::Identity();
 
-        if (rhatCOB_SC_C_Buffer.allFinite() && rhatCOM_SC_C_Buffer.allFinite() && covar_B.allFinite()) {
+        // P_com_xy (distorted ~= corrected)
+        const float onePlusTanBetaSq = 1.0f + tanBeta * tanBeta;
+        const float sec4Beta = onePlusTanBetaSq * onePlusTanBetaSq;
+        const float betaVar = this->computeBetaVar(filter.filterVehPositionCovariance, correction);
+        const float phaseVar = betaVar * sec4Beta;
+        const float cosPhi = safeCosf(correction.phi);
+        const float sinPhi = safeSinf(correction.phi);
+        Eigen::Matrix2f S = Eigen::Matrix2f::Zero();
+        S(0, 0) = 1.0f / this->dX;
+        S(1, 1) = 1.0f / this->dY;
+        Eigen::Vector2f a;
+        a << cosPhi, sinPhi;
+        const Eigen::Matrix2f covarCOMxy = S * covarCOBuv * S.transpose() + phaseVar * (a * a.transpose());
+
+        // P_^C rhat_COM_SC
+        const Eigen::Vector3f h{xCOMCorrected, yCOMCorrected, 1.0f};
+        const float s = h.stableNorm();
+        Eigen::Matrix<float, 3, 2> jacob;
+        jacob << yCOMCorrected * yCOMCorrected + 1.0f, -xCOMCorrected * yCOMCorrected, -xCOMCorrected * yCOMCorrected,
+            xCOMCorrected * xCOMCorrected + 1.0f, -xCOMCorrected, -yCOMCorrected;
+        jacob *= -1.0F / pow(s, 3);
+        const Eigen::Matrix3f covarRHatC = jacob * covarCOMxy * jacob.transpose();
+
+        // P_^Nrhat
+        const Eigen::Vector3f rHatB = dcm_CB.transpose() * rhatCOM_SC_C_Buffer;
+        Eigen::Matrix3f rHatBSkew;
+        rHatBSkew << 0.0f, -rHatB(2), rHatB(1), rHatB(2), 0.0f, -rHatB(0), -rHatB(1), rHatB(0), 0.0f;
+        const Eigen::Matrix3f covarImageN = rotations.dcm_NC * covarRHatC * rotations.dcm_NC.transpose();
+        const Eigen::Matrix3f covarAttitudeN = 16.0f * rotations.dcm_BN.transpose() * rHatBSkew *
+                                               this->cfg.getAttitudeCovariance() * rHatBSkew.transpose() *
+                                               rotations.dcm_BN;
+        const Eigen::Matrix3f covarRHat_N_Buffer = covarImageN + covarAttitudeN;
+
+        if (rhatCOM_SC_C_Buffer.allFinite() && covarRHat_N_Buffer.allFinite()) {
             bool goodOutlierCheck = true;
             if (this->cfg.isOutlierDetectionEnabled()) {
-                goodOutlierCheck = this->cobOutlierDetection(filter.filterVehPosition,
-                                                             filter.filterVehPositionCovariance,
-                                                             covar_B,
-                                                             rhatCOB_SC_C_Buffer,
-                                                             rotations.dcm_NC);
+                // goodOutlierCheck = this->cobOutlierDetection(filter.filterVehPosition,
+                //                                              filter.filterVehPositionCovariance,
+                //                                              covarRHat_B,
+                //                                              -xy1COBCorrected.stableNormalized(),
+                //                                              rotations.dcm_NC);
                 result.diagnostic.coberrorOutlierTrigger = !goodOutlierCheck;
             }
             CobConverterAlgorithm::populateOutputMessages(cob.cobTimeTag,
@@ -443,12 +411,15 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
                                                           rotations,
                                                           correction,
                                                           rhatCOM_SC_C_Buffer,
-                                                          rhatCOB_SC_C_Buffer,
-                                                          covar_B,
+                                                          -xy1COBCorrected.stableNormalized(),
                                                           goodOutlierCheck,
                                                           result.output,
                                                           result.diagnostic);
-            result.diagnostic.brownConradyValid = brownConradyCOMValid;
+            result.output.rhat_BN_N = rhatCOM_SC_N_Buffer;
+            result.output.covar_N = covarRHat_N_Buffer;
+
+            result.diagnostic.covar_C = rotations.dcm_NC.transpose() * covarRHat_N_Buffer * rotations.dcm_NC;
+            result.diagnostic.covar_B = rotations.dcm_BN * covarRHat_N_Buffer * rotations.dcm_BN.transpose();
         }
     }
     return result;
