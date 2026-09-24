@@ -141,6 +141,11 @@ class CobConverterConfig final {
                 "cobConverter: fieldOfViewX/fieldOfViewY combination pushes the camera "
                 "model's internal tan() argument into the safeTanf clamp zone near +/-pi/2");
         }
+        if (!isValidFocalScale(fieldOfViewX, fieldOfViewY, resolutionX, resolutionY)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "cobConverter: fieldOfView/resolution combination makes the focal scale dX or dY "
+                "overflow or underflow in fp32");
+        }
         if (!isValidBodyToCameraMrp(bodyToCameraMrp)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: bodyToCameraMrp must be finite");
         }
@@ -198,6 +203,9 @@ class CobConverterConfig final {
         const float argTanY = fieldOfViewY / 2.0F;
         return argTanY >= -halfPi + kMinPoleDistance && argTanY <= halfPi - kMinPoleDistance;
     }
+    // Requires the focal scales dX, dY and dX^2, dY^2, dX*dY to be normal fp32 values, so every 1/dX, 1/dY,
+    // 1/(dX*dY) and 1/dX^2 in the camera model is finite and nonzero. Defined in cobConverterAlgorithm.cpp.
+    static bool isValidFocalScale(float fieldOfViewX, float fieldOfViewY, float resolutionX, float resolutionY);
 
     float getRadius() const { return radius; }
     float getRadiusUncertainty() const { return radiusUncertainty; }
@@ -327,10 +335,6 @@ class CobConverterAlgorithm final {
     Eigen::Matrix3f cameraCalibrationMatrixInverse = Eigen::Matrix3f::Zero();
     float dX{};
     float dY{};
-    float X{};
-    float Y{};
-    float ifov_x{};
-    float ifov_y{};
 };
 
 #endif  // F32XMERA_COB_CONVERTER_ALGORITHM_H

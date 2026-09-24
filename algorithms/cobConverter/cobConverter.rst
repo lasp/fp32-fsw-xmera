@@ -185,7 +185,7 @@ The attitude error-MRP covariance :math:`P_{att}` (body frame) is added in the i
 where 16 converts MRP to small-angle variance (:math:`\delta\theta \approx 4\,\delta\sigma`).
 
 The heading and covariance are also rotated to the camera and body frames for the diagnostic message. If the incoming
-image is not valid, the module writes empty messages.
+image is not valid, or ``vehSunPntBdy`` is zero or non-finite, the module writes empty messages.
 
 Camera distortion calibration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

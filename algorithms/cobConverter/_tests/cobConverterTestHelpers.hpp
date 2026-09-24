@@ -161,7 +161,8 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     CobConverterUpdateResult output;
 
     if (!cob.cobValid || cob.cobPixelsFound == 0 ||
-        filter.filterVehPosition.norm() <= static_cast<double>(cfg.getRadius())) {
+        filter.filterVehPosition.norm() <= static_cast<double>(cfg.getRadius()) || !attitude.vehSunPntBdy.allFinite() ||
+        attitude.vehSunPntBdy.norm() == 0.0F) {
         return output;
     }
 
