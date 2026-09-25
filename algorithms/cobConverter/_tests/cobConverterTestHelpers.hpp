@@ -211,6 +211,8 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     if (brownConradyConverged != nullptr) {
         *brownConradyConverged = cobConverged && comConverged;
     }
+    output.diagnostic.brownConradyCOMValid = comConverged;
+    output.diagnostic.brownConradyCOBValid = cobConverged;
 
     // Mirrors updateState's COM unit-vector covariance.
     const double pixelsFound = static_cast<double>(cob.cobPixelsFound);
@@ -284,8 +286,8 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     output.output.covar_N = covar_N.cast<float>();
     output.output.rhat_BN_N = rhatCOM_N.cast<float>();
     output.output.unitVecTimeTag = static_cast<double>(cob.cobTimeTag) * kNano2Sec;
-    // Mirrors updateState: finite COM and no outlier flag.
-    output.output.unitVecValid = validCom && goodOutlierCheck;
+    // Mirrors updateState: finite COM, no outlier flag, and a converged COM undistortion.
+    output.output.unitVecValid = validCom && goodOutlierCheck && comConverged;
 
     output.diagnostic.covar_C = covar_C.cast<float>();
     output.diagnostic.covar_B = covar_B.cast<float>();
@@ -293,6 +295,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     output.diagnostic.rhat_BN_B = rhatCOM_B.cast<float>();
     output.diagnostic.rhat_COB_C = rhatCOB_C.cast<float>();
     output.diagnostic.rhat_COB_N = (dcm_NC * rhatCOB_C).cast<float>();
+    output.diagnostic.rhat_COB_B = (dcm_CB.transpose() * rhatCOB_C).cast<float>();
     output.diagnostic.centerOfBrightness = cobPixels.cast<float>();
     output.diagnostic.centerOfMass = comPixels.cast<float>();
     output.diagnostic.offsetFactor = static_cast<float>(gamma);
@@ -310,7 +313,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 // below are derived from operation count * float epsilon (1.19e-7) * margin, not picked by trial
 // and error -- a wrong sign or dropped term is orders of magnitude bigger than any bound here.
 //
-// `tol` (1e-3F) covers rhat_BN_N/C/B, rhat_COB_C/N, offsetFactor, phaseAngle, sunDirection.
+// `tol` (1e-3F) covers rhat_BN_N/C/B, rhat_COB_C/N/B, offsetFactor, phaseAngle, sunDirection.
 // phaseAngle sets it:
 // its acos(dot(rHat_N, shat_N)) is ill-conditioned as alpha -> 0 or pi (d(acos)/dx = -1/sin(alpha)),
 // giving a floor of ~sqrt(2*n*epsilon) ~= 1.5e-3 for n ~ 5-10 upstream ops -- not a bug, since
@@ -392,6 +395,7 @@ inline void expectOutputsNear(const CobConverterUpdateResult& out,
         EXPECT_NEAR(out.diagnostic.rhat_BN_B(i), ref.diagnostic.rhat_BN_B(i), tol);
         EXPECT_NEAR(out.diagnostic.rhat_COB_C(i), ref.diagnostic.rhat_COB_C(i), tol);
         EXPECT_NEAR(out.diagnostic.rhat_COB_N(i), ref.diagnostic.rhat_COB_N(i), tol);
+        EXPECT_NEAR(out.diagnostic.rhat_COB_B(i), ref.diagnostic.rhat_COB_B(i), tol);
         for (int j = 0; j < 3; ++j) {
             expectNear(out.output.covar_N(i, j), ref.output.covar_N(i, j), covarAtol, covarRtol, covarNScale);
             expectNear(out.diagnostic.covar_C(i, j), ref.diagnostic.covar_C(i, j), covarAtol, covarRtol, covarCScale);
@@ -404,6 +408,7 @@ inline void expectOutputsNear(const CobConverterUpdateResult& out,
     EXPECT_TRUE(out.diagnostic.rhat_BN_B.allFinite());
     EXPECT_TRUE(out.diagnostic.rhat_COB_C.allFinite());
     EXPECT_TRUE(out.diagnostic.rhat_COB_N.allFinite());
+    EXPECT_TRUE(out.diagnostic.rhat_COB_B.allFinite());
     EXPECT_TRUE(out.output.covar_N.allFinite());
     EXPECT_TRUE(out.diagnostic.covar_C.allFinite());
     EXPECT_TRUE(out.diagnostic.covar_B.allFinite());
@@ -503,7 +508,8 @@ inline void testCobConverter(float radius,
         referenceCobConverterUpdate(*cfg, cob, attitude, filter, &brownConradyConverged, &outlierNearThreshold);
 
     // No well-defined answer: non-converged Brown-Conrady inverse (either precision) or error at the outlier gate.
-    if (!brownConradyConverged || !out.diagnostic.brownConradyValid || outlierNearThreshold) {
+    if (!brownConradyConverged || !out.diagnostic.brownConradyCOMValid || !out.diagnostic.brownConradyCOBValid ||
+        outlierNearThreshold) {
         return;
     }
 

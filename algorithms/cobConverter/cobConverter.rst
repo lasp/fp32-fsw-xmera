@@ -40,7 +40,7 @@ provides information on what this message is used for:
       - Output COM heading vector and its covariance, inertial frame only
     * - cobConverterDiagnosticOutMsg
       - :ref:`CobConverterDiagnosticMsgPayload`
-      - Output diagnostic message: the COM heading and covariance in the camera and body frames, the uncorrected COB heading, the pixel-space centers, the phase-angle correction metadata, and whether the COM outlier check was triggered
+      - Output diagnostic message: the COM heading and covariance in the camera and body frames, the uncorrected COB heading in the camera, inertial, and body frames, the pixel-space centers, the phase-angle correction metadata, whether the COM outlier check was triggered, and whether the COM and COB Brown-Conrady undistortions converged
 
 Detailed Module Description
 ---------------------------
@@ -209,8 +209,10 @@ The module inverts this model by fixed-point iteration from :math:`(x_u, y_u) = 
 
 stopping when :math:`\max(|x_d - x_u L - \Delta x_t|, |y_d - y_u L - \Delta y_t|) \le 10^{-6} S`, with
 :math:`S = \max(1, |x_d|, |y_d|, |x_u L|, |y_u L|)` finite, or after 50 iterations. Strong distortion near the edge
-of the field of view may not converge; this is flagged but does not invalidate the heading. With all coefficients
-zero (the default) the module is an ideal pinhole camera.
+of the field of view may not converge. This is flagged separately for the COM and the COB (``brownConradyCOMValid``
+and ``brownConradyCOBValid`` on the diagnostic message). A non-converged COM undistortion invalidates the published
+heading; a non-converged COB undistortion affects only the diagnostic COB heading. With all coefficients zero (the
+default) the module is an ideal pinhole camera.
 
 COM outlier detection
 ^^^^^^^^^^^^^^^^^^^^^

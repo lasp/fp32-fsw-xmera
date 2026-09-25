@@ -106,6 +106,7 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     eigenVectorToCArray(diag.rhat_BN_B, diagnosticMsgBuffer.rhat_BN_B);
     eigenVectorToCArray(diag.rhat_COB_C, diagnosticMsgBuffer.rhat_COB_C);
     eigenVectorToCArray(diag.rhat_COB_N, diagnosticMsgBuffer.rhat_COB_N);
+    eigenVectorToCArray(diag.rhat_COB_B, diagnosticMsgBuffer.rhat_COB_B);
     diagnosticMsgBuffer.centerOfBrightness[0] = diag.centerOfBrightness[0];
     diagnosticMsgBuffer.centerOfBrightness[1] = diag.centerOfBrightness[1];
     diagnosticMsgBuffer.centerOfMass[0] = diag.centerOfMass[0];
@@ -118,6 +119,8 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     diagnosticMsgBuffer.comTimeTag = diag.comTimeTag;
     diagnosticMsgBuffer.comValid = diag.comValid;
     diagnosticMsgBuffer.comErrorOutlierTrigger = diag.comErrorOutlierTrigger;
+    diagnosticMsgBuffer.brownConradyCOMValid = diag.brownConradyCOMValid;
+    diagnosticMsgBuffer.brownConradyCOBValid = diag.brownConradyCOBValid;
 
     this->opnavUnitVecOutMsg.write(uVecOutMsgBuffer, this->moduleID, currentSimNanos);
     this->cobConverterDiagnosticOutMsg.write(diagnosticMsgBuffer, this->moduleID, currentSimNanos);

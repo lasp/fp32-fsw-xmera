@@ -19,6 +19,7 @@ typedef struct {
     float rhat_BN_B[3];           //!< -- [-] COM measurement in the body frame
     float rhat_COB_C[3];          //!< -- [-] COB measurement in the camera frame
     float rhat_COB_N[3];          //!< -- [-] COB measurement in the inertial frame
+    float rhat_COB_B[3];          //!< -- [-] COB measurement in the body frame
     float centerOfMass[2];        //!< -- [-] Center x, y of bright pixels after correction
     float centerOfBrightness[2];  //!< -- [-] Center x, y of bright pixels
     float offsetFactor;           //!< -- [-] COM/COB offset factor as a fraction of object radius
@@ -26,6 +27,8 @@ typedef struct {
     float phaseAngle;             //!< -- [rad] angle between Sun-Object-Camera
     float sunDirection;           //!< -- [rad] Sun direction in the image
     bool comErrorOutlierTrigger;  //!< -- true if the COM heading error exceeded the outlier gate
+    bool brownConradyCOMValid;    //!< -- true if the COM Brown-Conrady undistortion converged
+    bool brownConradyCOBValid;    //!< -- true if the COB Brown-Conrady undistortion converged
 } CobConverterDiagnosticMsgF32Payload;
 
 #endif
