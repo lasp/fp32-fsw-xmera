@@ -279,6 +279,7 @@ void CobConverterAlgorithm::populateOutputMessages(const uint64_t timeTag,
     diagnostic.rhat_BN_B = rotations.dcm_BN * rhatCOM_N;
     diagnostic.rhat_COB_C = rhatCOB_C;
     diagnostic.rhat_COB_N = rotations.dcm_NC * rhatCOB_C;
+    diagnostic.rhat_COB_B = rotations.dcm_BN * diagnostic.rhat_COB_N;
 
     const Eigen::Vector2f centerOfBrightnessXY(centerOfBrightness(0), centerOfBrightness(1));
     diagnostic.centerOfBrightness = centerOfBrightnessXY;
@@ -327,6 +328,7 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         const auto [xCOMCorrected, yCOMCorrected, brownConradyCOMValid, brownConradyCOMIterations] =
             this->undistortNormalizedCoordinate(xy1COM(0), xy1COM(1), this->cfg.getCalibrationCoefficients());
         const Eigen::Vector3f xy1COMCorrected{xCOMCorrected, yCOMCorrected, 1.0F};
+        result.diagnostic.brownConradyCOMValid = brownConradyCOMValid;
         rhatCOM_SC_C_Buffer = -xy1COMCorrected.stableNormalized();
         const Eigen::Vector3f rhatCOM_SC_N_Buffer = rotations.dcm_NC * rhatCOM_SC_C_Buffer;
 
@@ -335,8 +337,7 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         const auto [xCOBCorrected, yCOBCorrected, brownConradyCOBValid, brownConradyCOBIterations] =
             this->undistortNormalizedCoordinate(xy1COB(0), xy1COB(1), this->cfg.getCalibrationCoefficients());
         const Eigen::Vector3f xy1COBCorrected{xCOBCorrected, yCOBCorrected, 1.0F};
-        result.diagnostic.brownConradyValid =
-            brownConradyCOMValid && brownConradyCOBValid;  // depends on both solver validity
+        result.diagnostic.brownConradyCOBValid = brownConradyCOBValid;
 
         correction.validCom = centerOfMass.allFinite();
 
@@ -397,7 +398,7 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
                                                           result.diagnostic);
             result.output.rhat_BN_N = rhatCOM_SC_N_Buffer;
             result.output.covar_N = covarRHat_N_Buffer;
-            result.output.unitVecValid = correction.validCom && goodOutlierCheck;
+            result.output.unitVecValid = correction.validCom && goodOutlierCheck && brownConradyCOMValid;
 
             result.diagnostic.covar_C = rotations.dcm_NC.transpose() * covarRHat_N_Buffer * rotations.dcm_NC;
             result.diagnostic.covar_B = rotations.dcm_BN * covarRHat_N_Buffer * rotations.dcm_BN.transpose();

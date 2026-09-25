@@ -53,6 +53,7 @@ typedef struct {
     Vector3f_c rhat_BN_B;          /*!< [-] COM unit vector, body frame */
     Vector3f_c rhat_COB_C;         /*!< [-] COB unit vector, camera frame */
     Vector3f_c rhat_COB_N;         /*!< [-] COB unit vector, inertial frame */
+    Vector3f_c rhat_COB_B;         /*!< [-] COB unit vector, body frame */
     Vector2f_c centerOfBrightness; /*!< [px] COB pixel coordinates */
     Vector2f_c centerOfMass;       /*!< [px] COM pixel coordinates */
     float offsetFactor;            /*!< [-] phase-angle offset factor (gamma) */
@@ -62,6 +63,8 @@ typedef struct {
     uint64_t comTimeTag;           /*!< [ns] measurement timestamp */
     bool comValid;                 /*!< [-] COM validity flag */
     bool comErrorOutlierTrigger;   /*!< [-] true if the COM heading error exceeded the gate */
+    bool brownConradyCOMValid;     /*!< [-] true if the COM Brown-Conrady undistortion converged */
+    bool brownConradyCOBValid;     /*!< [-] true if the COB Brown-Conrady undistortion converged */
 } CobConverterOutput_c;
 
 #ifdef __cplusplus

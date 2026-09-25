@@ -56,6 +56,7 @@ CobConverterOutput_c outputToC(const CobConverterOutput& out, const CobConverter
     eigenVectorToCArray(diag.rhat_BN_B, result.rhat_BN_B.data);
     eigenVectorToCArray(diag.rhat_COB_C, result.rhat_COB_C.data);
     eigenVectorToCArray(diag.rhat_COB_N, result.rhat_COB_N.data);
+    eigenVectorToCArray(diag.rhat_COB_B, result.rhat_COB_B.data);
     eigenVectorToCArray(diag.centerOfBrightness, result.centerOfBrightness.data);
     eigenVectorToCArray(diag.centerOfMass, result.centerOfMass.data);
     result.offsetFactor = diag.offsetFactor;
@@ -65,6 +66,8 @@ CobConverterOutput_c outputToC(const CobConverterOutput& out, const CobConverter
     result.comTimeTag = diag.comTimeTag;
     result.comValid = diag.comValid;
     result.comErrorOutlierTrigger = diag.comErrorOutlierTrigger;
+    result.brownConradyCOMValid = diag.brownConradyCOMValid;
+    result.brownConradyCOBValid = diag.brownConradyCOBValid;
     return result;
 }
 

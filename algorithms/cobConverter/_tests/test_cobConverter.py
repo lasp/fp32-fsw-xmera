@@ -594,16 +594,24 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     rhat_COB_C_true = map_state_with_calibration(centerOfBrightness, inputCamera, k1, k2, k3, p1, p2)
     dcm_NC = dcm_BN.T @ dcm_CB.T
     rhat_COB_N_true = dcm_NC @ rhat_COB_C_true
+    rhat_COB_B_true = dcm_CB.T @ rhat_COB_C_true
 
     # The output message carries the phase-angle-corrected COM, which is offset from the COB.
     rhat_COB_C_out = dataDiagnostic.rhat_COB_C[0]
     rhat_COB_N_out = dataDiagnostic.rhat_COB_N[0]
+    rhat_COB_B_out = dataDiagnostic.rhat_COB_B[0]
 
     tolerance = 1e-6
     np.testing.assert_allclose(rhat_COB_C_out, rhat_COB_C_true, rtol=0, atol=tolerance,
                                err_msg=f"rhat_COB_C ({label})")
     np.testing.assert_allclose(rhat_COB_N_out, rhat_COB_N_true, rtol=0, atol=tolerance,
                                err_msg=f"rhat_COB_N ({label})")
+    np.testing.assert_allclose(rhat_COB_B_out, rhat_COB_B_true, rtol=0, atol=tolerance,
+                               err_msg=f"rhat_COB_B ({label})")
+
+    # These in-image points converge for every coefficient set, so both solver flags reach the message as True.
+    np.testing.assert_equal(dataDiagnostic.brownConradyCOMValid[0], True, err_msg=f"brownConradyCOMValid ({label})")
+    np.testing.assert_equal(dataDiagnostic.brownConradyCOBValid[0], True, err_msg=f"brownConradyCOBValid ({label})")
 
     # For a non-centered COB, removing barrel and pincushion distortion should push the undistorted
     # radius in opposite directions relative to the identity case. Skip this check when the COB

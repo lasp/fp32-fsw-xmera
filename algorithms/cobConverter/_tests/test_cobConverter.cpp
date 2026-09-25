@@ -246,6 +246,58 @@ TEST(CobConverterTest, PixelsFoundIncreaseIsSizeIncreaseTest) {
     EXPECT_GT(manyPixels.diagnostic.covar_C(0, 0), fewPixels.diagnostic.covar_C(0, 0));
 }
 
+// A non-converged COM undistortion leaves the heading at the last fixed-point iterate, so it must
+// not be published as valid; the diagnostic is still populated for debugging.
+TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
+    const Eigen::Matrix3f zeroCovariance = Eigen::Matrix3f::Zero();
+    const Eigen::Vector3f zeroMrp = Eigen::Vector3f::Zero();
+    const auto makeAlgorithm = [&](const CalibrationCoefficients& coefficients) {
+        return CobConverterAlgorithm(CobConverterConfig::create(/*radius=*/25.0e3F,
+                                                                /*radiusUncertainty=*/0.0F,
+                                                                zeroCovariance,
+                                                                /*numStandardDeviations=*/3.0F,
+                                                                /*standardDeviation=*/100.0F,
+                                                                /*specifiedStandardDeviation=*/true,
+                                                                /*outlierDetectionEnabled=*/false,
+                                                                coefficients,
+                                                                /*cameraId=*/0,
+                                                                /*fieldOfViewX=*/0.35F,
+                                                                /*fieldOfViewY=*/0.30F,
+                                                                /*resolutionX=*/512.0F,
+                                                                /*resolutionY=*/512.0F,
+                                                                zeroMrp));
+    };
+
+    // Sun along the position vector: zero phase angle, so the COM coincides with the COB.
+    const Eigen::Vector3d position{-500.0e3, -300.0e3, 0.0};
+    const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(),
+                                   .vehSunPntBdy = position.normalized().cast<float>()};
+    const FilterState filter{.filterVehPosition = position,
+                             .filterVehPositionCovariance = Eigen::Matrix3d::Identity() * 50.0e3};
+    // Normalized x_d ~= 0.17. With k1 = 1000 the fixed point has k1 * r^2 ~= 2.4 > 1, so the
+    // iteration falls into a 2-cycle and never converges (a deliberately unphysical lens).
+    const CobMeasurement cob{.cobValid = true,
+                             .cobPixelsFound = 75,
+                             .cobCenterOfBrightness = Eigen::Vector2f{500.0F, 256.0F},
+                             .cobTimeTag = 12345U};
+
+    const CobConverterUpdateResult nonConverged =
+        makeAlgorithm(CalibrationCoefficients{.k1 = 1000.0F}).updateState(cob, attitude, filter);
+    ASSERT_FALSE(nonConverged.diagnostic.brownConradyCOMValid);
+    EXPECT_FALSE(nonConverged.diagnostic.brownConradyCOBValid);
+    EXPECT_FALSE(nonConverged.output.unitVecValid);
+    EXPECT_TRUE(nonConverged.diagnostic.comValid);
+    EXPECT_TRUE(nonConverged.diagnostic.rhat_BN_C.allFinite());
+    EXPECT_GT(nonConverged.diagnostic.rhat_BN_C.norm(), 0.0F);
+
+    // Control: the same measurement with an ideal pinhole camera is published as valid.
+    const CobConverterUpdateResult pinhole =
+        makeAlgorithm(CalibrationCoefficients{}).updateState(cob, attitude, filter);
+    ASSERT_TRUE(pinhole.diagnostic.brownConradyCOMValid);
+    EXPECT_TRUE(pinhole.diagnostic.brownConradyCOBValid);
+    EXPECT_TRUE(pinhole.output.unitVecValid);
+}
+
 TEST(CobConverterTest, SetupTest) {
     const Eigen::Matrix3f zeroCovariance = Eigen::Matrix3f::Zero();
     const CalibrationCoefficients coefficients{};
