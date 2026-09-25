@@ -67,6 +67,7 @@ struct CobConverterDiagnosticOutput {
     Eigen::Vector3f rhat_BN_B = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, body frame
     Eigen::Vector3f rhat_COB_C = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, camera frame
     Eigen::Vector3f rhat_COB_N = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, inertial frame
+    Eigen::Vector3f rhat_COB_B = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, body frame
     Eigen::Vector2f centerOfBrightness = Eigen::Vector2f::Zero();  //!< [px] COB pixel coordinates
     Eigen::Vector2f centerOfMass = Eigen::Vector2f::Zero();        //!< [px] COM pixel coordinates
     float offsetFactor{};                                          //!< [--] phase-angle offset factor (gamma)
@@ -76,7 +77,8 @@ struct CobConverterDiagnosticOutput {
     uint64_t comTimeTag{};                                         //!< [ns] measurement timestamp
     bool comValid{};                                               //!< [--] COM validity flag
     bool comErrorOutlierTrigger{};  //!< [--] true if the COM heading error exceeded the gate
-    bool brownConradyValid{};       //!< [--] true if both undistortions converged
+    bool brownConradyCOMValid{};    //!< [--] true if the COM Brown-Conrady undistortion converged
+    bool brownConradyCOBValid{};    //!< [--] true if the COB Brown-Conrady undistortion converged
 };
 
 /*! Pair returned by updateState: the essential output plus the diagnostic snapshot, so the
