@@ -11,13 +11,12 @@ from xmera.utilities import macros
 # parameters
 dv_magnitude = [4.3, 5.0, 10.0]
 min_time = [0.0, 4.0]
-max_time = [0.0, 3.0, 5.0]
+max_time = [3.0, 5.0]
 start_time = [0.0, 1.0]
 
 param_array = [dv_magnitude, min_time, max_time, start_time]
-# exclude invalid min/max time configurations (nonzero maxTime must be greater than minTime;
-# maxTime = 0 always disables the criterion)
-param_list = [p for p in itertools.product(*param_array) if p[2] == 0.0 or p[2] > p[1]]
+# exclude invalid min/max time configurations (maxTime must always be greater than minTime)
+param_list = [p for p in itertools.product(*param_array) if p[2] > p[1]]
 
 
 
@@ -123,7 +122,7 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
             burn_complete_true[i] = 0
         elif (np.linalg.norm(nav_trans_msg_data.vehAccumDV) >= np.linalg.norm(dv_burn_cmd_msg_data.dvInrtlCmd)) and \
                 (update_rate * (i + 1) - p4_tstart > module.minTime) or \
-                (module.maxTime != 0.0 and update_rate * (i + 1) - p4_tstart > module.maxTime):
+                (update_rate * (i + 1) - p4_tstart > module.maxTime):
             on_time_true[i] = np.zeros(num_thrusters)
             burn_executing_true[i] = 0
             burn_complete_true[i] = 1

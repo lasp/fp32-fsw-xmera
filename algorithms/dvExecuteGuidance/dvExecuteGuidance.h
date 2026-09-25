@@ -25,7 +25,7 @@ class DvExecuteGuidance final : public SysModel {
 
     // Phase 1: Public config properties — set before reset()
     float minTime = 0.0F;       /*!< [s] Minimum burn time allowed to elapse */
-    float maxTime = 0.0F;       /*!< [s] Maximum burn time; 0 disables the maximum-time criterion */
+    float maxTime = 0.0F;       /*!< [s] Maximum burn time; must be set to a positive value before reset() */
     float controlPeriod = 0.0F; /*!< [s] Control period (FSW time step); must be set > 0 before reset() */
 
     // Input messages

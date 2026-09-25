@@ -18,7 +18,7 @@ typedef struct DvExecuteGuidanceAlgorithmHandle DvExecuteGuidanceAlgorithmHandle
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param minTime       [s] minimum burn time before completion; must be >= 0 and finite.
- * @param maxTime       [s] maximum burn time; must be >= 0 and finite; 0 disables the max-time criterion.
+ * @param maxTime       [s] maximum burn time; must be positive and finite.
  * @param controlPeriod [s] FSW time step used as the burn-time delta-t; must be > 0 and finite.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
@@ -28,7 +28,7 @@ bool DvExecuteGuidanceAlgorithm_validateConfig(float minTime, float maxTime, flo
 /**
  * @brief Construct a new DvExecuteGuidanceAlgorithm instance from the supplied configuration.
  * @param minTime       [s] minimum burn time before completion; must be >= 0 and finite.
- * @param maxTime       [s] maximum burn time; must be >= 0 and finite; 0 disables the max-time criterion.
+ * @param maxTime       [s] maximum burn time; must be positive and finite.
  * @param controlPeriod [s] FSW time step used as the burn-time delta-t; must be > 0 and finite.
  * @return Pointer to a new DvExecuteGuidanceAlgorithm (must be destroyed).
  * Validate the values with validateConfig first; invalid input throws.
@@ -46,7 +46,7 @@ void DvExecuteGuidanceAlgorithm_destroy(DvExecuteGuidanceAlgorithmHandle* self);
  *        reset the burn state machine).
  * @param self          Pointer to the instance.
  * @param minTime       [s] minimum burn time before completion; must be >= 0 and finite.
- * @param maxTime       [s] maximum burn time; must be >= 0 and finite; 0 disables the max-time criterion.
+ * @param maxTime       [s] maximum burn time; must be positive and finite.
  * @param controlPeriod [s] FSW time step used as the burn-time delta-t; must be > 0 and finite.
  * Validate the values with validateConfig first; invalid input throws.
  */

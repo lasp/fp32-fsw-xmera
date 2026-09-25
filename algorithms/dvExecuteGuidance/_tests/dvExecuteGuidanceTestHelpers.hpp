@@ -51,7 +51,7 @@ inline DvExecuteGuidanceReferenceOutput referenceUpdate(DvExecuteGuidanceReferen
     const float dvExecuteMag = burnAccum.norm();
     state.burnComplete = state.burnComplete == 1 || dvExecuteMag >= dvMag;
     state.burnComplete &= state.burnTime > minTime;
-    state.burnComplete |= (maxTime != 0.0F && state.burnTime > maxTime);
+    state.burnComplete |= (state.burnTime > maxTime);
     state.burnExecuting = state.burnComplete != 1 && state.burnExecuting == 1;
 
     return {state.burnExecuting, state.burnComplete, (state.burnComplete || state.burnExecuting != 1)};
@@ -99,7 +99,7 @@ inline void regressionTestDvExecuteGuidance(float minTime,
 // Eigen::Vector3f inputs (commanded delta-V and acceleration) and a fixed valid configuration.
 inline void fuzzRegressionDvExecuteGuidance(const Eigen::Vector3f& dvInrtlCmd, const Eigen::Vector3f& acceleration) {
     regressionTestDvExecuteGuidance(/* minTime = */ 0.0F,
-                                    /* maxTime = */ 0.0F,
+                                    /* maxTime = */ 3.0F,
                                     /* controlPeriod = */ 0.5F,
                                     /* dvInrtlCmd = */ dvInrtlCmd,
                                     /* acceleration = */ acceleration,
@@ -116,8 +116,7 @@ inline void propertyOutputFlagsWellFormed(const Eigen::Vector3f& dvInrtlCmd, con
     constexpr float kControlPeriod = 0.5F;
     constexpr uint64_t kBurnStartTime = 500000000U;  // 0.5 s
     constexpr int kNumSteps = 20;
-
-    const auto config = DvExecuteGuidanceConfig::create(0.0F, 0.0F, kControlPeriod);
+    const auto config = DvExecuteGuidanceConfig::create(0.0F, 100.0F, kControlPeriod);
     DvExecuteGuidanceAlgorithm alg{config};
 
     const auto stepNs = static_cast<uint64_t>(std::llround(static_cast<double>(kControlPeriod) * 1e9));
@@ -143,7 +142,7 @@ inline void propertyOutputFlagsWellFormed(const Eigen::Vector3f& dvInrtlCmd, con
 // Setup helper: constructing the algorithm with a valid configuration must not throw.
 inline void testDvExecuteGuidanceSetup() {
     EXPECT_NO_THROW({
-        const DvExecuteGuidanceAlgorithm alg{DvExecuteGuidanceConfig::create(0.0F, 0.0F, 0.5F)};
+        const DvExecuteGuidanceAlgorithm alg{DvExecuteGuidanceConfig::create(0.0F, 1.0F, 0.5F)};
         (void)alg;
     });
 }

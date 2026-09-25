@@ -41,8 +41,7 @@ DvExecuteGuidanceOutput DvExecuteGuidanceAlgorithm::update(const uint64_t callTi
 
         this->burnComplete = static_cast<uint32_t>(this->burnComplete == 1 || dvExecuteMag >= dvMag);
         this->burnComplete &= static_cast<uint32_t>(this->burnTime > this->cfg.getMinTime());
-        this->burnComplete |=
-            static_cast<uint32_t>(this->cfg.getMaxTime() != 0.0F && this->burnTime > this->cfg.getMaxTime());
+        this->burnComplete |= static_cast<uint32_t>(this->burnTime > this->cfg.getMaxTime());
         this->burnExecuting = static_cast<uint32_t>(this->burnComplete != 1 && this->burnExecuting == 1);
     }
 
