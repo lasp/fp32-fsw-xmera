@@ -11,6 +11,7 @@ static constexpr float kBinaryPhaseCoeff = 4.0F / (3.0F * std::numbers::pi_v<flo
 // Full solid angle of a sphere [sr], used in pixel uncertainty scale factor
 static constexpr float kSphereSolidAngle = 4.0F * std::numbers::pi_v<float>;
 
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
 bool CobConverterConfig::isValidFocalScale(float fieldOfViewX,
                                            float fieldOfViewY,
                                            float resolutionX,
@@ -27,6 +28,7 @@ bool CobConverterConfig::isValidFocalScale(float fieldOfViewX,
     const float dY = resolutionY / pY;
     return isNormalPositive(dX * dX) && isNormalPositive(dY * dY) && isNormalPositive(dX * dY);
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 
 /**
  * @brief Construct a CobConverterAlgorithm.
@@ -163,7 +165,7 @@ UndistortedCoordinate CobConverterAlgorithm::undistortNormalizedCoordinate(
     float const p2 = coefficients.p2;
 
     if (!fsw::is_finite(xDistorted) || !fsw::is_finite(yDistorted)) {
-        return {xDistorted, yDistorted, false, 0};
+        return {.xUndistorted = xDistorted, .yUndistorted = yDistorted, .valid = false, .iterations = 0};
     }
 
     float xUndistorted = xDistorted;
@@ -186,7 +188,7 @@ UndistortedCoordinate CobConverterAlgorithm::undistortNormalizedCoordinate(
                                           fmaxf(fabsf(xUndistorted * kPolynomial), fabsf(yUndistorted * kPolynomial)));
         if (fsw::is_finite(residualScale) &&
             fmaxf(fabsf(residualX), fabsf(residualY)) <= kResidualTolerance * residualScale) {
-            return {xUndistorted, yUndistorted, true, iteration};
+            return {.xUndistorted = xUndistorted, .yUndistorted = yUndistorted, .valid = true, .iterations = iteration};
         }
         // Iteration limit, or not invertible at L = 0.
         if (iteration == kMaxIterations || fabsf(kPolynomial) < std::numeric_limits<float>::epsilon()) {
@@ -202,7 +204,7 @@ UndistortedCoordinate CobConverterAlgorithm::undistortNormalizedCoordinate(
         yUndistorted = yNext;
     }
     // Not converged: return the last finite iterate, flagged.
-    return {xUndistorted, yUndistorted, false, kMaxIterations};
+    return {.xUndistorted = xUndistorted, .yUndistorted = yUndistorted, .valid = false, .iterations = kMaxIterations};
 }
 
 /**
@@ -251,6 +253,39 @@ float CobConverterAlgorithm::computeBetaVar(const Eigen::Matrix3d& filterVehPosi
 }
 
 /**
+ * @brief Outlier gate: measured COM heading vs filter-predicted heading (both COM->SC, inertial frame).
+ *
+ * Passes when |rhatCOM_N - rhatNav_N| < numStandardDeviations * sigma, sigma the RMS of that error:
+ * standardDeviation * sqrt(1/dX^2 + 1/dY^2) if specified, else sqrt(tr(covar_N + P_nav)), P_nav the filter
+ * position covariance projected normal to rhatNav_N over |r|^2.
+ *
+ * @param filterVehPosition [m] filter spacecraft position relative to the body, inertial frame.
+ * @param filterVehPositionCovariance [m^2] filter position covariance, inertial frame.
+ * @param covar_N COM heading covariance, inertial frame.
+ * @param rhatCOM_N COM->SC unit vector, inertial frame.
+ * @return True unless the error exceeds the gate.
+ */
+bool CobConverterAlgorithm::comOutlierDetection(const Eigen::Vector3d& filterVehPosition,
+                                                const Eigen::Matrix3d& filterVehPositionCovariance,
+                                                const Eigen::Matrix3f& covar_N,
+                                                const Eigen::Vector3f& rhatCOM_N) const {
+    const Eigen::Vector3d rhatNav_N = filterVehPosition.stableNormalized();
+    const float error = (rhatCOM_N - rhatNav_N.cast<float>()).stableNorm();
+
+    float sigma = 0.0F;
+    if (this->cfg.isStandardDeviationSpecified()) {
+        sigma = this->cfg.getStandardDeviation() *
+                safeSqrtf((1.0F / (this->dX * this->dX)) + (1.0F / (this->dY * this->dY)));
+    } else {
+        const Eigen::Matrix3d projection = Eigen::Matrix3d::Identity() - (rhatNav_N * rhatNav_N.transpose());
+        const Eigen::Matrix3d covarNav_N =
+            projection * filterVehPositionCovariance * projection.transpose() / filterVehPosition.squaredNorm();
+        sigma = safeSqrtf((covar_N + covarNav_N.cast<float>()).trace());
+    }
+    return error < this->cfg.getNumStandardDeviations() * sigma;
+}
+
+/**
  * @brief Update step: convert pixel-based COB into unit vectors and return all outputs.
  *
  * Publishes the COM heading and its covariance; the COB heading only feeds outlier detection
@@ -274,25 +309,26 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         PhaseAngleCorrectionResult correction =
             this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.vehSunPntBdy, rotations.dcm_BN);
 
-        Eigen::Vector3f rhatCOM_SC_C_Buffer = Eigen::Vector3f::Zero();
         const float uCOB = cob.cobCenterOfBrightness(0);
         const float vCOB = cob.cobCenterOfBrightness(1);
-        const float tanBeta = static_cast<float>(this->cfg.getRadius() * correction.gamma / correction.spacecraftRange);
-        const float uCOM = uCOB - (tanBeta) * this->dX * safeCosf(correction.phi);
-        const float vCOM = vCOB - (tanBeta) * this->dY * safeSinf(correction.phi);
+        const auto tanBeta = static_cast<float>(this->cfg.getRadius() * correction.gamma / correction.spacecraftRange);
+        const float uCOM = uCOB - (tanBeta * this->dX * safeCosf(correction.phi));
+        const float vCOM = vCOB - (tanBeta * this->dY * safeSinf(correction.phi));
         const Eigen::Vector3f centerOfMass{uCOM, vCOM, 1.0F};
         const Eigen::Vector3f xy1COM = this->cameraCalibrationMatrixInverse * centerOfMass;
         const auto [xCOMCorrected, yCOMCorrected, brownConradyCOMValid, brownConradyCOMIterations] =
-            this->undistortNormalizedCoordinate(xy1COM(0), xy1COM(1), this->cfg.getCalibrationCoefficients());
+            CobConverterAlgorithm::undistortNormalizedCoordinate(
+                xy1COM(0), xy1COM(1), this->cfg.getCalibrationCoefficients());
         const Eigen::Vector3f xy1COMCorrected{xCOMCorrected, yCOMCorrected, 1.0F};
         result.diagnostic.brownConradyCOMValid = brownConradyCOMValid;
-        rhatCOM_SC_C_Buffer = -xy1COMCorrected.stableNormalized();
+        const Eigen::Vector3f rhatCOM_SC_C_Buffer = -xy1COMCorrected.stableNormalized();
         const Eigen::Vector3f rhatCOM_SC_N_Buffer = rotations.dcm_NC * rhatCOM_SC_C_Buffer;
 
         const Eigen::Vector3f centerOfBrightness{uCOB, vCOB, 1.0F};
         const Eigen::Vector3f xy1COB = this->cameraCalibrationMatrixInverse * centerOfBrightness;
         const auto [xCOBCorrected, yCOBCorrected, brownConradyCOBValid, brownConradyCOBIterations] =
-            this->undistortNormalizedCoordinate(xy1COB(0), xy1COB(1), this->cfg.getCalibrationCoefficients());
+            CobConverterAlgorithm::undistortNormalizedCoordinate(
+                xy1COB(0), xy1COB(1), this->cfg.getCalibrationCoefficients());
         const Eigen::Vector3f xy1COBCorrected{xCOBCorrected, yCOBCorrected, 1.0F};
         result.diagnostic.brownConradyCOBValid = brownConradyCOBValid;
 
@@ -303,34 +339,34 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
             (static_cast<float>(cob.cobPixelsFound) / kSphereSolidAngle) * Eigen::Matrix2f::Identity();
 
         // P_com_xy (distorted ~= corrected)
-        const float onePlusTanBetaSq = 1.0f + tanBeta * tanBeta;
+        const float onePlusTanBetaSq = 1.0F + (tanBeta * tanBeta);
         const float sec4Beta = onePlusTanBetaSq * onePlusTanBetaSq;
         const float betaVar = this->computeBetaVar(filter.filterVehPositionCovariance, correction);
         const float phaseVar = betaVar * sec4Beta;
         const float cosPhi = safeCosf(correction.phi);
         const float sinPhi = safeSinf(correction.phi);
         Eigen::Matrix2f S = Eigen::Matrix2f::Zero();
-        S(0, 0) = 1.0f / this->dX;
-        S(1, 1) = 1.0f / this->dY;
+        S(0, 0) = 1.0F / this->dX;
+        S(1, 1) = 1.0F / this->dY;
         Eigen::Vector2f a;
         a << cosPhi, sinPhi;
         const Eigen::Matrix2f covarCOMxy = S * covarCOBuv * S.transpose() + phaseVar * (a * a.transpose());
 
         // P_^C rhat_COM_SC
-        const Eigen::Vector3f h{xCOMCorrected, yCOMCorrected, 1.0f};
+        const Eigen::Vector3f h{xCOMCorrected, yCOMCorrected, 1.0F};
         const float s = h.stableNorm();
         Eigen::Matrix<float, 3, 2> jacob;
-        jacob << yCOMCorrected * yCOMCorrected + 1.0f, -xCOMCorrected * yCOMCorrected, -xCOMCorrected * yCOMCorrected,
-            xCOMCorrected * xCOMCorrected + 1.0f, -xCOMCorrected, -yCOMCorrected;
-        jacob *= -1.0F / pow(s, 3);
+        jacob << (yCOMCorrected * yCOMCorrected) + 1.0F, -xCOMCorrected * yCOMCorrected, -xCOMCorrected * yCOMCorrected,
+            (xCOMCorrected * xCOMCorrected) + 1.0F, -xCOMCorrected, -yCOMCorrected;
+        jacob *= static_cast<float>(-1.0F / pow(s, 3));
         const Eigen::Matrix3f covarRHatC = jacob * covarCOMxy * jacob.transpose();
 
         // P_^Nrhat
         const Eigen::Vector3f rHatB = dcm_CB.transpose() * rhatCOM_SC_C_Buffer;
         Eigen::Matrix3f rHatBSkew;
-        rHatBSkew << 0.0f, -rHatB(2), rHatB(1), rHatB(2), 0.0f, -rHatB(0), -rHatB(1), rHatB(0), 0.0f;
+        rHatBSkew << 0.0F, -rHatB(2), rHatB(1), rHatB(2), 0.0F, -rHatB(0), -rHatB(1), rHatB(0), 0.0F;
         const Eigen::Matrix3f covarImageN = rotations.dcm_NC * covarRHatC * rotations.dcm_NC.transpose();
-        const Eigen::Matrix3f covarAttitudeN = 16.0f * rotations.dcm_BN.transpose() * rHatBSkew *
+        const Eigen::Matrix3f covarAttitudeN = 16.0F * rotations.dcm_BN.transpose() * rHatBSkew *
                                                this->cfg.getAttitudeCovariance() * rHatBSkew.transpose() *
                                                rotations.dcm_BN;
         const Eigen::Matrix3f covarRHat_N_Buffer = covarImageN + covarAttitudeN;
@@ -370,37 +406,4 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         }
     }
     return result;
-}
-
-/**
- * @brief Outlier gate: measured COM heading vs filter-predicted heading (both COM->SC, inertial frame).
- *
- * Passes when |rhatCOM_N - rhatNav_N| < numStandardDeviations * sigma, sigma the RMS of that error:
- * standardDeviation * sqrt(1/dX^2 + 1/dY^2) if specified, else sqrt(tr(covar_N + P_nav)), P_nav the filter
- * position covariance projected normal to rhatNav_N over |r|^2.
- *
- * @param filterVehPosition [m] filter spacecraft position relative to the body, inertial frame.
- * @param filterVehPositionCovariance [m^2] filter position covariance, inertial frame.
- * @param covar_N COM heading covariance, inertial frame.
- * @param rhatCOM_N COM->SC unit vector, inertial frame.
- * @return True unless the error exceeds the gate.
- */
-bool CobConverterAlgorithm::comOutlierDetection(const Eigen::Vector3d& filterVehPosition,
-                                                const Eigen::Matrix3d& filterVehPositionCovariance,
-                                                const Eigen::Matrix3f& covar_N,
-                                                const Eigen::Vector3f& rhatCOM_N) const {
-    const Eigen::Vector3d rhatNav_N = filterVehPosition.stableNormalized();
-    const float error = (rhatCOM_N - rhatNav_N.cast<float>()).stableNorm();
-
-    float sigma = 0.0F;
-    if (this->cfg.isStandardDeviationSpecified()) {
-        sigma = this->cfg.getStandardDeviation() *
-                safeSqrtf((1.0F / (this->dX * this->dX)) + (1.0F / (this->dY * this->dY)));
-    } else {
-        const Eigen::Matrix3d projection = Eigen::Matrix3d::Identity() - (rhatNav_N * rhatNav_N.transpose());
-        const Eigen::Matrix3d covarNav_N =
-            projection * filterVehPositionCovariance * projection.transpose() / filterVehPosition.squaredNorm();
-        sigma = safeSqrtf((covar_N + covarNav_N.cast<float>()).trace());
-    }
-    return error < this->cfg.getNumStandardDeviations() * sigma;
 }
