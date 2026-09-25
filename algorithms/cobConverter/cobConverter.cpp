@@ -21,9 +21,6 @@ void CobConverter::reset(uint64_t currentSimNanos) {
     if (!this->navAttInMsg.isLinked()) {
         throw std::invalid_argument("CobConverter.navAttInMsg wasn't connected.");
     }
-    if (!this->sunInMsg.isLinked()) {
-        throw std::invalid_argument("CobConverter.sunInMsg wasn't connected.");
-    }
     if (this->opnavFilterInMsg.isLinked() && this->opnavFilterInMsg().numberOfStates != 6) {
         throw std::invalid_argument("CobConverter.opnavFilterInMsg: numberOfStates must be 6.");
     }
@@ -36,8 +33,7 @@ void CobConverter::reset(uint64_t currentSimNanos) {
  * @return CobConverterConfig validated configuration.
  */
 CobConverterConfig CobConverter::toConfig() const {
-    return CobConverterConfig::create(enumMap.at(this->phaseAngleCorrectionMethod),
-                                      this->radius,
+    return CobConverterConfig::create(this->radius,
                                       this->radiusUncertainty,
                                       this->attitudeCovariance,
                                       this->numStandardDeviations,
@@ -79,7 +75,6 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
 
     const OpNavCOBMsgF32Payload cobMsg = this->opnavCOBInMsg();
     const NavAttMsgF32Payload navAttMsg = this->navAttInMsg();
-    const NavAttMsgF32Payload sunMsg = this->sunInMsg();
     const FilterMsgF32Payload filterMsg = this->opnavFilterInMsg();
 
     CobMeasurement cob;
@@ -90,41 +85,43 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
 
     VehicleAttitude attitude;
     attitude.sigma_BN = cArrayToEigenVector(navAttMsg.sigma_BN);
-    attitude.vehSunPntBdy = cArrayToEigenVector(sunMsg.vehSunPntBdy);
+    attitude.vehSunPntBdy = cArrayToEigenVector(navAttMsg.vehSunPntBdy);
 
     FilterState filter;
     filter.filterVehPosition = cArrayToEigenVector3<double>(filterMsg.state);
     filter.filterVehPositionCovariance = cArrayToEigenMatrix<double, 6, 6>(filterMsg.covar).topLeftCorner<3, 3>();
 
-    const CobConverterOutput out = this->algorithm->updateState(cob, attitude, filter);
+    const auto [out, diag] = this->algorithm->updateState(cob, attitude, filter);
 
     OpNavUnitVecMsgF32Payload uVecOutMsgBuffer{};
-    eigenMatrixToCArray(out.unitVec.covar_N, uVecOutMsgBuffer.covar_N);
-    eigenMatrixToCArray(out.unitVec.covar_C, uVecOutMsgBuffer.covar_C);
-    eigenMatrixToCArray(out.unitVec.covar_B, uVecOutMsgBuffer.covar_B);
-    eigenVectorToCArray(out.unitVec.rhat_BN_N, uVecOutMsgBuffer.rhat_BN_N);
-    eigenVectorToCArray(out.unitVec.rhat_BN_C, uVecOutMsgBuffer.rhat_BN_C);
-    eigenVectorToCArray(out.unitVec.rhat_BN_B, uVecOutMsgBuffer.rhat_BN_B);
-    uVecOutMsgBuffer.timeTag = out.unitVec.unitVecTimeTag;
-    uVecOutMsgBuffer.valid = out.unitVec.unitVecValid;
-
-    OpNavCOMMsgF32Payload comMsgBuffer{};
-    comMsgBuffer.centerOfBrightness[0] = out.com.centerOfBrightness[0];
-    comMsgBuffer.centerOfBrightness[1] = out.com.centerOfBrightness[1];
-    comMsgBuffer.centerOfMass[0] = out.com.centerOfMass[0];
-    comMsgBuffer.centerOfMass[1] = out.com.centerOfMass[1];
-    comMsgBuffer.offsetFactor = out.com.offsetFactor;
-    comMsgBuffer.objectPixelRadius = out.com.objectPixelRadius;
-    comMsgBuffer.phaseAngle = out.com.phaseAngle;
-    comMsgBuffer.sunDirection = out.com.sunDirection;
-    comMsgBuffer.cameraID = this->algorithm->getCameraId();
-    comMsgBuffer.timeTag = out.com.comTimeTag;
-    comMsgBuffer.valid = out.com.comValid;
+    eigenMatrixToCArray(out.covar_N, uVecOutMsgBuffer.covar_N);
+    eigenVectorToCArray(out.rhat_BN_N, uVecOutMsgBuffer.rhat_BN_N);
+    uVecOutMsgBuffer.timeTag = out.unitVecTimeTag;
+    uVecOutMsgBuffer.valid = out.unitVecValid;
 
     CobConverterDiagnosticMsgF32Payload diagnosticMsgBuffer{};
-    diagnosticMsgBuffer.coberrorOutlierTrigger = out.diagnostic.coberrorOutlierTrigger;
+    eigenMatrixToCArray(diag.covar_C, diagnosticMsgBuffer.covar_C);
+    eigenMatrixToCArray(diag.covar_B, diagnosticMsgBuffer.covar_B);
+    eigenVectorToCArray(diag.rhat_BN_C, diagnosticMsgBuffer.rhat_BN_C);
+    eigenVectorToCArray(diag.rhat_BN_B, diagnosticMsgBuffer.rhat_BN_B);
+    eigenVectorToCArray(diag.rhat_COB_C, diagnosticMsgBuffer.rhat_COB_C);
+    eigenVectorToCArray(diag.rhat_COB_N, diagnosticMsgBuffer.rhat_COB_N);
+    eigenVectorToCArray(diag.rhat_COB_B, diagnosticMsgBuffer.rhat_COB_B);
+    diagnosticMsgBuffer.centerOfBrightness[0] = diag.centerOfBrightness[0];
+    diagnosticMsgBuffer.centerOfBrightness[1] = diag.centerOfBrightness[1];
+    diagnosticMsgBuffer.centerOfMass[0] = diag.centerOfMass[0];
+    diagnosticMsgBuffer.centerOfMass[1] = diag.centerOfMass[1];
+    diagnosticMsgBuffer.offsetFactor = diag.offsetFactor;
+    diagnosticMsgBuffer.objectPixelRadius = diag.objectPixelRadius;
+    diagnosticMsgBuffer.phaseAngle = diag.phaseAngle;
+    diagnosticMsgBuffer.sunDirection = diag.sunDirection;
+    diagnosticMsgBuffer.cameraID = this->algorithm->getCameraId();
+    diagnosticMsgBuffer.comTimeTag = diag.comTimeTag;
+    diagnosticMsgBuffer.comValid = diag.comValid;
+    diagnosticMsgBuffer.comErrorOutlierTrigger = diag.comErrorOutlierTrigger;
+    diagnosticMsgBuffer.brownConradyCOMValid = diag.brownConradyCOMValid;
+    diagnosticMsgBuffer.brownConradyCOBValid = diag.brownConradyCOBValid;
 
     this->opnavUnitVecOutMsg.write(uVecOutMsgBuffer, this->moduleID, currentSimNanos);
-    this->comCorrectionOutMsg.write(comMsgBuffer, this->moduleID, currentSimNanos);
     this->cobConverterDiagnosticOutMsg.write(diagnosticMsgBuffer, this->moduleID, currentSimNanos);
 }

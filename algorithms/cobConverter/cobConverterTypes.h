@@ -25,16 +25,6 @@ typedef struct {
 } Matrix3d_c;
 
 /**
- * @brief C-compatible enumeration mirroring PhaseAngleCorrectionMethodAlgorithm.
- *
- * Numeric values must stay in lockstep with the C++ enum class in cobConverterAlgorithm.h.
- */
-typedef enum {
-    PHASE_ANGLE_CORRECTION_METHOD_NO_CORRECTION_ALG_C = 0,
-    PHASE_ANGLE_CORRECTION_METHOD_BINARY_ALG_C = 1
-} PhaseAngleCorrectionMethodAlgorithm_c;
-
-/**
  * @brief Plain-old-data mirror of the C++ CalibrationCoefficients fields.
  */
 typedef struct {
@@ -46,17 +36,24 @@ typedef struct {
 } CalibrationCoefficients_c;
 
 /**
- * @brief Plain-old-data mirror of the C++ CobConverterOutput fields.
+ * @brief Plain-old-data mirror of the C++ CobConverterOutput and CobConverterDiagnosticOutput
+ *        fields. Kept flat so the C entry point stays a single by-value return.
  */
 typedef struct {
-    Matrix3f_c covar_N;            /*!< [-] COM covariance, inertial frame */
+    /* Essential output: inertial frame only. */
+    Matrix3f_c covar_N;    /*!< [-] COM covariance, inertial frame */
+    Vector3f_c rhat_BN_N;  /*!< [-] COM unit vector, inertial frame */
+    double unitVecTimeTag; /*!< [s] measurement timestamp */
+    bool unitVecValid;     /*!< [-] COM unit vector validity flag */
+
+    /* Diagnostic output. */
     Matrix3f_c covar_C;            /*!< [-] COM covariance, camera frame */
     Matrix3f_c covar_B;            /*!< [-] COM covariance, body frame */
-    Vector3f_c rhat_BN_N;          /*!< [-] COM unit vector, inertial frame */
     Vector3f_c rhat_BN_C;          /*!< [-] COM unit vector, camera frame */
     Vector3f_c rhat_BN_B;          /*!< [-] COM unit vector, body frame */
-    double unitVecTimeTag;         /*!< [s] measurement timestamp */
-    bool unitVecValid;             /*!< [-] COM unit vector validity flag */
+    Vector3f_c rhat_COB_C;         /*!< [-] COB unit vector, camera frame */
+    Vector3f_c rhat_COB_N;         /*!< [-] COB unit vector, inertial frame */
+    Vector3f_c rhat_COB_B;         /*!< [-] COB unit vector, body frame */
     Vector2f_c centerOfBrightness; /*!< [px] COB pixel coordinates */
     Vector2f_c centerOfMass;       /*!< [px] COM pixel coordinates */
     float offsetFactor;            /*!< [-] phase-angle offset factor (gamma) */
@@ -65,7 +62,9 @@ typedef struct {
     float sunDirection;            /*!< [rad] sun direction phi in image plane */
     uint64_t comTimeTag;           /*!< [ns] measurement timestamp */
     bool comValid;                 /*!< [-] COM validity flag */
-    bool coberrorOutlierTrigger;   /*!< [-] true if COB error exceeded outlier threshold */
+    bool comErrorOutlierTrigger;   /*!< [-] true if the COM heading error exceeded the gate */
+    bool brownConradyCOMValid;     /*!< [-] true if the COM Brown-Conrady undistortion converged */
+    bool brownConradyCOBValid;     /*!< [-] true if the COB Brown-Conrady undistortion converged */
 } CobConverterOutput_c;
 
 #ifdef __cplusplus
