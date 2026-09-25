@@ -11,7 +11,7 @@
 
 #include <memory>
 
-/*! @brief Basilisk adapter for the regions-of-interest pruning module.
+/*! @brief adapter for the regions-of-interest pruning module.
  *
  *  Reads FpgaRowColSumMsgF32Payload, delegates computation to RegionsOfInterestPruneAlgorithm,
  *  and publishes up to MAX_NUMBER_REGIONS candidates sorted by estimated above-threshold

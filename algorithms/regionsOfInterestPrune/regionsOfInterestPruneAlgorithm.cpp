@@ -38,18 +38,18 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
 }
 
 namespace {
-/*! Squared Euclidean distance from a candidate box's center to a reference center point.  Squared
- *  (rather than true) distance preserves the same ordering while avoiding a sqrt per comparison.
+/*! Squared Euclidean distance from a candidate box's center to a reference center point;
+ *  only the ordering matters here, so the sqrt is skipped.
  @return Squared distance from the candidate's box center to (centerRow, centerCol).
- @param e         Candidate box.
+ @param candidate Candidate box.
  @param centerRow Reference point row coordinate.
  @param centerCol Reference point column coordinate.
 */
-float squaredDistanceToCenter(const RoiCandidateEntry& e, float centerRow, float centerCol) {
-    const float rowCenter = static_cast<float>(e.row) + (static_cast<float>(e.height) / 2.0F);
-    const float colCenter = static_cast<float>(e.col) + (static_cast<float>(e.width) / 2.0F);
-    const float dRow = rowCenter - centerRow;
-    const float dCol = colCenter - centerCol;
+float squaredDistanceToCenter(const RoiCandidateEntry& candidate, float centerRow, float centerCol) {
+    const float candidateCenterRow = static_cast<float>(candidate.row) + (static_cast<float>(candidate.height) / 2.0F);
+    const float candidateCenterCol = static_cast<float>(candidate.col) + (static_cast<float>(candidate.width) / 2.0F);
+    const float dRow = candidateCenterRow - centerRow;
+    const float dCol = candidateCenterCol - centerCol;
     return (dRow * dRow) + (dCol * dCol);
 }
 }  // namespace
@@ -118,7 +118,7 @@ RegionsOfInterestPruneAlgorithm::AccumArray RegionsOfInterestPruneAlgorithm::top
 /*! Forms bounding-box candidates from the cross-product of the filtered row and col spans.
  *  The estimated pixel count for each box is min(R[k], C[l]) — the tightest upper bound
  *  obtainable from 1-D projections alone.
- @return Vector of RoiCandidateEntry, one per (rowIdx × colIdx) pair.
+ @return CandidateArray of RoiCandidateEntry, one per (rowIdx × colIdx) pair.
  @param rowSpans  All detected row spans.
  @param R         Per-row-span accumulator sums.
  @param rowIdx    Indices into rowSpans / R selected by the pre-filter (Step 2).
