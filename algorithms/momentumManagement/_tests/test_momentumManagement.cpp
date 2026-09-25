@@ -36,12 +36,19 @@ constexpr float kLargeIntegralLimit = 1000.0F;
 constexpr float kTightIntegralLimit = 5.0F;
 
 // The integral is switched off by default so the proportional-law expectations below stand on their own.
-MomentumManagementControlParameters nominalParams(float hsMin = kNominalHsMin,
-                                                  float K = kNominalK,
-                                                  float Ki = 0.0F,
-                                                  float integralLimit = kLargeIntegralLimit,
-                                                  float controlPeriod = kControlPeriod) {
-    return {.hsMin = hsMin, .K = K, .Ki = Ki, .integralLimit = integralLimit, .controlPeriod = controlPeriod};
+MomentumManagementControlParameters nominalParams(
+    float hsMin = kNominalHsMin,
+    float K = kNominalK,
+    float Ki = 0.0F,
+    float integralLimit = kLargeIntegralLimit,
+    float controlPeriod = kControlPeriod,
+    const Eigen::Matrix3f& dumpableProjection_B = Eigen::Matrix3f::Identity()) {
+    return {.hsMin = hsMin,
+            .K = K,
+            .Ki = Ki,
+            .integralLimit = integralLimit,
+            .controlPeriod = controlPeriod,
+            .dumpableProjection_B = dumpableProjection_B};
 }
 
 }  // namespace
@@ -78,6 +85,17 @@ TEST(MomentumManagement, MatchesReferenceAcrossCases) {
                                      nominalParams(kNominalHsMin, kNominalK, kNominalKi, kTightIntegralLimit),
                                      kAccuracy,
                                      20U);
+    // The same, with one direction the effectors cannot dump about.
+    regressionTestMomentumManagement(rwArrayConfig,
+                                     nominalSpeeds,
+                                     nominalParams(kNominalHsMin,
+                                                   kNominalK,
+                                                   kNominalKi,
+                                                   kLargeIntegralLimit,
+                                                   kControlPeriod,
+                                                   makeDumpableProjection(Eigen::Vector3f{0.0F, 0.2716F, -0.9624F})),
+                                     kAccuracy,
+                                     20U);
 }
 
 // A single wheel spinning about a body axis is dumped straight back along that axis.
@@ -85,16 +103,16 @@ TEST(MomentumManagement, SingleWheelDumpsAlongItsSpinAxis) {
     const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(1.0F), rwArrayConfig)};
 
-    // hs = 0.2 * 50 = 10 Nms about +z; the excess above hsMin = 1 is 9 Nms, so the torque is -K * 9.
+    // hs = 0.2 * 50 = 10 Nms about +z, above hsMin = 1, so the whole 10 Nms is dumped.
     const auto Lr_B = alg.update(makeWheelSpeeds({50.0F}));
 
     EXPECT_NEAR(Lr_B[0], 0.0F, kAccuracy);
     EXPECT_NEAR(Lr_B[1], 0.0F, kAccuracy);
-    EXPECT_NEAR(Lr_B[2], -kNominalK * 9.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[2], -kNominalK * 10.0F, kAccuracy);
 }
 
-// The torque opposes the stored momentum and acts on exactly the momentum held above the threshold.
-TEST(MomentumManagement, TorqueMagnitudeIsGainTimesExcessMomentum) {
+// Above the threshold the torque opposes the whole stored momentum.
+TEST(MomentumManagement, TorqueMagnitudeIsGainTimesStoredMomentum) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
     const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
 
@@ -103,7 +121,7 @@ TEST(MomentumManagement, TorqueMagnitudeIsGainTimesExcessMomentum) {
 
     const Eigen::Vector3f hs_B = clusterMomentum(rwArrayConfig, wheelSpeeds);
 
-    EXPECT_NEAR(Lr_B.norm(), kNominalK * (hs_B.norm() - kNominalHsMin), kAccuracy);
+    EXPECT_NEAR(Lr_B.norm(), kNominalK * hs_B.norm(), kAccuracy);
     EXPECT_LT(Lr_B.normalized().dot(hs_B.normalized()), -1.0F + kAccuracy);
 }
 
@@ -163,7 +181,7 @@ TEST(MomentumManagement, ConfigRoundTrips) {
 // Integral path
 // ---------------------------------------------------------------------------------------------------
 
-// A sustained excess momentum accumulates, so the request grows on every cycle.
+// A sustained momentum above the threshold accumulates, so the request grows on every cycle.
 TEST(MomentumManagement, IntegralAccumulatesAcrossCycles) {
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(
         nominalParams(kNominalHsMin, kNominalK, kNominalKi), makeStandardRwArrayConfig())};
@@ -198,6 +216,70 @@ TEST(MomentumManagement, ZeroKiDisablesTheIntegral) {
 
     EXPECT_TRUE(lastWithout.isApprox(firstWithout));
     EXPECT_GT(lastWith.norm(), firstWith.norm());
+}
+
+// A momentum below the threshold ends the dump: the module requests nothing, however much the integral had
+// accumulated, and the next dump starts from a cleared integrator.
+TEST(MomentumManagement, DeadbandEndsTheDumpAndClearsTheIntegral) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+    const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
+    const auto dumpingParams = nominalParams(kNominalHsMin, kNominalK, kNominalKi);
+    const auto insideParams = nominalParams(kHighHsMin, kNominalK, kNominalKi);
+
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(dumpingParams, rwArrayConfig)};
+    const Eigen::Vector3f firstDumpRequest = alg.update(wheelSpeeds);
+    for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
+        (void)alg.update(wheelSpeeds);
+    }
+
+    // Raise the threshold past the cluster momentum: the accumulated integral must not leak into the request.
+    alg.setConfig(MomentumManagementConfig::create(insideParams, rwArrayConfig));
+    for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
+        EXPECT_TRUE(alg.update(wheelSpeeds).isZero(kAccuracy)) << "cycle " << cycle;
+    }
+
+    // Dropping the threshold back starts a fresh dump, identical to the very first one.
+    alg.setConfig(MomentumManagementConfig::create(dumpingParams, rwArrayConfig));
+    EXPECT_TRUE(alg.update(wheelSpeeds).isApprox(firstDumpRequest));
+}
+
+// A single gimbaled thruster produces torque only perpendicular to its moment arm, so momentum along that arm
+// cannot be dumped. The law must not act on it: the request is the same as if that momentum were absent.
+TEST(MomentumManagement, UndumpableMomentumIsIgnored) {
+    const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}, {0.0F, 1.0F, 0.0F}}, 0.2F);
+    // hs = (0, 4, 10) Nms; the projector removes the z component, leaving 4 Nms about +y.
+    const Eigen::Matrix3f projection = makeDumpableProjection(Eigen::Vector3f::UnitZ());
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(
+        nominalParams(1.0F, kNominalK, 0.0F, kLargeIntegralLimit, kControlPeriod, projection), rwArrayConfig)};
+
+    const auto Lr_B = alg.update(makeWheelSpeeds({50.0F, 20.0F}));
+
+    EXPECT_NEAR(Lr_B[0], 0.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[1], -kNominalK * 4.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[2], 0.0F, kAccuracy);
+}
+
+// Regression guard for integrator windup along an undumpable direction: however long a cluster holds momentum
+// there, the module must never request torque about it, even with the deadband wide open (hsMin = 0). Without
+// the projector the integral accumulates that momentum and commands exactly what cannot be delivered.
+TEST(MomentumManagement, UndumpableMomentumDoesNotWindTheIntegral) {
+    const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
+    // Deliberately off a body axis, as a gimbaled thruster's moment arm is.
+    const Eigen::Vector3f undumpableAxis = Eigen::Vector3f{0.0F, 0.2716F, -0.9624F}.stableNormalized();
+    const auto params = nominalParams(
+        0.0F, kNominalK, kNominalKi, kLargeIntegralLimit, kControlPeriod, makeDumpableProjection(undumpableAxis));
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(params, rwArrayConfig)};
+
+    const float wheelSpeed = 50.0F;
+    const auto wheelSpeeds = makeWheelSpeeds({wheelSpeed});
+    ASSERT_GT(std::fabs(clusterMomentum(rwArrayConfig, wheelSpeeds).dot(undumpableAxis)), 1.0F)
+        << "the test needs real momentum on the undumpable axis";
+
+    for (uint32_t cycle = 0U; cycle < 200U; ++cycle) {
+        const Eigen::Vector3f Lr_B = alg.update(wheelSpeeds);
+        ASSERT_TRUE(Lr_B.allFinite()) << "cycle " << cycle;
+        EXPECT_NEAR(Lr_B.dot(undumpableAxis), 0.0F, kAccuracy) << "cycle " << cycle;
+    }
 }
 
 // The anti-windup clamp bounds how far the integral term can move the request, however long the momentum is
@@ -290,18 +372,14 @@ TEST(MomentumManagementConfigValidation, AcceptsZeroHsMin) {
     EXPECT_NO_THROW((void)MomentumManagementConfig::create(nominalParams(0.0F), makeStandardRwArrayConfig()));
 }
 
-// The gain must be strictly positive: zero would disable dumping entirely and a negative gain would drive the
-// wheels away from the threshold instead of towards it.
+// A negative gain would drive the wheels away from the threshold instead of towards it.
 TEST(MomentumManagementConfigValidation, RejectsInvalidK) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
 
-    EXPECT_FALSE(MomentumManagementConfig::isValidK(0.0F));
     EXPECT_FALSE(MomentumManagementConfig::isValidK(-1.0F));
     EXPECT_FALSE(MomentumManagementConfig::isValidK(std::numeric_limits<float>::quiet_NaN()));
     EXPECT_FALSE(MomentumManagementConfig::isValidK(std::numeric_limits<float>::infinity()));
 
-    EXPECT_THROW((void)MomentumManagementConfig::create(nominalParams(kNominalHsMin, 0.0F), rwArrayConfig),
-                 fsw::invalid_argument);
     EXPECT_THROW((void)MomentumManagementConfig::create(nominalParams(kNominalHsMin, -1.0F), rwArrayConfig),
                  fsw::invalid_argument);
     EXPECT_THROW((void)MomentumManagementConfig::create(
@@ -313,6 +391,18 @@ TEST(MomentumManagementConfigValidation, AcceptsSmallPositiveK) {
     EXPECT_TRUE(MomentumManagementConfig::isValidK(1e-6F));
     EXPECT_NO_THROW(
         (void)MomentumManagementConfig::create(nominalParams(kNominalHsMin, 1e-6F), makeStandardRwArrayConfig()));
+}
+
+// A zero proportional gain switches the proportional term off and is a legitimate setting: the integral term
+// can carry the dump on its own.
+TEST(MomentumManagementConfigValidation, AcceptsZeroK) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
+    EXPECT_TRUE(MomentumManagementConfig::isValidK(0.0F));
+    EXPECT_NO_THROW((void)MomentumManagementConfig::create(nominalParams(kNominalHsMin, 0.0F), rwArrayConfig));
+
+    MomentumManagementAlgorithm alg{
+        MomentumManagementConfig::create(nominalParams(kNominalHsMin, 0.0F), rwArrayConfig)};
+    EXPECT_TRUE(alg.update(makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F})).isZero(kAccuracy));
 }
 
 TEST(MomentumManagementConfigValidation, RejectsInvalidKi) {
@@ -403,21 +493,62 @@ TEST(MomentumManagementConfigValidation, AcceptsZeroControlPeriodWhenKiIsZero) {
     const Eigen::Vector3f first = alg.update(wheelSpeeds);
     EXPECT_TRUE(alg.update(wheelSpeeds).isApprox(first));
 
-    const float hs = clusterMomentum(makeStandardRwArrayConfig(), wheelSpeeds).norm();
-    EXPECT_NEAR(first.norm(), kNominalK * (hs - kNominalHsMin), kAccuracy);
+    const float hsNorm = clusterMomentum(makeStandardRwArrayConfig(), wheelSpeeds).norm();
+    EXPECT_NEAR(first.norm(), kNominalK * hsNorm, kAccuracy);
 }
 
-TEST(MomentumManagementConfigValidation, RejectsTooManyWheels) {
-    auto rwArrayConfig = makeStandardRwArrayConfig();
-    rwArrayConfig.numRW = kMaxNumRw + 1U;
+// The projector must be a genuine orthogonal projector; anything else does not describe a subspace.
+TEST(MomentumManagementConfigValidation, RejectsInvalidDumpableProjection) {
+    const auto rwArrayConfig = makeStandardRwArrayConfig();
 
-    EXPECT_FALSE(MomentumManagementConfig::isValidRwArrayConfiguration(rwArrayConfig));
-    EXPECT_THROW((void)MomentumManagementConfig::create(nominalParams(1.0F), rwArrayConfig), fsw::invalid_argument);
+    Eigen::Matrix3f nonFinite = Eigen::Matrix3f::Identity();
+    nonFinite(0, 0) = std::numeric_limits<float>::quiet_NaN();
+    EXPECT_FALSE(MomentumManagementConfig::isValidDumpableProjection(nonFinite));
+
+    Eigen::Matrix3f asymmetric = Eigen::Matrix3f::Identity();
+    asymmetric(0, 1) = 0.5F;
+    EXPECT_FALSE(MomentumManagementConfig::isValidDumpableProjection(asymmetric));
+
+    // Symmetric but not idempotent: scaling is not projecting.
+    const Eigen::Matrix3f scaled = 2.0F * Eigen::Matrix3f::Identity();
+    EXPECT_FALSE(MomentumManagementConfig::isValidDumpableProjection(scaled));
+
+    // A genuine projector, but onto nothing: the module would request nothing for ever without saying so. A
+    // caller that zero-fills the parameter rather than setting it lands here.
+    EXPECT_FALSE(MomentumManagementConfig::isValidDumpableProjection(Eigen::Matrix3f::Zero()));
+    EXPECT_THROW(
+        (void)MomentumManagementConfig::create(
+            nominalParams(kNominalHsMin, kNominalK, 0.0F, kLargeIntegralLimit, kControlPeriod, Eigen::Matrix3f::Zero()),
+            rwArrayConfig),
+        fsw::invalid_argument);
+
+    EXPECT_THROW(
+        (void)MomentumManagementConfig::create(
+            nominalParams(kNominalHsMin, kNominalK, 0.0F, kLargeIntegralLimit, kControlPeriod, scaled), rwArrayConfig),
+        fsw::invalid_argument);
 }
 
-TEST(MomentumManagementConfigValidation, AcceptsExactlyMaxWheels) {
+// The identity (dump about anything), a plane projector (one undumpable axis) and a line projector (only one
+// dumpable direction) all leave something to dump.
+TEST(MomentumManagementConfigValidation, AcceptsProjections) {
+    EXPECT_TRUE(MomentumManagementConfig::isValidDumpableProjection(Eigen::Matrix3f::Identity()));
+    const Eigen::Vector3f lineAxis = Eigen::Vector3f{1.0F, 2.0F, -0.5F}.stableNormalized();
+    EXPECT_TRUE(MomentumManagementConfig::isValidDumpableProjection(Eigen::Matrix3f{lineAxis * lineAxis.transpose()}));
+    EXPECT_TRUE(MomentumManagementConfig::isValidDumpableProjection(
+        makeDumpableProjection(Eigen::Vector3f{0.0F, 0.2716F, -0.9624F})));
+
+    EXPECT_NO_THROW(
+        (void)MomentumManagementConfig::create(nominalParams(kNominalHsMin,
+                                                             kNominalK,
+                                                             0.0F,
+                                                             kLargeIntegralLimit,
+                                                             kControlPeriod,
+                                                             makeDumpableProjection(Eigen::Vector3f::UnitX())),
+                                               makeStandardRwArrayConfig()));
+}
+
+TEST(MomentumManagementConfigValidation, AcceptsAFullyPopulatedArray) {
     MomentumManagementRwArrayConfiguration rwArrayConfig;
-    rwArrayConfig.numRW = kMaxNumRw;
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         rwArrayConfig.GsMatrix_B.col(i) = Eigen::Vector3f::UnitZ();
         rwArrayConfig.JsList[i] = 0.1F;
@@ -457,25 +588,12 @@ TEST(MomentumManagementConfigValidation, RejectsNonFiniteEntries) {
     }
 }
 
-// Only the first numRW columns describe real wheels; garbage beyond that must not reject the config.
-// GsMatrix_B is exactly kMaxNumRw wide and numRW == kMaxNumRw is itself a legal configuration, so the
-// array has to be built one wheel short of the maximum for a column past numRW to exist at all.
-TEST(MomentumManagementConfigValidation, IgnoresColumnsBeyondNumRw) {
-    static_assert(kMaxNumRw >= 2U, "the test needs at least one wheel plus a spare column");
-
-    auto rwArrayConfig = makeRwArrayConfig(standardSpinAxes(kMaxNumRw - 1U), 0.1F);
-    rwArrayConfig.GsMatrix_B.col(rwArrayConfig.numRW) = Eigen::Vector3f{0.0F, 9.0F, 0.0F};
-
-    EXPECT_TRUE(MomentumManagementConfig::isValidRwArrayConfiguration(rwArrayConfig));
-    EXPECT_NO_THROW((void)MomentumManagementConfig::create(nominalParams(1.0F), rwArrayConfig));
-}
-
 // ---------------------------------------------------------------------------------------------------
 // Edge cases
 // ---------------------------------------------------------------------------------------------------
 
-// Regression guard: with hsMin == 0 and zero momentum the dumping law divides 0/0. The algorithm must
-// return zero rather than NaN.
+// With hsMin == 0 a motionless cluster sits exactly on the threshold, so the law runs on a zero momentum.
+// The algorithm must return zero rather than NaN.
 TEST(MomentumManagementEdgeCases, ZeroMomentumWithZeroThresholdIsFinite) {
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(0.0F), makeStandardRwArrayConfig())};
 
@@ -485,7 +603,7 @@ TEST(MomentumManagementEdgeCases, ZeroMomentumWithZeroThresholdIsFinite) {
     EXPECT_TRUE(Lr_B.isZero(kAccuracy));
 }
 
-// Momentum below the zero tolerance is treated as zero even when the threshold is zero.
+// A negligible momentum produces a request too small to see, and no NaN.
 TEST(MomentumManagementEdgeCases, NegligibleMomentumIsFinite) {
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(0.0F), makeStandardRwArrayConfig())};
 
@@ -510,38 +628,40 @@ TEST(MomentumManagementEdgeCases, ZeroThresholdDumpsEverything) {
     }
 }
 
-// Exactly at the threshold the excess vanishes, so no torque is requested.
-TEST(MomentumManagementEdgeCases, MomentumExactlyAtThresholdDoesNotDump) {
+// The threshold comparison is inclusive, so a momentum sitting exactly on it is dumped.
+TEST(MomentumManagementEdgeCases, MomentumExactlyAtThresholdDumps) {
     const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
     // hs = 0.2 * 50 = 10 Nms exactly.
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(10.0F), rwArrayConfig)};
 
     const auto Lr_B = alg.update(makeWheelSpeeds({50.0F}));
 
-    EXPECT_TRUE(Lr_B.isZero(kAccuracy));
+    EXPECT_NEAR(Lr_B[2], -kNominalK * 10.0F, kAccuracy);
 }
 
-// With no wheels configured there is no momentum to dump.
-TEST(MomentumManagementEdgeCases, NoWheelsProducesZeroRequest) {
-    MomentumManagementRwArrayConfiguration rwArrayConfig;  // numRW defaults to zero
+// An unavailable wheel reports no usable speed, so its momentum is invisible to the dumping law: the
+// request matches a cluster in which that wheel is not spinning at all.
+TEST(MomentumManagementEdgeCases, UnavailableWheelContributesNoMomentum) {
+    auto rwArrayConfig = makeStandardRwArrayConfig();
+    rwArrayConfig.wheelAvailability.at(1) = fsw::DeviceAvailability::Unavailable;
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(0.0F), rwArrayConfig)};
+    const Eigen::Vector3f withUnavailable = alg.update(makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}));
+
+    MomentumManagementAlgorithm reference{
+        MomentumManagementConfig::create(nominalParams(0.0F), makeStandardRwArrayConfig())};
+    const Eigen::Vector3f withWheelStopped = reference.update(makeWheelSpeeds({10.0F, 0.0F, 50.0F, 100.0F}));
+
+    EXPECT_TRUE(withUnavailable.isApprox(withWheelStopped));
+}
+
+// Wheels that carry no inertia hold no momentum, so there is nothing to dump.
+TEST(MomentumManagementEdgeCases, ZeroInertiaWheelsProduceZeroRequest) {
+    const auto rwArrayConfig = makeRwArrayConfig({}, 0.0F);
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(0.0F), rwArrayConfig)};
 
     const auto Lr_B = alg.update(makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F}));
 
     EXPECT_TRUE(Lr_B.isZero(kAccuracy));
-}
-
-// Speeds in slots past numRW belong to wheels that do not exist and must not contribute.
-TEST(MomentumManagementEdgeCases, SpeedsBeyondNumRwAreIgnored) {
-    const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
-
-    MomentumManagementAlgorithm alg1{MomentumManagementConfig::create(nominalParams(1.0F), rwArrayConfig)};
-    const auto withExtra = alg1.update(makeWheelSpeeds({50.0F, 999.0F, -999.0F, 12345.0F}));
-
-    MomentumManagementAlgorithm alg2{MomentumManagementConfig::create(nominalParams(1.0F), rwArrayConfig)};
-    const auto withoutExtra = alg2.update(makeWheelSpeeds({50.0F}));
-
-    EXPECT_TRUE(withExtra.isApprox(withoutExtra));
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -550,8 +670,8 @@ TEST(MomentumManagementEdgeCases, SpeedsBeyondNumRwAreIgnored) {
 
 // Each property is implemented in the helpers and also registered as a fuzz target.
 
-// The proportional request acts on exactly the momentum held above the threshold.
-TEST(MomentumManagementProperties, TorqueActsOnExcessMomentumOnly) {
+// The proportional request acts on the whole stored momentum, and only once the threshold is passed.
+TEST(MomentumManagementProperties, TorqueActsOnStoredMomentumAboveTheThreshold) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
     // Momenta spanning a negligible cluster up to a fully loaded one (~55 Nms), all realizable.
     const std::vector<std::vector<float>> speedCases = {
@@ -563,7 +683,7 @@ TEST(MomentumManagementProperties, TorqueActsOnExcessMomentumOnly) {
 
     for (float hsMin : {0.0F, 0.5F, 5.0F, 50.0F}) {
         for (const auto& speeds : speedCases) {
-            testProportionalTorqueOpposesExcessMomentum(rwArrayConfig, makeWheelSpeeds(speeds), nominalParams(hsMin));
+            testProportionalTorqueOpposesStoredMomentum(rwArrayConfig, makeWheelSpeeds(speeds), nominalParams(hsMin));
         }
     }
 }

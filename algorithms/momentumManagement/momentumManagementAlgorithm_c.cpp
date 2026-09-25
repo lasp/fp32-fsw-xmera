@@ -1,5 +1,6 @@
 #include "momentumManagementAlgorithm_c.h"
 #include "momentumManagementAlgorithm.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/opaqueHandle.h"
 
@@ -13,14 +14,27 @@ MomentumManagementConfig makeConfig(float hsMin,
                                     float Ki,
                                     float integralLimit,
                                     float controlPeriod,
-                                    const MomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
+                                    const Matrix3f_c* dumpableProjection_B,
+                                    const MomentumManagementRwSpinAxes_c* GsMatrix_B,
+                                    const MomentumManagementRwInertias_c* JsList,
+                                    const MomentumManagementRwAvailability_c* wheelAvailability) {
     MomentumManagementRwArrayConfiguration rwArrayConfigCpp;
-    rwArrayConfigCpp.numRW = rwArrayConfig->numRW;
-    rwArrayConfigCpp.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwArrayConfig->GsMatrix_B);
-    rwArrayConfigCpp.JsList = cArrayToEigenVector(rwArrayConfig->JsList);
+    rwArrayConfigCpp.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(GsMatrix_B->data);
+    rwArrayConfigCpp.JsList = cArrayToEigenVector(JsList->data);
+    for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
+        // DEVICE_AVAILABLE is 0 and DEVICE_UNAVAILABLE is 1, so the byte is an enumerator value and not a
+        // boolean flag. Converting through toDeviceAvailability keeps any other value out.
+        rwArrayConfigCpp.wheelAvailability.at(i) =
+            fsw::toDeviceAvailability(static_cast<DeviceAvailability_c>(wheelAvailability->availability[i]));
+    }
 
     const MomentumManagementControlParameters controlParameters{
-        .hsMin = hsMin, .K = K, .Ki = Ki, .integralLimit = integralLimit, .controlPeriod = controlPeriod};
+        .hsMin = hsMin,
+        .K = K,
+        .Ki = Ki,
+        .integralLimit = integralLimit,
+        .controlPeriod = controlPeriod,
+        .dumpableProjection_B = c2DArrayToEigenMatrix3(dumpableProjection_B->data)};
 
     return MomentumManagementConfig::create(controlParameters, rwArrayConfigCpp);
 }
@@ -34,9 +48,13 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
                                                 float Ki,
                                                 float integralLimit,
                                                 float controlPeriod,
-                                                const MomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
+                                                const Matrix3f_c* dumpableProjection_B,
+                                                const MomentumManagementRwSpinAxes_c* GsMatrix_B,
+                                                const MomentumManagementRwInertias_c* JsList,
+                                                const MomentumManagementRwAvailability_c* wheelAvailability) {
     try {
-        (void)makeConfig(hsMin, K, Ki, integralLimit, controlPeriod, rwArrayConfig);
+        (void)makeConfig(
+            hsMin, K, Ki, integralLimit, controlPeriod, dumpableProjection_B, GsMatrix_B, JsList, wheelAvailability);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -49,9 +67,12 @@ MomentumManagementAlgorithmHandle* MomentumManagementAlgorithm_create(
     float Ki,
     float integralLimit,
     float controlPeriod,
-    const MomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
-    return fsw::createHandle<::MomentumManagementAlgorithm, MomentumManagementAlgorithmHandle>(
-        makeConfig(hsMin, K, Ki, integralLimit, controlPeriod, rwArrayConfig));
+    const Matrix3f_c* dumpableProjection_B,
+    const MomentumManagementRwSpinAxes_c* GsMatrix_B,
+    const MomentumManagementRwInertias_c* JsList,
+    const MomentumManagementRwAvailability_c* wheelAvailability) {
+    return fsw::createHandle<::MomentumManagementAlgorithm, MomentumManagementAlgorithmHandle>(makeConfig(
+        hsMin, K, Ki, integralLimit, controlPeriod, dumpableProjection_B, GsMatrix_B, JsList, wheelAvailability));
 }
 
 void MomentumManagementAlgorithm_destroy(MomentumManagementAlgorithmHandle* self) {
@@ -64,9 +85,12 @@ void MomentumManagementAlgorithm_setConfig(MomentumManagementAlgorithmHandle* se
                                            float Ki,
                                            float integralLimit,
                                            float controlPeriod,
-                                           const MomentumManagementRwArrayConfiguration_c* rwArrayConfig) {
-    fsw::fromHandle<::MomentumManagementAlgorithm>(self)->setConfig(
-        makeConfig(hsMin, K, Ki, integralLimit, controlPeriod, rwArrayConfig));
+                                           const Matrix3f_c* dumpableProjection_B,
+                                           const MomentumManagementRwSpinAxes_c* GsMatrix_B,
+                                           const MomentumManagementRwInertias_c* JsList,
+                                           const MomentumManagementRwAvailability_c* wheelAvailability) {
+    fsw::fromHandle<::MomentumManagementAlgorithm>(self)->setConfig(makeConfig(
+        hsMin, K, Ki, integralLimit, controlPeriod, dumpableProjection_B, GsMatrix_B, JsList, wheelAvailability));
 }
 
 void MomentumManagementAlgorithm_reInitialize(MomentumManagementAlgorithmHandle* self) {

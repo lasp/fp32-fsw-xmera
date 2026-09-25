@@ -5,8 +5,10 @@
 
 #include "momentumManagement.h"
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/xmera/deviceAvailability.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
+#include <algorithm>
 #include <memory>
 #include <stdexcept>
 
@@ -37,15 +39,22 @@ MomentumManagementConfig MomentumManagement::toConfig() {
     /*! - read in the RW configuration message and convert it to the algorithm's own types */
     const RWArrayConfigMsgF32Payload rwConfigParams = this->rwConfigDataInMsg();
     MomentumManagementRwArrayConfiguration rwArrayConfig;
-    rwArrayConfig.numRW = static_cast<uint32_t>(rwConfigParams.numRW);
     rwArrayConfig.GsMatrix_B = cArrayToEigenMatrix<float, 3, kMaxNumRw>(rwConfigParams.GsMatrix_B);
     rwArrayConfig.JsList = cArrayToEigenVector(rwConfigParams.JsList);
+    /*! - the availability message is optional; without it every wheel counts as available */
+    if (this->rwAvailInMsg.isLinked()) {
+        const RWAvailabilityMsgPayload availabilityMsg = this->rwAvailInMsg();
+        std::ranges::transform(availabilityMsg.wheelAvailability,
+                               std::begin(rwArrayConfig.wheelAvailability),
+                               [](const auto& sourceElement) { return fsw::toDeviceAvailability(sourceElement); });
+    }
 
     const MomentumManagementControlParameters controlParameters{.hsMin = this->hsMin,
                                                                 .K = this->K,
                                                                 .Ki = this->Ki,
                                                                 .integralLimit = this->integralLimit,
-                                                                .controlPeriod = this->controlPeriod};
+                                                                .controlPeriod = this->controlPeriod,
+                                                                .dumpableProjection_B = this->dumpableProjection_B};
 
     return MomentumManagementConfig::create(controlParameters, rwArrayConfig);
 }
@@ -72,8 +81,8 @@ void MomentumManagement::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! The RW momentum level is assessed on every update to determine the torque required to dump the momentum
- held above the threshold.
+/*! The RW momentum level is assessed on every update to determine the torque required to dump it once the
+ threshold is exceeded.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
