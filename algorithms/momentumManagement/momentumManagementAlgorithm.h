@@ -1,7 +1,6 @@
 #ifndef F32XMERA_MOMENTUM_MANAGEMENT_ALGORITHM_H
 #define F32XMERA_MOMENTUM_MANAGEMENT_ALGORITHM_H
 
-#include "momentumManagementTypes.h"
 #include "msgPayloadDef/definitions.h"
 #include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
