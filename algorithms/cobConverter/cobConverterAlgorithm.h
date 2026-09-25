@@ -3,7 +3,6 @@
 
 #include <Eigen/Dense>
 #include <numbers>
-#include <utility>
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"

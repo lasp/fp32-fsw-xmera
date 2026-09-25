@@ -19,11 +19,6 @@ inline Eigen::Matrix3d computeCameraCalibrationMatrix(double fieldOfViewX,
                                                       double resolutionX,
                                                       double resolutionY) {
     constexpr double alpha = 0.0;
-    // safeTan (not std::tan) matches CobConverterAlgorithm::computeCameraParameters, which clamps
-    // via safeTanf near the +/-pi/2 singularity. Using raw std::tan here would let the reference
-    // diverge sharply from the algorithm's railed value whenever fieldOfViewX/fieldOfViewY combine
-    // to push either argument close to the singularity, producing a spurious mismatch that
-    // reflects this helper's precision choice rather than an algorithm defect.
     const double pX = 2.0 * safeTan(fieldOfViewX / 2.0);
     const double pY = 2.0 * safeTan(fieldOfViewY / 2.0);
     const double dX = resolutionX / pX;
@@ -52,15 +47,13 @@ inline Eigen::Vector3d applyBrownConrady(const Eigen::Vector3d& uncalibratedVect
     return calibratedVector;
 }
 
-// Result of the double-precision Brown-Conrady inverse: undistorted homogeneous coordinate and
-// whether the fixed-point iteration converged.
+// Result of the double-precision Brown-Conrady inverse
 struct ReferenceUndistortion {
     Eigen::Vector3d vector;
     bool valid;
 };
 
-// Double-precision replica of CobConverterAlgorithm::undistortNormalizedCoordinate: the same
-// fixed-point update, residual-based stop, iteration cap and guards, only evaluated in double.
+// Double-precision replica of CobConverterAlgorithm::undistortNormalizedCoordinate
 inline ReferenceUndistortion undistortBrownConrady(const Eigen::Vector3d& distortedVector,
                                                    const CalibrationCoefficients& coefficients) {
     constexpr int kMaxIterations = 50;
@@ -135,11 +128,6 @@ inline double betaVariance(const Eigen::Vector3d& position,
     const double deltaBinaryDeltaRadius = constantsDeltaR / radius;
     const double deltaBinaryDeltaAlphaCoeff =
         (4.0 * radius / (3.0 * std::numbers::pi * positionNorm)) / (1.0 + (binaryTerm * binaryTerm));
-
-    // deltaAlphaDeltaR is d(alpha)/d(r) = -sunUnit_N^T/(r*sin(alpha)) * (I - rHat*rHat^T) (see
-    // cobConverter.rst), but omits sin(alpha) since deltaBinaryDeltaAlphaCoeff above already omits
-    // the matching factor and the two are only ever multiplied together below -- sin(alpha) cancels,
-    // so only the sign matters here. Avoids a literal 1/sin(alpha) that blows up near alpha=0/pi.
     const Eigen::RowVector3d deltaAlphaDeltaR =
         -((sunUnit_N / positionNorm).transpose() * (Eigen::Matrix3d::Identity() - (rHat * rHat.transpose())));
 
