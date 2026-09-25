@@ -66,22 +66,26 @@ std::pair<RegionsOfInterestPruneAlgorithm::SpanArray, RegionsOfInterestPruneAlgo
 RegionsOfInterestPruneAlgorithm::findSpans(const uint16_t* s, uint32_t n) {
     SpanArray spans;
     AccumArray accum;
-    for (uint32_t i = 0; i < n;) {
-        if (s[i] != 0) {
-            uint32_t j = i;
-            uint32_t sum = 0;
-            while (j < n && s[j] != 0) {
-                sum += s[j++];
-            }
-            if (spans.count < MAX_SPANS) {
-                spans.data[spans.count] = {i, j - i};
-                accum.data[accum.count] = sum;
-                ++spans.count;
-                ++accum.count;
-            }
-            i = j;
-        } else {
-            ++i;
+    uint32_t pos = 0;
+    while (pos < n) {
+        if (s[pos] == 0) {
+            ++pos;
+            continue;
+        }
+
+        const uint32_t spanStart = pos;
+        uint32_t sum = 0;
+        while (pos < n && s[pos] != 0) {
+            sum += s[pos];
+            ++pos;
+        }
+        const uint32_t spanLength = pos - spanStart;
+
+        if (spans.count < MAX_SPANS) {
+            spans.data[spans.count] = {spanStart, spanLength};
+            accum.data[accum.count] = sum;
+            ++spans.count;
+            ++accum.count;
         }
     }
     return {spans, accum};
