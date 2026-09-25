@@ -251,49 +251,6 @@ float CobConverterAlgorithm::computeBetaVar(const Eigen::Matrix3d& filterVehPosi
 }
 
 /**
- * @brief Populate the unit-vector and COM output structs.
- *
- * @param timeTag Measurement timestamp (nanoseconds).
- * @param centerOfMass COM in homogeneous pixel coordinates.
- * @param centerOfBrightness COB in homogeneous pixel coordinates.
- * @param rotations dcm_BN/dcm_NC for the current cycle.
- * @param correction Phase-angle correction terms for the current cycle.
- * @param rhatCOM_C COM unit vector in the camera frame.
- * @param rhatCOB_C COB unit vector in the camera frame.
- * @param output Essential (inertial-frame) output to fill.
- * @param diagnostic Diagnostic output to fill.
- */
-void CobConverterAlgorithm::populateOutputMessages(const uint64_t timeTag,
-                                                   const Eigen::Vector3f& centerOfMass,
-                                                   const Eigen::Vector3f& centerOfBrightness,
-                                                   const Rotations& rotations,
-                                                   const PhaseAngleCorrectionResult& correction,
-                                                   const Eigen::Vector3f& rhatCOM_C,
-                                                   const Eigen::Vector3f& rhatCOB_C,
-                                                   CobConverterOutput& output,
-                                                   CobConverterDiagnosticOutput& diagnostic) {
-    const Eigen::Vector3f rhatCOM_N = rotations.dcm_NC * rhatCOM_C;
-    output.unitVecTimeTag = static_cast<double>(timeTag) * kNano2Sec;
-
-    diagnostic.rhat_BN_C = rhatCOM_C;
-    diagnostic.rhat_BN_B = rotations.dcm_BN * rhatCOM_N;
-    diagnostic.rhat_COB_C = rhatCOB_C;
-    diagnostic.rhat_COB_N = rotations.dcm_NC * rhatCOB_C;
-    diagnostic.rhat_COB_B = rotations.dcm_BN * diagnostic.rhat_COB_N;
-
-    const Eigen::Vector2f centerOfBrightnessXY(centerOfBrightness(0), centerOfBrightness(1));
-    diagnostic.centerOfBrightness = centerOfBrightnessXY;
-    const Eigen::Vector2f centerOfMassXY(centerOfMass(0), centerOfMass(1));
-    diagnostic.centerOfMass = centerOfMassXY;
-    diagnostic.offsetFactor = correction.gamma;
-    diagnostic.objectPixelRadius = static_cast<int>(correction.Rc);
-    diagnostic.phaseAngle = correction.alphaPA;
-    diagnostic.sunDirection = correction.phi;
-    diagnostic.comTimeTag = timeTag;
-    diagnostic.comValid = correction.validCom;
-}
-
-/**
  * @brief Update step: convert pixel-based COB into unit vectors and return all outputs.
  *
  * Publishes the COM heading and its covariance; the COB heading only feeds outlier detection
@@ -387,21 +344,29 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
                                                              rhatCOM_SC_N_Buffer);
                 result.diagnostic.comErrorOutlierTrigger = !goodOutlierCheck;
             }
-            CobConverterAlgorithm::populateOutputMessages(cob.cobTimeTag,
-                                                          centerOfMass,
-                                                          centerOfBrightness,
-                                                          rotations,
-                                                          correction,
-                                                          rhatCOM_SC_C_Buffer,
-                                                          -xy1COBCorrected.stableNormalized(),
-                                                          result.output,
-                                                          result.diagnostic);
+            const Eigen::Vector3f rhatCOB_C = -xy1COBCorrected.stableNormalized();
+            const Eigen::Vector3f rhatCOB_N = rotations.dcm_NC * rhatCOB_C;
+
             result.output.rhat_BN_N = rhatCOM_SC_N_Buffer;
             result.output.covar_N = covarRHat_N_Buffer;
+            result.output.unitVecTimeTag = static_cast<double>(cob.cobTimeTag) * kNano2Sec;
             result.output.unitVecValid = correction.validCom && goodOutlierCheck && brownConradyCOMValid;
 
             result.diagnostic.covar_C = rotations.dcm_NC.transpose() * covarRHat_N_Buffer * rotations.dcm_NC;
             result.diagnostic.covar_B = rotations.dcm_BN * covarRHat_N_Buffer * rotations.dcm_BN.transpose();
+            result.diagnostic.rhat_BN_C = rhatCOM_SC_C_Buffer;
+            result.diagnostic.rhat_BN_B = rotations.dcm_BN * rhatCOM_SC_N_Buffer;
+            result.diagnostic.rhat_COB_C = rhatCOB_C;
+            result.diagnostic.rhat_COB_N = rhatCOB_N;
+            result.diagnostic.rhat_COB_B = rotations.dcm_BN * rhatCOB_N;
+            result.diagnostic.centerOfBrightness = centerOfBrightness.head<2>();
+            result.diagnostic.centerOfMass = centerOfMass.head<2>();
+            result.diagnostic.offsetFactor = correction.gamma;
+            result.diagnostic.objectPixelRadius = static_cast<int>(correction.Rc);
+            result.diagnostic.phaseAngle = correction.alphaPA;
+            result.diagnostic.sunDirection = correction.phi;
+            result.diagnostic.comTimeTag = cob.cobTimeTag;
+            result.diagnostic.comValid = correction.validCom;
         }
     }
     return result;

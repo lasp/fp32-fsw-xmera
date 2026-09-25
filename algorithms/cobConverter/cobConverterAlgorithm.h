@@ -321,15 +321,6 @@ class CobConverterAlgorithm final {
                                                            const Eigen::Matrix3f& dcm_BN) const;
     float computeBetaVar(const Eigen::Matrix3d& filterVehPositionCovariance,
                          const PhaseAngleCorrectionResult& correction) const;
-    static void populateOutputMessages(uint64_t timeTag,
-                                       const Eigen::Vector3f& centerOfMass,
-                                       const Eigen::Vector3f& centerOfBrightness,
-                                       const Rotations& rotations,
-                                       const PhaseAngleCorrectionResult& correction,
-                                       const Eigen::Vector3f& rhatCOM_C,
-                                       const Eigen::Vector3f& rhatCOB_C,
-                                       CobConverterOutput& output,
-                                       CobConverterDiagnosticOutput& diagnostic);
 
     CobConverterConfig cfg;
     Eigen::Matrix3f dcm_CB = Eigen::Matrix3f::Zero();
