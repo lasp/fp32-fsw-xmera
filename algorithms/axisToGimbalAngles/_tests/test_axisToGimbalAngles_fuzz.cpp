@@ -56,6 +56,11 @@ FUZZ_TEST(AxisToGimbalAnglesPropertyFuzz, propertyAchievedDirectionIsNearestReac
                  xmera::fuzz::Vector3fInRange(-kDirectionLimit, kDirectionLimit),
                  fuzztest::InRange(kMinThetaMax, kMaxThetaMax));
 
+FUZZ_TEST(AxisToGimbalAnglesPropertyFuzz, propertyLimitIsIdempotent)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit),
+                 xmera::fuzz::Vector3fInRange(-kDirectionLimit, kDirectionLimit),
+                 fuzztest::InRange(kMinThetaMax, kMaxThetaMax));
+
 // The module makes the input direction a unit vector, thus the length has no effect. The range below keeps each
 // scaled component in the normal float range, where the scaling keeps the direction.
 FUZZ_TEST(AxisToGimbalAnglesPropertyFuzz, propertyLengthHasNoEffect)

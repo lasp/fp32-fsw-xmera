@@ -64,6 +64,12 @@ TEST(AxisToGimbalAnglesTest, PropertyAchievedDirectionIsNearestReachable) {
     propertyAchievedDirectionIsNearestReachable(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
 }
 
+TEST(AxisToGimbalAnglesTest, PropertyLimitIsIdempotent) {
+    propertyLimitIsIdempotent(rotatedMount(), {0.1F, -0.2F, -0.97F});
+    propertyLimitIsIdempotent(rotatedMount(), {0.1F, -0.2F, 0.97F});
+    propertyLimitIsIdempotent(Eigen::Vector3f::Zero(), -Eigen::Vector3f::UnitZ());
+}
+
 TEST(AxisToGimbalAnglesTest, PropertyLengthHasNoEffect) {
     propertyLengthHasNoEffect(rotatedMount(), {0.1F, -0.2F, -0.97F}, 137.0F);
     propertyLengthHasNoEffect(rotatedMount(), {0.1F, -0.2F, -0.97F}, 1e-3F);
@@ -139,6 +145,40 @@ TEST(AxisToGimbalAnglesTest, DeflectionBeyondTheTravelGoesToTheEdgeOfTheCone) {
     }
 }
 
+// The travel limit also applies in mount-frame coordinates when the mount is rotated. The expected body-frame
+// direction is the hand-calculated mount-frame direction, rotated back to the body frame.
+TEST(AxisToGimbalAnglesTest, DeflectionBeyondTheTravelWithARotatedMount) {
+    constexpr float thetaMax = 30.0F * kDegToRad;
+    const Eigen::Matrix3f dcm_MB = mrpToDcm(rotatedMount());
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(rotatedMount(), thetaMax)};
+
+    const AxisToGimbalAnglesOutput out = alg.update(dcm_MB.transpose() * Eigen::Vector3f::UnitY());
+
+    const Eigen::Vector3f expected_M{0.0F, 0.5F, std::sqrt(3.0F) / 2.0F};
+    EXPECT_TRUE(out.thrustHat_B.isApprox(dcm_MB.transpose() * expected_M, kAccuracy)) << out.thrustHat_B.transpose();
+    EXPECT_NEAR(out.gimbalAngle1, -thetaMax, kAccuracy);
+    EXPECT_NEAR(out.gimbalAngle2, 0.0F, kAccuracy);
+}
+
+// A request inside the travel is not changed, up to the edge of the cone. Just outside the edge, the limited
+// direction is nearly the request, thus the limit has no jump at the edge.
+TEST(AxisToGimbalAnglesTest, TravelLimitIsContinuousAtTheEdgeOfTheCone) {
+    constexpr float thetaMax = 30.0F * kDegToRad;
+    constexpr float step = 1e-3F;
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), thetaMax)};
+
+    for (const float requested : {thetaMax - step, thetaMax, thetaMax + step}) {
+        const Eigen::Vector3f request{std::sin(requested) * 0.6F, std::sin(requested) * -0.8F, std::cos(requested)};
+        const AxisToGimbalAnglesOutput out = alg.update(request);
+        const Eigen::Vector3f expected =
+            (requested <= thetaMax)
+                ? request
+                : Eigen::Vector3f{std::sin(thetaMax) * 0.6F, std::sin(thetaMax) * -0.8F, std::cos(thetaMax)};
+        EXPECT_TRUE(out.thrustHat_B.isApprox(expected, kAccuracy)) << requested;
+        EXPECT_LT((out.thrustHat_B - request).norm(), 1.01F * step);
+    }
+}
+
 // A request exactly opposite the neutral axis leaves no plane to move in. The module takes an arbitrary
 // perpendicular direction and still gives a direction on the edge of the cone, not the neutral position.
 TEST(AxisToGimbalAnglesTest, DirectionOppositeTheNeutralAxisGoesToTheEdgeOfTheCone) {
@@ -146,8 +186,23 @@ TEST(AxisToGimbalAnglesTest, DirectionOppositeTheNeutralAxisGoesToTheEdgeOfTheCo
     const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), thetaMax)};
     const AxisToGimbalAnglesOutput out = alg.update(-Eigen::Vector3f::UnitZ());
 
-    const float deflection = std::acos(gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2).z());
-    EXPECT_NEAR(deflection, thetaMax, kAccuracy);
+    EXPECT_NEAR(std::acos(gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2).z()), thetaMax, kAccuracy);
+    EXPECT_NEAR(std::acos(out.thrustHat_B.z()), thetaMax, kAccuracy);
+}
+
+// Nearly opposite the neutral axis, a perpendicular part that is longer than the threshold still sets the plane.
+// A shorter one does not, but the direction still goes to the edge of the cone.
+TEST(AxisToGimbalAnglesTest, DirectionNearlyOppositeTheNeutralAxis) {
+    constexpr float thetaMax = 25.0F * kDegToRad;
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), thetaMax)};
+
+    const AxisToGimbalAnglesOutput kept = alg.update({0.0F, 2.0F * static_cast<float>(kMinPerpendicular), -1.0F});
+    EXPECT_TRUE(kept.thrustHat_B.isApprox(Eigen::Vector3f{0.0F, std::sin(thetaMax), std::cos(thetaMax)}, kAccuracy))
+        << kept.thrustHat_B.transpose();
+
+    const AxisToGimbalAnglesOutput lost = alg.update({0.0F, 0.5F * static_cast<float>(kMinPerpendicular), -1.0F});
+    EXPECT_NEAR(std::acos(lost.thrustHat_B.z()), thetaMax, kAccuracy);
+    expectWithinTravel(lost, thetaMax);
 }
 
 // A direction at a deflection of exactly 90 degrees has a zero z component in mount-frame coordinates. The
@@ -165,13 +220,14 @@ TEST(AxisToGimbalAnglesTest, NinetyDegreeDeflectionGivesUsableAngles) {
 }
 
 // A direction vector of zero length carries no direction, thus there is nothing to limit and nothing to point
-// at. The gimbal stays at its neutral position.
+// at. The gimbal stays at its neutral position and fires along the neutral axis.
 TEST(AxisToGimbalAnglesTest, ZeroDirectionGivesHomePosition) {
-    const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero())};
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(rotatedMount())};
     const AxisToGimbalAnglesOutput out = alg.update(Eigen::Vector3f::Zero());
 
     EXPECT_NEAR(out.gimbalAngle1, 0.0F, kAccuracy);
     EXPECT_NEAR(out.gimbalAngle2, 0.0F, kAccuracy);
+    EXPECT_TRUE(out.thrustHat_B.isApprox(mrpToDcm(rotatedMount()).transpose() * Eigen::Vector3f::UnitZ(), kAccuracy));
 }
 
 // The module assumes a finite input and does not examine it. For an input that is not finite, the two angles still
@@ -242,4 +298,14 @@ TEST(AxisToGimbalAnglesTest, SetConfigAppliesNewMounting) {
     const AxisToGimbalAnglesOutput out = alg.update(Eigen::Vector3f::UnitZ());
     EXPECT_NEAR(out.gimbalAngle1, 0.0F, kAccuracy);
     EXPECT_NEAR(out.gimbalAngle2, angle2, kAccuracy);
+}
+
+// setConfig() calculates the cosine and the sine of the travel again. Thus the module uses the new travel for the
+// same input.
+TEST(AxisToGimbalAnglesTest, SetConfigAppliesNewTravel) {
+    AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), 60.0F * kDegToRad)};
+    EXPECT_NEAR(alg.update(Eigen::Vector3f::UnitX()).gimbalAngle2, 60.0F * kDegToRad, kAccuracy);
+
+    alg.setConfig(makeConfig(Eigen::Vector3f::Zero(), 10.0F * kDegToRad));
+    EXPECT_NEAR(alg.update(Eigen::Vector3f::UnitX()).gimbalAngle2, 10.0F * kDegToRad, kAccuracy);
 }

@@ -237,6 +237,20 @@ inline void propertyAchievedDirectionIsNearestReachable(const Eigen::Vector3f& s
     }
 }
 
+// The achieved direction is inside the travel, thus a second request along it gives the same angles and the
+// same direction again.
+inline void propertyLimitIsIdempotent(const Eigen::Vector3f& sigma_MB,
+                                      const Eigen::Vector3f& thrustDirection_B,
+                                      const float thetaMax = kDefaultThetaMax) {
+    const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB, thetaMax)};
+    const AxisToGimbalAnglesOutput out = alg.update(thrustDirection_B);
+    const AxisToGimbalAnglesOutput again = alg.update(out.thrustHat_B);
+
+    EXPECT_NEAR(again.gimbalAngle1, out.gimbalAngle1, kAngleTolerance);
+    EXPECT_NEAR(again.gimbalAngle2, out.gimbalAngle2, kAngleTolerance);
+    EXPECT_LT((again.thrustHat_B - out.thrustHat_B).norm(), kAngleTolerance);
+}
+
 // Both angles are ratios against the mount +z axis. Thus a change of the length of the input direction does not
 // change the two angles.
 //
