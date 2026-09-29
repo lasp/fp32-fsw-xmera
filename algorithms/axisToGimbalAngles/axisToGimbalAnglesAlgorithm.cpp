@@ -26,26 +26,22 @@ void AxisToGimbalAnglesAlgorithm::setConfig(const AxisToGimbalAnglesConfig& conf
     this->sinThetaMax = safeSinf(this->cfg.getThetaMax());
 }
 
-/*! Pull a request that is outside the travel of the mechanism back onto the cone of half-angle thetaMax, in the
- plane that the request and the neutral axis span.
- @return a unit direction whose deflection from the mount +z axis is at most thetaMax
+/*! Move a request that is outside the travel of the mechanism onto the cone of half-angle thetaMax, in the plane
+ that the request and the neutral axis span.
+ @return a unit direction whose deflection from the mount +z axis is thetaMax
  @param thrustHat_M [-] requested thrust direction, unit length, mount frame coordinates
+ @param cosThetaMax [-] cosine of the largest deflection
+ @param sinThetaMax [-] sine of the largest deflection
 */
-Eigen::Vector3f AxisToGimbalAnglesAlgorithm::clampDeflection(const Eigen::Vector3f& thrustHat_M) const {
-    // The request has unit length, so its z component is the cosine of the deflection.
-    Eigen::Vector3f clampedThrustHat_M = thrustHat_M;
+Eigen::Vector3f AxisToGimbalAnglesAlgorithm::clampDeflection(const Eigen::Vector3f& thrustHat_M,
+                                                             const float cosThetaMax,
+                                                             const float sinThetaMax) {
+    const Eigen::Vector3f perpendicular = thrustHat_M - (Eigen::Vector3f::UnitZ() * thrustHat_M.z());
+    // A request exactly opposite the neutral axis leaves no plane, so any perpendicular direction will do.
+    const Eigen::Vector3f perpendicularHat =
+        (perpendicular.stableNorm() > kMinPerpendicular) ? perpendicular.stableNormalized() : Eigen::Vector3f::UnitX();
 
-    if (thrustHat_M.z() < this->cosThetaMax) {
-        const Eigen::Vector3f perpendicular = thrustHat_M - (Eigen::Vector3f::UnitZ() * thrustHat_M.z());
-        // A request exactly opposite the neutral axis leaves no plane, so any perpendicular direction will do.
-        const Eigen::Vector3f perpendicularHat = (perpendicular.stableNorm() > kMinPerpendicular)
-                                                     ? perpendicular.stableNormalized()
-                                                     : Eigen::Vector3f::UnitX();
-
-        clampedThrustHat_M = (this->cosThetaMax * Eigen::Vector3f::UnitZ()) + (this->sinThetaMax * perpendicularHat);
-    }
-
-    return clampedThrustHat_M;
+    return (cosThetaMax * Eigen::Vector3f::UnitZ()) + (sinThetaMax * perpendicularHat);
 }
 
 /*! This method determines the two gimbal angles that align the gimbal thrust axis with the requested thrust
@@ -65,7 +61,10 @@ AxisToGimbalAnglesOutput AxisToGimbalAnglesAlgorithm::update(const Eigen::Vector
     Eigen::Vector3f clampedThrustHat_M = Eigen::Vector3f::UnitZ();
 
     if (thrustHat_M.allFinite() && !thrustHat_M.isZero()) {
-        clampedThrustHat_M = this->clampDeflection(thrustHat_M);
+        // The request has unit length, so its z component is the cosine of the deflection.
+        clampedThrustHat_M = (thrustHat_M.z() < this->cosThetaMax)
+                                 ? clampDeflection(thrustHat_M, this->cosThetaMax, this->sinThetaMax)
+                                 : thrustHat_M;
 
         // thetaMax is less than 90 degrees, so the z component stays above zero and both angles stay within it.
         output.gimbalAngle1 = safeAtan2f(-clampedThrustHat_M.y(), clampedThrustHat_M.z());
