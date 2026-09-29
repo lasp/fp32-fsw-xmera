@@ -144,13 +144,25 @@ TEST(AxisToGimbalAnglesTest, ZeroDirectionGivesHomePosition) {
     EXPECT_NEAR(out.gimbalAngle2, 0.0F, kAccuracy);
 }
 
-// The module cannot use a direction vector that contains a value that is not a number.
-TEST(AxisToGimbalAnglesTest, NonFiniteDirectionGivesHomePosition) {
+// The module assumes a finite input and does not examine it. For an input that is not finite, the two angles still
+// stay finite and inside the travel. They are not always the home position, and thrustHat_B can contain NaN, thus
+// the test makes no claim about the two.
+TEST(AxisToGimbalAnglesTest, NonFiniteDirectionGivesFiniteAngles) {
     constexpr float nan = std::numeric_limits<float>::quiet_NaN();
-    const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero())};
+    constexpr float inf = std::numeric_limits<float>::infinity();
 
-    EXPECT_NEAR(alg.update({nan, 0.0F, 1.0F}).gimbalAngle1, 0.0F, kAccuracy);
-    EXPECT_NEAR(alg.update({0.0F, 0.0F, nan}).gimbalAngle2, 0.0F, kAccuracy);
+    for (const Eigen::Vector3f& sigma_MB : {Eigen::Vector3f::Zero().eval(), rotatedMount()}) {
+        for (const Eigen::Vector3f& request : {Eigen::Vector3f{nan, 0.0F, 1.0F},
+                                               Eigen::Vector3f{0.0F, 0.0F, nan},
+                                               Eigen::Vector3f{0.0F, inf, 1.0F},
+                                               Eigen::Vector3f{-inf, 0.0F, -1.0F}}) {
+            const AxisToGimbalAnglesAlgorithm alg{makeConfig(sigma_MB)};
+            const AxisToGimbalAnglesOutput out = alg.update(request);
+            EXPECT_TRUE(std::isfinite(out.gimbalAngle1));
+            EXPECT_TRUE(std::isfinite(out.gimbalAngle2));
+            expectWithinTravel(out, kDefaultThetaMax);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

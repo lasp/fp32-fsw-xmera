@@ -56,11 +56,11 @@ AxisToGimbalAnglesOutput AxisToGimbalAnglesAlgorithm::update(const Eigen::Vector
 
     AxisToGimbalAnglesOutput output{};
 
-    // A request of zero length, or one that is not a number, carries no direction at all. The gimbal then stays
-    // at its neutral position: zeroed angles, firing along the un-deflected axis.
+    // A request of zero length carries no direction at all. The gimbal then stays at its neutral position: zeroed
+    // angles, firing along the un-deflected axis.
     Eigen::Vector3f clampedThrustHat_M = Eigen::Vector3f::UnitZ();
 
-    if (thrustHat_M.allFinite() && !thrustHat_M.isZero()) {
+    if (!thrustHat_M.isZero()) {
         // The request has unit length, so its z component is the cosine of the deflection.
         clampedThrustHat_M = (thrustHat_M.z() < this->cosThetaMax)
                                  ? clampDeflection(thrustHat_M, this->cosThetaMax, this->sinThetaMax)
