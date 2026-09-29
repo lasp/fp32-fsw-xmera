@@ -90,7 +90,7 @@ inline bool referenceCheckValidity(const ReferenceFlybyState& s,
 
     const Eigen::Vector3d ur = r.normalized();
     const Eigen::Vector3d uv = v.normalized();
-    if (std::fabs(1.0 - ur.dot(uv)) < config.getToleranceForCollinearity()) return false;
+    if (1.0 - std::fabs(ur.dot(uv)) < config.getToleranceForCollinearity()) return false;
 
     const double dca = -r.norm() * safeSin(s.gamma0);
     const double maxRate = v.norm() / dca * kRad2Deg;

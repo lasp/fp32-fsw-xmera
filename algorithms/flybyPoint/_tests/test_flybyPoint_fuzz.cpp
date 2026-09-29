@@ -18,6 +18,11 @@ static void fuzzRegressionFlybyPoint(double timeBetweenFilterData,
                                      const Eigen::Vector3d& v_BN_N,
                                      uint64_t stepNanos,
                                      int numSteps) {
+    // The first read seeds the frame unchecked, so the algorithm assumes it is valid. Skip (near-)collinear
+    // r/v: r x v vanishes, the orbit frame is undefined, and the outputs depend on platform rounding (FMA).
+    if (r_BN_N.normalized().cross(v_BN_N.normalized()).norm() < 1e-6) {
+        return;
+    }
     const FlybyPointConfig cfg = FlybyPointConfig::create(timeBetweenFilterData,
                                                           toleranceForCollinearity,
                                                           signOfOrbitNormalFrameVector,

@@ -87,8 +87,8 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     const Eigen::Vector3d ur_N = r_BN_N.normalized();
     const Eigen::Vector3d uv_N = v_BN_N.normalized();
 
-    /*! assert r and v are not collinear (collision trajectory) */
-    if (fabs(1.0 - ur_N.dot(uv_N)) < this->cfg.getToleranceForCollinearity()) {
+    /*! assert r and v are not collinear, parallel or anti-parallel (collision trajectory) */
+    if (1.0 - fabs(ur_N.dot(uv_N)) < this->cfg.getToleranceForCollinearity()) {
         valid = false;
         output.collinearityTrigger = true;
     } else {
