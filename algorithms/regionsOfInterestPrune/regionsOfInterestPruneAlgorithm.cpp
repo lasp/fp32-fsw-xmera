@@ -26,8 +26,8 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
                                                       const uint16_t* colSums,
                                                       uint32_t numCols) const {
     // Step 1: locate contiguous non-zero spans and accumulate per-span pixel sums.
-    const auto [rowSpans, rowAccum] = findSpans(rowSums, numRows);
-    const auto [colSpans, colAccum] = findSpans(colSums, numCols);
+    const auto [rowSpans, rowAccum] = findSpans(std::span<const uint16_t>(rowSums, numRows));
+    const auto [colSpans, colAccum] = findSpans(std::span<const uint16_t>(colSums, numCols));
 
     // Step 2: keep only the highest-sum spans to bound the cross-product size.
     const auto topRows = topIndices(rowAccum, this->cfg.getMaxRowSpans());
@@ -57,15 +57,13 @@ float squaredDistanceToCenter(const RoiCandidateEntry& candidate, float centerRo
 /*! Scans a 1-D sum array and returns all contiguous non-zero spans together
  *  with the accumulated sum for each span.  A single forward pass produces both.
  @return Pair of (spans, accum) where spans[i] = (start, length) and accum[i] = sum over that span.
- @param s  Pointer to the 1-D sum array.
- @param n  Length of the array.
+ @param s  Span over the 1-D sum array.
 */
-// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic) -- s is a raw C array mirroring the
-// message payload's void* pointer field; indexing it directly is the natural, minimal representation.
 std::pair<RegionsOfInterestPruneAlgorithm::SpanArray, RegionsOfInterestPruneAlgorithm::AccumArray>
-RegionsOfInterestPruneAlgorithm::findSpans(const uint16_t* s, uint32_t n) {
+RegionsOfInterestPruneAlgorithm::findSpans(std::span<const uint16_t> s) {
     SpanArray spans;
     AccumArray accum;
+    const uint32_t n = static_cast<uint32_t>(s.size());
     uint32_t pos = 0;
     while (pos < n) {
         if (s[pos] == 0) {
@@ -90,7 +88,6 @@ RegionsOfInterestPruneAlgorithm::findSpans(const uint16_t* s, uint32_t n) {
     }
     return {spans, accum};
 }
-// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
 /*! Returns the indices of the top-keep entries of vals ordered by descending value.
  *  Uses std::ranges::partial_sort so only the retained portion is fully sorted (O(N log keep)).
