@@ -23,9 +23,10 @@ void DvAccumulation::reconfigure() {
 }
 
 void DvAccumulation::reInitialize() {
-    if (this->algorithm) {
-        this->algorithm->reInitialize();
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("DvAccumulation reset() has not been called.");
     }
+    this->algorithm->reInitialize();
 }
 
 void DvAccumulation::updateState(const uint64_t callTime) {
