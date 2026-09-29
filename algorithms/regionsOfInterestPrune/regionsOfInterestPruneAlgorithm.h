@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <utility>
 
 static constexpr uint32_t ROI_CANDIDATES_MAX = 16;    //!< Maximum number of candidates retained/published
@@ -103,7 +104,7 @@ class RegionsOfInterestPruneAlgorithm final {
     };
 
     // Step 1: find contiguous non-zero spans and accumulate per-span sums.
-    static std::pair<SpanArray, AccumArray> findSpans(const uint16_t* s, uint32_t n);
+    static std::pair<SpanArray, AccumArray> findSpans(std::span<const uint16_t> s);
 
     // Step 2: return indices of the top-keep entries in vals (by descending value).
     static AccumArray topIndices(const AccumArray& vals, uint32_t keep);
