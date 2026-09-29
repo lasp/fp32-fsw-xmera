@@ -22,8 +22,8 @@ AxisToGimbalAnglesAlgorithm::AxisToGimbalAnglesAlgorithm(const AxisToGimbalAngle
 void AxisToGimbalAnglesAlgorithm::setConfig(const AxisToGimbalAnglesConfig& config) {
     this->cfg = config;
     this->dcm_MB = mrpToDcm(this->cfg.getSigma_MB());
-    this->cosThetaMax = cosf(this->cfg.getThetaMax());
-    this->sinThetaMax = sinf(this->cfg.getThetaMax());
+    this->cosThetaMax = safeCosf(this->cfg.getThetaMax());
+    this->sinThetaMax = safeSinf(this->cfg.getThetaMax());
 }
 
 /*! Pull a request that is outside the travel of the mechanism back onto the cone of half-angle thetaMax, in the
