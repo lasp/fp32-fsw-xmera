@@ -141,7 +141,8 @@ inline void testProportionalTorqueOpposesStoredMomentum(const MomentumManagement
     const float hsDumpableNorm = hsDumpable_B.norm();
 
     // The zero-momentum carve-out is pinned by the edge-case unit tests instead.
-    if (hsDumpableNorm < 1e-4F) {
+    constexpr float kZeroMomentumTol = 1e-4F;  // [Nms]
+    if (hsDumpableNorm < kZeroMomentumTol) {
         return;
     }
 
