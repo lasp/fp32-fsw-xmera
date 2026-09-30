@@ -57,9 +57,11 @@ TEST(AxisToGimbalAnglesTest, PropertyOutputIsUsable) {
     propertyOutputIsUsable(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
 }
 
-TEST(AxisToGimbalAnglesTest, PropertyDirectionRecovered) {
-    propertyDirectionRecovered(rotatedMount(), {0.1F, -0.2F, -0.97F});
-    propertyDirectionRecovered(Eigen::Vector3f::Zero(), -Eigen::Vector3f::UnitZ());
+TEST(AxisToGimbalAnglesTest, PropertyAchievedDirectionIsNearestReachable) {
+    propertyAchievedDirectionIsNearestReachable(rotatedMount(), {0.1F, -0.2F, -0.97F});
+    propertyAchievedDirectionIsNearestReachable(rotatedMount(), {0.1F, -0.2F, 0.97F});
+    propertyAchievedDirectionIsNearestReachable(Eigen::Vector3f::Zero(), -Eigen::Vector3f::UnitZ());
+    propertyAchievedDirectionIsNearestReachable(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
 }
 
 TEST(AxisToGimbalAnglesTest, PropertyLengthHasNoEffect) {
@@ -97,15 +99,43 @@ TEST(AxisToGimbalAnglesTest, PlaneAnglesAreNotSequentialEulerAngles) {
 }
 
 // A request outside the travel goes to the edge of the cone, in the plane that the request and the neutral axis
-// span. A request at a deflection of 90 degrees along the mount x axis gives the second angle at thetaMax.
+// span. Each expected direction below is calculated by hand from that geometry: the part along the neutral axis
+// becomes cos(thetaMax), and the perpendicular part keeps its direction with the length sin(thetaMax).
 TEST(AxisToGimbalAnglesTest, DeflectionBeyondTheTravelGoesToTheEdgeOfTheCone) {
-    constexpr float thetaMax = 30.0F * kDegToRad;
-    const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), thetaMax)};
+    struct Case {
+        Eigen::Vector3f request_M;
+        float thetaMax;
+        Eigen::Vector3f expected_M;
+        float angle1;
+        float angle2;
+    };
+    const float halfSqrt2 = std::sqrt(2.0F) / 2.0F;
+    // atan(0.5 / (sqrt(2) / 2)) = atan(1 / sqrt(2))
+    const float angleFromDiagonal = std::atan(1.0F / std::sqrt(2.0F));
+    const float sin20 = std::sin(20.0F * kDegToRad);
+    const float cos20 = std::cos(20.0F * kDegToRad);
+    const Case cases[] = {
+        // 90 degrees along +x and -x with a travel of 30 degrees: [+-sin(30), 0, cos(30)].
+        {Eigen::Vector3f::UnitX(), 30.0F * kDegToRad, {0.5F, 0.0F, std::sqrt(3.0F) / 2.0F}, 0.0F, 30.0F * kDegToRad},
+        {-Eigen::Vector3f::UnitX(), 30.0F * kDegToRad, {-0.5F, 0.0F, std::sqrt(3.0F) / 2.0F}, 0.0F, -30.0F * kDegToRad},
+        // A request of length 5 that points away from the neutral axis, in the y-z plane.
+        {{0.0F, -3.0F, -4.0F}, 45.0F * kDegToRad, {0.0F, -halfSqrt2, halfSqrt2}, 45.0F * kDegToRad, 0.0F},
+        // The perpendicular part is along the x-y diagonal: [sin(45) / sqrt(2), sin(45) / sqrt(2), cos(45)].
+        {{1.0F, 1.0F, -1.0F}, 45.0F * kDegToRad, {0.5F, 0.5F, halfSqrt2}, -angleFromDiagonal, angleFromDiagonal},
+        // A request at 22.6 degrees, just outside a travel of 20 degrees. The perpendicular part is [3, 4] / 5.
+        {Eigen::Vector3f{3.0F, 4.0F, 12.0F} / 13.0F,
+         20.0F * kDegToRad,
+         {0.6F * sin20, 0.8F * sin20, cos20},
+         std::atan2(-0.8F * sin20, cos20),
+         std::atan2(0.6F * sin20, cos20)},
+    };
 
-    for (const float sign : {1.0F, -1.0F}) {
-        const AxisToGimbalAnglesOutput out = alg.update(sign * Eigen::Vector3f::UnitX());
-        EXPECT_NEAR(out.gimbalAngle1, 0.0F, kAccuracy);
-        EXPECT_NEAR(out.gimbalAngle2, sign * thetaMax, kAccuracy);
+    for (const Case& c : cases) {
+        const AxisToGimbalAnglesAlgorithm alg{makeConfig(Eigen::Vector3f::Zero(), c.thetaMax)};
+        const AxisToGimbalAnglesOutput out = alg.update(c.request_M);
+        EXPECT_TRUE(out.thrustHat_B.isApprox(c.expected_M, kAccuracy)) << out.thrustHat_B.transpose();
+        EXPECT_NEAR(out.gimbalAngle1, c.angle1, kAccuracy);
+        EXPECT_NEAR(out.gimbalAngle2, c.angle2, kAccuracy);
     }
 }
 
