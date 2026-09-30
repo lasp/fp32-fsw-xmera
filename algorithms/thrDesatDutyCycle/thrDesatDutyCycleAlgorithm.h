@@ -1,11 +1,10 @@
 #ifndef F32XMERA_THR_DESAT_DUTY_CYCLE_ALGORITHM_H
 #define F32XMERA_THR_DESAT_DUTY_CYCLE_ALGORITHM_H
 
-#include "msgPayloadDef/definitions.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <stdint.h>
-#include <array>
+#include <Eigen/Core>
 
 /*!
  * @brief Validated configuration for the thruster desaturation duty-cycle gate.
@@ -36,10 +35,10 @@ class ThrDesatDutyCycleConfig final {
         return static_cast<uint64_t>(firingPeriods) + static_cast<uint64_t>(settlingPeriods) <= UINT32_MAX;
     }
 
-    /*! @return [-] control periods, at the start of each cycle, for which the force command is passed through. */
+    /*! @return [-] control periods, at the start of each cycle, for which the torque command is passed through. */
     uint32_t getFiringPeriods() const { return this->firingPeriods; }
 
-    /*! @return [-] control periods for which the gate commands zero force, letting the RWs re-settle. */
+    /*! @return [-] control periods for which the gate commands zero torque, letting the RWs re-settle. */
     uint32_t getSettlingPeriods() const { return this->settlingPeriods; }
 
    private:
@@ -49,15 +48,15 @@ class ThrDesatDutyCycleConfig final {
     ThrDesatDutyCycleConfig(uint32_t firingPeriods, uint32_t settlingPeriods)
         : firingPeriods(firingPeriods), settlingPeriods(settlingPeriods) {}
 
-    uint32_t firingPeriods;    //!< [-] control periods spent passing the force command through
-    uint32_t settlingPeriods;  //!< [-] control periods spent commanding zero force
+    uint32_t firingPeriods;    //!< [-] control periods spent passing the torque command through
+    uint32_t settlingPeriods;  //!< [-] control periods spent commanding zero torque
 };
 
 /*!
- * @brief Gates a thruster force command on and off in a fixed duty cycle.
+ * @brief Gates a thruster desaturation torque command on and off in a fixed duty cycle.
  *
- * The gate passes the commanded force through unchanged for the first firingPeriods control periods of every
- * cycle and commands zero force for the remaining settlingPeriods, giving the reaction wheels quiet windows in
+ * The gate passes the requested body torque through unchanged for the first firingPeriods control periods of
+ * every cycle and commands zero torque for the remaining settlingPeriods, giving the reaction wheels quiet windows in
  * which to re-stabilize the attitude between desaturation pulses. The cadence is free-running: the counter
  * advances on every update regardless of what is commanded, so the firing windows sit at a fixed phase.
  *
@@ -74,8 +73,8 @@ class ThrDesatDutyCycleAlgorithm final {
     //! Restart the duty cycle at the beginning of its firing window.
     void reInitialize();
 
-    //! [N] The per-thruster commanded force during a firing period, zero during a settling period.
-    std::array<float, kMaxThrusterCount> update(const std::array<float, kMaxThrusterCount>& thrusterForceCmd);
+    //! [Nm] The requested body torque during a firing period, zero during a settling period.
+    Eigen::Vector3f update(const Eigen::Vector3f& cmdTorque_B);
 
    private:
     ThrDesatDutyCycleConfig cfg;         //!< [-] validated configuration (duty-cycle cadence)

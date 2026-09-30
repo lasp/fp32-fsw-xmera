@@ -25,26 +25,25 @@ void ThrDesatDutyCycleAlgorithm::reInitialize() {
     this->previousPositionInCycle = this->cycleLength - 1U;
 }
 
-/*! This method gates the commanded thruster force on and off in a fixed duty cycle. The force is passed through
- unchanged during the firing window and replaced by zero during the settling window, which leaves the reaction
- wheels quiet periods in which to re-stabilize the attitude. The cadence is free-running, so the counter advances
- whether or not any force is commanded.
- @return [N] the commanded per-thruster force while firing, zero while settling
- @param thrusterForceCmd [N] The commanded thruster forces
+/*! This method gates the requested desaturation torque on and off in a fixed duty cycle. The torque is passed
+ through unchanged during the firing window and replaced by zero during the settling window, which leaves the
+ reaction wheels quiet periods in which to re-stabilize the attitude. The cadence is free-running, so the counter
+ advances whether or not any torque is requested.
+ @return [Nm] the requested body torque while firing, zero while settling
+ @param cmdTorque_B [Nm] The requested body torque
  */
-std::array<float, kMaxThrusterCount> ThrDesatDutyCycleAlgorithm::update(
-    const std::array<float, kMaxThrusterCount>& thrusterForceCmd) {
+Eigen::Vector3f ThrDesatDutyCycleAlgorithm::update(const Eigen::Vector3f& cmdTorque_B) {
     /*! - advance one position, wrapping at the end of the cycle; the wrap also puts the position back in range
      when setConfig() has shortened the cycle below the position already reached */
     const uint32_t positionInCycle = (this->previousPositionInCycle + 1U) % this->cycleLength;
 
-    /*! - the firing window occupies the leading positions of the cycle; the rest commands zero force */
-    std::array<float, kMaxThrusterCount> thrForceOut{};
+    /*! - the firing window occupies the leading positions of the cycle; the rest commands zero torque */
+    Eigen::Vector3f torqueOut_B = Eigen::Vector3f::Zero();
     if (positionInCycle < this->cfg.getFiringPeriods()) {
-        thrForceOut = thrusterForceCmd;
+        torqueOut_B = cmdTorque_B;
     }
 
     this->previousPositionInCycle = positionInCycle;
 
-    return thrForceOut;
+    return torqueOut_B;
 }

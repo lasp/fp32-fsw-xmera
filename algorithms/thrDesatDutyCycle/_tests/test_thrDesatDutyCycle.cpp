@@ -1,15 +1,14 @@
 #include "thrDesatDutyCycleTestHelpers.hpp"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
-#include <array>
-#include <cstddef>
+#include <Eigen/Core>
 #include <vector>
 
 namespace {
 
-// A representative per-thruster desaturation force command: an eight-thruster RCS cluster where the mapping
-// stage has left two thrusters idle. Deliberately not uniform, so a gate that scrambled the array would show.
-const std::vector<float> kNominalForces = {1.2F, 0.2F, 0.0F, 1.6F, 1.2F, 0.2F, 1.6F, 0.0F};
+// A representative momentumManagement dumping torque. Deliberately distinct per axis with mixed signs, so a gate
+// that scrambled or rescaled the components would show.
+const std::vector<float> kNominalTorques = {1.2e-2F, -3.5e-3F, 7.0e-4F};
 
 // The nominal cadence: fire for one control period, then hold off for four so the wheels can re-settle.
 constexpr uint32_t kNominalFiringPeriods = 1U;
@@ -32,42 +31,39 @@ void expectCadenceRoundTrips(uint32_t firingPeriods, uint32_t settlingPeriods) {
 
 }  // namespace
 
-TEST(ThrDesatDutyCycle, PassesForceThroughDuringTheFiringWindow) {
+TEST(ThrDesatDutyCycle, PassesTorqueThroughDuringTheFiringWindow) {
     const auto cfg = ThrDesatDutyCycleConfig::create(3U, 5U);
     ThrDesatDutyCycleAlgorithm alg{cfg};
-    const auto thrusterForceCmd = makeForceCmd(kNominalForces);
+    const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     for (uint32_t update = 0U; update < cfg.getFiringPeriods(); ++update) {
-        const auto gated = alg.update(thrusterForceCmd);
-        for (std::size_t i = 0; i < kNominalForces.size(); ++i) {
-            EXPECT_EQ(gated.at(i), kNominalForces[i]) << "update " << update << " thruster " << i;
-        }
+        EXPECT_EQ(alg.update(cmdTorque_B), cmdTorque_B) << "update " << update;
     }
 }
 
-TEST(ThrDesatDutyCycle, CommandsZeroForceDuringTheSettlingWindow) {
+TEST(ThrDesatDutyCycle, CommandsZeroTorqueDuringTheSettlingWindow) {
     const auto cfg = ThrDesatDutyCycleConfig::create(3U, 5U);
     ThrDesatDutyCycleAlgorithm alg{cfg};
-    const auto thrusterForceCmd = makeForceCmd(kNominalForces);
+    const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     // Burn through the firing window first.
     for (uint32_t update = 0U; update < cfg.getFiringPeriods(); ++update) {
-        (void)alg.update(thrusterForceCmd);
+        (void)alg.update(cmdTorque_B);
     }
 
-    const std::array<float, kMaxThrusterCount> allZero{};
+    const Eigen::Vector3f allZero = Eigen::Vector3f::Zero();
     for (uint32_t update = 0U; update < cfg.getSettlingPeriods(); ++update) {
-        EXPECT_EQ(alg.update(thrusterForceCmd), allZero) << "settling update " << update;
+        EXPECT_EQ(alg.update(cmdTorque_B), allZero) << "settling update " << update;
     }
 }
 
 // With no settling periods the gate is fully open, which is how a caller disables the duty cycle.
 TEST(ThrDesatDutyCycle, AlwaysFiresWhenThereAreNoSettlingPeriods) {
     ThrDesatDutyCycleAlgorithm alg{ThrDesatDutyCycleConfig::create(1U, 0U)};
-    const auto thrusterForceCmd = makeForceCmd(kNominalForces);
+    const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     for (uint32_t update = 0U; update < kManyUpdates; ++update) {
-        EXPECT_EQ(alg.update(thrusterForceCmd), thrusterForceCmd) << "update " << update;
+        EXPECT_EQ(alg.update(cmdTorque_B), cmdTorque_B) << "update " << update;
     }
 }
 
@@ -75,70 +71,70 @@ TEST(ThrDesatDutyCycle, AlwaysFiresWhenThereAreNoSettlingPeriods) {
 // rather than only through the reference implementation.
 TEST(ThrDesatDutyCycle, CadenceRepeatsWithTheCycleLength) {
     ThrDesatDutyCycleAlgorithm alg{nominalConfig()};
-    const auto thrusterForceCmd = makeForceCmd(kNominalForces);
+    const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     const std::vector<bool> expectedPattern = {true, false, false, false, false};
     for (uint32_t update = 0U; update < kManyUpdates; ++update) {
-        const bool fired = alg.update(thrusterForceCmd).at(0) != 0.0F;
+        const bool fired = alg.update(cmdTorque_B)(0) != 0.0F;
         EXPECT_EQ(fired, expectedPattern[update % expectedPattern.size()]) << "update " << update;
     }
 }
 
 TEST(ThrDesatDutyCycle, MatchesReferenceAcrossCases) {
-    const auto thrusterForceCmd = makeForceCmd(kNominalForces);
+    const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
-    regressionTestThrDesatDutyCycle(thrusterForceCmd, ThrDesatDutyCycleConfig::create(1U, 0U), kManyUpdates);
-    regressionTestThrDesatDutyCycle(thrusterForceCmd, ThrDesatDutyCycleConfig::create(1U, 1U), kManyUpdates);
-    regressionTestThrDesatDutyCycle(thrusterForceCmd, nominalConfig(), kManyUpdates);
-    regressionTestThrDesatDutyCycle(thrusterForceCmd, ThrDesatDutyCycleConfig::create(3U, 2U), kManyUpdates);
-    regressionTestThrDesatDutyCycle(thrusterForceCmd, ThrDesatDutyCycleConfig::create(7U, 1U), kManyUpdates);
+    regressionTestThrDesatDutyCycle(cmdTorque_B, ThrDesatDutyCycleConfig::create(1U, 0U), kManyUpdates);
+    regressionTestThrDesatDutyCycle(cmdTorque_B, ThrDesatDutyCycleConfig::create(1U, 1U), kManyUpdates);
+    regressionTestThrDesatDutyCycle(cmdTorque_B, nominalConfig(), kManyUpdates);
+    regressionTestThrDesatDutyCycle(cmdTorque_B, ThrDesatDutyCycleConfig::create(3U, 2U), kManyUpdates);
+    regressionTestThrDesatDutyCycle(cmdTorque_B, ThrDesatDutyCycleConfig::create(7U, 1U), kManyUpdates);
     // A settling window longer than the run: the gate fires once and then stays shut throughout.
-    regressionTestThrDesatDutyCycle(thrusterForceCmd, ThrDesatDutyCycleConfig::create(1U, 100U), kManyUpdates);
+    regressionTestThrDesatDutyCycle(cmdTorque_B, ThrDesatDutyCycleConfig::create(1U, 100U), kManyUpdates);
 }
 
 TEST(ThrDesatDutyCycle, DeliversTheConfiguredDutyRatio) {
-    const auto thrusterForceCmd = makeForceCmd(kNominalForces);
+    const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
-    testFiringCountMatchesDutyRatio(thrusterForceCmd, ThrDesatDutyCycleConfig::create(1U, 0U), 5U);
-    testFiringCountMatchesDutyRatio(thrusterForceCmd, nominalConfig(), 5U);
-    testFiringCountMatchesDutyRatio(thrusterForceCmd, ThrDesatDutyCycleConfig::create(3U, 2U), 4U);
+    testFiringCountMatchesDutyRatio(cmdTorque_B, ThrDesatDutyCycleConfig::create(1U, 0U), 5U);
+    testFiringCountMatchesDutyRatio(cmdTorque_B, nominalConfig(), 5U);
+    testFiringCountMatchesDutyRatio(cmdTorque_B, ThrDesatDutyCycleConfig::create(3U, 2U), 4U);
 }
 
-TEST(ThrDesatDutyCycle, CadenceIsIndependentOfTheCommandedForce) {
-    testCadenceIsIndependentOfCommand(makeForceCmd(kNominalForces), nominalConfig(), kManyUpdates);
+TEST(ThrDesatDutyCycle, CadenceIsIndependentOfTheCommandedTorque) {
+    testCadenceIsIndependentOfCommand(makeTorqueCmd(kNominalTorques), nominalConfig(), kManyUpdates);
     testCadenceIsIndependentOfCommand(
-        makeForceCmd(kNominalForces), ThrDesatDutyCycleConfig::create(3U, 2U), kManyUpdates);
+        makeTorqueCmd(kNominalTorques), ThrDesatDutyCycleConfig::create(3U, 2U), kManyUpdates);
 }
 
 TEST(ThrDesatDutyCycle, OutputIsAlwaysTheInputOrZero) {
-    testOutputIsInputOrZero(makeForceCmd(kNominalForces), nominalConfig(), kManyUpdates);
+    testOutputIsInputOrZero(makeTorqueCmd(kNominalTorques), nominalConfig(), kManyUpdates);
 }
 
-TEST(ThrDesatDutyCycle, GateActsOnTheWholeThrusterArray) {
-    testGateActsOnTheWholeArray(makeForceCmd(kNominalForces), nominalConfig(), kManyUpdates);
+TEST(ThrDesatDutyCycle, GateActsOnTheWholeTorqueVector) {
+    testGateActsOnTheWholeVector(makeTorqueCmd(kNominalTorques), nominalConfig(), kManyUpdates);
 }
 
 TEST(ThrDesatDutyCycle, ReInitializeRestartsTheCadence) {
-    testReInitializeRestartsCadence(makeForceCmd(kNominalForces), nominalConfig(), 10U, 3U);
-    testReInitializeRestartsCadence(makeForceCmd(kNominalForces), ThrDesatDutyCycleConfig::create(3U, 2U), 10U, 7U);
+    testReInitializeRestartsCadence(makeTorqueCmd(kNominalTorques), nominalConfig(), 10U, 3U);
+    testReInitializeRestartsCadence(makeTorqueCmd(kNominalTorques), ThrDesatDutyCycleConfig::create(3U, 2U), 10U, 7U);
 }
 
 // setConfig() installs a new cadence without restarting it, which is what separates reconfigure() from
 // reInitialize() at the adapter level.
 TEST(ThrDesatDutyCycle, SetConfigChangesTheCadenceWithoutRestartingIt) {
     ThrDesatDutyCycleAlgorithm alg{ThrDesatDutyCycleConfig::create(1U, 3U)};
-    const auto thrusterForceCmd = makeForceCmd(kNominalForces);
+    const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     // Fire, then advance two updates into the settling window.
-    EXPECT_NE(alg.update(thrusterForceCmd).at(0), 0.0F);
-    EXPECT_EQ(alg.update(thrusterForceCmd).at(0), 0.0F);
-    EXPECT_EQ(alg.update(thrusterForceCmd).at(0), 0.0F);
+    EXPECT_NE(alg.update(cmdTorque_B)(0), 0.0F);
+    EXPECT_EQ(alg.update(cmdTorque_B)(0), 0.0F);
+    EXPECT_EQ(alg.update(cmdTorque_B)(0), 0.0F);
 
     // Widening the firing window to cover the whole cycle opens the gate from the next update onwards; the
     // counter keeps its phase, it is only reinterpreted against the new window.
     alg.setConfig(ThrDesatDutyCycleConfig::create(4U, 0U));
     for (uint32_t update = 0U; update < kManyUpdates; ++update) {
-        EXPECT_NE(alg.update(thrusterForceCmd).at(0), 0.0F) << "update " << update;
+        EXPECT_NE(alg.update(cmdTorque_B)(0), 0.0F) << "update " << update;
     }
 }
 
@@ -146,19 +142,19 @@ TEST(ThrDesatDutyCycle, SetConfigChangesTheCadenceWithoutRestartingIt) {
 // valid phase rather than reading out of range.
 TEST(ThrDesatDutyCycle, HandlesACadenceShortenedBelowTheCurrentPhase) {
     ThrDesatDutyCycleAlgorithm alg{ThrDesatDutyCycleConfig::create(1U, 20U)};
-    const auto thrusterForceCmd = makeForceCmd(kNominalForces);
+    const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     // Advance well past the cycle length the gate is about to be given.
     for (uint32_t update = 0U; update < 15U; ++update) {
-        (void)alg.update(thrusterForceCmd);
+        (void)alg.update(cmdTorque_B);
     }
 
     alg.setConfig(ThrDesatDutyCycleConfig::create(1U, 1U));
 
     // The phase folds back into the new two-period cycle, so the gate must alternate from here on.
-    bool previousFired = alg.update(thrusterForceCmd).at(0) != 0.0F;
+    bool previousFired = alg.update(cmdTorque_B)(0) != 0.0F;
     for (uint32_t update = 0U; update < kManyUpdates; ++update) {
-        const bool fired = alg.update(thrusterForceCmd).at(0) != 0.0F;
+        const bool fired = alg.update(cmdTorque_B)(0) != 0.0F;
         EXPECT_NE(fired, previousFired) << "update " << update;
         previousFired = fired;
     }
@@ -167,7 +163,7 @@ TEST(ThrDesatDutyCycle, HandlesACadenceShortenedBelowTheCurrentPhase) {
 // A zero command stays zero whether the gate is open or shut, so the module never invents a firing.
 TEST(ThrDesatDutyCycle, ZeroCommandStaysZero) {
     ThrDesatDutyCycleAlgorithm alg{nominalConfig()};
-    const std::array<float, kMaxThrusterCount> allZero{};
+    const Eigen::Vector3f allZero = Eigen::Vector3f::Zero();
 
     for (uint32_t update = 0U; update < kManyUpdates; ++update) {
         EXPECT_EQ(alg.update(allZero), allZero) << "update " << update;

@@ -1,22 +1,27 @@
 Executive Summary
 -----------------
 
-This module gates a commanded thruster force on and off in a fixed duty cycle. During the firing window it passes
-the commanded per-thruster force through unchanged; during the settling window it commands zero force, leaving the
+This module gates a requested desaturation torque on and off in a fixed duty cycle. During the firing window it
+passes the requested body torque through unchanged; during the settling window it commands zero torque, leaving the
 reaction wheels quiet control periods in which to re-stabilize the attitude between desaturation pulses.
 
-The module sits between the thruster force mapping and the thruster firing logic in the momentum desaturation
+The module sits between the momentum management and the thruster force mapping in the momentum desaturation
 chain::
 
     momentumManagement            requested dumping torque   [Nm]
-      -> forceTorqueThrForceMapping   per-thruster force     [N]
-        -> thrDesatDutyCycle          gated per-thruster force  [N]
+      -> thrDesatDutyCycle          gated dumping torque     [Nm]
+        -> forceTorqueThrForceMapping   per-thruster force     [N]
           -> thrFiringRemainder / thrFiringSchmitt   thruster on-time  [s]
             -> thrusters
 
-It performs no arithmetic on the force it carries: a passed-through command is bit-identical to its input. The
-force magnitude, the minimum fire time, the control period and the conversion to an on-time are all the concern
-of the downstream firing module.
+Gating the torque rather than the per-thruster force leaves the thruster chain, mapping followed by firing logic,
+the same in every mode. The two placements deliver identical thruster commands: the mapping keeps no state between
+calls and maps a zero torque to exactly zero force on every thruster. That holds only while the mapping receives no
+body force request, which the gate does not see and would not withhold.
+
+It performs no arithmetic on the torque it carries: a passed-through command is identical to its input. The
+torque allocation, the minimum fire time, the control period and the conversion to an on-time are all the concern
+of the downstream modules.
 
 All numeric computation in this module's neighbours is single-precision (``float`` / fp32); the payloads carried
 here are ``float`` arrays.
@@ -37,7 +42,7 @@ The module is consequently **specific to momentum desaturation with on/off thrus
   arises and no gate is needed. Choose the upstream gains low enough that the dumping torque stays inside the
   attitude controller's rejection authority.
 - The gate must **not** be placed on an RCS attitude-control path, where deliberately withholding a commanded
-  force for whole control periods would degrade the very loop it is meant to protect.
+  torque for whole control periods would degrade the very loop it is meant to protect.
 
 Note also that ``thrFiringRemainder`` already self-cadences for small requests: it banks any on-time below
 ``thrMinFireTime`` into a pulse remainder and emits one minimum pulse every few cycles, which delivers the
@@ -57,19 +62,19 @@ Module Architecture
 
 The **algorithm** (``ThrDesatDutyCycleAlgorithm``) is framework-free. It holds a validated
 ``ThrDesatDutyCycleConfig`` and implements the cadence described under `Cadence`_. Its ``update()`` never throws
-and returns the gated force command. The cadence counter is the module's only runtime state, and all of it is
+and returns the gated torque command. The cadence counter is the module's only runtime state, and all of it is
 non-persistent, so ``reInitialize()`` restarts the cycle outright and there is no
 ``reInitializeExceptPersistentStates()``.
 
 The **Xmera adapter** (``ThrDesatDutyCycle``) inherits from ``SysModel`` and owns all messaging concerns. It maps
-between the message payload's C array and the algorithm's ``std::array`` and writes the output message on every
+between the message payload's C array and the algorithm's ``Eigen::Vector3f`` and writes the output message on every
 update. Configuration uses two-phase initialization: the caller sets the public properties, then ``reset()``
 validates the input link, builds the configuration, and constructs the algorithm. The whole configuration lives in
 module properties, so no input message is read to build it.
 
 The **Adamant adapter** is a C shim (``thrDesatDutyCycleAlgorithm_c.h`` / ``.cpp``) exposing the algorithm through
-an opaque handle for Ada FFI. The force command crosses the boundary as a bounded-array POD
-(``ThrDesatDutyCycleForceCmd_c``) and the configuration as flattened scalars. A non-throwing ``validateConfig()``
+an opaque handle for Ada FFI. The torque command crosses the boundary as a ``Vector3f_c`` and the configuration as
+flattened scalars. A non-throwing ``validateConfig()``
 lets Ada pre-check a configuration before calling the throwing ``create()`` / ``setConfig()``.
 
 Message Connection Descriptions
@@ -86,13 +91,13 @@ information on what this message is used for.
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - thrForceInMsg
-      - :ref:`THRArrayCmdForceMsgF32Payload`
-      - Commanded per-thruster desaturation force [N], read every update.
-    * - thrForceOutMsg
-      - :ref:`THRArrayCmdForceMsgF32Payload`
-      - Gated per-thruster force [N]: the input during a firing period, zero during a settling period. Written
-        every update.
+    * - cmdTorqueInMsg
+      - :ref:`CmdTorqueBodyMsgF32Payload`
+      - Requested body-frame dumping torque [Nm], read every update.
+    * - cmdTorqueOutMsg
+      - :ref:`CmdTorqueBodyMsgF32Payload`
+      - Gated body-frame dumping torque [Nm]: the input during a firing period, zero during a settling period.
+        Written every update.
 
 Cadence
 -------
@@ -105,12 +110,12 @@ since the last restart the gate passes the command through when
 
     n \bmod (N_f + N_s) < N_f
 
-and commands zero force otherwise. Writing :math:`\boldsymbol{F}` for the commanded per-thruster force, the output is
+and commands zero torque otherwise. Writing :math:`\boldsymbol{L}` for the requested body torque, the output is
 
 .. math::
 
-    \boldsymbol{F}_\text{out} = \begin{cases}
-    \boldsymbol{F}, & n \bmod (N_f + N_s) < N_f\\
+    \boldsymbol{L}_\text{out} = \begin{cases}
+    \boldsymbol{L}, & n \bmod (N_f + N_s) < N_f\\
     \boldsymbol{0}, & \text{otherwise}
     \end{cases}
 
@@ -120,15 +125,14 @@ Three properties of this cadence are worth stating explicitly.
 windows sit at a fixed phase rather than being retriggered by the arrival of a request. A new desaturation request
 can therefore wait up to :math:`N_s` control periods before its first pulse.
 
-**It is all-or-nothing across the array.** Within one update every thruster is gated identically, so a
-desaturation torque is never delivered by a partial subset of the cluster, which would apply a torque in a
-direction the mapping stage never solved for.
+**It is all-or-nothing across the axes.** Within one update every torque component is gated identically, so the
+gated torque never points in a direction ``momentumManagement`` did not request.
 
-**The force is passed through, not scaled up.** The average delivered force over a cycle is therefore
+**The torque is passed through, not scaled up.** The average delivered torque over a cycle is therefore
 
 .. math::
 
-    \bar{\boldsymbol{F}} = \frac{N_f}{N_f + N_s} \, \boldsymbol{F},
+    \bar{\boldsymbol{L}} = \frac{N_f}{N_f + N_s} \, \boldsymbol{L},
 
 so the duty ratio acts as a gain reduction on the desaturation loop, which the upstream gain must account for
 (see `Module Assumptions and Limitations`_).
@@ -151,12 +155,12 @@ raises ``fsw::invalid_argument`` and the module is not constructed.
       - uint32
       - :math:`\ge 1`
       - [-] Number of consecutive control periods, at the start of each cycle, for which the gate passes the
-        commanded force through. Zero is rejected because it would hold the thrusters off forever, silently
+        requested torque through. Zero is rejected because it would hold the thrusters off forever, silently
         disabling desaturation rather than configuring it.
     * - settlingPeriods
       - uint32
       - any value with ``firingPeriods + settlingPeriods`` :math:`\le` ``UINT32_MAX``
-      - [-] Number of consecutive control periods for which the gate commands zero force, letting the reaction
+      - [-] Number of consecutive control periods for which the gate commands zero torque, letting the reaction
         wheels re-stabilize the attitude. Zero is permitted and holds the gate fully open, which is how duty
         cycling is disabled. The only rejected values are those whose sum with ``firingPeriods`` would wrap
         around, since a wrapped cycle length would come out shorter than its own firing window.
@@ -184,7 +188,7 @@ The module uses two-phase initialization: set the public configuration propertie
     module.settlingPeriods = 4   # [-] ... then hold off for four, giving a 1-in-5 duty cycle
 
     # Connect the required input message
-    module.thrForceInMsg.subscribeTo(thr_force_in_msg)
+    module.cmdTorqueInMsg.subscribeTo(momentum_management.cmdTorqueOutMsg)
 
     # Phase 2: reset() validates the link and builds the config
     sim.AddModelToTask(task_name, module)
@@ -206,10 +210,10 @@ Module Assumptions and Limitations
 Module Behaviour Notes
 ----------------------
 
-- **The upstream gain must be sized for the duty ratio.** Because the force is passed through rather than scaled,
-  the average delivered force is :math:`N_f / (N_f + N_s)` of the command. A cadence change therefore rescales the
+- **The upstream gain must be sized for the duty ratio.** Because the torque is passed through rather than scaled,
+  the average delivered torque is :math:`N_f / (N_f + N_s)` of the command. A cadence change therefore rescales the
   effective loop gain of the desaturation controller.
-- **The upstream integral term winds up during settling windows.** The gate withholds force while the momentum
+- **The upstream integral term winds up during settling windows.** The gate withholds torque while the momentum
   error persists, so an integrating upstream controller keeps accumulating with no effect. ``momentumManagement``'s
   ``integralLimit`` and this module's ``settlingPeriods`` must be tuned together; a long settling window with a
   generous integral limit produces an overshooting pulse when the gate reopens.

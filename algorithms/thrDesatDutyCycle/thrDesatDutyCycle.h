@@ -3,14 +3,14 @@
 
 #include "thrDesatDutyCycleAlgorithm.h"
 
-#include "msgPayloadDef/THRArrayCmdForceMsgF32Payload.h"
+#include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
 #include <stdint.h>
 #include <memory>
 
-/*! @brief Gates a thruster desaturation force command on and off in a fixed duty cycle. */
+/*! @brief Gates a thruster desaturation torque command on and off in a fixed duty cycle. */
 class ThrDesatDutyCycle final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
@@ -23,12 +23,12 @@ class ThrDesatDutyCycle final : public SysModel {
     void reInitialize();
 
     /* declare module public variables */
-    uint32_t firingPeriods = 1U;    //!< [-] control periods the gate passes the force command through (must be >= 1)
+    uint32_t firingPeriods = 1U;    //!< [-] control periods the gate passes the torque command through (must be >= 1)
     uint32_t settlingPeriods = 0U;  //!< [-] control periods the gate holds off, letting the RWs re-settle
 
     /* declare module IO interfaces */
-    ReadFunctor<THRArrayCmdForceMsgF32Payload> thrForceInMsg;  //!< [N] commanded thruster force input message
-    Message<THRArrayCmdForceMsgF32Payload> thrForceOutMsg;     //!< [N] gated thruster force output message
+    ReadFunctor<CmdTorqueBodyMsgF32Payload> cmdTorqueInMsg;  //!< [Nm] requested body-frame dumping torque input message
+    Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;     //!< [Nm] gated body-frame dumping torque output message
 
    private:
     ThrDesatDutyCycleConfig toConfig() const;

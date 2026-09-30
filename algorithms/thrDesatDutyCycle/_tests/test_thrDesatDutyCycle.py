@@ -6,9 +6,8 @@ from xmera.fp32 import thrDesatDutyCycleF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
-# A representative per-thruster desaturation force command for an eight-thruster RCS cluster, where the
-# upstream mapping stage has left two thrusters idle.
-NOMINAL_FORCES = [1.2, 0.2, 0.0, 1.6, 1.2, 0.2, 1.6, 0.0]
+# A representative momentumManagement dumping torque, distinct per axis with mixed signs.
+NOMINAL_TORQUE = [1.2e-2, -3.5e-3, 7.0e-4]
 
 
 @pytest.mark.parametrize(
@@ -47,15 +46,15 @@ def test_thr_desat_duty_cycle(firing_periods, settling_periods):
     np.testing.assert_equal(module.firingPeriods, firing_periods)
     np.testing.assert_equal(module.settlingPeriods, settling_periods)
 
-    # The commanded force is held constant, so every variation in the output is the gate's doing.
-    thr_force_message = messaging.THRArrayCmdForceMsgF32Payload()
-    thr_force_message.thrForce = NOMINAL_FORCES
-    thr_force_in_msg = messaging.THRArrayCmdForceMsgF32().write(thr_force_message)
+    # The requested torque is held constant, so every variation in the output is the gate's doing.
+    cmd_torque_message = messaging.CmdTorqueBodyMsgF32Payload()
+    cmd_torque_message.torqueRequestBody = NOMINAL_TORQUE
+    cmd_torque_in_msg = messaging.CmdTorqueBodyMsgF32().write(cmd_torque_message)
 
-    data_log = module.thrForceOutMsg.recorder()
+    data_log = module.cmdTorqueOutMsg.recorder()
     sim.AddModelToTask(task_name, data_log)
 
-    module.thrForceInMsg.subscribeTo(thr_force_in_msg)
+    module.cmdTorqueInMsg.subscribeTo(cmd_torque_in_msg)
 
     sim.InitializeSimulation()
 
@@ -64,20 +63,20 @@ def test_thr_desat_duty_cycle(firing_periods, settling_periods):
     sim.ConfigureStopTime((num_updates - 1) * test_process_rate)
     sim.ExecuteSimulation()
 
-    module_output = np.array(data_log.thrForce)[:, : len(NOMINAL_FORCES)]
+    module_output = np.array(data_log.torqueRequestBody)
     np.testing.assert_equal(len(module_output), num_updates)
 
     # The gate passes the command through for the leading firing_periods slots of each cycle and commands zero
-    # for the remaining settling_periods. It performs no arithmetic on the force, so a passed-through entry is
-    # bit-identical to what the module stores and the comparison is exact. The reference is therefore built from
-    # the single-precision round-trip of the command rather than from the python doubles: 1.2 is not
-    # representable in float32, and that ~5e-8 representation error is the module's input, not its error.
-    fired_forces = np.array(NOMINAL_FORCES, dtype=np.float32)
-    settled_forces = np.zeros_like(fired_forces)
+    # for the remaining settling_periods. It performs no arithmetic on the torque, so a passed-through component
+    # is identical to what the module stores and the comparison is exact. The reference is therefore built
+    # from the single-precision round-trip of the command rather than from the python doubles: 1.2e-2 is not
+    # representable in float32, and that representation error is the module's input, not its error.
+    fired_torque = np.array(NOMINAL_TORQUE, dtype=np.float32)
+    settled_torque = np.zeros_like(fired_torque)
 
     cycle_length = firing_periods + settling_periods
     true_vector = [
-        fired_forces if (update % cycle_length) < firing_periods else settled_forces
+        fired_torque if (update % cycle_length) < firing_periods else settled_torque
         for update in range(num_updates)
     ]
 

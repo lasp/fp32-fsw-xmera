@@ -1,8 +1,7 @@
 #include "thrDesatDutyCycle.h"
+#include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
-#include <algorithm>
-#include <array>
 #include <memory>
 #include <stdexcept>
 
@@ -13,8 +12,8 @@
  */
 void ThrDesatDutyCycle::reset(const uint64_t callTime) {
     // check if the required input messages are included
-    if (!this->thrForceInMsg.isLinked()) {
-        throw std::invalid_argument("thrDesatDutyCycle.thrForceInMsg wasn't connected.");
+    if (!this->cmdTorqueInMsg.isLinked()) {
+        throw std::invalid_argument("thrDesatDutyCycle.cmdTorqueInMsg wasn't connected.");
     }
 
     /*! - create the algorithm, whose constructor installs the configuration and restarts the duty cycle
@@ -52,7 +51,7 @@ void ThrDesatDutyCycle::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! The commanded thruster force is gated on and off in a fixed duty cycle, so the reaction wheels get quiet
+/*! The requested desaturation torque is gated on and off in a fixed duty cycle, so the reaction wheels get quiet
  windows in which to re-stabilize the attitude between desaturation pulses.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
@@ -62,17 +61,16 @@ void ThrDesatDutyCycle::updateState(const uint64_t callTime) {
         throw XmeraLifecycleException("ThrDesatDutyCycle reset() has not been called.");
     }
 
-    /*! - read in the force command message and map to the freestanding type */
-    const auto [thrForce] = this->thrForceInMsg();
-    std::array<float, kMaxThrusterCount> thrusterForceCmd{};
-    std::ranges::copy(thrForce, thrusterForceCmd.begin());
+    /*! - read in the torque command message and map to the freestanding type */
+    const CmdTorqueBodyMsgF32Payload cmdTorqueIn = this->cmdTorqueInMsg();
+    const Eigen::Vector3f cmdTorque_B = cArrayToEigenVector3<float>(cmdTorqueIn.torqueRequestBody);
 
     /*! - call algorithm update */
-    const std::array<float, kMaxThrusterCount> gatedForce = this->algorithm->update(thrusterForceCmd);
+    const Eigen::Vector3f gatedTorque_B = this->algorithm->update(cmdTorque_B);
 
     /*! - map the freestanding type back to the message payload and write */
-    THRArrayCmdForceMsgF32Payload thrForceMsgOut{};
-    std::ranges::copy(gatedForce, thrForceMsgOut.thrForce);
+    CmdTorqueBodyMsgF32Payload cmdTorqueOut{};
+    eigenVectorToCArray(gatedTorque_B, cmdTorqueOut.torqueRequestBody);
 
-    this->thrForceOutMsg.write(thrForceMsgOut, this->moduleID, callTime);
+    this->cmdTorqueOutMsg.write(cmdTorqueOut, this->moduleID, callTime);
 }
