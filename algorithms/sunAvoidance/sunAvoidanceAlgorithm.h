@@ -61,8 +61,7 @@ class SunAvoidanceAlgorithm final {
     void reInitialize();
     SunAvoidanceOutput update(const Eigen::Vector3f& sigma_BN,
                               const SunAvoidanceAttRefInputs& ref,
-                              const Eigen::Vector3d& r_BN_N,
-                              const Eigen::Vector3d& r_SN_N,
+                              const Eigen::Vector3f& sHat_B,
                               uint64_t callTime);
 
    private:

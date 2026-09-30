@@ -21,23 +21,19 @@ void SunAvoidanceAlgorithm::reInitialize() { this->maneuver.reset(); }
  first call and fed forward at the configured rate thereafter.
  @param sigma_BN measured MRP attitude of B wrt N
  @param ref attitude reference inputs
- @param r_BN_N spacecraft inertial position
- @param r_SN_N sun inertial position
+ @param sHat_B Sun direction in body frame components
  @param callTime call time (nanoseconds)
  @return the maneuver-adjusted reference frame
  */
 SunAvoidanceOutput SunAvoidanceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
                                                  const SunAvoidanceAttRefInputs& ref,
-                                                 const Eigen::Vector3d& r_BN_N,
-                                                 const Eigen::Vector3d& r_SN_N,
+                                                 const Eigen::Vector3f& sHat_B,
                                                  const uint64_t callTime) {
     if (!this->maneuver.has_value()) {
         Maneuver m{};
-        // Difference the large inertial positions in double precision, then reduce the unit direction to float.
-        const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).stableNormalized().cast<float>();
-        // Skip the maneuver (pass-through) when no usable Sun information is available: a zero Sun
-        // position (no ephemeris) or a Sun direction coincident with the spacecraft.
-        if (r_SN_N.stableNorm() > 0.0 && sHat_N.stableNorm() > 0.0F) {
+        const Eigen::Vector3f sHat_N = (mrpToDcm(sigma_BN).transpose() * sHat_B).stableNormalized();
+        // Skip the maneuver (pass-through) when no usable Sun direction is available (zero vector).
+        if (sHat_N.stableNorm() > 0.0F) {
             m = initializeManeuver(sigma_BN, ref, sHat_N);
         }
         m.startTime = callTime;

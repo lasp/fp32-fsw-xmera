@@ -59,14 +59,12 @@ void SunAvoidanceAlgorithm_reInitialize(SunAvoidanceAlgorithmHandle* self) {
 SunAvoidanceOutput_c SunAvoidanceAlgorithm_update(SunAvoidanceAlgorithmHandle* self,
                                                   const Vector3f_c* sigma_BN,
                                                   const SunAvoidanceAttRefInputs_c* ref,
-                                                  const Vector3d_c* r_BN_N,
-                                                  const Vector3d_c* r_SN_N,
+                                                  const Vector3f_c* sHat_B,
                                                   uint64_t callTime) {
     const SunAvoidanceOutput out =
         fsw::fromHandle<::SunAvoidanceAlgorithm>(self)->update(cArrayToEigenVector3<float>(sigma_BN->data),
                                                                refFromC(*ref),
-                                                               cArrayToEigenVector3<double>(r_BN_N->data),
-                                                               cArrayToEigenVector3<double>(r_SN_N->data),
+                                                               cArrayToEigenVector3<float>(sHat_B->data),
                                                                callTime);
     return outputToC(out);
 }

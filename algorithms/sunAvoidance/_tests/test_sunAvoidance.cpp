@@ -2,11 +2,9 @@
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-#include <array>
 #include <cmath>
 #include <limits>
 #include <numbers>
-#include <utility>
 
 namespace {
 constexpr uint64_t kHalfSecNs = 500000000ULL;                        // 0.5 s update period
@@ -16,8 +14,7 @@ const Eigen::Vector3f kSigmaBN{0.25F, -0.45F, 0.75F};
 const Eigen::Vector3f kSigmaRN{0.35F, -0.25F, 0.15F};
 const Eigen::Vector3f kOmegaRNN{0.018F, -0.032F, 0.015F};
 const Eigen::Vector3f kDomegaRNN{0.048F, -0.022F, 0.025F};
-const Eigen::Vector3d kRBN_N{-30.0, 20.0, -50.0};
-const Eigen::Vector3d kRSN_N{1.0, 2.0, 3.0};
+const Eigen::Vector3f kSunHat_B{0.078F, -0.693F, 0.717F};
 const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 }  // namespace
 
@@ -28,13 +25,13 @@ const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 // Sun-avoidance maneuver actively feeding forward (residual angle > 0 throughout).
 TEST(SunAvoidanceTest, RegressionSunAvoidanceFeedingForward) {
     regressionTestSunAvoidance(
-        kSensitiveHat_B, kManeuverRate, kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN, kRBN_N, kRSN_N, kHalfSecNs, 12);
+        kSensitiveHat_B, kManeuverRate, kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN, kSunHat_B, kHalfSecNs, 12);
 }
 
 // Long run: the residual maneuver angle decays to zero and stays clamped.
 TEST(SunAvoidanceTest, RegressionSunAvoidanceDecaysToZero) {
     regressionTestSunAvoidance(
-        kSensitiveHat_B, kManeuverRate, kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN, kRBN_N, kRSN_N, kHalfSecNs, 400);
+        kSensitiveHat_B, kManeuverRate, kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN, kSunHat_B, kHalfSecNs, 400);
 }
 
 // ---------------------------------------------------------------------------
@@ -104,12 +101,11 @@ TEST(SunAvoidanceTest, EdgeSmallSlewRate) {
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
 
-    const SunAvoidanceOutput first = alg.update(kSigmaBN, refIn, kRBN_N, kRSN_N, 0);
+    const SunAvoidanceOutput first = alg.update(kSigmaBN, refIn, kSunHat_B, 0);
     // Total angle decay over the run is kSmallSlewRate * 11 * 0.5 s ~ 5.5e-4 rad.
     constexpr float tol = 2e-3F;
     for (int k = 1; k < 12; ++k) {
-        const SunAvoidanceOutput out =
-            alg.update(kSigmaBN, refIn, kRBN_N, kRSN_N, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceOutput out = alg.update(kSigmaBN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(out.sigma_RN(i), first.sigma_RN(i), tol);
             EXPECT_NEAR(out.omega_RN_N(i), first.omega_RN_N(i), tol);
@@ -125,36 +121,28 @@ TEST(SunAvoidanceTest, EdgeSmallManeuverNearAlignment) {
     propertyManeuverOutputBoundedAndFinite(sigmaBN_near, kSigmaRN, kOmegaRNN, kDomegaRNN);
 }
 
-// No usable Sun information: a Sun position coincident with the spacecraft (undefined direction) or a
-// zero Sun position (no ephemeris). Both leave no maneuver to perform, so the adjusted reference passes
-// through.
+// No usable Sun information: a zero Sun direction leaves no maneuver to perform, so the adjusted reference
+// passes through.
 TEST(SunAvoidanceTest, EdgeNoSunInformationPassThrough) {
     const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate);
+    SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
     const Eigen::Matrix3f dcm_RN_in = mrpToDcm(kSigmaRN);
     constexpr float tol = 1e-5F;
 
-    const std::array<std::pair<Eigen::Vector3d, Eigen::Vector3d>, 2> degenerateGeometry{{
-        {Eigen::Vector3d{10.0, -20.0, 30.0}, Eigen::Vector3d{10.0, -20.0, 30.0}},  // r_SN_N == r_BN_N
-        {Eigen::Vector3d{10.0, -20.0, 30.0}, Eigen::Vector3d::Zero()},             // r_SN_N == 0
-    }};
-
-    for (const auto& [r_BN_N, r_SN_N] : degenerateGeometry) {
-        SunAvoidanceAlgorithm alg{config};
-        for (int k = 0; k < 5; ++k) {
-            const SunAvoidanceOutput out =
-                alg.update(kSigmaBN, refIn, r_BN_N, r_SN_N, static_cast<uint64_t>(k) * kHalfSecNs);
-            EXPECT_TRUE(out.sigma_RN.allFinite());
-            const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
-            for (int r = 0; r < 3; ++r) {
-                for (int c = 0; c < 3; ++c) {
-                    EXPECT_NEAR(dcm_RN_out(r, c), dcm_RN_in(r, c), tol);
-                }
+    for (int k = 0; k < 5; ++k) {
+        const SunAvoidanceOutput out =
+            alg.update(kSigmaBN, refIn, Eigen::Vector3f::Zero(), static_cast<uint64_t>(k) * kHalfSecNs);
+        EXPECT_TRUE(out.sigma_RN.allFinite());
+        const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
+        for (int r = 0; r < 3; ++r) {
+            for (int c = 0; c < 3; ++c) {
+                EXPECT_NEAR(dcm_RN_out(r, c), dcm_RN_in(r, c), tol);
             }
-            for (int i = 0; i < 3; ++i) {
-                EXPECT_NEAR(out.omega_RN_N(i), kOmegaRNN(i), tol);
-                EXPECT_NEAR(out.domega_RN_N(i), kDomegaRNN(i), tol);
-            }
+        }
+        for (int i = 0; i < 3; ++i) {
+            EXPECT_NEAR(out.omega_RN_N(i), kOmegaRNN(i), tol);
+            EXPECT_NEAR(out.domega_RN_N(i), kDomegaRNN(i), tol);
         }
     }
 }
@@ -170,8 +158,7 @@ TEST(SunAvoidanceTest, EdgeBodyAtReferencePassThrough) {
     constexpr float tol = 1e-5F;
     for (int k = 0; k < 5; ++k) {
         // sigma_BN == sigma_RN with the maneuver enabled and valid Sun geometry.
-        const SunAvoidanceOutput out =
-            alg.update(kSigmaRN, refIn, kRBN_N, kRSN_N, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceOutput out = alg.update(kSigmaRN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
         for (int r = 0; r < 3; ++r) {
@@ -183,17 +170,16 @@ TEST(SunAvoidanceTest, EdgeBodyAtReferencePassThrough) {
 }
 
 namespace {
-// Drive the maneuver with the given Sun geometry and assert the adjusted reference stays finite and its MRP
-// stays within the principal set. r_BN_N is zero, so the unit r_SN_N doubles as the Sun direction.
-void expectManeuverBoundedAndFinite(const Eigen::Vector3d& r_SN_N) {
+// Drive the maneuver with the given Sun direction and assert the adjusted reference stays finite and its MRP
+// stays within the principal set.
+void expectManeuverBoundedAndFinite(const Eigen::Vector3f& sHat_B) {
     const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate);
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
 
     constexpr float normBound = 1.0F + 1e-5F;
     for (int k = 0; k < 10; ++k) {
-        const SunAvoidanceOutput out =
-            alg.update(kSigmaBN, refIn, Eigen::Vector3d::Zero(), r_SN_N, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceOutput out = alg.update(kSigmaBN, refIn, sHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
         EXPECT_LE(out.sigma_RN.norm(), normBound);
@@ -203,19 +189,17 @@ void expectManeuverBoundedAndFinite(const Eigen::Vector3d& r_SN_N) {
 
 // Sun parallel to the initial sensitive axis: the initial-to-Sun axis degenerates, so toward/away is
 // undefined and the reversal test is skipped. The maneuver stays finite and bounded on the short way.
-TEST(SunAvoidanceTest, EdgeSunParallelToInitialSensitiveAxis) {
-    const Eigen::Vector3f sensitiveInitial_N = mrpToDcm(kSigmaBN).transpose() * kSensitiveHat_B;
-    expectManeuverBoundedAndFinite(sensitiveInitial_N.cast<double>());
-}
+TEST(SunAvoidanceTest, EdgeSunParallelToInitialSensitiveAxis) { expectManeuverBoundedAndFinite(kSensitiveHat_B); }
 
 // Sun parallel to the sweep axis (perpendicular to the sweep plane): the in-plane Sun direction
 // degenerates, the sweep never approaches the Sun, and the reversal test is skipped. The maneuver stays
 // finite and bounded on the short way.
 TEST(SunAvoidanceTest, EdgeSunParallelToSweepAxis) {
-    const Eigen::Vector3f sensitiveInitial_N = mrpToDcm(kSigmaBN).transpose() * kSensitiveHat_B;
+    const Eigen::Matrix3f dcm_BN = mrpToDcm(kSigmaBN);
+    const Eigen::Vector3f sensitiveInitial_N = dcm_BN.transpose() * kSensitiveHat_B;
     const Eigen::Vector3f sensitiveFinal_N = mrpToDcm(kSigmaRN).transpose() * kSensitiveHat_B;
     const Eigen::Vector3f sweepAxis_N = sensitiveInitial_N.cross(sensitiveFinal_N).normalized();
-    expectManeuverBoundedAndFinite(sweepAxis_N.cast<double>());
+    expectManeuverBoundedAndFinite(dcm_BN * sweepAxis_N);
 }
 
 // Initial and final sensitive axes exactly anti-parallel (a 180-degree flip of the sensitive axis): the
@@ -230,8 +214,7 @@ TEST(SunAvoidanceTest, EdgeAntiParallelSensitiveAxes) {
 
     constexpr float normBound = 1.0F + 1e-5F;
     for (int k = 0; k < 10; ++k) {
-        const SunAvoidanceOutput out =
-            alg.update(sigmaBN, refIn, kRBN_N, kRSN_N, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceOutput out = alg.update(sigmaBN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
         EXPECT_LE(out.sigma_RN.norm(), normBound);

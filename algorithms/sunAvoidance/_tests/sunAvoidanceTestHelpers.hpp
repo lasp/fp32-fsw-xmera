@@ -26,16 +26,14 @@ class SunAvoidanceReference {
                               const Eigen::Vector3f& sigma_RN,
                               const Eigen::Vector3f& omega_RN_N,
                               const Eigen::Vector3f& domega_RN_N,
-                              const Eigen::Vector3d& r_BN_N,
-                              const Eigen::Vector3d& r_SN_N,
+                              const Eigen::Vector3f& sHat_B,
                               uint64_t callTime) {
         if (!this->maneuverInitialized) {
-            // Sun avoidance always runs, but it needs a usable Sun direction: a zero Sun position (no
-            // ephemeris) or a Sun coincident with the spacecraft leaves no maneuver to perform.
-            const Eigen::Vector3d sunFromBody_N = r_SN_N - r_BN_N;
-            if (r_SN_N.norm() > 0.0 && sunFromBody_N.norm() > 0.0) {
+            // Sun avoidance always runs, but it needs a usable Sun direction: a zero Sun direction leaves
+            // no maneuver to perform.
+            if (sHat_B.norm() > 0.0F) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-                const Eigen::Vector3f sHat_N = sunFromBody_N.normalized().cast<float>();
+                const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.normalized();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
                 const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
                 const Eigen::Vector3f sensFinal_N = dcm_RN.transpose() * this->sensitiveHat_B;
@@ -118,17 +116,16 @@ class SunAvoidanceReference {
 inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
                                          const Eigen::Vector3f& sigma_BN,
                                          const Eigen::Vector3f& sigma_RN,
-                                         const Eigen::Vector3d& r_BN_N,
-                                         const Eigen::Vector3d& r_SN_N) {
+                                         const Eigen::Vector3f& sHat_B) {
     constexpr float kMargin = 1e-2F;  // comfortably above fp32 noise; excludes only thin shells
 
-    const Eigen::Vector3f sHat_N = (r_SN_N - r_BN_N).stableNormalized().cast<float>();
-    if (r_SN_N.stableNorm() <= 0.0 || sHat_N.stableNorm() <= 0.0F) {
+    if (sHat_B.stableNorm() <= 0.0F) {
         return true;  // no usable Sun information (the algorithm passes through)
     }
 
     const Eigen::Vector3f sensitive_B = sensitiveHat_B.normalized();
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
+    const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.stableNormalized();
     const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
     const Eigen::Vector3f sensitiveInitial_N = dcm_BN.transpose() * sensitive_B;
     const Eigen::Vector3f sensitiveFinal_N = dcm_RN.transpose() * sensitive_B;
@@ -183,11 +180,10 @@ inline void regressionTestSunAvoidance(const Eigen::Vector3f& sensitiveHat_B,
                                        const Eigen::Vector3f& sigma_RN,
                                        const Eigen::Vector3f& omega_RN_N,
                                        const Eigen::Vector3f& domega_RN_N,
-                                       const Eigen::Vector3d& r_BN_N,
-                                       const Eigen::Vector3d& r_SN_N,
+                                       const Eigen::Vector3f& sHat_B,
                                        uint64_t stepNs,
                                        int numSteps) {
-    if (nearManeuverDecisionBoundary(sensitiveHat_B, sigma_BN, sigma_RN, r_BN_N, r_SN_N)) {
+    if (nearManeuverDecisionBoundary(sensitiveHat_B, sigma_BN, sigma_RN, sHat_B)) {
         return;  // ambiguous short/long-way branch: skip
     }
 
@@ -200,9 +196,8 @@ inline void regressionTestSunAvoidance(const Eigen::Vector3f& sensitiveHat_B,
     constexpr float tol = 1e-5F;
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
-        const SunAvoidanceOutput algOut = alg.update(sigma_BN, refIn, r_BN_N, r_SN_N, callTime);
-        const SunAvoidanceOutput refOut =
-            ref.update(sigma_BN, sigma_RN, omega_RN_N, domega_RN_N, r_BN_N, r_SN_N, callTime);
+        const SunAvoidanceOutput algOut = alg.update(sigma_BN, refIn, sHat_B, callTime);
+        const SunAvoidanceOutput refOut = ref.update(sigma_BN, sigma_RN, omega_RN_N, domega_RN_N, sHat_B, callTime);
 
         EXPECT_TRUE(algOut.sigma_RN.allFinite()) << "sigma_RN not finite at step " << k;
         EXPECT_TRUE(algOut.omega_RN_N.allFinite()) << "omega_RN_N not finite at step " << k;
@@ -233,11 +228,10 @@ namespace detail {
 constexpr uint64_t kStepNs = 500000000ULL;                           // 0.5 s
 constexpr float kManeuverRate = std::numbers::pi_v<float> / 180.0F;  // 1 deg/s
 inline Eigen::Vector3f sensitiveHat_B() { return Eigen::Vector3f{0.0F, -1.0F, 0.0F}; }
-inline Eigen::Vector3d rBN_N() { return Eigen::Vector3d{-30.0, 20.0, -50.0}; }
-inline Eigen::Vector3d rSN_N() { return Eigen::Vector3d{1.0, 2.0, 3.0}; }
+inline Eigen::Vector3f sHat_B() { return Eigen::Vector3f{0.078F, -0.693F, 0.717F}; }
 }  // namespace detail
 
-// With no usable Sun information (zero spacecraft and Sun positions) there is no maneuver to perform,
+// With no usable Sun information (zero Sun direction) there is no maneuver to perform,
 // so the adjusted reference equals the input reference. The attitude is compared via its DCM so the
 // check is independent of which MRP shadow-set representative dcmToMrp returns for a non-principal input.
 inline void propertyPassThroughEqualsInputRef(const Eigen::Vector3f& sigma_BN,
@@ -251,11 +245,8 @@ inline void propertyPassThroughEqualsInputRef(const Eigen::Vector3f& sigma_BN,
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < 3; ++k) {
-        const SunAvoidanceOutput out = alg.update(sigma_BN,
-                                                  refIn,
-                                                  Eigen::Vector3d::Zero(),
-                                                  Eigen::Vector3d::Zero(),
-                                                  static_cast<uint64_t>(k) * detail::kStepNs);
+        const SunAvoidanceOutput out =
+            alg.update(sigma_BN, refIn, Eigen::Vector3f::Zero(), static_cast<uint64_t>(k) * detail::kStepNs);
         const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
         for (int r = 0; r < 3; ++r) {
             for (int c = 0; c < 3; ++c) {
@@ -283,7 +274,7 @@ inline void propertyManeuverOutputBoundedAndFinite(const Eigen::Vector3f& sigma_
     constexpr float normBound = 1.0F + 1e-5F;
     for (int k = 0; k < 20; ++k) {
         const SunAvoidanceOutput out =
-            alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), static_cast<uint64_t>(k) * detail::kStepNs);
+            alg.update(sigma_BN, refIn, detail::sHat_B(), static_cast<uint64_t>(k) * detail::kStepNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
         EXPECT_TRUE(out.domega_RN_N.allFinite());
@@ -304,7 +295,7 @@ inline void propertyDecayedManeuverEqualsInputRef(const Eigen::Vector3f& sigma_B
     // A full 2*pi maneuver at 1 deg/s decays in <= 360 s; 800 half-second steps guarantees completion.
     SunAvoidanceOutput out{};
     for (int k = 0; k < 800; ++k) {
-        out = alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), static_cast<uint64_t>(k) * detail::kStepNs);
+        out = alg.update(sigma_BN, refIn, detail::sHat_B(), static_cast<uint64_t>(k) * detail::kStepNs);
     }
 
     constexpr float tol = 1e-5F;
@@ -330,12 +321,12 @@ inline void propertyReInitializeRestartsManeuver(const Eigen::Vector3f& sigma_BN
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
-    const SunAvoidanceOutput first = alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), 0);
+    const SunAvoidanceOutput first = alg.update(sigma_BN, refIn, detail::sHat_B(), 0);
     for (int k = 1; k < 5; ++k) {
-        (void)alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), static_cast<uint64_t>(k) * detail::kStepNs);
+        (void)alg.update(sigma_BN, refIn, detail::sHat_B(), static_cast<uint64_t>(k) * detail::kStepNs);
     }
     alg.reInitialize();
-    const SunAvoidanceOutput afterReinit = alg.update(sigma_BN, refIn, detail::rBN_N(), detail::rSN_N(), 0);
+    const SunAvoidanceOutput afterReinit = alg.update(sigma_BN, refIn, detail::sHat_B(), 0);
 
     constexpr float tol = 1e-6F;
     for (int i = 0; i < 3; ++i) {
@@ -345,8 +336,8 @@ inline void propertyReInitializeRestartsManeuver(const Eigen::Vector3f& sigma_BN
     }
 }
 
-// Fuzz entry point: exercise the shared regressionTestSunAvoidance for arbitrary attitudes and realistic
-// Sun geometry. The helper skips inputs near a degeneracy or near the discrete short/long-way decision
+// Fuzz entry point: exercise the shared regressionTestSunAvoidance for arbitrary attitudes and Sun
+// directions. The helper skips inputs near a degeneracy or near the discrete short/long-way decision
 // boundary (see nearManeuverDecisionBoundary), where an independent fp32 reference can select the opposite
 // (equally valid) maneuver; away from those the algorithm and reference agree, and the output is checked
 // finite at every step.
@@ -354,16 +345,14 @@ inline void fuzzRegressionSunAvoidance(const Eigen::Vector3f& sigma_BN,
                                        const Eigen::Vector3f& sigma_RN,
                                        const Eigen::Vector3f& omega_RN_N,
                                        const Eigen::Vector3f& domega_RN_N,
-                                       const Eigen::Vector3d& r_BN_N,
-                                       const Eigen::Vector3d& r_SN_N) {
+                                       const Eigen::Vector3f& sHat_B) {
     regressionTestSunAvoidance(detail::sensitiveHat_B(),
                                detail::kManeuverRate,
                                sigma_BN,
                                sigma_RN,
                                omega_RN_N,
                                domega_RN_N,
-                               r_BN_N,
-                               r_SN_N,
+                               sHat_B,
                                detail::kStepNs,
                                12);
 }
