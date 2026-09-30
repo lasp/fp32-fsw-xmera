@@ -26,7 +26,7 @@ void TorqueDutyCycle::reset(const uint64_t callTime) {
  @return TorqueDutyCycleConfig validated configuration
  */
 TorqueDutyCycleConfig TorqueDutyCycle::toConfig() const {
-    return TorqueDutyCycleConfig::create(this->firingPeriods, this->settlingPeriods);
+    return TorqueDutyCycleConfig::create(this->onPeriods, this->offPeriods);
 }
 
 /*! Re-validate the current module properties and push them onto the live algorithm without restarting the
@@ -40,7 +40,7 @@ void TorqueDutyCycle::reconfigure() {
     this->algorithm->setConfig(this->toConfig());
 }
 
-/*! Restart the duty cycle at the beginning of its firing window; a simple pass-through to the algorithm's
+/*! Restart the duty cycle at the beginning of its on window; a simple pass-through to the algorithm's
  reInitialize().
  @return void
  */

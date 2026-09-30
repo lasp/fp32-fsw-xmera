@@ -19,12 +19,12 @@ class TorqueDutyCycle final : public SysModel {
     //! Re-validate the module properties and push them onto the live algorithm, leaving the cadence untouched.
     void reconfigure();
 
-    //! Restart the duty cycle at its firing window; a pass-through to the algorithm's reInitialize().
+    //! Restart the duty cycle at its on window; a pass-through to the algorithm's reInitialize().
     void reInitialize();
 
     /* declare module public variables */
-    uint32_t firingPeriods = 1U;    //!< [-] control periods the gate passes the torque command through (must be >= 1)
-    uint32_t settlingPeriods = 0U;  //!< [-] control periods the gate holds the torque at zero
+    uint32_t onPeriods = 1U;   //!< [-] control periods the gate passes the torque command through (must be >= 1)
+    uint32_t offPeriods = 0U;  //!< [-] control periods the gate holds the torque at zero
 
     /* declare module IO interfaces */
     ReadFunctor<CmdTorqueBodyMsgF32Payload> cmdTorqueInMsg;  //!< [Nm] commanded body-frame torque input message

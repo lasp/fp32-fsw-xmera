@@ -5,29 +5,26 @@
 
 #include <Eigen/Core>
 
-bool TorqueDutyCycleAlgorithm_validateConfig(uint32_t firingPeriods, uint32_t settlingPeriods) {
+bool TorqueDutyCycleAlgorithm_validateConfig(uint32_t onPeriods, uint32_t offPeriods) {
     try {
-        (void)TorqueDutyCycleConfig::create(firingPeriods, settlingPeriods);
+        (void)TorqueDutyCycleConfig::create(onPeriods, offPeriods);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
     }
 }
 
-TorqueDutyCycleAlgorithmHandle* TorqueDutyCycleAlgorithm_create(uint32_t firingPeriods, uint32_t settlingPeriods) {
+TorqueDutyCycleAlgorithmHandle* TorqueDutyCycleAlgorithm_create(uint32_t onPeriods, uint32_t offPeriods) {
     return fsw::createHandle<::TorqueDutyCycleAlgorithm, TorqueDutyCycleAlgorithmHandle>(
-        TorqueDutyCycleConfig::create(firingPeriods, settlingPeriods));
+        TorqueDutyCycleConfig::create(onPeriods, offPeriods));
 }
 
 void TorqueDutyCycleAlgorithm_destroy(TorqueDutyCycleAlgorithmHandle* self) {
     fsw::deleteHandle<::TorqueDutyCycleAlgorithm>(self);
 }
 
-void TorqueDutyCycleAlgorithm_setConfig(TorqueDutyCycleAlgorithmHandle* self,
-                                        uint32_t firingPeriods,
-                                        uint32_t settlingPeriods) {
-    fsw::fromHandle<::TorqueDutyCycleAlgorithm>(self)->setConfig(
-        TorqueDutyCycleConfig::create(firingPeriods, settlingPeriods));
+void TorqueDutyCycleAlgorithm_setConfig(TorqueDutyCycleAlgorithmHandle* self, uint32_t onPeriods, uint32_t offPeriods) {
+    fsw::fromHandle<::TorqueDutyCycleAlgorithm>(self)->setConfig(TorqueDutyCycleConfig::create(onPeriods, offPeriods));
 }
 
 void TorqueDutyCycleAlgorithm_reInitialize(TorqueDutyCycleAlgorithmHandle* self) {

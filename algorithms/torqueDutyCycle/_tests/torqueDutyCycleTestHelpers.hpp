@@ -20,14 +20,14 @@ inline Eigen::Vector3f makeTorqueCmd(const std::vector<float>& torques) {
 }
 
 // Independent reference for the cadence, written from the module description rather than from the algorithm:
-// a cycle is firingPeriods + settlingPeriods control periods long and fires during its leading slots, so the
-// nth update since the last restart fires exactly when n modulo the cycle length is inside the firing window.
+// a cycle is onPeriods + offPeriods control periods long and is on during its leading slots, so the
+// nth update since the last restart is on exactly when n modulo the cycle length is inside the on window.
 inline uint32_t referenceCycleLength(const TorqueDutyCycleConfig& cfg) {
-    return cfg.getFiringPeriods() + cfg.getSettlingPeriods();
+    return cfg.getOnPeriods() + cfg.getOffPeriods();
 }
 
-inline bool referenceIsFiring(uint32_t updateIndex, const TorqueDutyCycleConfig& cfg) {
-    return (updateIndex % referenceCycleLength(cfg)) < cfg.getFiringPeriods();
+inline bool referenceIsOn(uint32_t updateIndex, const TorqueDutyCycleConfig& cfg) {
+    return (updateIndex % referenceCycleLength(cfg)) < cfg.getOnPeriods();
 }
 
 // Index of the first non-zero component of a command, or kNumAxes when the command is all zero. A gated output
@@ -74,36 +74,36 @@ inline void testGateActsOnTheWholeVector(const Eigen::Vector3f& cmdTorque_B,
 
     for (uint32_t update = 0U; update < numUpdates; ++update) {
         const Eigen::Vector3f gated = alg.update(cmdTorque_B);
-        const bool firing = referenceIsFiring(update, cfg);
+        const bool on = referenceIsOn(update, cfg);
 
         for (Eigen::Index i = 0; i < kNumAxes; ++i) {
-            EXPECT_EQ(gated(i), firing ? cmdTorque_B(i) : 0.0F) << "update " << update << " axis " << i;
+            EXPECT_EQ(gated(i), on ? cmdTorque_B(i) : 0.0F) << "update " << update << " axis " << i;
         }
     }
 }
 
-// Over a whole number of cycles the gate fires on exactly firingPeriods updates per cycle, so the delivered
-// duty ratio is exactly firingPeriods / (firingPeriods + settlingPeriods) with no drift or rounding.
-inline void testFiringCountMatchesDutyRatio(const Eigen::Vector3f& cmdTorque_B,
-                                            const TorqueDutyCycleConfig& cfg,
-                                            uint32_t numCycles) {
+// Over a whole number of cycles the gate is on for exactly onPeriods updates per cycle, so the delivered
+// duty ratio is exactly onPeriods / (onPeriods + offPeriods) with no drift or rounding.
+inline void testOnCountMatchesDutyRatio(const Eigen::Vector3f& cmdTorque_B,
+                                        const TorqueDutyCycleConfig& cfg,
+                                        uint32_t numCycles) {
     const Eigen::Index watched = firstNonZeroAxis(cmdTorque_B);
     ASSERT_LT(watched, kNumAxes) << "an all-zero command cannot reveal the cadence";
 
     TorqueDutyCycleAlgorithm alg{cfg};
 
-    uint32_t firingUpdates = 0U;
+    uint32_t onUpdates = 0U;
     for (uint32_t update = 0U; update < numCycles * referenceCycleLength(cfg); ++update) {
         if (alg.update(cmdTorque_B)(watched) != 0.0F) {
-            ++firingUpdates;
+            ++onUpdates;
         }
     }
 
-    EXPECT_EQ(firingUpdates, numCycles * cfg.getFiringPeriods());
+    EXPECT_EQ(onUpdates, numCycles * cfg.getOnPeriods());
 }
 
 // The cadence is free-running: it depends only on how many updates have run, never on what was commanded. Two
-// gates fed different torque commands must therefore fire on exactly the same updates.
+// gates fed different torque commands must therefore be on for exactly the same updates.
 inline void testCadenceIsIndependentOfCommand(const Eigen::Vector3f& cmdTorque_B,
                                               const TorqueDutyCycleConfig& cfg,
                                               uint32_t numUpdates) {
@@ -118,9 +118,9 @@ inline void testCadenceIsIndependentOfCommand(const Eigen::Vector3f& cmdTorque_B
     TorqueDutyCycleAlgorithm otherAlg{cfg};
 
     for (uint32_t update = 0U; update < numUpdates; ++update) {
-        const bool fired = alg.update(cmdTorque_B)(watched) != 0.0F;
-        const bool otherFired = otherAlg.update(otherTorqueCmd)(watched) != 0.0F;
-        EXPECT_EQ(fired, otherFired) << "update " << update;
+        const bool wasOn = alg.update(cmdTorque_B)(watched) != 0.0F;
+        const bool otherWasOn = otherAlg.update(otherTorqueCmd)(watched) != 0.0F;
+        EXPECT_EQ(wasOn, otherWasOn) << "update " << update;
     }
 }
 
@@ -146,8 +146,8 @@ inline void testReInitializeRestartsCadence(const Eigen::Vector3f& cmdTorque_B,
     alg.reInitialize();
 
     for (uint32_t update = 0U; update < numUpdates; ++update) {
-        const bool fired = alg.update(cmdTorque_B)(watched) != 0.0F;
-        EXPECT_EQ(fired, fromConstruction[update]) << "update " << update << " after reInitialize";
+        const bool wasOn = alg.update(cmdTorque_B)(watched) != 0.0F;
+        EXPECT_EQ(wasOn, fromConstruction[update]) << "update " << update << " after reInitialize";
     }
 }
 
@@ -159,11 +159,11 @@ inline void regressionTestTorqueDutyCycle(const Eigen::Vector3f& cmdTorque_B,
 
     for (uint32_t update = 0U; update < numUpdates; ++update) {
         const Eigen::Vector3f gated = alg.update(cmdTorque_B);
-        const bool expectFiring = referenceIsFiring(update, cfg);
+        const bool expectOn = referenceIsOn(update, cfg);
 
         for (Eigen::Index i = 0; i < kNumAxes; ++i) {
             // The gate does no arithmetic, so this is an exact comparison rather than a tolerance check.
-            const float expected = expectFiring ? cmdTorque_B(i) : 0.0F;
+            const float expected = expectOn ? cmdTorque_B(i) : 0.0F;
             EXPECT_EQ(gated(i), expected) << "update " << update << " axis " << i;
         }
     }
@@ -180,11 +180,11 @@ namespace detail {
 // validators drifting apart rather than an expected outcome.
 inline bool makeFuzzCase(const std::vector<float>& torques,
                          float watchedTorque,
-                         uint32_t firingPeriods,
-                         uint32_t settlingPeriods,
+                         uint32_t onPeriods,
+                         uint32_t offPeriods,
                          Eigen::Vector3f& cmdTorque_B) {
-    if (!TorqueDutyCycleConfig::isValidFiringPeriods(firingPeriods) ||
-        !TorqueDutyCycleConfig::isValidSettlingPeriods(settlingPeriods, firingPeriods)) {
+    if (!TorqueDutyCycleConfig::isValidOnPeriods(onPeriods) ||
+        !TorqueDutyCycleConfig::isValidOffPeriods(offPeriods, onPeriods)) {
         return false;
     }
 
@@ -199,82 +199,78 @@ inline bool makeFuzzCase(const std::vector<float>& torques,
 
 inline void propertyOutputIsInputOrZero(const std::vector<float>& torques,
                                         float watchedTorque,
-                                        uint32_t firingPeriods,
-                                        uint32_t settlingPeriods,
+                                        uint32_t onPeriods,
+                                        uint32_t offPeriods,
                                         uint32_t numUpdates) {
     Eigen::Vector3f cmdTorque_B = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(torques, watchedTorque, firingPeriods, settlingPeriods, cmdTorque_B)) {
+    if (!detail::makeFuzzCase(torques, watchedTorque, onPeriods, offPeriods, cmdTorque_B)) {
         return;
     }
-    testOutputIsInputOrZero(cmdTorque_B, TorqueDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+    testOutputIsInputOrZero(cmdTorque_B, TorqueDutyCycleConfig::create(onPeriods, offPeriods), numUpdates);
 }
 
 inline void propertyGateActsOnTheWholeVector(const std::vector<float>& torques,
                                              float watchedTorque,
-                                             uint32_t firingPeriods,
-                                             uint32_t settlingPeriods,
+                                             uint32_t onPeriods,
+                                             uint32_t offPeriods,
                                              uint32_t numUpdates) {
     Eigen::Vector3f cmdTorque_B = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(torques, watchedTorque, firingPeriods, settlingPeriods, cmdTorque_B)) {
+    if (!detail::makeFuzzCase(torques, watchedTorque, onPeriods, offPeriods, cmdTorque_B)) {
         return;
     }
-    testGateActsOnTheWholeVector(
-        cmdTorque_B, TorqueDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+    testGateActsOnTheWholeVector(cmdTorque_B, TorqueDutyCycleConfig::create(onPeriods, offPeriods), numUpdates);
 }
 
-inline void propertyFiringCountMatchesDutyRatio(const std::vector<float>& torques,
-                                                float watchedTorque,
-                                                uint32_t firingPeriods,
-                                                uint32_t settlingPeriods,
-                                                uint32_t numCycles) {
+inline void propertyOnCountMatchesDutyRatio(const std::vector<float>& torques,
+                                            float watchedTorque,
+                                            uint32_t onPeriods,
+                                            uint32_t offPeriods,
+                                            uint32_t numCycles) {
     Eigen::Vector3f cmdTorque_B = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(torques, watchedTorque, firingPeriods, settlingPeriods, cmdTorque_B)) {
+    if (!detail::makeFuzzCase(torques, watchedTorque, onPeriods, offPeriods, cmdTorque_B)) {
         return;
     }
-    testFiringCountMatchesDutyRatio(
-        cmdTorque_B, TorqueDutyCycleConfig::create(firingPeriods, settlingPeriods), numCycles);
+    testOnCountMatchesDutyRatio(cmdTorque_B, TorqueDutyCycleConfig::create(onPeriods, offPeriods), numCycles);
 }
 
 inline void propertyCadenceIsIndependentOfCommand(const std::vector<float>& torques,
                                                   float watchedTorque,
-                                                  uint32_t firingPeriods,
-                                                  uint32_t settlingPeriods,
+                                                  uint32_t onPeriods,
+                                                  uint32_t offPeriods,
                                                   uint32_t numUpdates) {
     Eigen::Vector3f cmdTorque_B = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(torques, watchedTorque, firingPeriods, settlingPeriods, cmdTorque_B)) {
+    if (!detail::makeFuzzCase(torques, watchedTorque, onPeriods, offPeriods, cmdTorque_B)) {
         return;
     }
-    testCadenceIsIndependentOfCommand(
-        cmdTorque_B, TorqueDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+    testCadenceIsIndependentOfCommand(cmdTorque_B, TorqueDutyCycleConfig::create(onPeriods, offPeriods), numUpdates);
 }
 
 inline void propertyReInitializeRestartsCadence(const std::vector<float>& torques,
                                                 float watchedTorque,
-                                                uint32_t firingPeriods,
-                                                uint32_t settlingPeriods,
+                                                uint32_t onPeriods,
+                                                uint32_t offPeriods,
                                                 uint32_t numUpdates,
                                                 uint32_t updatesBeforeRestart) {
     Eigen::Vector3f cmdTorque_B = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(torques, watchedTorque, firingPeriods, settlingPeriods, cmdTorque_B)) {
+    if (!detail::makeFuzzCase(torques, watchedTorque, onPeriods, offPeriods, cmdTorque_B)) {
         return;
     }
     testReInitializeRestartsCadence(
-        cmdTorque_B, TorqueDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates, updatesBeforeRestart);
+        cmdTorque_B, TorqueDutyCycleConfig::create(onPeriods, offPeriods), numUpdates, updatesBeforeRestart);
 }
 
 inline void regressionFuzzTorqueDutyCycle(const std::vector<float>& torques,
                                           float watchedTorque,
-                                          uint32_t firingPeriods,
-                                          uint32_t settlingPeriods,
+                                          uint32_t onPeriods,
+                                          uint32_t offPeriods,
                                           uint32_t numUpdates) {
     Eigen::Vector3f cmdTorque_B = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(torques, watchedTorque, firingPeriods, settlingPeriods, cmdTorque_B)) {
+    if (!detail::makeFuzzCase(torques, watchedTorque, onPeriods, offPeriods, cmdTorque_B)) {
         return;
     }
     // The gate performs no arithmetic, so the reference match is exact regardless of cadence or magnitude
     // and needs no error budget.
-    regressionTestTorqueDutyCycle(
-        cmdTorque_B, TorqueDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+    regressionTestTorqueDutyCycle(cmdTorque_B, TorqueDutyCycleConfig::create(onPeriods, offPeriods), numUpdates);
 }
 
 #endif
