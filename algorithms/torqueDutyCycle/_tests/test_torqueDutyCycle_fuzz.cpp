@@ -1,4 +1,4 @@
-#include "thrDesatDutyCycleTestHelpers.hpp"
+#include "torqueDutyCycleTestHelpers.hpp"
 #include <fuzztest/fuzztest.h>
 
 // Each property below is the same function the unit tests drive; only the inputs differ. The gate carries the
@@ -12,14 +12,14 @@
 
 // Cadence domains are bounded so a case runs a few hundred updates at most; the cadence logic is integer and
 // exact, so wider counts buy no additional coverage.
-FUZZ_TEST(ThrDesatDutyCyclePropertyFuzz, propertyOutputIsInputOrZero)
+FUZZ_TEST(TorqueDutyCyclePropertyFuzz, propertyOutputIsInputOrZero)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [Nm] body torque
                  fuzztest::InRange(0.01F, 100.0F),                                    // [Nm] watched torque component
                  fuzztest::InRange(1U, 20U),                                          // [-] firing periods
                  fuzztest::InRange(0U, 50U),                                          // [-] settling periods
                  fuzztest::InRange(1U, 30U));                                         // [-] update count
 
-FUZZ_TEST(ThrDesatDutyCyclePropertyFuzz, propertyGateActsOnTheWholeVector)
+FUZZ_TEST(TorqueDutyCyclePropertyFuzz, propertyGateActsOnTheWholeVector)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [Nm] body torque
                  fuzztest::InRange(0.01F, 100.0F),                                    // [Nm] watched torque component
                  fuzztest::InRange(1U, 20U),                                          // [-] firing periods
@@ -28,14 +28,14 @@ FUZZ_TEST(ThrDesatDutyCyclePropertyFuzz, propertyGateActsOnTheWholeVector)
 
 // The duty ratio must come out exact over whole cycles, which is the property the free-running counter exists
 // to guarantee. Cycles are capped so the longest cadence still runs in bounded time.
-FUZZ_TEST(ThrDesatDutyCyclePropertyFuzz, propertyFiringCountMatchesDutyRatio)
+FUZZ_TEST(TorqueDutyCyclePropertyFuzz, propertyFiringCountMatchesDutyRatio)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [Nm] body torque
                  fuzztest::InRange(0.01F, 100.0F),                                    // [Nm] watched torque component
                  fuzztest::InRange(1U, 20U),                                          // [-] firing periods
                  fuzztest::InRange(0U, 50U),                                          // [-] settling periods
                  fuzztest::InRange(1U, 8U));                                          // [-] whole cycles
 
-FUZZ_TEST(ThrDesatDutyCyclePropertyFuzz, propertyCadenceIsIndependentOfCommand)
+FUZZ_TEST(TorqueDutyCyclePropertyFuzz, propertyCadenceIsIndependentOfCommand)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [Nm] body torque
                  fuzztest::InRange(0.01F, 100.0F),                                    // [Nm] watched torque component
                  fuzztest::InRange(1U, 20U),                                          // [-] firing periods
@@ -44,7 +44,7 @@ FUZZ_TEST(ThrDesatDutyCyclePropertyFuzz, propertyCadenceIsIndependentOfCommand)
 
 // reInitialize() must restore the phase whatever phase the counter had reached, so updatesBeforeRestart ranges
 // across and beyond a full cycle.
-FUZZ_TEST(ThrDesatDutyCyclePropertyFuzz, propertyReInitializeRestartsCadence)
+FUZZ_TEST(TorqueDutyCyclePropertyFuzz, propertyReInitializeRestartsCadence)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [Nm] body torque
                  fuzztest::InRange(0.01F, 100.0F),                                    // [Nm] watched torque component
                  fuzztest::InRange(1U, 20U),                                          // [-] firing periods
@@ -52,7 +52,7 @@ FUZZ_TEST(ThrDesatDutyCyclePropertyFuzz, propertyReInitializeRestartsCadence)
                  fuzztest::InRange(1U, 20U),                                          // [-] update count
                  fuzztest::InRange(0U, 80U));                                         // [-] updates before restart
 
-FUZZ_TEST(ThrDesatDutyCycleRegressionFuzz, regressionFuzzThrDesatDutyCycle)
+FUZZ_TEST(TorqueDutyCycleRegressionFuzz, regressionFuzzTorqueDutyCycle)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [Nm] body torque
                  fuzztest::InRange(0.01F, 100.0F),                                    // [Nm] watched torque component
                  fuzztest::InRange(1U, 20U),                                          // [-] firing periods

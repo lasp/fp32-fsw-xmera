@@ -1,4 +1,4 @@
-#include "thrDesatDutyCycleTestHelpers.hpp"
+#include "torqueDutyCycleTestHelpers.hpp"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <Eigen/Core>
@@ -6,24 +6,24 @@
 
 namespace {
 
-// A representative momentumManagement dumping torque. Deliberately distinct per axis with mixed signs, so a gate
+// A representative torque command. Deliberately distinct per axis with mixed signs, so a gate
 // that scrambled or rescaled the components would show.
 const std::vector<float> kNominalTorques = {1.2e-2F, -3.5e-3F, 7.0e-4F};
 
-// The nominal cadence: fire for one control period, then hold off for four so the wheels can re-settle.
+// The nominal cadence: fire for one control period, then hold off for four.
 constexpr uint32_t kNominalFiringPeriods = 1U;
 constexpr uint32_t kNominalSettlingPeriods = 4U;
 
 // Enough updates to cover several whole cycles of the nominal cadence.
 constexpr uint32_t kManyUpdates = 20U;
 
-ThrDesatDutyCycleConfig nominalConfig() {
-    return ThrDesatDutyCycleConfig::create(kNominalFiringPeriods, kNominalSettlingPeriods);
+TorqueDutyCycleConfig nominalConfig() {
+    return TorqueDutyCycleConfig::create(kNominalFiringPeriods, kNominalSettlingPeriods);
 }
 
 // Assert that a cadence is accepted and round-trips through the getters.
 void expectCadenceRoundTrips(uint32_t firingPeriods, uint32_t settlingPeriods) {
-    const ThrDesatDutyCycleConfig cfg = ThrDesatDutyCycleConfig::create(firingPeriods, settlingPeriods);
+    const TorqueDutyCycleConfig cfg = TorqueDutyCycleConfig::create(firingPeriods, settlingPeriods);
 
     EXPECT_EQ(cfg.getFiringPeriods(), firingPeriods);
     EXPECT_EQ(cfg.getSettlingPeriods(), settlingPeriods);
@@ -31,9 +31,9 @@ void expectCadenceRoundTrips(uint32_t firingPeriods, uint32_t settlingPeriods) {
 
 }  // namespace
 
-TEST(ThrDesatDutyCycle, PassesTorqueThroughDuringTheFiringWindow) {
-    const auto cfg = ThrDesatDutyCycleConfig::create(3U, 5U);
-    ThrDesatDutyCycleAlgorithm alg{cfg};
+TEST(TorqueDutyCycle, PassesTorqueThroughDuringTheFiringWindow) {
+    const auto cfg = TorqueDutyCycleConfig::create(3U, 5U);
+    TorqueDutyCycleAlgorithm alg{cfg};
     const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     for (uint32_t update = 0U; update < cfg.getFiringPeriods(); ++update) {
@@ -41,9 +41,9 @@ TEST(ThrDesatDutyCycle, PassesTorqueThroughDuringTheFiringWindow) {
     }
 }
 
-TEST(ThrDesatDutyCycle, CommandsZeroTorqueDuringTheSettlingWindow) {
-    const auto cfg = ThrDesatDutyCycleConfig::create(3U, 5U);
-    ThrDesatDutyCycleAlgorithm alg{cfg};
+TEST(TorqueDutyCycle, CommandsZeroTorqueDuringTheSettlingWindow) {
+    const auto cfg = TorqueDutyCycleConfig::create(3U, 5U);
+    TorqueDutyCycleAlgorithm alg{cfg};
     const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     // Burn through the firing window first.
@@ -58,8 +58,8 @@ TEST(ThrDesatDutyCycle, CommandsZeroTorqueDuringTheSettlingWindow) {
 }
 
 // With no settling periods the gate is fully open, which is how a caller disables the duty cycle.
-TEST(ThrDesatDutyCycle, AlwaysFiresWhenThereAreNoSettlingPeriods) {
-    ThrDesatDutyCycleAlgorithm alg{ThrDesatDutyCycleConfig::create(1U, 0U)};
+TEST(TorqueDutyCycle, AlwaysFiresWhenThereAreNoSettlingPeriods) {
+    TorqueDutyCycleAlgorithm alg{TorqueDutyCycleConfig::create(1U, 0U)};
     const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     for (uint32_t update = 0U; update < kManyUpdates; ++update) {
@@ -69,8 +69,8 @@ TEST(ThrDesatDutyCycle, AlwaysFiresWhenThereAreNoSettlingPeriods) {
 
 // The pulse train repeats with the cycle length; this pins the phase of the nominal 1-in-5 cadence explicitly
 // rather than only through the reference implementation.
-TEST(ThrDesatDutyCycle, CadenceRepeatsWithTheCycleLength) {
-    ThrDesatDutyCycleAlgorithm alg{nominalConfig()};
+TEST(TorqueDutyCycle, CadenceRepeatsWithTheCycleLength) {
+    TorqueDutyCycleAlgorithm alg{nominalConfig()};
     const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     const std::vector<bool> expectedPattern = {true, false, false, false, false};
@@ -80,49 +80,49 @@ TEST(ThrDesatDutyCycle, CadenceRepeatsWithTheCycleLength) {
     }
 }
 
-TEST(ThrDesatDutyCycle, MatchesReferenceAcrossCases) {
+TEST(TorqueDutyCycle, MatchesReferenceAcrossCases) {
     const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
-    regressionTestThrDesatDutyCycle(cmdTorque_B, ThrDesatDutyCycleConfig::create(1U, 0U), kManyUpdates);
-    regressionTestThrDesatDutyCycle(cmdTorque_B, ThrDesatDutyCycleConfig::create(1U, 1U), kManyUpdates);
-    regressionTestThrDesatDutyCycle(cmdTorque_B, nominalConfig(), kManyUpdates);
-    regressionTestThrDesatDutyCycle(cmdTorque_B, ThrDesatDutyCycleConfig::create(3U, 2U), kManyUpdates);
-    regressionTestThrDesatDutyCycle(cmdTorque_B, ThrDesatDutyCycleConfig::create(7U, 1U), kManyUpdates);
+    regressionTestTorqueDutyCycle(cmdTorque_B, TorqueDutyCycleConfig::create(1U, 0U), kManyUpdates);
+    regressionTestTorqueDutyCycle(cmdTorque_B, TorqueDutyCycleConfig::create(1U, 1U), kManyUpdates);
+    regressionTestTorqueDutyCycle(cmdTorque_B, nominalConfig(), kManyUpdates);
+    regressionTestTorqueDutyCycle(cmdTorque_B, TorqueDutyCycleConfig::create(3U, 2U), kManyUpdates);
+    regressionTestTorqueDutyCycle(cmdTorque_B, TorqueDutyCycleConfig::create(7U, 1U), kManyUpdates);
     // A settling window longer than the run: the gate fires once and then stays shut throughout.
-    regressionTestThrDesatDutyCycle(cmdTorque_B, ThrDesatDutyCycleConfig::create(1U, 100U), kManyUpdates);
+    regressionTestTorqueDutyCycle(cmdTorque_B, TorqueDutyCycleConfig::create(1U, 100U), kManyUpdates);
 }
 
-TEST(ThrDesatDutyCycle, DeliversTheConfiguredDutyRatio) {
+TEST(TorqueDutyCycle, DeliversTheConfiguredDutyRatio) {
     const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
-    testFiringCountMatchesDutyRatio(cmdTorque_B, ThrDesatDutyCycleConfig::create(1U, 0U), 5U);
+    testFiringCountMatchesDutyRatio(cmdTorque_B, TorqueDutyCycleConfig::create(1U, 0U), 5U);
     testFiringCountMatchesDutyRatio(cmdTorque_B, nominalConfig(), 5U);
-    testFiringCountMatchesDutyRatio(cmdTorque_B, ThrDesatDutyCycleConfig::create(3U, 2U), 4U);
+    testFiringCountMatchesDutyRatio(cmdTorque_B, TorqueDutyCycleConfig::create(3U, 2U), 4U);
 }
 
-TEST(ThrDesatDutyCycle, CadenceIsIndependentOfTheCommandedTorque) {
+TEST(TorqueDutyCycle, CadenceIsIndependentOfTheCommandedTorque) {
     testCadenceIsIndependentOfCommand(makeTorqueCmd(kNominalTorques), nominalConfig(), kManyUpdates);
     testCadenceIsIndependentOfCommand(
-        makeTorqueCmd(kNominalTorques), ThrDesatDutyCycleConfig::create(3U, 2U), kManyUpdates);
+        makeTorqueCmd(kNominalTorques), TorqueDutyCycleConfig::create(3U, 2U), kManyUpdates);
 }
 
-TEST(ThrDesatDutyCycle, OutputIsAlwaysTheInputOrZero) {
+TEST(TorqueDutyCycle, OutputIsAlwaysTheInputOrZero) {
     testOutputIsInputOrZero(makeTorqueCmd(kNominalTorques), nominalConfig(), kManyUpdates);
 }
 
-TEST(ThrDesatDutyCycle, GateActsOnTheWholeTorqueVector) {
+TEST(TorqueDutyCycle, GateActsOnTheWholeTorqueVector) {
     testGateActsOnTheWholeVector(makeTorqueCmd(kNominalTorques), nominalConfig(), kManyUpdates);
 }
 
-TEST(ThrDesatDutyCycle, ReInitializeRestartsTheCadence) {
+TEST(TorqueDutyCycle, ReInitializeRestartsTheCadence) {
     testReInitializeRestartsCadence(makeTorqueCmd(kNominalTorques), nominalConfig(), 10U, 3U);
-    testReInitializeRestartsCadence(makeTorqueCmd(kNominalTorques), ThrDesatDutyCycleConfig::create(3U, 2U), 10U, 7U);
+    testReInitializeRestartsCadence(makeTorqueCmd(kNominalTorques), TorqueDutyCycleConfig::create(3U, 2U), 10U, 7U);
 }
 
 // setConfig() installs a new cadence without restarting it, which is what separates reconfigure() from
 // reInitialize() at the adapter level.
-TEST(ThrDesatDutyCycle, SetConfigChangesTheCadenceWithoutRestartingIt) {
-    ThrDesatDutyCycleAlgorithm alg{ThrDesatDutyCycleConfig::create(1U, 3U)};
+TEST(TorqueDutyCycle, SetConfigChangesTheCadenceWithoutRestartingIt) {
+    TorqueDutyCycleAlgorithm alg{TorqueDutyCycleConfig::create(1U, 3U)};
     const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     // Fire, then advance two updates into the settling window.
@@ -132,7 +132,7 @@ TEST(ThrDesatDutyCycle, SetConfigChangesTheCadenceWithoutRestartingIt) {
 
     // Widening the firing window to cover the whole cycle opens the gate from the next update onwards; the
     // counter keeps its phase, it is only reinterpreted against the new window.
-    alg.setConfig(ThrDesatDutyCycleConfig::create(4U, 0U));
+    alg.setConfig(TorqueDutyCycleConfig::create(4U, 0U));
     for (uint32_t update = 0U; update < kManyUpdates; ++update) {
         EXPECT_NE(alg.update(cmdTorque_B)(0), 0.0F) << "update " << update;
     }
@@ -140,8 +140,8 @@ TEST(ThrDesatDutyCycle, SetConfigChangesTheCadenceWithoutRestartingIt) {
 
 // A cadence shortened under a counter that has already run past the new cycle length must still produce a
 // valid phase rather than reading out of range.
-TEST(ThrDesatDutyCycle, HandlesACadenceShortenedBelowTheCurrentPhase) {
-    ThrDesatDutyCycleAlgorithm alg{ThrDesatDutyCycleConfig::create(1U, 20U)};
+TEST(TorqueDutyCycle, HandlesACadenceShortenedBelowTheCurrentPhase) {
+    TorqueDutyCycleAlgorithm alg{TorqueDutyCycleConfig::create(1U, 20U)};
     const Eigen::Vector3f cmdTorque_B = makeTorqueCmd(kNominalTorques);
 
     // Advance well past the cycle length the gate is about to be given.
@@ -149,7 +149,7 @@ TEST(ThrDesatDutyCycle, HandlesACadenceShortenedBelowTheCurrentPhase) {
         (void)alg.update(cmdTorque_B);
     }
 
-    alg.setConfig(ThrDesatDutyCycleConfig::create(1U, 1U));
+    alg.setConfig(TorqueDutyCycleConfig::create(1U, 1U));
 
     // The phase folds back into the new two-period cycle, so the gate must alternate from here on.
     bool previousFired = alg.update(cmdTorque_B)(0) != 0.0F;
@@ -161,8 +161,8 @@ TEST(ThrDesatDutyCycle, HandlesACadenceShortenedBelowTheCurrentPhase) {
 }
 
 // A zero command stays zero whether the gate is open or shut, so the module never invents a firing.
-TEST(ThrDesatDutyCycle, ZeroCommandStaysZero) {
-    ThrDesatDutyCycleAlgorithm alg{nominalConfig()};
+TEST(TorqueDutyCycle, ZeroCommandStaysZero) {
+    TorqueDutyCycleAlgorithm alg{nominalConfig()};
     const Eigen::Vector3f allZero = Eigen::Vector3f::Zero();
 
     for (uint32_t update = 0U; update < kManyUpdates; ++update) {
@@ -174,20 +174,20 @@ TEST(ThrDesatDutyCycle, ZeroCommandStaysZero) {
 // Config tests.
 // ---------------------------------------------------------------------------
 
-TEST(ThrDesatDutyCycleConfigTest, AcceptsValidInputs) {
-    EXPECT_NO_THROW((void)ThrDesatDutyCycleConfig::create(1U, 0U));  // gate held open, duty cycling disabled
-    EXPECT_NO_THROW((void)ThrDesatDutyCycleConfig::create(1U, 4U));
-    EXPECT_NO_THROW((void)ThrDesatDutyCycleConfig::create(3U, 2U));
-    EXPECT_NO_THROW((void)ThrDesatDutyCycleConfig::create(100U, 10000U));
+TEST(TorqueDutyCycleConfigTest, AcceptsValidInputs) {
+    EXPECT_NO_THROW((void)TorqueDutyCycleConfig::create(1U, 0U));  // gate held open, duty cycling disabled
+    EXPECT_NO_THROW((void)TorqueDutyCycleConfig::create(1U, 4U));
+    EXPECT_NO_THROW((void)TorqueDutyCycleConfig::create(3U, 2U));
+    EXPECT_NO_THROW((void)TorqueDutyCycleConfig::create(100U, 10000U));
     // Both extremes of the representable cycle length: a single firing period followed by the longest
     // possible hold-off, and a firing window that fills the whole range with no hold-off at all.
-    EXPECT_NO_THROW((void)ThrDesatDutyCycleConfig::create(1U, UINT32_MAX - 1U));
-    EXPECT_NO_THROW((void)ThrDesatDutyCycleConfig::create(UINT32_MAX, 0U));
+    EXPECT_NO_THROW((void)TorqueDutyCycleConfig::create(1U, UINT32_MAX - 1U));
+    EXPECT_NO_THROW((void)TorqueDutyCycleConfig::create(UINT32_MAX, 0U));
 }
 
 // Whatever cadence is configured must come back unchanged from the getters. The config stores the counts
 // verbatim, so these are exact comparisons.
-TEST(ThrDesatDutyCycleConfigTest, GettersRoundTrip) {
+TEST(TorqueDutyCycleConfigTest, GettersRoundTrip) {
     expectCadenceRoundTrips(1U, 0U);
     expectCadenceRoundTrips(1U, 4U);
     expectCadenceRoundTrips(3U, 2U);
@@ -197,28 +197,28 @@ TEST(ThrDesatDutyCycleConfigTest, GettersRoundTrip) {
     expectCadenceRoundTrips(UINT32_MAX, 0U);
 }
 
-// A cycle that never fires would hold the thrusters off forever, silently disabling desaturation.
-TEST(ThrDesatDutyCycleConfigTest, RejectsZeroFiringPeriods) {
-    EXPECT_THROW((void)ThrDesatDutyCycleConfig::create(0U, 5U), fsw::invalid_argument);
-    EXPECT_THROW((void)ThrDesatDutyCycleConfig::create(0U, 0U), fsw::invalid_argument);
+// A cycle that never fires would hold the torque at zero forever, silently disabling the command.
+TEST(TorqueDutyCycleConfigTest, RejectsZeroFiringPeriods) {
+    EXPECT_THROW((void)TorqueDutyCycleConfig::create(0U, 5U), fsw::invalid_argument);
+    EXPECT_THROW((void)TorqueDutyCycleConfig::create(0U, 0U), fsw::invalid_argument);
 }
 
 // A cycle length that wrapped around would come out shorter than its own firing window.
-TEST(ThrDesatDutyCycleConfigTest, RejectsCycleLengthOverflow) {
-    EXPECT_THROW((void)ThrDesatDutyCycleConfig::create(2U, UINT32_MAX - 1U), fsw::invalid_argument);
-    EXPECT_THROW((void)ThrDesatDutyCycleConfig::create(UINT32_MAX, 1U), fsw::invalid_argument);
+TEST(TorqueDutyCycleConfigTest, RejectsCycleLengthOverflow) {
+    EXPECT_THROW((void)TorqueDutyCycleConfig::create(2U, UINT32_MAX - 1U), fsw::invalid_argument);
+    EXPECT_THROW((void)TorqueDutyCycleConfig::create(UINT32_MAX, 1U), fsw::invalid_argument);
 }
 
 // The public predicates must agree with create() exactly at the boundaries, since callers (the C shim's
 // validateConfig, and Ada through it) use them to pre-check a cadence before constructing.
-TEST(ThrDesatDutyCycleConfigTest, StaticValidatorsCheckBoundaries) {
-    EXPECT_FALSE(ThrDesatDutyCycleConfig::isValidFiringPeriods(0U));
-    EXPECT_TRUE(ThrDesatDutyCycleConfig::isValidFiringPeriods(1U));
-    EXPECT_TRUE(ThrDesatDutyCycleConfig::isValidFiringPeriods(UINT32_MAX));
+TEST(TorqueDutyCycleConfigTest, StaticValidatorsCheckBoundaries) {
+    EXPECT_FALSE(TorqueDutyCycleConfig::isValidFiringPeriods(0U));
+    EXPECT_TRUE(TorqueDutyCycleConfig::isValidFiringPeriods(1U));
+    EXPECT_TRUE(TorqueDutyCycleConfig::isValidFiringPeriods(UINT32_MAX));
 
-    EXPECT_TRUE(ThrDesatDutyCycleConfig::isValidSettlingPeriods(0U, 1U));
-    EXPECT_TRUE(ThrDesatDutyCycleConfig::isValidSettlingPeriods(UINT32_MAX - 1U, 1U));
-    EXPECT_FALSE(ThrDesatDutyCycleConfig::isValidSettlingPeriods(UINT32_MAX, 1U));
-    EXPECT_TRUE(ThrDesatDutyCycleConfig::isValidSettlingPeriods(0U, UINT32_MAX));
-    EXPECT_FALSE(ThrDesatDutyCycleConfig::isValidSettlingPeriods(1U, UINT32_MAX));
+    EXPECT_TRUE(TorqueDutyCycleConfig::isValidSettlingPeriods(0U, 1U));
+    EXPECT_TRUE(TorqueDutyCycleConfig::isValidSettlingPeriods(UINT32_MAX - 1U, 1U));
+    EXPECT_FALSE(TorqueDutyCycleConfig::isValidSettlingPeriods(UINT32_MAX, 1U));
+    EXPECT_TRUE(TorqueDutyCycleConfig::isValidSettlingPeriods(0U, UINT32_MAX));
+    EXPECT_FALSE(TorqueDutyCycleConfig::isValidSettlingPeriods(1U, UINT32_MAX));
 }

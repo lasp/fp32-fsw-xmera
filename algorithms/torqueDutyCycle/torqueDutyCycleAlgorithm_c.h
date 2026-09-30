@@ -1,5 +1,5 @@
-#ifndef F32XMERA_THR_DESAT_DUTY_CYCLE_ALGORITHM_C_H
-#define F32XMERA_THR_DESAT_DUTY_CYCLE_ALGORITHM_C_H
+#ifndef F32XMERA_TORQUE_DUTY_CYCLE_ALGORITHM_C_H
+#define F32XMERA_TORQUE_DUTY_CYCLE_ALGORITHM_C_H
 
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
@@ -11,9 +11,9 @@ extern "C" {
 #endif
 
 /**
- * @brief Opaque handle to the C++ ThrDesatDutyCycleAlgorithm instance.
+ * @brief Opaque handle to the C++ TorqueDutyCycleAlgorithm instance.
  */
-typedef struct ThrDesatDutyCycleAlgorithmHandle ThrDesatDutyCycleAlgorithmHandle;
+typedef struct TorqueDutyCycleAlgorithmHandle TorqueDutyCycleAlgorithmHandle;
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
@@ -23,23 +23,23 @@ typedef struct ThrDesatDutyCycleAlgorithmHandle ThrDesatDutyCycleAlgorithmHandle
  * @return true when the configuration is valid. Never throws, so it can guard the
  *         throwing create/setConfig from an invalid configuration.
  */
-bool ThrDesatDutyCycleAlgorithm_validateConfig(uint32_t firingPeriods, uint32_t settlingPeriods);
+bool TorqueDutyCycleAlgorithm_validateConfig(uint32_t firingPeriods, uint32_t settlingPeriods);
 
 /**
- * @brief Construct a new ThrDesatDutyCycleAlgorithm instance from the supplied configuration.
+ * @brief Construct a new TorqueDutyCycleAlgorithm instance from the supplied configuration.
  * @param firingPeriods   [-] control periods the gate passes the torque command through; must be at least 1.
  * @param settlingPeriods [-] control periods the gate holds off; any value whose sum with firingPeriods still
  *                            fits in a uint32_t.
- * @return Pointer to a new ThrDesatDutyCycleAlgorithm (must be destroyed).
+ * @return Pointer to a new TorqueDutyCycleAlgorithm (must be destroyed).
  * Validate the configuration with validateConfig first; invalid input throws.
  */
-ThrDesatDutyCycleAlgorithmHandle* ThrDesatDutyCycleAlgorithm_create(uint32_t firingPeriods, uint32_t settlingPeriods);
+TorqueDutyCycleAlgorithmHandle* TorqueDutyCycleAlgorithm_create(uint32_t firingPeriods, uint32_t settlingPeriods);
 
 /**
- * @brief Destroy a previously created ThrDesatDutyCycleAlgorithm.
+ * @brief Destroy a previously created TorqueDutyCycleAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void ThrDesatDutyCycleAlgorithm_destroy(ThrDesatDutyCycleAlgorithmHandle* self);
+void TorqueDutyCycleAlgorithm_destroy(TorqueDutyCycleAlgorithmHandle* self);
 
 /**
  * @brief Replace the algorithm's configuration at runtime without restarting the cadence.
@@ -49,27 +49,27 @@ void ThrDesatDutyCycleAlgorithm_destroy(ThrDesatDutyCycleAlgorithmHandle* self);
  *                            fits in a uint32_t.
  * Validate the configuration with validateConfig first; invalid input throws.
  */
-void ThrDesatDutyCycleAlgorithm_setConfig(ThrDesatDutyCycleAlgorithmHandle* self,
-                                          uint32_t firingPeriods,
-                                          uint32_t settlingPeriods);
+void TorqueDutyCycleAlgorithm_setConfig(TorqueDutyCycleAlgorithmHandle* self,
+                                        uint32_t firingPeriods,
+                                        uint32_t settlingPeriods);
 
 /**
  * @brief Restart the duty cycle at the beginning of its firing window.
  * @param self Pointer to the instance.
  */
-void ThrDesatDutyCycleAlgorithm_reInitialize(ThrDesatDutyCycleAlgorithmHandle* self);
+void TorqueDutyCycleAlgorithm_reInitialize(TorqueDutyCycleAlgorithmHandle* self);
 
 /**
- * @brief Gate the requested body torque through one control period of the duty cycle.
+ * @brief Gate the commanded body torque through one control period of the duty cycle.
  * Advances the position in the duty cycle, so the handle is non-const.
  * @param self        Pointer to the instance.
- * @param cmdTorque_B Pointer to the requested body-frame torque [Nm].
- * @return Vector3f_c [Nm] the requested torque while firing, zero while settling.
+ * @param cmdTorque_B Pointer to the commanded body-frame torque [Nm].
+ * @return Vector3f_c [Nm] the commanded torque while firing, zero while settling.
  */
-Vector3f_c ThrDesatDutyCycleAlgorithm_update(ThrDesatDutyCycleAlgorithmHandle* self, const Vector3f_c* cmdTorque_B);
+Vector3f_c TorqueDutyCycleAlgorithm_update(TorqueDutyCycleAlgorithmHandle* self, const Vector3f_c* cmdTorque_B);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif /* F32XMERA_THR_DESAT_DUTY_CYCLE_ALGORITHM_C_H */
+#endif /* F32XMERA_TORQUE_DUTY_CYCLE_ALGORITHM_C_H */

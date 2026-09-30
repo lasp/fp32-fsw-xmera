@@ -2,11 +2,11 @@ import numpy as np
 import pytest
 
 from xmera.architecture import messaging
-from xmera.fp32 import thrDesatDutyCycleF32
+from xmera.fp32 import torqueDutyCycleF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
-# A representative momentumManagement dumping torque, distinct per axis with mixed signs.
+# A representative torque command, distinct per axis with mixed signs.
 NOMINAL_TORQUE = [1.2e-2, -3.5e-3, 7.0e-4]
 
 
@@ -19,7 +19,7 @@ NOMINAL_TORQUE = [1.2e-2, -3.5e-3, 7.0e-4]
         (1, 20),  # settling window longer than the run, so the gate fires once and stays shut
     ],
 )
-def test_thr_desat_duty_cycle(firing_periods, settling_periods):
+def test_torque_duty_cycle(firing_periods, settling_periods):
     """Module Unit Test"""
     task_name = "unitTask"
     process_name = "TestProcess"
@@ -30,8 +30,8 @@ def test_thr_desat_duty_cycle(firing_periods, settling_periods):
     test_proc = sim.CreateNewProcess(process_name)
     test_proc.addTask(sim.CreateNewTask(task_name, test_process_rate))
 
-    module = thrDesatDutyCycleF32.ThrDesatDutyCycle()
-    module.modelTag = "thrDesatDutyCycle"
+    module = torqueDutyCycleF32.TorqueDutyCycle()
+    module.modelTag = "torqueDutyCycle"
     sim.AddModelToTask(task_name, module)
 
     # The declared defaults fire every period and never hold off, i.e. the gate starts fully open.
@@ -46,7 +46,7 @@ def test_thr_desat_duty_cycle(firing_periods, settling_periods):
     np.testing.assert_equal(module.firingPeriods, firing_periods)
     np.testing.assert_equal(module.settlingPeriods, settling_periods)
 
-    # The requested torque is held constant, so every variation in the output is the gate's doing.
+    # The commanded torque is held constant, so every variation in the output is the gate's doing.
     cmd_torque_message = messaging.CmdTorqueBodyMsgF32Payload()
     cmd_torque_message.torqueRequestBody = NOMINAL_TORQUE
     cmd_torque_in_msg = messaging.CmdTorqueBodyMsgF32().write(cmd_torque_message)
