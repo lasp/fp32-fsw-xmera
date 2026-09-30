@@ -6,6 +6,7 @@
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 
@@ -101,6 +102,12 @@ inline GimbalAnglesDouble referenceUpdate(const Eigen::Vector3d& sigma_MB,
 // constant below includes margin above that.
 inline constexpr float kAngleTolerance = 5e-5F;
 
+// The tolerance for the two angles. At the edge of the cone, an error in the azimuth of the direction changes each
+// angle by up to tan(thetaMax) times as much, because each angle is a ratio against a z component of
+// cos(thetaMax). The azimuth error is largest for a request nearly opposite the neutral axis, where the error of
+// the float rotation is divided by the short perpendicular part.
+inline float angleTolerance(const float thetaMax) { return kAngleTolerance * std::max(1.0F, std::tan(thetaMax)); }
+
 // The travel limit holds both angles inside thetaMax. Each angle is an arctangent of a ratio whose numerator is
 // at most sin(thetaMax) and whose denominator is at least cos(thetaMax).
 inline void expectWithinTravel(const AxisToGimbalAnglesOutput& out,
@@ -142,8 +149,8 @@ inline void regressionTestAxisToGimbalAngles(const Eigen::Vector3f& sigma_MB,
 
     const GimbalAnglesDouble reference =
         referenceUpdate(sigma_MB.cast<double>(), thrustDirection_B.cast<double>(), static_cast<double>(thetaMax));
-    EXPECT_NEAR(out.gimbalAngle1, static_cast<float>(reference.angle1), kAngleTolerance);
-    EXPECT_NEAR(out.gimbalAngle2, static_cast<float>(reference.angle2), kAngleTolerance);
+    EXPECT_NEAR(out.gimbalAngle1, static_cast<float>(reference.angle1), angleTolerance(thetaMax));
+    EXPECT_NEAR(out.gimbalAngle2, static_cast<float>(reference.angle2), angleTolerance(thetaMax));
 
     // The two angles must rebuild the direction that the travel limit gives.
     const Eigen::Vector3f limited_M =
