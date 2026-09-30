@@ -86,6 +86,30 @@ TEST(FlybyPointTest, CollinearityRejectsReseed) {
             cfg.getTimeBetweenFilterData(), r_BN_N, v_BN_N, cfg.getSignOfOrbitNormalFrameVector()));
 }
 
+TEST(FlybyPointTest, CollinearityRejectsAntiParallelReseed) {
+    const Eigen::Vector3d r_BN_N{-5e7, 7.5e6, 5e5};
+    const Eigen::Vector3d v_BN_N{2e4, 0, 0};
+    const FlybyPointConfig cfg = FlybyPointConfig::create(0.5, 1e-3F, 1, 10.0F, 1.0F, 1e9F);
+
+    FlybyPointAlgorithm alg(cfg);
+    alg.updateState(0U, r_BN_N, v_BN_N);
+
+    // Radial-only velocity toward the body (head-on collision course): r and v become exactly anti-parallel.
+    const Eigen::Vector3d antiParallelV = -r_BN_N.normalized() * v_BN_N.norm();
+    const AttGuideOutput out = alg.updateState(600'000'000ULL, r_BN_N, antiParallelV);
+
+    EXPECT_TRUE(out.collinearityTrigger);
+    EXPECT_FALSE(out.maxRateTrigger);
+    EXPECT_FALSE(out.maxAccelerationTrigger);
+    EXPECT_FALSE(out.positionKnowledgeExceedTrigger);
+    ASSERT_TRUE(out.validOutput);
+
+    expectMatchesExtrapolation(
+        out,
+        expectedExtrapolatedOutput(
+            cfg.getTimeBetweenFilterData(), r_BN_N, v_BN_N, cfg.getSignOfOrbitNormalFrameVector()));
+}
+
 TEST(FlybyPointTest, MaxRateRejectsReseed) {
     const Eigen::Vector3d r_BN_N{-5e7, 7.5e6, 5e5};
     const Eigen::Vector3d v_BN_N{2e4, 0, 0};
