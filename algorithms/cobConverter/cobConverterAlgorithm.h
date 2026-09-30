@@ -18,11 +18,13 @@ struct CalibrationCoefficients {
     float p2 = 0.0F;
 };
 
-/**
- * @enum PhaseAngleCorrectionMethodAlgorithm
- * @brief Phase-angle correction models for converting COB to COM.
- */
-enum class PhaseAngleCorrectionMethodAlgorithm : std::uint8_t { NoCorrectionAlg, BinaryAlg };
+/*! Brown-Conrady inverse result: undistorted normalized coordinate, solver validity and iterations used. */
+struct UndistortedCoordinate {
+    float xUndistorted{};  //!< [-] undistorted normalized x
+    float yUndistorted{};  //!< [-] undistorted normalized y
+    bool valid{};          //!< [--] true if the solver converged to a finite solution
+    int iterations{};      //!< [--] Newton iterations taken before returning
+};
 
 /*! COB measurement: bright-pixel detection payload. */
 struct CobMeasurement {
@@ -46,22 +48,25 @@ struct FilterState {
         Eigen::Matrix3d::Zero();  //!< [m^2] spacecraft position covariance, inertial frame
 };
 
-/*! Heading measurement output: unit vector and its covariance (uncertainty) in multiple
-    frames. */
-struct CobConverterUnitVecOutput {
+/*! Essential heading measurement output: the COM unit vector and its covariance, inertial
+    frame only. Maps 1:1 onto OpNavUnitVecMsgF32Payload. */
+struct CobConverterOutput {
     Eigen::Matrix3f covar_N = Eigen::Matrix3f::Zero();    //!< [--] COM covariance, inertial frame
-    Eigen::Matrix3f covar_C = Eigen::Matrix3f::Zero();    //!< [--] COM covariance, camera frame
-    Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();    //!< [--] COM covariance, body frame
     Eigen::Vector3f rhat_BN_N = Eigen::Vector3f::Zero();  //!< [--] COM unit vector, inertial frame
-    Eigen::Vector3f rhat_BN_C = Eigen::Vector3f::Zero();  //!< [--] COM unit vector, camera frame
-    Eigen::Vector3f rhat_BN_B = Eigen::Vector3f::Zero();  //!< [--] COM unit vector, body frame
     double unitVecTimeTag{};                              //!< [s]  measurement timestamp
     bool unitVecValid{};                                  //!< [--] COM unit vector validity flag
 };
 
-/*! Center-of-mass measurement output: COM/COB pixel locations and phase-angle offset
-    metadata. Maps 1:1 onto OpNavCOMMsgF32Payload. */
-struct CobConverterComOutput {
+/*! Diagnostic output: the non-inertial frames, the COB quantities and the phase-angle
+    correction metadata. Maps 1:1 onto CobConverterDiagnosticMsgF32Payload. */
+struct CobConverterDiagnosticOutput {
+    Eigen::Matrix3f covar_C = Eigen::Matrix3f::Zero();             //!< [--] COM covariance, camera frame
+    Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();             //!< [--] COM covariance, body frame
+    Eigen::Vector3f rhat_BN_C = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, camera frame
+    Eigen::Vector3f rhat_BN_B = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, body frame
+    Eigen::Vector3f rhat_COB_C = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, camera frame
+    Eigen::Vector3f rhat_COB_N = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, inertial frame
+    Eigen::Vector3f rhat_COB_B = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, body frame
     Eigen::Vector2f centerOfBrightness = Eigen::Vector2f::Zero();  //!< [px] COB pixel coordinates
     Eigen::Vector2f centerOfMass = Eigen::Vector2f::Zero();        //!< [px] COM pixel coordinates
     float offsetFactor{};                                          //!< [--] phase-angle offset factor (gamma)
@@ -70,17 +75,15 @@ struct CobConverterComOutput {
     float sunDirection{};                                          //!< [rad] sun direction phi in image plane
     uint64_t comTimeTag{};                                         //!< [ns] measurement timestamp
     bool comValid{};                                               //!< [--] COM validity flag
+    bool comErrorOutlierTrigger{};  //!< [--] true if the COM heading error exceeded the gate
+    bool brownConradyCOMValid{};    //!< [--] true if the COM Brown-Conrady undistortion converged
+    bool brownConradyCOBValid{};    //!< [--] true if the COB Brown-Conrady undistortion converged
 };
 
-/*! Diagnostic output. Maps 1:1 onto CobConverterDiagnosticMsgF32Payload. */
-struct CobConverterDiagnosticOutput {
-    bool coberrorOutlierTrigger{};  //!< [--] true if COB error exceeded outlier threshold
-};
-
-/*! Structure containing all COB converter algorithm outputs. */
-struct CobConverterOutput {
-    CobConverterUnitVecOutput unitVec;
-    CobConverterComOutput com;
+/*! Pair returned by updateState: the essential output plus the diagnostic snapshot, so the
+    host adapter writes both output messages from one consistent post-update snapshot. */
+struct CobConverterUpdateResult {
+    CobConverterOutput output;
     CobConverterDiagnosticOutput diagnostic;
 };
 
@@ -90,8 +93,7 @@ struct CobConverterOutput {
  */
 class CobConverterConfig final {
    public:
-    static CobConverterConfig create(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
-                                     float radius,
+    static CobConverterConfig create(float radius,
                                      float radiusUncertainty,
                                      const Eigen::Matrix3f& attitudeCovariance,
                                      float numStandardDeviations,
@@ -105,9 +107,6 @@ class CobConverterConfig final {
                                      float resolutionX,
                                      float resolutionY,
                                      const Eigen::Vector3f& bodyToCameraMrp) {
-        if (!isValidPhaseAngleCorrectionMethod(phaseAngleCorrectionMethod)) {
-            FSW_THROW_INVALID_ARGUMENT("cobConverter: phaseAngleCorrectionMethod must be NoCorrectionAlg or BinaryAlg");
-        }
         if (!isValidRadius(radius)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: radius must be > 0");
         }
@@ -143,11 +142,15 @@ class CobConverterConfig final {
                 "cobConverter: fieldOfViewX/fieldOfViewY combination pushes the camera "
                 "model's internal tan() argument into the safeTanf clamp zone near +/-pi/2");
         }
+        if (!isValidFocalScale(fieldOfViewX, fieldOfViewY, resolutionX, resolutionY)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "cobConverter: fieldOfView/resolution combination makes the focal scale dX or dY "
+                "overflow or underflow in fp32");
+        }
         if (!isValidBodyToCameraMrp(bodyToCameraMrp)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: bodyToCameraMrp must be finite");
         }
-        return {phaseAngleCorrectionMethod,
-                radius,
+        return {radius,
                 radiusUncertainty,
                 attitudeCovariance,
                 numStandardDeviations,
@@ -163,10 +166,6 @@ class CobConverterConfig final {
                 bodyToCameraMrp};
     }
 
-    static bool isValidPhaseAngleCorrectionMethod(PhaseAngleCorrectionMethodAlgorithm method) {
-        return method == PhaseAngleCorrectionMethodAlgorithm::NoCorrectionAlg ||
-               method == PhaseAngleCorrectionMethodAlgorithm::BinaryAlg;
-    }
     static bool isValidRadius(float radius) { return fsw::is_finite(radius) && radius > 0.0F; }
     static bool isValidRadiusUncertainty(float radiusUncertainty) {
         return fsw::is_finite(radiusUncertainty) && radiusUncertainty >= 0.0F;
@@ -205,8 +204,10 @@ class CobConverterConfig final {
         const float argTanY = fieldOfViewY / 2.0F;
         return argTanY >= -halfPi + kMinPoleDistance && argTanY <= halfPi - kMinPoleDistance;
     }
+    // Requires the focal scales dX, dY and dX^2, dY^2, dX*dY to be normal fp32 values, so every 1/dX, 1/dY,
+    // 1/(dX*dY) and 1/dX^2 in the camera model is finite and nonzero. Defined in cobConverterAlgorithm.cpp.
+    static bool isValidFocalScale(float fieldOfViewX, float fieldOfViewY, float resolutionX, float resolutionY);
 
-    PhaseAngleCorrectionMethodAlgorithm getPhaseAngleCorrectionMethod() const { return phaseAngleCorrectionMethod; }
     float getRadius() const { return radius; }
     float getRadiusUncertainty() const { return radiusUncertainty; }
     Eigen::Matrix3f getAttitudeCovariance() const { return attitudeCovariance; }
@@ -223,8 +224,7 @@ class CobConverterConfig final {
     Eigen::Vector3f getBodyToCameraMrp() const { return bodyToCameraMrp; }
 
    private:
-    CobConverterConfig(PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod,
-                       float radius,
+    CobConverterConfig(float radius,
                        float radiusUncertainty,
                        const Eigen::Matrix3f& attitudeCovariance,
                        float numStandardDeviations,
@@ -238,8 +238,7 @@ class CobConverterConfig final {
                        float resolutionX,
                        float resolutionY,
                        const Eigen::Vector3f& bodyToCameraMrp)
-        : phaseAngleCorrectionMethod(phaseAngleCorrectionMethod),
-          radius(radius),
+        : radius(radius),
           radiusUncertainty(radiusUncertainty),
           attitudeCovariance(attitudeCovariance),
           numStandardDeviations(numStandardDeviations),
@@ -254,7 +253,6 @@ class CobConverterConfig final {
           resolutionY(resolutionY),
           bodyToCameraMrp(bodyToCameraMrp) {}
 
-    PhaseAngleCorrectionMethodAlgorithm phaseAngleCorrectionMethod;
     float radius;
     float radiusUncertainty;
     Eigen::Matrix3f attitudeCovariance;
@@ -279,8 +277,7 @@ struct Rotations {
     Eigen::Matrix3f dcm_NC = Eigen::Matrix3f::Zero();
 };
 
-/*! Phase-angle correction terms for the current cycle. Default-constructed (all zero/false) when
-    phaseAngleCorrectionMethod is NoCorrectionAlg, so no correction is applied to COM. */
+/*! Phase-angle correction terms, computed every cycle by computePhaseAngleCorrection. */
 struct PhaseAngleCorrectionResult {
     Eigen::Vector3d sc_position = Eigen::Vector3d::Zero();
     double spacecraftRange = 0.0;
@@ -289,7 +286,7 @@ struct PhaseAngleCorrectionResult {
     float phi = 0.0F;
     float gamma = 0.0F;
     float Rc = 0.0F;
-    bool validCom = false;
+    bool validCom = false;  //!< [--] set by updateState, not by computePhaseAngleCorrection
 };
 
 /**
@@ -303,50 +300,33 @@ class CobConverterAlgorithm final {
     explicit CobConverterAlgorithm(const CobConverterConfig& config);
 
     void setConfig(const CobConverterConfig& config);
-    CobConverterOutput updateState(const CobMeasurement& cob,
-                                   const VehicleAttitude& attitude,
-                                   const FilterState& filter) const;
+    CobConverterUpdateResult updateState(const CobMeasurement& cob,
+                                         const VehicleAttitude& attitude,
+                                         const FilterState& filter) const;
     int getCameraId() const { return this->cfg.getCameraId(); }
+    static UndistortedCoordinate undistortNormalizedCoordinate(float xDistorted,
+                                                               float yDistorted,
+                                                               const CalibrationCoefficients& coefficients);
 
    private:
-    bool cobOutlierDetection(const Eigen::Vector3d& filterVehPosition,
+    bool comOutlierDetection(const Eigen::Vector3d& filterVehPosition,
                              const Eigen::Matrix3d& filterVehPositionCovariance,
-                             const Eigen::Matrix3f& covar_B,
-                             const Eigen::Vector3f& rhatCOB_C,
-                             const Eigen::Matrix3f& dcm_NC) const;
+                             const Eigen::Matrix3f& covar_N,
+                             const Eigen::Vector3f& rhatCOM_N) const;
     void computeCameraParameters();
     Rotations computeRotations(const Eigen::Vector3f& sigma_BN) const;
     PhaseAngleCorrectionResult computePhaseAngleCorrection(const Eigen::Vector3d& filterVehPosition,
                                                            const Eigen::Vector3f& vehSunPntBdy,
                                                            const Eigen::Matrix3f& dcm_BN) const;
-    static std::tuple<Eigen::Vector3f, Eigen::Vector3f>
-    computeCentersOfInterest(const Eigen::Vector2f& cobCenterOfBrightness, float gamma, float Rc, float phi);
-    std::tuple<Eigen::Vector3f, Eigen::Vector3f> computeRelevantVectors(const Eigen::Vector3f& centerOfBrightness,
-                                                                        const Eigen::Vector3f& centerOfMass) const;
-    Eigen::Matrix3f computeCameraFrameUncertainty(const int32_t& cobPixelsFound,
-                                                  const Eigen::Matrix3d& filterVehPositionCovariance,
-                                                  const PhaseAngleCorrectionResult& correction) const;
-    Eigen::Vector3f calibrateDistortions(const Eigen::Vector3f& unCalibratedVector) const;
-    static void populateOutputMessages(uint64_t timeTag,
-                                       const Eigen::Vector3f& centerOfMass,
-                                       const Eigen::Vector3f& centerOfBrightness,
-                                       const Rotations& rotations,
-                                       const PhaseAngleCorrectionResult& correction,
-                                       const Eigen::Vector3f& rhatCOM_C,
-                                       const Eigen::Matrix3f& covar_B,
-                                       bool goodOutlierCheck,
-                                       CobConverterUnitVecOutput& unitVecOutput,
-                                       CobConverterComOutput& comOutput);
+    float computeBetaVar(const Eigen::Matrix3d& filterVehPositionCovariance,
+                         const PhaseAngleCorrectionResult& correction) const;
 
     CobConverterConfig cfg;
     Eigen::Matrix3f dcm_CB = Eigen::Matrix3f::Zero();
     Eigen::Matrix3f cameraCalibrationMatrix = Eigen::Matrix3f::Zero();
     Eigen::Matrix3f cameraCalibrationMatrixInverse = Eigen::Matrix3f::Zero();
     float dX{};
-    float X{};
-    float Y{};
-    float ifov_x{};
-    float ifov_y{};
+    float dY{};
 };
 
 #endif  // F32XMERA_COB_CONVERTER_ALGORITHM_H

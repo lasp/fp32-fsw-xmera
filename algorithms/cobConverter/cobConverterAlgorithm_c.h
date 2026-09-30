@@ -17,12 +17,11 @@ typedef struct CobConverterAlgorithmHandle CobConverterAlgorithmHandle;
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param phaseAngleCorrectionMethod [-]   phase-angle correction model; must be NoCorrectionAlg or BinaryAlg.
  * @param radius                     [m]   object radius; must be > 0.
  * @param radiusUncertainty          [m]   object radius uncertainty; must be >= 0.
- * @param attitudeCovariance         [-]   attitude error covariance, body frame; must be finite.
+ * @param attitudeCovariance         [-]   attitude error-MRP covariance, body frame; must be finite.
  * @param numStandardDeviations      [-]   number of sigmas for outlier gating; must be > 0.
- * @param standardDeviation          [-]   explicit COB error standard deviation, used only when
+ * @param standardDeviation          [px]  per-axis 1-sigma of the COM pixel error, used only when
  *                                         specifiedStandardDeviation is true; must be > 0 when specified.
  * @param specifiedStandardDeviation [-]   true if standardDeviation should be used as-is.
  * @param outlierDetectionEnabled    [-]   enable COB outlier detection.
@@ -37,8 +36,7 @@ typedef struct CobConverterAlgorithmHandle CobConverterAlgorithmHandle;
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool CobConverterAlgorithm_validateConfig(PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCorrectionMethod,
-                                          float radius,
+bool CobConverterAlgorithm_validateConfig(float radius,
                                           float radiusUncertainty,
                                           Matrix3f_c attitudeCovariance,
                                           float numStandardDeviations,
@@ -59,22 +57,20 @@ bool CobConverterAlgorithm_validateConfig(PhaseAngleCorrectionMethodAlgorithm_c 
  * @return Pointer to a new CobConverterAlgorithm instance (must be destroyed).
  * See validateConfig for parameter constraints.
  */
-CobConverterAlgorithmHandle* CobConverterAlgorithm_create(
-    PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCorrectionMethod,
-    float radius,
-    float radiusUncertainty,
-    Matrix3f_c attitudeCovariance,
-    float numStandardDeviations,
-    float standardDeviation,
-    bool specifiedStandardDeviation,
-    bool outlierDetectionEnabled,
-    CalibrationCoefficients_c calibrationCoefficients,
-    int32_t cameraId,
-    float fieldOfViewX,
-    float fieldOfViewY,
-    float resolutionX,
-    float resolutionY,
-    Vector3f_c bodyToCameraMrp);
+CobConverterAlgorithmHandle* CobConverterAlgorithm_create(float radius,
+                                                          float radiusUncertainty,
+                                                          Matrix3f_c attitudeCovariance,
+                                                          float numStandardDeviations,
+                                                          float standardDeviation,
+                                                          bool specifiedStandardDeviation,
+                                                          bool outlierDetectionEnabled,
+                                                          CalibrationCoefficients_c calibrationCoefficients,
+                                                          int32_t cameraId,
+                                                          float fieldOfViewX,
+                                                          float fieldOfViewY,
+                                                          float resolutionX,
+                                                          float resolutionY,
+                                                          Vector3f_c bodyToCameraMrp);
 
 /**
  * @brief Destroy a previously created CobConverterAlgorithm.
@@ -89,7 +85,6 @@ void CobConverterAlgorithm_destroy(CobConverterAlgorithmHandle* self);
  * See validateConfig for the remaining parameter constraints.
  */
 void CobConverterAlgorithm_setConfig(CobConverterAlgorithmHandle* self,
-                                     PhaseAngleCorrectionMethodAlgorithm_c phaseAngleCorrectionMethod,
                                      float radius,
                                      float radiusUncertainty,
                                      Matrix3f_c attitudeCovariance,
