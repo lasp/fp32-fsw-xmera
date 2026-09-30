@@ -1,11 +1,9 @@
 #include "thrDesatDutyCycleAlgorithm_c.h"
 #include "thrDesatDutyCycleAlgorithm.h"
+#include "utilities/fsw/eigenSupport.h"
 #include "utilities/fsw/opaqueHandle.h"
 
-#include <algorithm>
-#include <array>
-
-uint32_t ThrDesatDutyCycleAlgorithm_getMaxThrusterCount(void) { return kMaxThrusterCount; }
+#include <Eigen/Core>
 
 bool ThrDesatDutyCycleAlgorithm_validateConfig(uint32_t firingPeriods, uint32_t settlingPeriods) {
     try {
@@ -36,17 +34,12 @@ void ThrDesatDutyCycleAlgorithm_reInitialize(ThrDesatDutyCycleAlgorithmHandle* s
     fsw::fromHandle<::ThrDesatDutyCycleAlgorithm>(self)->reInitialize();
 }
 
-ThrDesatDutyCycleForceCmd_c ThrDesatDutyCycleAlgorithm_update(ThrDesatDutyCycleAlgorithmHandle* self,
-                                                              const ThrDesatDutyCycleForceCmd_c* thrusterForceCmd) {
-    std::array<float, kMaxThrusterCount> thrusterForceCmdCpp{};
-    std::copy(
-        std::begin(thrusterForceCmd->thrForce), std::end(thrusterForceCmd->thrForce), thrusterForceCmdCpp.begin());
+Vector3f_c ThrDesatDutyCycleAlgorithm_update(ThrDesatDutyCycleAlgorithmHandle* self, const Vector3f_c* cmdTorque_B) {
+    const Eigen::Vector3f gated_B =
+        fsw::fromHandle<::ThrDesatDutyCycleAlgorithm>(self)->update(cArrayToEigenVector3<float>(cmdTorque_B->data));
 
-    const std::array<float, kMaxThrusterCount> gated =
-        fsw::fromHandle<::ThrDesatDutyCycleAlgorithm>(self)->update(thrusterForceCmdCpp);
-
-    ThrDesatDutyCycleForceCmd_c out{};
-    std::copy(gated.begin(), gated.end(), std::begin(out.thrForce));
+    Vector3f_c out{};
+    eigenVectorToCArray(gated_B, out.data);
 
     return out;
 }
