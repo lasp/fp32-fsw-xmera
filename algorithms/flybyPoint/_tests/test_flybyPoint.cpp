@@ -57,8 +57,8 @@ TEST(FlybyPointTest,
 }
 
 // checkValidity() rejecting a reseed doesn't invalidate the output -- it should keep
-// extrapolating the last-good solution. Each test below trips exactly one trigger and checks
-// (a) only that trigger fires and (b) the output matches extrapolating the original seed, not a reseed off the new
+// extrapolating the last-good solution. Each test below trips one condition and checks
+// (a) which triggers fire and (b) the output matches extrapolating the original seed, not a reseed off the new
 // (bad) reading.
 TEST(FlybyPointTest, CollinearityRejectsReseed) {
     const Eigen::Vector3d r_BN_N{-5e7, 7.5e6, 5e5};
@@ -73,8 +73,10 @@ TEST(FlybyPointTest, CollinearityRejectsReseed) {
     const AttGuideOutput out = alg.updateState(r_BN_N, collinearV);
 
     EXPECT_TRUE(out.collinearityTrigger);
-    EXPECT_FALSE(out.maxRateTrigger);
-    EXPECT_FALSE(out.maxAccelerationTrigger);
+    // A collision course has zero closest-approach distance, so the predicted peak rate and acceleration are
+    // unbounded and their triggers fire as well.
+    EXPECT_TRUE(out.maxRateTrigger);
+    EXPECT_TRUE(out.maxAccelerationTrigger);
     EXPECT_FALSE(out.positionKnowledgeExceedTrigger);
     ASSERT_TRUE(out.validOutput);
 
@@ -99,8 +101,10 @@ TEST(FlybyPointTest, CollinearityRejectsAntiParallelReseed) {
     const AttGuideOutput out = alg.updateState(r_BN_N, antiParallelV);
 
     EXPECT_TRUE(out.collinearityTrigger);
-    EXPECT_FALSE(out.maxRateTrigger);
-    EXPECT_FALSE(out.maxAccelerationTrigger);
+    // A collision course has zero closest-approach distance, so the predicted peak rate and acceleration are
+    // unbounded and their triggers fire as well.
+    EXPECT_TRUE(out.maxRateTrigger);
+    EXPECT_TRUE(out.maxAccelerationTrigger);
     EXPECT_FALSE(out.positionKnowledgeExceedTrigger);
     ASSERT_TRUE(out.validOutput);
 

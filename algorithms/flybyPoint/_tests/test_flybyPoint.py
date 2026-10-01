@@ -104,7 +104,7 @@ def test_flybyPoint_maxrate(
         initial_velocity=[2E4, 0, 0],
         filter_periods=1,
         orbit_normal_sign=-1,
-        max_rate=0.1,
+        max_rate=1.0,  # deg/s: nominal peak |v|/d_CA ~ 0.15, trigger samples ~ 152
         max_acceleration=1E-7,
         pos_knowledge=1E5
 ):
@@ -169,7 +169,7 @@ def test_flybyPoint_maxacc(
         filter_periods=1,
         orbit_normal_sign=-1,
         max_rate=0.1,
-        max_acceleration=1E-4,
+        max_acceleration=1E-3,  # deg/s^2: nominal peak ~ 2.6E-4, trigger samples ~ 263
         pos_knowledge=1E5
 ):
     # setup simulation environment
