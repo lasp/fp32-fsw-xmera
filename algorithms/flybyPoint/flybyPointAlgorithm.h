@@ -17,7 +17,9 @@ struct AttGuideOutput {
     bool maxAccelerationTrigger = false;  // true if the predicted acceleration exceeds the maximum acceleration of the
                                           // spacecraft
     bool positionKnowledgeExceedTrigger = false;  // true if the position error exceeds a-priori sigma bound
-    bool validOutput = false;
+    bool inputSampleRejected = false;  // true if this period's filter sample was unusable and left out of the average
+    uint32_t rejectedSamplesInWindow = 0;  // number of unusable samples in the window ending this period, else 0
+    bool validOutput = false;              // false only before the first seed, or if an output is not finite
 };
 
 /*!
@@ -113,6 +115,15 @@ class FlybyPointConfig final {
  *
  * The algorithm has no time input: the caller must call updateState() once per control period. Time is counted
  * in whole control periods, and converted to seconds only where the continuous guidance equations need it.
+ *
+ * The filter states are low-pass filtered by batch averaging. Every usable sample in a window of filterReadPeriods
+ * control periods is propagated to the window end with the rectilinear model and accumulated. At the window end the
+ * average is the re-read candidate. With filterReadPeriods = 1 the average is the current sample, so the algorithm
+ * re-reads a single sample, as without averaging.
+ *
+ * An unusable sample is left out of the average and reported through the diagnostics; it does not affect the
+ * guidance output, which comes from the last accepted profile. The output is therefore valid on every period after
+ * the first seed.
  */
 class FlybyPointAlgorithm final {
    public:
@@ -122,7 +133,17 @@ class FlybyPointAlgorithm final {
     AttGuideOutput updateState(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
 
    private:
+    /*! Running sums of the current averaging window */
+    struct AveragingWindow {
+        uint32_t periods = 0;                                   //!< [-] control periods elapsed in the window
+        uint32_t samples = 0;                                   //!< [-] usable samples accumulated
+        Eigen::Vector3d rSumAtEnd_N = Eigen::Vector3d::Zero();  //!< [m] sum of positions propagated to the window end
+        Eigen::Vector3d vSum_N = Eigen::Vector3d::Zero();       //!< [m/s] sum of velocities
+    };
+
     bool checkValidity(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N, AttGuideOutput& output) const;
+    void accumulateSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
+    void reReadFromWindowAverage(AttGuideOutput& output);
     void computeFlybyParameters(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     void computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> computeGuidanceSolution(double dt) const;
@@ -130,6 +151,7 @@ class FlybyPointAlgorithm final {
     bool firstRead = true;               //!< variable to attest if this is the first read after a Reset
     uint64_t periodsSinceLastRead = 0;   //!< [-] control periods elapsed since the last accepted filter read
     uint64_t periodsSinceFirstRead = 0;  //!< [-] control periods elapsed since the first filter read
+    AveragingWindow window{};            //!< averaging window in progress
     double f0 = 0;                       //!< ratio between relative velocity and position norms at time of read [Hz]
     double gamma0 = 0;                   //!< flight path angle of the spacecraft at time of read [rad]
     Eigen::Matrix3f R0N{Eigen::Matrix3f::Identity()};            //!< inertial-to-reference DCM at time of read

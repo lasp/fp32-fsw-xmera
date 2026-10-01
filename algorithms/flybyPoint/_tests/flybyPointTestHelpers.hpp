@@ -21,6 +21,10 @@ struct ReferenceFlybyState {
     bool firstRead = true;
     uint64_t periodsSinceLastRead = 0;
     uint64_t periodsSinceFirstRead = 0;
+    uint32_t periodsInWindow = 0;
+    uint32_t samplesInWindow = 0;
+    Eigen::Vector3d rSumAtWindowEnd = Eigen::Vector3d::Zero();
+    Eigen::Vector3d vSum = Eigen::Vector3d::Zero();
     Eigen::Vector3d firstNavPosition = Eigen::Vector3d::Zero();
     Eigen::Vector3d firstNavVelocity = Eigen::Vector3d::Zero();
     double f0 = 0.0;
@@ -36,6 +40,10 @@ inline void referenceReset(ReferenceFlybyState& s) {
     s.firstRead = true;
     s.periodsSinceLastRead = 0;
     s.periodsSinceFirstRead = 0;
+    s.periodsInWindow = 0;
+    s.samplesInWindow = 0;
+    s.rSumAtWindowEnd.setZero();
+    s.vSum.setZero();
 }
 
 /*! Computes f0 and gamma0 from r and v and stores them in state, mirroring
@@ -133,7 +141,8 @@ inline ReferenceFlybyOutput referenceGuidanceSolution(const ReferenceFlybyState&
 }
 
 /*! Advances the reference state by one control period, mirroring FlybyPointAlgorithm::updateState().
- *  Handles the full state machine: first-read seeding, validity-gated re-seeding, and extrapolation.
+ *  Handles the full state machine: first-read seeding, batch averaging of each window's samples propagated
+ *  to the window end, validity-gated re-seeding from the average, and extrapolation.
  @return ReferenceFlybyOutput containing sigma_RN, omega_RN_N, and domega_RN_N
  @param s The reference state to update
  @param r The relative position state [m]
@@ -144,6 +153,7 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
                                                  const Eigen::Vector3d& r,
                                                  const Eigen::Vector3d& v,
                                                  const FlybyPointConfig& config) {
+    const uint32_t windowLength = config.getFilterReadPeriods();
     if (s.firstRead) {
         s.firstNavPosition = r;
         s.firstNavVelocity = v;
@@ -151,14 +161,36 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
         referenceComputeRN(s, r, v);
         s.periodsSinceLastRead = 0;
         s.periodsSinceFirstRead = 0;
+        s.periodsInWindow = 0;
+        s.samplesInWindow = 0;
+        s.rSumAtWindowEnd.setZero();
+        s.vSum.setZero();
         s.firstRead = false;
     } else {
         ++s.periodsSinceLastRead;
         ++s.periodsSinceFirstRead;
-        if (s.periodsSinceLastRead >= config.getFilterReadPeriods() && referenceCheckValidity(s, r, v, config)) {
-            referenceComputeFlybyParameters(s, r, v);
-            referenceComputeRN(s, r, v);
-            s.periodsSinceLastRead = 0;
+        ++s.periodsInWindow;
+
+        // Rectilinear propagation of this sample to the window end, (windowLength - periodsInWindow) periods ahead.
+        const double timeToWindowEnd =
+            static_cast<double>(windowLength - s.periodsInWindow) * config.getControlPeriod();
+        s.rSumAtWindowEnd += r + timeToWindowEnd * v;
+        s.vSum += v;
+        ++s.samplesInWindow;
+
+        if (s.periodsInWindow >= windowLength) {
+            const double n = static_cast<double>(s.samplesInWindow);
+            const Eigen::Vector3d rAverage = s.rSumAtWindowEnd / n;
+            const Eigen::Vector3d vAverage = s.vSum / n;
+            if (referenceCheckValidity(s, rAverage, vAverage, config)) {
+                referenceComputeFlybyParameters(s, rAverage, vAverage);
+                referenceComputeRN(s, rAverage, vAverage);
+                s.periodsSinceLastRead = 0;
+            }
+            s.periodsInWindow = 0;
+            s.samplesInWindow = 0;
+            s.rSumAtWindowEnd.setZero();
+            s.vSum.setZero();
         }
     }
     s.dt = static_cast<double>(s.periodsSinceLastRead) * config.getControlPeriod();

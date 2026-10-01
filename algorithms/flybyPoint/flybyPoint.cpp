@@ -32,6 +32,8 @@ void FlybyPoint::updateState(uint64_t currentSimNanos) {
     flybyDiagnosticMsgBuffer.maxRateTrigger = algo_output.maxRateTrigger;
     flybyDiagnosticMsgBuffer.maxAccelerationTrigger = algo_output.maxAccelerationTrigger;
     flybyDiagnosticMsgBuffer.positionKnowledgeExceedTrigger = algo_output.positionKnowledgeExceedTrigger;
+    flybyDiagnosticMsgBuffer.inputSampleRejected = algo_output.inputSampleRejected;
+    flybyDiagnosticMsgBuffer.rejectedSamplesInWindow = algo_output.rejectedSamplesInWindow;
     this->flybyDiagnosticOutMsg.write(flybyDiagnosticMsgBuffer, this->moduleID, currentSimNanos);
 }
 

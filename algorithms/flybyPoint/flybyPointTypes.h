@@ -38,6 +38,8 @@ typedef struct {
     bool maxRateTrigger;                 /*!< true if the predicted rate exceeds the maximum threshold */
     bool maxAccelerationTrigger;         /*!< true if the predicted acceleration exceeds the maximum threshold */
     bool positionKnowledgeExceedTrigger; /*!< true if the position error exceeds the a-priori sigma bound */
+    bool inputSampleRejected;            /*!< true if this period's filter sample was unusable and left out */
+    uint32_t rejectedSamplesInWindow;    /*!< [-] unusable samples in the averaging window ending this period, else 0 */
 } AttGuideOutput_c;
 
 #ifdef __cplusplus

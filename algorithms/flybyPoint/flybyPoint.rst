@@ -3,8 +3,9 @@ Executive Summary
 This module computes a reference attitude frame for a spacecraft in relative motion about a small body. The implicit assumption is that the small body's mass does not perturb the motion of the spacecraft significantly. Conceptually, this module is equivalent to :ref:`hillPoint`, but for the relative motion of a spacecraft about a body that is not the main center of gravity.
 
 The module starts by reading the first input under the assumption it is valid in order to compute a solution.
-At a settable cadence, the module will update the pointing profile with the help of a new filter solution. In order to
-so it will check the validity of the solution: 1. It does not predict a collision trajectory 2. It does not predict
+At a settable cadence, the module will update the pointing profile with the help of a new filter solution. That
+solution is the average of all the filter states received since the previous update, each propagated to the update
+time, which low-pass filters the noisy filter output. Before using it, the module checks the validity of the solution: 1. It does not predict a collision trajectory 2. It does not predict
 excessive rates and accelerations 3. Its position agrees with the rectilinear prediction made from the first read. If
 the solution is valid a new pointing profile is constructed.
 
@@ -20,22 +21,22 @@ provides information on what this message is used for.
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - transNavInMsg
-      - :ref:`NavTransMsgPayload`
-      - Input message containing the relative position and velocity of the spacecraft with respect to the small body, estimated from a filter.
-    * - ephemerisInMsg
-      - :ref:`EphemerisMsgPayload`
-      - Input message containing the inertial position of the small body. This is needed only when the flyby is modeled using the Clohessy-Wiltshire equations.
+    * - filterInMsg
+      - :ref:`NavTransMsgF32Payload`
+      - Input message containing the relative position and velocity of the spacecraft with respect to the small body, estimated from a filter. Read at every update.
     * - attRefOutMsg
-      - :ref:`AttRefMsgPayload`
-      - Output attitude reference message containing reference attitude, reference angular rates and accelerations.
+      - :ref:`AttRefMsgF32Payload`
+      - Output attitude reference message containing reference attitude, reference angular rates and accelerations. Zero until the first usable filter state seeds the profile; valid at every update after that.
+    * - flybyDiagnosticOutMsg
+      - :ref:`FlybyDiagnosticMsgF32Payload`
+      - Output diagnostic message, written at every update. ``collinearityTrigger``, ``maxRateTrigger``, ``maxAccelerationTrigger`` and ``positionKnowledgeExceedTrigger`` report which validity checks rejected the averaged filter state, on the update that ends an averaging window (false otherwise). ``inputSampleRejected`` is true when the filter state of this update was unusable and left out of the average. ``rejectedSamplesInWindow`` is the number of unusable filter states in the averaging window that ends on this update, and 0 on other updates.
 
 
 Detailed Module Description
 ---------------------------
-The relative position and velocity vector of the spacecraft with respect to the small body are obtained as noisy estimates. Therefore the desire is, for this module, to only read the filter message every so often. The input parameter ``filterReadPeriods`` allows the user to specify the number of control periods between two subsequent reads of the filter output. For every call of this module that happens between two consecutive filter reads, the reference attitude needs to be propagated from the last filter read according to a dynamic model of the flyby.
+The relative position and velocity vector of the spacecraft with respect to the small body are obtained as noisy estimates. Therefore the desire is, for this module, to only update the pointing profile every so often, and to update it from an average of the filter states rather than from a single one (see `Batch Averaging of Filter States`_). The input parameter ``filterReadPeriods`` allows the user to specify the number of control periods between two subsequent updates, which is also the length of the averaging window. For every call of this module that happens between two consecutive updates, the reference attitude needs to be propagated from the last accepted update according to a dynamic model of the flyby.
 
-The algorithm has no time input: it must be updated once per control period, and ``controlPeriod`` gives the length of that period in seconds. The algorithm counts elapsed time in whole control periods with unsigned integers, so the decision of when to re-read the filter is exact and free of floating-point rounding. Elapsed time in seconds, which the guidance equations below need, is computed as the number of elapsed control periods times ``controlPeriod``. If a re-read is rejected by the validity checks, the reference keeps being propagated from the last accepted read and the re-read is attempted again at every following update.
+The algorithm has no time input: it must be updated once per control period, and ``controlPeriod`` gives the length of that period in seconds. The algorithm counts elapsed time in whole control periods with unsigned integers, so the decision of when to re-read the filter is exact and free of floating-point rounding. Elapsed time in seconds, which the guidance equations below need, is computed as the number of elapsed control periods times ``controlPeriod``. If a re-read is rejected by the validity checks, the reference keeps being propagated from the last accepted read and the next re-read is attempted at the end of the next averaging window.
 
 Rectilinear Motion Model
 ........................
@@ -49,6 +50,51 @@ In this case the flyby is modeled as rectilinear motion of the spacecraft, i.e.,
     \ddot{\theta}(t) = -2 f_0^2 \cos \gamma_0 \frac{f_0t + \sin \gamma_0}{(f_0^2 t^2 + 2 f_0 \sin \gamma_0 t + 1)^2}
 
 where :math:`t` is the time passed since the last accepted filter read. Note that using the flight path angle :math:`gamma_0` makes these equation always nonsingular. :math:`\theta(t)` is used to compute the additional frame rotation from the Hill frame computed at the read time. Such rotation happens about the angular momentum direction vector. :math:`\dot{\theta}(t)` and :math:`\ddot{\theta}(t)` projected onto the angular momentum direction vector give the angular rate and acceleration vectors of the reference frame.
+
+
+Batch Averaging of Filter States
+................................
+The module receives a filter state at every control period, but only updates the pointing profile at the end of each
+window of :math:`N` = ``filterReadPeriods`` control periods. Rather than using only the state received at the window
+end, the module low-pass filters the filter output: each state received during the window is propagated to the window
+end time :math:`T` with the rectilinear model, and the propagated states are averaged. The state received at control
+period :math:`j = 1, \dots, N` of the window arrives :math:`(N - j)\,\Delta t` before :math:`T`, where :math:`\Delta t`
+is ``controlPeriod``, so over the :math:`n \le N` usable states of the window
+
+.. math::
+    \bar{\boldsymbol{r}}(T) = \frac{1}{n} \sum_j \left[ \boldsymbol{r}_j + (N - j)\,\Delta t \; \boldsymbol{v}_j \right],
+    \qquad
+    \bar{\boldsymbol{v}} = \frac{1}{n} \sum_j \boldsymbol{v}_j
+
+The velocity is averaged without propagation, since the rectilinear model holds it constant. The propagation time is
+a whole number of control periods, so it carries no time rounding error. Because every state is aligned to :math:`T`
+before averaging, the average has no time lag under the rectilinear model. The average
+:math:`(\bar{\boldsymbol{r}}, \bar{\boldsymbol{v}})` is the candidate that goes through the validity checks below and,
+if it passes, re-seeds the pointing profile.
+
+- A state that is not finite, or whose position or velocity is (near) zero, is unusable. It is left out of the
+  average and flagged with ``inputSampleRejected`` for that control period. The attitude reference of that period is
+  unaffected and stays valid, because it is propagated from the last accepted update and does not depend on the
+  current state. The window still ends on time, and on its last control period ``rejectedSamplesInWindow`` gives the
+  number of unusable states it received. A count equal to :math:`N` means the window had no usable state, so no
+  re-read was attempted.
+- Before the first seed there is no profile, so an unusable state gives no valid output (``validOutput`` is false in
+  the algorithm output). This is the only case in which the output is not valid, apart from a non-finite numerical
+  result.
+- Usable states can still average to an unusable state, for example velocities that cancel. Such a window makes no
+  re-read attempt, and ``rejectedSamplesInWindow`` does not count it.
+- Every window end starts a new window, whether the average was accepted, rejected, or no usable state was received.
+  A rejected average is therefore retried after another full window, while the profile keeps being propagated from the
+  last accepted update.
+- The first usable state after a reset seeds the profile immediately, without averaging, and the first window starts
+  after it. Changing the configuration discards the window in progress.
+- With :math:`N = 1` the average is the latest state itself, so the module behaves as without averaging.
+
+Averaging reduces the effect of noise on the update. For uncorrelated noise the reduction is about
+:math:`1/\sqrt{n}`; it is smaller for a filter output that is already smoothed and therefore correlated from one
+control period to the next. A longer window averages more states, but the small body's gravity, which the rectilinear
+model neglects, makes the propagated states deviate from the true state at :math:`T` by more, so the window should be
+kept short compared with the time over which that model is accurate.
 
 
 Filter Solution Validity Checks
@@ -126,7 +172,7 @@ The module is configurable with the following parameters:
      - [s] time between two consecutive module updates. Must match the task rate and be finite and greater than zero
    * - ``filterReadPeriods``
      - 1
-     - [-] number of control periods between two consecutive filter reads. Must be at least 1; 1 reads the filter at every update
+     - [-] number of control periods between two consecutive filter reads, which is also the length of the averaging window. Must be at least 1; 1 re-reads the latest filter state at every update, without averaging
    * - ``toleranceForCollinearity``
      - 0
      - [-] tolerance on :math:`1 - |\hat{r} \cdot \hat{v}|` below which a filter solution is rejected as collinear (collision trajectory). Must be greater than zero
