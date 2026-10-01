@@ -49,5 +49,7 @@ AttGuideOutput_c FlybyPointAlgorithm_updateState(FlybyPointAlgorithmHandle* self
     result.maxRateTrigger = out.maxRateTrigger;
     result.maxAccelerationTrigger = out.maxAccelerationTrigger;
     result.positionKnowledgeExceedTrigger = out.positionKnowledgeExceedTrigger;
+    result.inputSampleRejected = out.inputSampleRejected;
+    result.rejectedSamplesInWindow = out.rejectedSamplesInWindow;
     return result;
 }
