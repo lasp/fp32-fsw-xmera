@@ -9,8 +9,8 @@
 /*!
  * @brief Validated configuration for the torque duty-cycle gate.
  *
- * An instance can only exist if the cycle is on for at least one control period and the full cycle length
- * remains representable in a uint32_t. Construct via TorqueDutyCycleConfig::create(...).
+ * An instance has at least one on period, and its full cycle length is not more than UINT32_MAX. Use
+ * TorqueDutyCycleConfig::create(...) to make an instance.
  */
 class TorqueDutyCycleConfig final {
    public:
@@ -24,59 +24,61 @@ class TorqueDutyCycleConfig final {
         return {onPeriods, offPeriods};
     }
 
-    /*! A cycle with no on period would hold the torque at zero forever, so at least one is required. */
+    /*! With no on period, the gate keeps the torque at zero for all time. Thus, one on period is the minimum. */
     static bool isValidOnPeriods(uint32_t onPeriods) { return onPeriods >= 1U; }
 
-    /*! Any hold-off length is admissible, including none, provided the full cycle length does not wrap around:
-     a wrapped length would come out shorter than the on window and corrupt the cadence. The sum is taken
-     in a wider type, so the check itself cannot wrap. */
+    /*! All off-period values are permitted, zero included, if the full cycle length is not more than UINT32_MAX.
+     An overflow of the cycle length gives a cycle that is shorter than the on window. The check adds the two
+     values in a uint64_t, so the check itself cannot overflow. */
     static bool isValidOffPeriods(uint32_t offPeriods, uint32_t onPeriods) {
         return static_cast<uint64_t>(onPeriods) + static_cast<uint64_t>(offPeriods) <= UINT32_MAX;
     }
 
-    /*! @return [-] control periods, at the start of each cycle, for which the torque command is passed through. */
+    /*! @return [-] number of control periods at the start of each cycle in which the output torque is equal to the
+     torque command */
     uint32_t getOnPeriods() const { return this->onPeriods; }
 
-    /*! @return [-] control periods for which the gate commands zero torque. */
+    /*! @return [-] number of control periods in which the gate sets the output torque to zero */
     uint32_t getOffPeriods() const { return this->offPeriods; }
 
    private:
-    // Both counts are uint32_t control periods, so they read as swappable. create() is the only caller and
-    // validates each by name before forwarding them in declaration order.
+    // Both counts are uint32_t control periods, so a caller can easily interchange them. create() is the only
+    // caller. It validates each value by name and then gives the values in declaration order.
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
     TorqueDutyCycleConfig(uint32_t onPeriods, uint32_t offPeriods) : onPeriods(onPeriods), offPeriods(offPeriods) {}
 
-    uint32_t onPeriods;   //!< [-] control periods spent passing the torque command through
-    uint32_t offPeriods;  //!< [-] control periods spent commanding zero torque
+    uint32_t onPeriods;   //!< [-] control periods in which the output torque is equal to the torque command
+    uint32_t offPeriods;  //!< [-] control periods in which the output torque is zero
 };
 
 /*!
- * @brief Gates a torque command on and off in a fixed duty cycle.
+ * @brief Applies a fixed duty cycle to a torque command.
  *
- * The gate passes the commanded body torque through unchanged for the first onPeriods control periods of
- * every cycle and commands zero torque for the remaining offPeriods. The cadence is free-running: the counter
- * advances on every update regardless of what is commanded, so the on windows sit at a fixed phase.
+ * In the first onPeriods control periods of each cycle, the output torque is equal to the commanded body torque.
+ * In the remaining offPeriods control periods, the output torque is zero. The cadence is continuous. The position
+ * in the cycle moves forward at each update, independent of the torque command. Thus, the on windows stay at a
+ * fixed phase.
  *
- * The position in the cycle is the algorithm's only runtime state; reInitialize() restarts the cycle at its
- * on window.
+ * The position in the cycle is the only runtime state of the algorithm. reInitialize() starts the cycle again at
+ * its on window.
  */
 class TorqueDutyCycleAlgorithm final {
    public:
     explicit TorqueDutyCycleAlgorithm(const TorqueDutyCycleConfig& config);
 
-    //! Install the validated configuration and derive the cycle length; does not touch runtime state.
+    //! Stores the validated configuration and calculates the cycle length. The runtime state does not change.
     void setConfig(const TorqueDutyCycleConfig& config);
 
-    //! Restart the duty cycle at the beginning of its on window.
+    //! Starts the duty cycle again at the start of its on window.
     void reInitialize();
 
-    //! [Nm] The commanded body torque during an on period, zero during an off period.
+    //! [Nm] The commanded body torque in an on period, zero in an off period.
     Eigen::Vector3f update(const Eigen::Vector3f& cmdTorque_B);
 
    private:
     TorqueDutyCycleConfig cfg;           //!< [-] validated configuration (duty-cycle cadence)
     uint32_t cycleLength{};              //!< [-] control periods in one full duty cycle
-    uint32_t previousPositionInCycle{};  //!< [-] position in the duty cycle that the previous update gated
+    uint32_t previousPositionInCycle{};  //!< [-] position in the duty cycle at the previous update
 };
 
 #endif

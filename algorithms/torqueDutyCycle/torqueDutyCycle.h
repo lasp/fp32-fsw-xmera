@@ -10,21 +10,22 @@
 #include <stdint.h>
 #include <memory>
 
-/*! @brief Gates a torque command on and off in a fixed duty cycle. */
+/*! @brief Applies a fixed duty cycle to a torque command. */
 class TorqueDutyCycle final : public SysModel {
    public:
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
 
-    //! Re-validate the module properties and push them onto the live algorithm, leaving the cadence untouched.
+    //! Validates the module properties again and gives them to the algorithm. The position in the cycle does not
+    //! change.
     void reconfigure();
 
-    //! Restart the duty cycle at its on window; a pass-through to the algorithm's reInitialize().
+    //! Starts the duty cycle again at its on window. This function calls the reInitialize() of the algorithm.
     void reInitialize();
 
     /* declare module public variables */
-    uint32_t onPeriods = 1U;   //!< [-] control periods the gate passes the torque command through (must be >= 1)
-    uint32_t offPeriods = 0U;  //!< [-] control periods the gate holds the torque at zero
+    uint32_t onPeriods = 1U;   //!< [-] control periods in which the output is equal to the torque command (minimum 1)
+    uint32_t offPeriods = 0U;  //!< [-] control periods in which the output torque is zero
 
     /* declare module IO interfaces */
     ReadFunctor<CmdTorqueBodyMsgF32Payload> cmdTorqueInMsg;  //!< [Nm] commanded body-frame torque input message

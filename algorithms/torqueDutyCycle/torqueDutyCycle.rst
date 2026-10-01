@@ -1,21 +1,21 @@
 Executive Summary
 -----------------
 
-This module gates a commanded body torque on and off in a fixed duty cycle. During the on window it passes the
-commanded torque through unchanged; during the off window it commands zero torque. The cycle is counted in
-control periods and runs freely, independent of the command it carries.
+This module applies a fixed duty cycle to a commanded body torque. In the on window, the output torque is equal to
+the commanded torque. In the off window, the output torque is zero. The module counts the cycle in control periods.
+The cycle is continuous and independent of the torque command.
 
-It performs no arithmetic on the torque it carries: a passed-through command is identical to its input, and all
-three components are gated together, so the output is always either the input or zero.
+The module does no arithmetic on the torque. When the gate is on, the output is equal to the input. The gate applies
+the same state to all three components. Thus, the output is always the input or zero.
 
-All numeric computation in this module's neighbours is single-precision (``float`` / fp32); the payloads carried
-here are ``float`` arrays.
+The neighbor modules of this module do all numeric calculations in single precision (``float`` / fp32). The message
+payloads of this module are ``float`` arrays.
 
 Use Case: Momentum Desaturation with On/Off Thrusters
 -----------------------------------------------------
 
-The module can impose a duty cycle on thrusters that dump reaction wheel momentum. It is placed between the momentum
-management and the thruster force mapping::
+The module can apply a duty cycle to thrusters that remove momentum from the reaction wheels. The module is between
+the momentum management and the thruster force mapping::
 
     momentumManagement              requested dumping torque   [Nm]
       -> torqueDutyCycle              gated dumping torque       [Nm]
@@ -23,63 +23,72 @@ management and the thruster force mapping::
           -> thrFiringRemainder / thrFiringSchmitt   thruster on-time  [s]
             -> thrusters
 
-An on/off fixed-thrust thruster cannot produce an arbitrarily small torque: the smallest action available to it is
-one minimum-fire-time pulse at full thrust. A dumping torque therefore arrives as a train of coarse kicks that
-disturb the attitude loop. The duty cycle modulates the *time* the thrusters fire rather than the amplitude, and the
-off window leaves the reaction wheels quiet control periods in which to recover the pointing. Size it by the
-number of control periods the wheels need to null the attitude error that one on window injects.
+An on/off thruster has a fixed thrust, so it cannot give a very small torque. Its smallest action is one pulse at
+full thrust for the minimum fire time. Thus, the thrusters supply a dumping torque as a sequence of large pulses.
+These pulses cause disturbances in the attitude control loop. The duty cycle changes the *time* in which the
+thrusters fire, not the thrust. In the off window, the thrusters do not fire. The reaction wheels then have control
+periods in which they correct the pointing. Find the number of control periods that the wheels use to correct the
+attitude error of one on window. Set the off window to this number.
 
-Gating the torque ahead of the mapping gives the same thruster commands as gating the per-thruster force after it:
-the mapping keeps no state between calls and maps a zero torque to exactly zero force on every thruster. That holds
-only while the mapping receives no body force request, which this module does not see and would not withhold.
+The gate is before the mapping. The thruster commands are the same as when the gate is after the mapping, on the
+force of each thruster. Two conditions make this result true. The mapping keeps no state between calls. The mapping
+also changes a zero torque to a zero force on each thruster. The second condition is true only when the mapping
+receives no body force request. This module does not see the body force request and does not apply the gate to it.
 
-This use only makes sense for on/off thrusters:
+Use this module only with on/off thrusters:
 
-- A magnetorquer or a throttleable electric thruster can produce a small continuous torque, so no duty cycle is
-  needed. Choose the upstream gains low enough that the dumping torque stays inside the attitude controller's
-  rejection authority.
-- ``thrFiringRemainder`` already cycles on its own for small requests: it banks any on-time below
-  ``thrMinFireTime`` into a pulse remainder and emits one minimum pulse every few cycles. That only holds while
+- A magnetorquer or a throttleable electric thruster can supply a small continuous torque. Thus, a duty cycle is not
+  necessary for these actuators. Set the upstream gains sufficiently low, so that the attitude controller can
+  reject the dumping torque.
+- For small requests, ``thrFiringRemainder`` already makes its own cycle. It keeps each on-time that is less than
+  ``thrMinFireTime`` as a pulse remainder. It then sends one minimum pulse after some cycles. The remainder cycle
+  occurs only when
 
   .. math::
 
-      \frac{F}{F_\text{max}} < \frac{t_\text{min fire}}{T_\text{control}},
+      \frac{F}{F_\text{max}} < \frac{t_\text{min fire}}{T_\text{control}}.
 
-  i.e. while a proportional on-time would fall below the minimum pulse. Above that ratio the thruster fires every
-  cycle and there are no quiet windows. With a sufficiently small gain in ``momentumManagement``, this module is
-  not needed.
-- The module must **not** be placed on an attitude-control path, where withholding a commanded torque for whole
-  control periods would degrade the very loop it is meant to protect.
+  The condition is true when a proportional on-time is less than the minimum pulse. Above this ratio, the thruster
+  fires in each cycle, and the reaction wheels get no control periods without thruster pulses. If the gain in
+  ``momentumManagement`` is sufficiently small, this module is not necessary.
+- Do **not** put the module on an attitude control path. On such a path, the module removes a commanded torque for
+  full control periods. The module then decreases the performance of the attitude control loop.
 
-In this chain the duty ratio reduces the effective gain of the desaturation loop, an integrating
-``momentumManagement`` winds up during off windows, and the first pulse of a new request may wait up to
-``offPeriods`` control periods; see `Module Behaviour Notes`_.
+In this sequence of modules, the duty cycle has three effects:
+
+- The duty ratio decreases the effective gain of the desaturation loop.
+- An integrating ``momentumManagement`` has integrator windup in the off windows.
+- The first pulse of a new request can wait for a maximum of ``offPeriods`` control periods.
+
+For more data, refer to `Module Behavior Notes`_.
 
 Module Architecture
 -------------------
 
-The **algorithm** (``TorqueDutyCycleAlgorithm``) is framework-free. It holds a validated
-``TorqueDutyCycleConfig`` and implements the cadence described under `Cadence`_. Its ``update()`` never throws
-and returns the gated torque command. The cadence counter is the module's only runtime state, and all of it is
-non-persistent, so ``reInitialize()`` restarts the cycle outright and there is no
+The **algorithm** (``TorqueDutyCycleAlgorithm``) has no framework dependencies. It keeps a validated
+``TorqueDutyCycleConfig`` and uses the cadence in `Cadence`_. Its ``update()`` does not cause an exception, and it
+gives the gated torque command. The position in the cycle is the only runtime state of the module. This state is
+not persistent. Thus, ``reInitialize()`` starts the cycle again, and the module has no
 ``reInitializeExceptPersistentStates()``.
 
-The **Xmera adapter** (``TorqueDutyCycle``) inherits from ``SysModel`` and owns all messaging concerns. It maps
-between the message payload's C array and the algorithm's ``Eigen::Vector3f`` and writes the output message on every
-update. Configuration uses two-phase initialization: the caller sets the public properties, then ``reset()``
-validates the input link, builds the configuration, and constructs the algorithm. The whole configuration lives in
-module properties, so no input message is read to build it.
+The **Xmera adapter** (``TorqueDutyCycle``) is a subclass of ``SysModel`` and does all of the messaging. It converts
+the C array of the message payload to the ``Eigen::Vector3f`` of the algorithm and back. It writes the output
+message at each update. The configuration uses a two-phase initialization. First, the caller sets the public
+properties. Then ``reset()`` makes sure that the input message is connected, makes the configuration, and makes the
+algorithm. All of the configuration is in the module properties. Thus, the module does not read an input message to
+make the configuration.
 
-The **Adamant adapter** is a C shim (``torqueDutyCycleAlgorithm_c.h`` / ``.cpp``) exposing the algorithm through
-an opaque handle for Ada FFI. The torque command crosses the boundary as a ``Vector3f_c`` and the configuration as
-flattened scalars. A non-throwing ``validateConfig()`` lets Ada pre-check a configuration before calling the throwing ``create()`` / ``setConfig()``.
+The **Adamant adapter** is a C shim (``torqueDutyCycleAlgorithm_c.h`` / ``.cpp``). It gives Ada FFI access to the
+algorithm through an opaque handle. The torque command goes across the boundary as a ``Vector3f_c``. The
+configuration goes across as flattened scalars. ``validateConfig()`` does not cause an exception. Ada uses it to
+make sure that a configuration is valid before it calls ``create()`` or ``setConfig()``, which cause an exception.
 
 Message Connection Descriptions
 -------------------------------
 
-The following table lists all the module input and output messages. The module msg connection is set by the user
-from python. The msg type contains a link to the message structure definition, while the description provides
-information on what this message is used for.
+The table that follows shows all of the module input and output messages. The user connects the module messages
+from Python. The message type has a link to the definition of the message structure. The description tells the
+function of each message.
 
 .. list-table:: Module I/O Messages
     :widths: 25 25 50
@@ -90,24 +99,25 @@ information on what this message is used for.
       - Description
     * - cmdTorqueInMsg
       - :ref:`CmdTorqueBodyMsgF32Payload`
-      - Commanded body-frame torque [Nm], read every update.
+      - Commanded body-frame torque [Nm]. The module reads this message at each update.
     * - cmdTorqueOutMsg
       - :ref:`CmdTorqueBodyMsgF32Payload`
-      - Gated body-frame torque [Nm]: the input during an on period, zero during an off period.
-        Written every update.
+      - Gated body-frame torque [Nm]. This torque is the input in an on period and zero in an off period.
+        The module writes this message at each update.
 
 Cadence
 -------
 
-One duty cycle is :math:`N_\text{on} +  N_\text{off}` control periods long, where :math:`N_\text{on}` is ``onPeriods`` and
-:math:`N_\text{off}` is ``offPeriods``. The on window occupies the leading slots of the cycle, so for the :math:`n`-th update
-since the last restart the gate passes the command through when
+One duty cycle has :math:`N_\text{on} + N_\text{off}` control periods, where :math:`N_\text{on}` is ``onPeriods`` and
+:math:`N_\text{off}` is ``offPeriods``. The on window is the first positions of the cycle. Let :math:`n` be the number
+of the update after the last restart. The output is then equal to the command when
 
 .. math::
 
     n \bmod (N_\text{on} + N_\text{off}) < N_\text{on}
 
-and commands zero torque otherwise. Writing :math:`\boldsymbol{L}` for the commanded body torque, the output is
+In all other updates, the output torque is zero. Let :math:`\boldsymbol{L}` be the commanded body torque. The output
+is then
 
 .. math::
 
@@ -116,29 +126,30 @@ and commands zero torque otherwise. Writing :math:`\boldsymbol{L}` for the comma
     \boldsymbol{0}, & \text{otherwise}
     \end{cases}
 
-Three properties of this cadence are worth stating explicitly.
+The cadence has three important properties.
 
-**It is free-running.** The counter advances on every update regardless of what is commanded, so the on
-windows sit at a fixed phase rather than being retriggered by the arrival of a command. A new command can therefore
-wait up to :math:`N_\text{off}` control periods before it is first passed through.
+**The cadence is continuous.** The position in the cycle moves forward at each update, independent of the torque
+command. Thus, the on windows stay at a fixed phase, and a new command does not start a new on window. A new command
+can wait for a maximum of :math:`N_\text{off}` control periods before the output is equal to it.
 
-**It is all-or-nothing across the axes.** Within one update every torque component is gated identically, so the
-gated torque never points in a direction that was not commanded.
+**The gate applies the same state to all axes.** In one update, the gate applies the same state to each torque
+component. Thus, the direction of the gated torque is always the direction of the command.
 
-**The torque is passed through, not scaled up.** The average delivered torque over a cycle is therefore
+**The module does not increase the torque.** The output is equal to the command, not a larger value. Thus, the
+average torque in one cycle is
 
 .. math::
 
-    \bar{\boldsymbol{L}} = \frac{N_\text{on}}{N_\text{on} + N_\text{off}} \, \boldsymbol{L},
+    \bar{\boldsymbol{L}} = \frac{N_\text{on}}{N_\text{on} + N_\text{off}} \, \boldsymbol{L}.
 
-so the duty ratio acts as a gain reduction on any loop closed through the module, which the upstream gain must
-account for (see `Module Behaviour Notes`_).
+The duty ratio thus decreases the gain of each loop that goes through the module. Set the upstream gain for this
+decrease (refer to `Module Behavior Notes`_).
 
 Module Parameters
 -----------------
 
-Configuration parameters are validated when ``reset()`` builds the algorithm configuration; an out-of-range value
-raises ``fsw::invalid_argument`` and the module is not constructed.
+``reset()`` validates the configuration parameters when it makes the algorithm configuration. A value that is not in
+the valid range causes an ``fsw::invalid_argument`` exception, and the module does not make the algorithm.
 
 .. list-table:: Module Configuration Parameters
     :widths: 20 15 30 35
@@ -151,27 +162,26 @@ raises ``fsw::invalid_argument`` and the module is not constructed.
     * - onPeriods
       - uint32
       - :math:`\ge 1`
-      - [-] Number of consecutive control periods, at the start of each cycle, for which the gate passes the
-        commanded torque through. Zero is rejected because it would hold the torque at zero forever, silently
-        disabling the command rather than configuring it.
+      - [-] Number of sequential control periods at the start of each cycle in which the output is equal to the
+        commanded torque. The module rejects zero. With zero, the output torque is always zero, and the module
+        stops the command without an indication.
     * - offPeriods
       - uint32
-      - any value with ``onPeriods + offPeriods`` :math:`\le` ``UINT32_MAX``
-      - [-] Number of consecutive control periods for which the gate commands zero torque. Zero is
-        permitted and holds the gate fully open, which is how duty
-        cycling is disabled. The only rejected values are those whose sum with ``onPeriods`` would wrap
-        around, since a wrapped cycle length would come out shorter than its own on window.
+      - all values with ``onPeriods + offPeriods`` :math:`\le` ``UINT32_MAX``
+      - [-] Number of sequential control periods in which the output torque is zero. Zero is permitted. With zero,
+        the gate is always on, and the duty cycle is disabled. The module rejects only the values that cause an
+        overflow of the sum with ``onPeriods``. An overflow gives a cycle that is shorter than its on window.
 
-Both parameters are counted in **control periods**, not seconds, so the module needs no ``controlPeriod``
-parameter and no measured time step: it counts its own invocations. This makes the cadence exact — there is no
-rounding of a duration onto a schedule — but it also means the wall-clock length of a cycle is set by the rate at
-which the module is scheduled.
+The two parameters are numbers of **control periods**, not seconds. Thus, the module has no ``controlPeriod``
+parameter and no measured time step. The module counts its own calls. Thus, the cadence is exact, because the module
+does not change a duration to a number of control periods. But the duration of a cycle in seconds changes with the
+schedule rate of the module.
 
 User Guide
 ----------
 
-The module uses two-phase initialization: set the public configuration properties, connect the input message, then
-``reset()`` builds and validates the configuration.
+The module uses a two-phase initialization. First, set the public configuration properties and connect the input
+message. Then ``reset()`` makes and validates the configuration.
 
 .. code-block:: python
 
@@ -180,41 +190,41 @@ The module uses two-phase initialization: set the public configuration propertie
     module = torqueDutyCycleF32.TorqueDutyCycle()
     module.modelTag = "torqueDutyCycle"
 
-    # Phase 1: configuration properties, set before reset()
-    module.onPeriods = 1     # [-] pass through for one control period ...
-    module.offPeriods = 4   # [-] ... then hold off for four, giving a 1-in-5 duty cycle
+    # Phase 1: set the configuration properties before reset()
+    module.onPeriods = 1    # [-] output equal to the command for one control period ...
+    module.offPeriods = 4   # [-] ... then zero for four, for a 1-in-5 duty cycle
 
-    # Connect the required input message
+    # Connect the necessary input message
     module.cmdTorqueInMsg.subscribeTo(cmd_torque_in_msg)
 
-    # Phase 2: reset() validates the link and builds the config
+    # Phase 2: reset() makes sure that the message is connected and makes the configuration
     sim.AddModelToTask(task_name, module)
 
-The input message is required; ``reset()`` raises if it is unconnected.
+The input message is necessary. If the input message is not connected, ``reset()`` causes an exception.
 
-To push edited configuration properties onto a running algorithm without restarting the cadence, call
-``reconfigure()``. To restart the cadence at its on window, call ``reInitialize()``. Both raise
-``XmeraLifecycleException`` if called before ``reset()``.
+To give changed configuration properties to a running algorithm, call ``reconfigure()``. The position in the cycle
+does not change. To start the cadence again at its on window, call ``reInitialize()``. If you call one of these
+functions before ``reset()``, it causes an ``XmeraLifecycleException``.
 
 Module Assumptions and Limitations
 ----------------------------------
 
-- **The cadence is counted in invocations.** The module must actually be scheduled at the intended control rate;
-  the wall-clock duty cycle scales with the task period.
-- **The cadence is free-running**, so a new command may be held at zero for up to ``offPeriods`` control
-  periods before it is first passed through.
+- **The module counts the cadence in calls.** The module must operate at the correct control rate. The duty cycle in
+  seconds changes with the task period.
+- **The cadence is continuous.** Thus, the output can be zero for a maximum of ``offPeriods`` control periods before
+  it is equal to a new command.
 
-Module Behaviour Notes
-----------------------
+Module Behavior Notes
+---------------------
 
-- **The upstream gain must be sized for the duty ratio.** Because the torque is passed through rather than scaled,
-  the average delivered torque is :math:`N_\text{on} / (N_\text{on} + N_\text{off})` of the command. A cadence change therefore rescales the
+- **Set the upstream gain for the duty ratio.** The module does not increase the torque. Thus, the average torque
+  is :math:`N_\text{on} / (N_\text{on} + N_\text{off})` of the command. A change of the cadence thus changes the
   effective loop gain of the upstream controller.
-- **An upstream integral term winds up during off windows.** The gate withholds torque while the upstream error
-  persists, so an integrating controller keeps accumulating with no effect. Its integral limit and this module's
-  ``offPeriods`` must be tuned together; a long off window with a generous integral limit produces an
-  overshooting command when the gate reopens.
-- **Withheld commands are discarded, not banked.** A command withheld during an off window is not carried
-  forward. This is deliberate: an upstream integral term is already the accumulator, and banking the command here
-  as well would integrate the same error twice. It does mean the module is only correct downstream of a closed-loop
-  command, not of a fixed impulse budget.
+- **An upstream integral term has integrator windup in the off windows.** In the off windows, the gate removes the torque, but
+  the upstream error stays. Thus, an integrating controller continues to increase its integral term, but the torque
+  has no effect. Tune the integral limit and ``offPeriods`` of this module together. A long off window and a large
+  integral limit cause an overshoot of the command when the gate is on again.
+- **The module discards the commands in the off windows.** The module does not keep these commands for a later
+  update, because the upstream integral term already keeps the error. If the module also keeps the command, the
+  same error has two integrations. Thus, the module is correct only after a closed-loop command, not after a fixed
+  impulse budget.

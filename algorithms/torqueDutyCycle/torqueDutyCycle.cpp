@@ -5,32 +5,32 @@
 #include <memory>
 #include <stdexcept>
 
-/*! This method performs a complete reset of the module. It validates that the required input message is linked
- and builds the algorithm, whose constructor installs the configuration and restarts the duty cycle.
+/*! This method does a full reset of the module. It makes sure that the necessary input message is connected. It
+ then makes the algorithm. The constructor of the algorithm stores the configuration and starts the duty cycle.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void TorqueDutyCycle::reset(const uint64_t callTime) {
-    // check if the required input messages are included
+    // make sure that the necessary input message is connected
     if (!this->cmdTorqueInMsg.isLinked()) {
         throw std::invalid_argument("torqueDutyCycle.cmdTorqueInMsg wasn't connected.");
     }
 
-    /*! - create the algorithm, whose constructor installs the configuration and restarts the duty cycle
-     (throws on an invalid config) */
+    /*! - make the algorithm. Its constructor stores the configuration and starts the duty cycle. An invalid
+     configuration causes an exception. */
     this->algorithm = std::make_unique<TorqueDutyCycleAlgorithm>(this->toConfig());
 }
 
-/*! Build a validated algorithm configuration from the current module properties. The whole configuration is
- held in module properties, so no input message is read here.
+/*! Makes a validated algorithm configuration from the current module properties. All of the configuration is in
+ the module properties. Thus, this function does not read an input message.
  @return TorqueDutyCycleConfig validated configuration
  */
 TorqueDutyCycleConfig TorqueDutyCycle::toConfig() const {
     return TorqueDutyCycleConfig::create(this->onPeriods, this->offPeriods);
 }
 
-/*! Re-validate the current module properties and push them onto the live algorithm without restarting the
- cadence. Rebuilds the validated config from the public members and installs it via setConfig().
+/*! Validates the current module properties again and gives them to the algorithm. The position in the cycle does
+ not change. This function makes a validated configuration from the public members and stores it with setConfig().
  @return void
  */
 void TorqueDutyCycle::reconfigure() {
@@ -40,8 +40,8 @@ void TorqueDutyCycle::reconfigure() {
     this->algorithm->setConfig(this->toConfig());
 }
 
-/*! Restart the duty cycle at the beginning of its on window; a simple pass-through to the algorithm's
- reInitialize().
+/*! Starts the duty cycle again at the start of its on window. This function calls the reInitialize() of the
+ algorithm.
  @return void
  */
 void TorqueDutyCycle::reInitialize() {
@@ -51,7 +51,7 @@ void TorqueDutyCycle::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! The commanded torque is gated on and off in a fixed duty cycle.
+/*! This method applies a fixed duty cycle to the commanded torque.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
@@ -60,14 +60,14 @@ void TorqueDutyCycle::updateState(const uint64_t callTime) {
         throw XmeraLifecycleException("TorqueDutyCycle reset() has not been called.");
     }
 
-    /*! - read in the torque command message and map to the freestanding type */
+    /*! - read the torque command message and convert it to the freestanding type */
     const CmdTorqueBodyMsgF32Payload cmdTorqueIn = this->cmdTorqueInMsg();
     const Eigen::Vector3f cmdTorque_B = cArrayToEigenVector3<float>(cmdTorqueIn.torqueRequestBody);
 
-    /*! - call algorithm update */
+    /*! - call the algorithm update */
     const Eigen::Vector3f gatedTorque_B = this->algorithm->update(cmdTorque_B);
 
-    /*! - map the freestanding type back to the message payload and write */
+    /*! - convert the freestanding type to the message payload and write the message */
     CmdTorqueBodyMsgF32Payload cmdTorqueOut{};
     eigenVectorToCArray(gatedTorque_B, cmdTorqueOut.torqueRequestBody);
 
