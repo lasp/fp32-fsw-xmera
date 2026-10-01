@@ -124,18 +124,13 @@ class AverageMimuDataAlgorithm final {
    private:
     // Ring slot mirrors the InputPacket shape: a packet's first-sample time
     // plus its samples. Per-sample times are derived at average compute time.
-    struct RingPacket {
-        bool isValid{false};
-        std::uint64_t measTime{0U};
-        std::array<Sample, MAX_MIMU_SAMPLES_PER_PKT_C> samples{};
-    };
 
     AverageMimuDataConfig cfg;
     // Config-derived: window seconds converted to nanoseconds once in setConfig()
     // so the per-sample staleness comparison in update() stays in integer math.
     std::uint64_t gyroAveragingWindowNs{0U};       //!< [ns] Gyro: allowable time difference from "latest"
     std::uint64_t accelAveragingWindowNs{0U};      //!< [ns] Accel: allowable time difference from "latest"
-    std::array<RingPacket, kRingCapacity> ring{};  //!< Internal ring of recent packets (overwrites oldest on insert)
+    std::array<InputPacket, kRingCapacity> ring{};  //!< Internal ring of recent packets (overwrites oldest on insert)
     std::size_t insertIdx{0U};                     //!< Next ring slot to overwrite
 };
 
