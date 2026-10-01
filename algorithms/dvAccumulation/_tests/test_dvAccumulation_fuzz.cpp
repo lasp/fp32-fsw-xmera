@@ -3,10 +3,11 @@
 
 #include <fuzztest/fuzztest.h>
 
-/*! Fuzz domain: parallel sequences of callTimes (ns) and body-frame accelerations, driving a
- *  sequence of update() calls. callTimes are unconstrained in order (so both the first-call
- *  time-reference set and the strictly-greater gate are exercised); accels are bounded to ±100 m/s² and callTimes to
- *  the [0, 1e10] ns range to keep dt finite. */
+/*! Fuzz domain: a control period, a sequence of body-frame accelerations for a sequence of update()
+ *  calls, and the bias that update() subtracts from each of them. The bias has the same bound as the
+ *  acceleration: update() subtracts the bias from the acceleration, so a larger bound gives the same
+ *  arithmetic again. */
 FUZZ_TEST(DvAccumulationFuzz, testDvAccumulationFuzz)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange<uint64_t>(0U, static_cast<uint64_t>(1e10))).WithMaxSize(128U),
-                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-100.0F, 100.0F)).WithMaxSize(128U));
+    .WithDomains(fuzztest::InRange<float>(1e-3F, 10.0F),
+                 fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-100.0F, 100.0F)).WithMaxSize(128U),
+                 xmera::fuzz::Vector3fInRange(-100.0F, 100.0F));

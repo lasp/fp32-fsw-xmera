@@ -1,33 +1,29 @@
 #include "dvAccumulationAlgorithm.h"
-#include "utilities/fsw/timeConstants.h"
 
-DvAccumulationAlgorithm::DvAccumulationAlgorithm() { this->reInitialize(); }
-
-void DvAccumulationAlgorithm::reInitializeExceptPersistentStates() {
-    /*! - reset only the non-persistent accumulator; previousTime persists */
-    this->vehAccumDV_B = Eigen::Vector3f::Zero();
+DvAccumulationAlgorithm::DvAccumulationAlgorithm(const DvAccumulationConfig& config) : cfg(config) {
+    this->setConfig(config);
+    this->reInitialize();
 }
+
+void DvAccumulationAlgorithm::setConfig(const DvAccumulationConfig& config) { this->cfg = config; }
 
 void DvAccumulationAlgorithm::reInitialize() {
-    /*! - reset all state, including the persistent time reference */
-    this->reInitializeExceptPersistentStates();
-    this->previousTime = 0U;
+    this->vehAccumDV_B.setZero();
+    this->firstCall = true;
 }
 
-DvAccumulationOutput DvAccumulationAlgorithm::update(const uint64_t callTime,
-                                                     const Eigen::Vector3f& rDDotNoGravity_BN_B) {
-    /*! - On the first call after a reInitialize (previousTime == 0), latch the clock so dt doesn't
-     *    blow up against a zero baseline; otherwise integrate over the elapsed step */
-    if (this->previousTime == 0U) {
-        this->previousTime = callTime;
-    } else if (callTime > this->previousTime) {
-        const float dt = static_cast<float>(callTime - this->previousTime) * kNano2SecF;
-        this->vehAccumDV_B += dt * rDDotNoGravity_BN_B;
-        this->previousTime = callTime;
+Eigen::Vector3f DvAccumulationAlgorithm::update(const Eigen::Vector3f& rDDotNoGravity_BN_B,
+                                                const Eigen::Vector3f& accelBias_B) {
+    /*! - the first call starts the accumulation window. The elapsed time is zero */
+    if (this->firstCall) {
+        this->firstCall = false;
+    } else {
+        /*! - update() subtracts the bias before it multiplies by the control period. For a constant
+         *    bias, the result is the same as a correction of the accumulated Delta-V at the end. But
+         *    this order keeps the accumulator correct at each step, also when the caller changes the
+         *    bias between calls */
+        this->vehAccumDV_B += this->cfg.getControlPeriod() * (rDDotNoGravity_BN_B - accelBias_B);
     }
 
-    DvAccumulationOutput out{};
-    out.timeTag = static_cast<double>(this->previousTime) * kNano2Sec;
-    out.vehAccumDV_B = this->vehAccumDV_B;
-    return out;
+    return this->vehAccumDV_B;
 }

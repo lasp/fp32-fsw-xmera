@@ -1,11 +1,9 @@
 """
 Module Name:        dvAccumulation
 
-Smoke / interface test for the fp32 dvAccumulation module. dvAccumulation integrates a single
-body-frame acceleration sample per update (an IMUSensorBodyMsgF32 input), using the module call time
-for the integration step. This test exercises every interface end-to-end through the SysModel adapter
--- link the input message, run several steps, and confirm the module executes and produces a finite,
-correctly-signed accumulated Delta-V.
+Smoke / interface test for the fp32 dvAccumulation module. dvAccumulation integrates one
+body-frame acceleration sample in each update (an IMUSensorBodyMsgF32 input). It uses the
+configured control period as the integration step.
 """
 
 import numpy as np
@@ -15,8 +13,9 @@ from xmera.utilities import SimulationBaseClass, macros
 
 
 def test_dv_accumulation():
-    """End-to-end smoke test: drive a constant body-frame acceleration through the adapter over
-    several control steps and confirm the accumulated Delta-V is finite and grows as expected."""
+    """End-to-end smoke test. It puts a constant body-frame acceleration through the adapter during
+    more than one control step. Then it makes sure that the accumulated Delta-V is finite and that
+    it increases."""
 
     unit_test_sim = SimulationBaseClass.SimBaseClass()
     test_process_rate = macros.sec2nano(0.5)
@@ -25,6 +24,10 @@ def test_dv_accumulation():
 
     module = dvAccumulationF32.DvAccumulation()
     module.modelTag = "dvAccumulation"
+    module.controlPeriod = macros.NANO2SEC * test_process_rate
+    # This is a test of the swig_eigen typemap: a python list must convert to the Eigen::Vector3f
+    # property.
+    module.accelBias_B = [0.0, 0.0, 0.0]
     unit_test_sim.AddModelToTask("unitTask", module)
 
     data_log = module.dvAccumulationOutMsg.recorder()
@@ -44,13 +47,14 @@ def test_dv_accumulation():
     accum_dv = np.array(data_log.vehAccumDV)
     time_tag = np.array(data_log.timeTag)
 
-    # Every interface ran and produced finite output.
+    # Each interface operated and gave finite output.
     assert accum_dv.shape[0] > 0
     assert np.all(np.isfinite(accum_dv))
     assert np.all(np.isfinite(time_tag))
 
-    # The first call only sets the time reference (no integration), so the final accumulated Delta-V is
-    # positive time * accel: it must be non-zero and share the sign of the input acceleration.
+    # The first call starts the accumulation window and does not integrate. Thus the last accumulated
+    # Delta-V is time * accel. It must not be zero, and its sign must be the same as the sign of the
+    # input acceleration.
     final_dv = accum_dv[-1]
     assert np.linalg.norm(final_dv) > 0.0
     assert np.sign(final_dv[0]) == np.sign(accel_body[0])
