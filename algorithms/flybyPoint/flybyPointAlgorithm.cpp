@@ -98,10 +98,25 @@ bool FlybyPointAlgorithm::checkValidity(const Eigen::Vector3d& r_BN_N,
         output.collinearityTrigger = false;
     }
 
+    /*! the predicted peak rate and acceleration occur near closest approach of the candidate's own rectilinear
+     trajectory, at distance d_CA = |r x v| / |v| = |r| |cos(gamma)|: peak rate |v| / d_CA and peak acceleration
+     3 sqrt(3) / 8 (|v| / d_CA)^2. An exactly collinear candidate has d_CA = 0, so its peaks are unbounded and exceed
+     both limits */
+    const double distanceClosestApproach = r_BN_N.cross(v_BN_N).norm() / v_BN_N.norm();
+    bool rateExceeded = true;
+    bool accelerationExceeded = true;
+    if (distanceClosestApproach > 0.0) {
+        const double speedOverDistance = v_BN_N.norm() / distanceClosestApproach;
+        const double maxPredictedRate = speedOverDistance * kRad2Deg;
+        rateExceeded =
+            maxPredictedRate > this->cfg.getMaximumRateThreshold() && this->cfg.getMaximumRateThreshold() > 0;
+        const double maxPredictedAcceleration = kMaxAccelCoeff * speedOverDistance * speedOverDistance * kRad2Deg;
+        accelerationExceeded = maxPredictedAcceleration > this->cfg.getMaximumAccelerationThreshold() &&
+                               this->cfg.getMaximumAccelerationThreshold() > 0;
+    }
+
     /*! check if the predicted rate exceeds the maximum rate of the spacecraft */
-    const double distanceClosestApproach = -r_BN_N.norm() * safeSin(this->gamma0);
-    const double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * kRad2Deg;
-    if (maxPredictedRate > this->cfg.getMaximumRateThreshold() && this->cfg.getMaximumRateThreshold() > 0) {
+    if (rateExceeded) {
         valid = false;
         output.maxRateTrigger = true;
     } else {
@@ -109,9 +124,7 @@ bool FlybyPointAlgorithm::checkValidity(const Eigen::Vector3d& r_BN_N,
     }
 
     /*! check if the predicted acceleration exceeds the maximum acceleration of the spacecraft */
-    const double maxPredictedAcceleration = kMaxAccelCoeff * pow(v_BN_N.norm() / distanceClosestApproach, 2) * kRad2Deg;
-    if (maxPredictedAcceleration > this->cfg.getMaximumAccelerationThreshold() &&
-        this->cfg.getMaximumAccelerationThreshold() > 0) {
+    if (accelerationExceeded) {
         valid = false;
         output.maxAccelerationTrigger = true;
     } else {

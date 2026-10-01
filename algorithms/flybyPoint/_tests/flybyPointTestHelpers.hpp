@@ -71,8 +71,9 @@ inline void referenceComputeRN(ReferenceFlybyState& s, const Eigen::Vector3d& r,
     s.R0N.row(2) = uh;
 }
 
-/*! Mirrors FlybyPointAlgorithm::checkValidity(). Uses the stored gamma0 from the previous seed,
- *  exactly as the production code does.
+/*! Mirrors FlybyPointAlgorithm::checkValidity(). The closest-approach distance comes from the candidate
+ *  (r, v) alone: d_CA = |r x v| / |v|. A collinear candidate returns false before d_CA is formed, so d_CA > 0
+ *  below.
  @return true if all validity checks pass and a re-seed should proceed
  @param s The current reference state (read-only)
  @param r The new relative position state [m]
@@ -90,11 +91,12 @@ inline bool referenceCheckValidity(const ReferenceFlybyState& s,
     const Eigen::Vector3d uv = v.normalized();
     if (1.0 - std::fabs(ur.dot(uv)) < config.getToleranceForCollinearity()) return false;
 
-    const double dca = -r.norm() * safeSin(s.gamma0);
-    const double maxRate = v.norm() / dca * kRad2Deg;
+    const double dca = r.cross(v).norm() / v.norm();
+    const double speedOverDistance = v.norm() / dca;
+    const double maxRate = speedOverDistance * kRad2Deg;
     if (maxRate > config.getMaximumRateThreshold() && config.getMaximumRateThreshold() > 0) return false;
 
-    const double maxAccel = kMaxAccelCoeff * std::pow(v.norm() / dca, 2) * kRad2Deg;
+    const double maxAccel = kMaxAccelCoeff * speedOverDistance * speedOverDistance * kRad2Deg;
     if (maxAccel > config.getMaximumAccelerationThreshold() && config.getMaximumAccelerationThreshold() > 0)
         return false;
 

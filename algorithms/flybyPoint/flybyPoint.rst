@@ -5,7 +5,8 @@ This module computes a reference attitude frame for a spacecraft in relative mot
 The module starts by reading the first input under the assumption it is valid in order to compute a solution.
 At a settable cadence, the module will update the pointing profile with the help of a new filter solution. In order to
 so it will check the validity of the solution: 1. It does not predict a collision trajectory 2. It does not predict
-excessive rates and accelerations. If the solution is valid a new pointing profile is constructed.
+excessive rates and accelerations 3. Its position agrees with the rectilinear prediction made from the first read. If
+the solution is valid a new pointing profile is constructed.
 
 Message Connection Descriptions
 -------------------------------
@@ -48,6 +49,37 @@ In this case the flyby is modeled as rectilinear motion of the spacecraft, i.e.,
     \ddot{\theta}(t) = -2 f_0^2 \cos \gamma_0 \frac{f_0t + \sin \gamma_0}{(f_0^2 t^2 + 2 f_0 \sin \gamma_0 t + 1)^2}
 
 where :math:`t` is the time passed since the last accepted filter read. Note that using the flight path angle :math:`gamma_0` makes these equation always nonsingular. :math:`\theta(t)` is used to compute the additional frame rotation from the Hill frame computed at the read time. Such rotation happens about the angular momentum direction vector. :math:`\dot{\theta}(t)` and :math:`\ddot{\theta}(t)` projected onto the angular momentum direction vector give the angular rate and acceleration vectors of the reference frame.
+
+
+Filter Solution Validity Checks
+...............................
+Before a new filter solution :math:`(\boldsymbol{r}, \boldsymbol{v})` replaces the current pointing profile, it is
+checked as follows. Any failed check rejects the solution and raises the matching diagnostic flag; the profile then
+keeps being propagated from the last accepted read.
+
+1. **Collinearity.** If :math:`1 - |\hat{\boldsymbol{r}} \cdot \hat{\boldsymbol{v}}|` is below
+   ``toleranceForCollinearity``, the trajectory is a collision course. The checks are independent, so such a solution
+   usually also raises the rate and acceleration flags, because its closest-approach distance is close to zero. An
+   exactly collinear solution (:math:`d_{CA} = 0`) has no closest-approach distance, so its rate and
+   acceleration checks reject it outright.
+2. **Predicted peak rate and acceleration.** On the candidate's own rectilinear trajectory, the frame rate and
+   acceleration peak near closest approach, at the distance
+
+   .. math::
+       d_{CA} = \frac{\|\boldsymbol{r} \times \boldsymbol{v}\|}{\|\boldsymbol{v}\|} = \|\boldsymbol{r}\| \, |\cos \gamma|
+
+   Minimizing the denominator of :math:`\dot{\theta}(t)` above gives the peak rate, and maximizing
+   :math:`|\ddot{\theta}(t)|` gives the peak acceleration (reached 30 deg before and after closest approach):
+
+   .. math::
+       \dot{\theta}_{max} = \frac{\|\boldsymbol{v}\|}{d_{CA}}, \qquad
+       |\ddot{\theta}|_{max} = \frac{3\sqrt{3}}{8} \left( \frac{\|\boldsymbol{v}\|}{d_{CA}} \right)^2
+
+   These are compared with ``maximumRateThreshold`` and ``maximumAccelerationThreshold``. The check is applied whether
+   the spacecraft is approaching or receding. Past closest approach, these values are upper bounds on the remaining
+   profile.
+3. **Position knowledge.** The position must lie within ``positionKnowledgeSigma`` of the rectilinear prediction
+   :math:`\boldsymbol{r}_{first} + \Delta t \, \boldsymbol{v}_{first}` made from the first read.
 
 
 Clohessy-Wiltshire Equations Model
