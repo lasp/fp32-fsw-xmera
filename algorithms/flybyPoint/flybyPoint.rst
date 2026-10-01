@@ -32,7 +32,9 @@ provides information on what this message is used for.
 
 Detailed Module Description
 ---------------------------
-The relative position and velocity vector of the spacecraft with respect to the small body are obtained as noisy estimates. Therefore the desire is, for this module, to only read the filter message every so often. The input parameter ``dtFilterData`` allows the user to specify the desired time interval between two subsequent reads of the filter output. For every call of this module that happens between two consecutive filter reads, the reference attitude needs to be propagated from the last filter read according to a dynamic model of the flyby.
+The relative position and velocity vector of the spacecraft with respect to the small body are obtained as noisy estimates. Therefore the desire is, for this module, to only read the filter message every so often. The input parameter ``filterReadPeriods`` allows the user to specify the number of control periods between two subsequent reads of the filter output. For every call of this module that happens between two consecutive filter reads, the reference attitude needs to be propagated from the last filter read according to a dynamic model of the flyby.
+
+The algorithm has no time input: it must be updated once per control period, and ``controlPeriod`` gives the length of that period in seconds. The algorithm counts elapsed time in whole control periods with unsigned integers, so the decision of when to re-read the filter is exact and free of floating-point rounding. Elapsed time in seconds, which the guidance equations below need, is computed as the number of elapsed control periods times ``controlPeriod``. If a re-read is rejected by the validity checks, the reference keeps being propagated from the last accepted read and the re-read is attempted again at every following update.
 
 Rectilinear Motion Model
 ........................
@@ -45,7 +47,7 @@ In this case the flyby is modeled as rectilinear motion of the spacecraft, i.e.,
 .. math::
     \ddot{\theta}(t) = -2 f_0^2 \cos \gamma_0 \frac{f_0t + \sin \gamma_0}{(f_0^2 t^2 + 2 f_0 \sin \gamma_0 t + 1)^2}
 
-where :math:`t` is the time passes since the last filter read. Note that using the flight path angle :math:`gamma_0` makes these equation always nonsingular. :math:`\theta(t)` is used to compute the additional frame rotation from the Hill frame computed at the read time. Such rotation happens about the angular momentum direction vector. :math:`\dot{\theta}(t)` and :math:`\ddot{\theta}(t)` projected onto the angular momentum direction vector give the angular rate and acceleration vectors of the reference frame.
+where :math:`t` is the time passed since the last accepted filter read. Note that using the flight path angle :math:`gamma_0` makes these equation always nonsingular. :math:`\theta(t)` is used to compute the additional frame rotation from the Hill frame computed at the read time. Such rotation happens about the angular momentum direction vector. :math:`\dot{\theta}(t)` and :math:`\ddot{\theta}(t)` projected onto the angular momentum direction vector give the angular rate and acceleration vectors of the reference frame.
 
 
 Clohessy-Wiltshire Equations Model
@@ -67,10 +69,15 @@ User Guide
 ----------
 The required module configuration is::
 
-    flybyGuid = flybyPoint.FlybyPoint()
-    flybyWrap.modelTag = "flybyPoint"
-    flybyGuid.dtFilterData = 60
+    flybyGuid = flybyPointF32.FlybyPoint()
+    flybyGuid.modelTag = "flybyPoint"
+    flybyGuid.controlPeriod = 10.0      # [s] must match the task rate
+    flybyGuid.filterReadPeriods = 6     # re-read the filter every 6 control periods (60 s)
+    flybyGuid.toleranceForCollinearity = 1e-5
     flybyGuid.signOfOrbitNormalFrameVector = 1
+    flybyGuid.maximumRateThreshold = 0.01
+    flybyGuid.maximumAccelerationThreshold = 1e-7
+    flybyGuid.positionKnowledgeSigma = 1e5
     unitTestSim.AddModelToTask(unitTaskName, flybyGuid)
 
 The module is configurable with the following parameters:
@@ -82,21 +89,27 @@ The module is configurable with the following parameters:
    * - Parameter
      - Default
      - Description
-   * - ``dtFilterData``
+   * - ``controlPeriod``
      - 0
-     - time between two consecutive filter reads. If defaulted to zero, the filter information is read at every update call
-   * - ``maxRate``
+     - [s] time between two consecutive module updates. Must match the task rate and be finite and greater than zero
+   * - ``filterReadPeriods``
+     - 1
+     - [-] number of control periods between two consecutive filter reads. Must be at least 1; 1 reads the filter at every update
+   * - ``toleranceForCollinearity``
      - 0
-     - If non-zero, the maximum allowable predicted rate at closest approach. If greater discard filter input
-   * - ``maxAcceleration``
-     - 0
-     - If non-zero, the maximum allowable predicted max acceleration. If greater discard filter input
+     - [-] tolerance on :math:`1 - |\hat{r} \cdot \hat{v}|` below which a filter solution is rejected as collinear (collision trajectory). Must be greater than zero
    * - ``signOfOrbitNormalFrameVector``
      - 1
      - Sign of the orbit normal rxv vector used to build the frame. If equal to 1, the frame is a traditional Hill frame if -1, it flips the orbit normal axis to point "down" relative to the orbtial momentum
-   * - ``flybyModel``
+   * - ``maximumRateThreshold``
      - 0
-     - 0 for rectilinear flyby model, 1 for Clohessy-Wiltshire model
+     - [deg/s] maximum allowable predicted rate at closest approach. If greater, the filter solution is discarded. Must be greater than zero
+   * - ``maximumAccelerationThreshold``
+     - 0
+     - [deg/s^2] maximum allowable predicted acceleration at closest approach. If greater, the filter solution is discarded. Must be greater than zero
+   * - ``positionKnowledgeSigma``
+     - 0
+     - [m] maximum allowable deviation of the filter position from the rectilinear prediction made from the first read. If greater, the filter solution is discarded. Must be greater than zero
 
 Unit Test
 ---------

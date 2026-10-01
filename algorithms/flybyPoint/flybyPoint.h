@@ -8,6 +8,7 @@
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 #include <Eigen/Dense>
+#include <cstdint>
 #include <memory>
 
 /*! @brief A class to perform flyby pointing */
@@ -18,7 +19,8 @@ class FlybyPoint : public SysModel {
     std::tuple<Eigen::Vector3d, Eigen::Vector3d> readRelativeState();
 
     // Phase 1: Public config properties — set before reset()
-    double timeBetweenFilterData = 0.0;
+    double controlPeriod = 0.0;       //!< [s] time between updateState() calls; must match the task rate (> 0)
+    uint32_t filterReadPeriods = 1U;  //!< [-] control periods between two consecutive filter re-reads (>= 1)
     float toleranceForCollinearity = 0.0F;
     int signOfOrbitNormalFrameVector = 1;
     float maximumRateThreshold = 0.0F;

@@ -41,17 +41,14 @@ void FlybyPointAlgorithm_setConfig(FlybyPointAlgorithmHandle* self, const FlybyP
 void FlybyPointAlgorithm_reset(FlybyPointAlgorithmHandle* self);
 
 /**
- * @brief Compute the flyby-point reference attitude guidance for the current time.
+ * @brief Compute the flyby-point reference attitude guidance for the current control period.
+ *        Must be called once per control period (config controlPeriod); the algorithm has no time input.
  * @param self             Pointer to the instance.
- * @param currentSimNanos  Current simulation time [ns].
  * @param r_BN_N           Spacecraft position relative to the body in inertial frame [m].
  * @param v_BN_N           Spacecraft velocity relative to the body in inertial frame [m/s].
  * @return AttGuideOutput_c  Reference attitude, rate, acceleration, and validity flags.
  */
-AttGuideOutput_c FlybyPointAlgorithm_updateState(FlybyPointAlgorithmHandle* self,
-                                                 uint64_t currentSimNanos,
-                                                 Vector3d_c r_BN_N,
-                                                 Vector3d_c v_BN_N);
+AttGuideOutput_c FlybyPointAlgorithm_updateState(FlybyPointAlgorithmHandle* self, Vector3d_c r_BN_N, Vector3d_c v_BN_N);
 
 #ifdef __cplusplus
 }  // extern "C"

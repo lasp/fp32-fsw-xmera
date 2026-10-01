@@ -7,7 +7,8 @@
 
 namespace {
 FlybyPointConfig configFromC(const FlybyPointConfig_c& c) {
-    return FlybyPointConfig::create(c.timeBetweenFilterData,
+    return FlybyPointConfig::create(c.controlPeriod,
+                                    c.filterReadPeriods,
                                     c.toleranceForCollinearity,
                                     c.signOfOrbitNormalFrameVector,
                                     c.maximumRateThreshold,
@@ -33,14 +34,12 @@ void FlybyPointAlgorithm_reset(FlybyPointAlgorithmHandle* self) {
 }
 
 AttGuideOutput_c FlybyPointAlgorithm_updateState(FlybyPointAlgorithmHandle* self,
-                                                 const uint64_t currentSimNanos,
                                                  const Vector3d_c r_BN_N,
                                                  const Vector3d_c v_BN_N) {
     const Eigen::Vector3d r_BN_N_e = cArrayToEigenVector3<double>(r_BN_N.data);
     const Eigen::Vector3d v_BN_N_e = cArrayToEigenVector3<double>(v_BN_N.data);
 
-    const AttGuideOutput out =
-        reinterpret_cast<::FlybyPointAlgorithm*>(self)->updateState(currentSimNanos, r_BN_N_e, v_BN_N_e);
+    const AttGuideOutput out = reinterpret_cast<::FlybyPointAlgorithm*>(self)->updateState(r_BN_N_e, v_BN_N_e);
 
     AttGuideOutput_c result{};
     eigenVectorToCArray(out.sigma_RN, result.sigma_RN.data);
