@@ -15,30 +15,30 @@ fileName = os.path.basename(os.path.splitext(__file__)[0])
 
 @pytest.mark.parametrize("initial_position", [[-5e7, 7.5e6, 5e5]])  # m - r_CN_N
 @pytest.mark.parametrize("initial_velocity", [[2e4, 0, 0]])  # m/s - v_CN_N
-@pytest.mark.parametrize("filter_dt", [1, 60])  # s
+@pytest.mark.parametrize("filter_periods", [1, 6])  # control periods between filter reads
 @pytest.mark.parametrize("orbit_normal_sign", [1, -1])
 @pytest.mark.parametrize("max_rate", [0.01, 1.0])
 @pytest.mark.parametrize("max_acceleration", [1E-7, 1.0])
 @pytest.mark.parametrize("pos_knowledge", [1.0, 1E5])
-def test_flybyPoint(show_plots, initial_position, initial_velocity, filter_dt, orbit_normal_sign, max_rate,
+def test_flybyPoint(show_plots, initial_position, initial_velocity, filter_periods, orbit_normal_sign, max_rate,
                     max_acceleration, pos_knowledge):
     r"""
     Args:
         initial_position[3] (m): initial position of the spacecraft w.r.t. the body/origin
         initial_velocity[3] (m): initial velocity of the spacecraft w.r.t. the body/origin
-        filter_dt (s): time between two consecutive reads of the input message
+        filter_periods (-): control periods between two consecutive reads of the input message
         orbit_normal_sign (-): sign of the reference frame "out of plane" vector (orbit normal or anti orbit normal)
 
     """
     # each test method requires a single assert method to be called
-    flybyPointTestFunction(show_plots, initial_position, initial_velocity, filter_dt, orbit_normal_sign,
+    flybyPointTestFunction(show_plots, initial_position, initial_velocity, filter_periods, orbit_normal_sign,
                            max_rate, max_acceleration, pos_knowledge)
 
 
 def test_flybyPoint_diagnostic_collinearity(
         initial_position=[-5E7, 7.5E6, 5E5],
         initial_velocity=[2E4, 0, 0],
-        filter_dt=1,
+        filter_periods=1,
         orbit_normal_sign=-1,
         max_rate=0.01,
         max_acceleration=1E-7,
@@ -54,7 +54,8 @@ def test_flybyPoint_diagnostic_collinearity(
     # setup flybyPoint guidance module
     flyby_guidance = flybyPointF32.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
-    flyby_guidance.timeBetweenFilterData = filter_dt
+    flyby_guidance.controlPeriod = sim_dt
+    flyby_guidance.filterReadPeriods = filter_periods
     flyby_guidance.toleranceForCollinearity = 1E-5
     flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign
     flyby_guidance.maximumRateThreshold = max_rate
@@ -101,7 +102,7 @@ def test_flybyPoint_diagnostic_collinearity(
 def test_flybyPoint_maxrate(
         initial_position=[-5E7, 7.5E6, 5E5],
         initial_velocity=[2E4, 0, 0],
-        filter_dt=1,
+        filter_periods=1,
         orbit_normal_sign=-1,
         max_rate=0.1,
         max_acceleration=1E-7,
@@ -117,7 +118,8 @@ def test_flybyPoint_maxrate(
     # setup flybyPoint guidance module
     flyby_guidance = flybyPointF32.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
-    flyby_guidance.timeBetweenFilterData = filter_dt
+    flyby_guidance.controlPeriod = sim_dt
+    flyby_guidance.filterReadPeriods = filter_periods
     flyby_guidance.toleranceForCollinearity = 1E-5
     flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign
     flyby_guidance.maximumRateThreshold = max_rate
@@ -164,7 +166,7 @@ def test_flybyPoint_maxrate(
 def test_flybyPoint_maxacc(
         initial_position=[-5E7, 7.5E6, 5E5],
         initial_velocity=[2E4, 0, 0],
-        filter_dt=1,
+        filter_periods=1,
         orbit_normal_sign=-1,
         max_rate=0.1,
         max_acceleration=1E-4,
@@ -180,7 +182,8 @@ def test_flybyPoint_maxacc(
     # setup flybyPoint guidance module
     flyby_guidance = flybyPointF32.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
-    flyby_guidance.timeBetweenFilterData = filter_dt
+    flyby_guidance.controlPeriod = sim_dt
+    flyby_guidance.filterReadPeriods = filter_periods
     flyby_guidance.toleranceForCollinearity = 1E-5
     flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign
     flyby_guidance.maximumRateThreshold = max_rate
@@ -227,7 +230,7 @@ def test_flybyPoint_maxacc(
 def test_flybyPoint_diagnostic_positionknowledge(
         initial_position=[-5E7, 7.5E6, 5E5],
         initial_velocity=[2E4, 0, 0],
-        filter_dt=1,
+        filter_periods=1,
         orbit_normal_sign=-1,
         max_rate=0.01,
         max_acceleration=1E-7,
@@ -243,7 +246,8 @@ def test_flybyPoint_diagnostic_positionknowledge(
     # setup flybyPoint guidance module
     flyby_guidance = flybyPointF32.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
-    flyby_guidance.timeBetweenFilterData = filter_dt
+    flyby_guidance.controlPeriod = sim_dt
+    flyby_guidance.filterReadPeriods = filter_periods
     flyby_guidance.toleranceForCollinearity = 1E-5
     flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign
     flyby_guidance.maximumRateThreshold = max_rate
@@ -287,7 +291,7 @@ def test_flybyPoint_diagnostic_positionknowledge(
     np.testing.assert_equal(flyby_diagnostic_trigger_indices, trigger_indices)
 
 
-def flybyPointTestFunction(show_plots, initial_position, initial_velocity, filter_dt, orbit_normal_sign,
+def flybyPointTestFunction(show_plots, initial_position, initial_velocity, filter_periods, orbit_normal_sign,
                            max_rate, max_acceleration, pos_knowledge):
     # setup simulation environment
     sim_dt = 10
@@ -299,8 +303,10 @@ def flybyPointTestFunction(show_plots, initial_position, initial_velocity, filte
     # setup flybyPoint guidance module
     flyby_guidance = flybyPointF32.FlybyPoint()
     flyby_guidance.modelTag = "flybyPoint"
-    flyby_guidance.timeBetweenFilterData = filter_dt
-    np.testing.assert_allclose(flyby_guidance.timeBetweenFilterData, filter_dt, atol=1E-6)
+    flyby_guidance.controlPeriod = sim_dt
+    np.testing.assert_allclose(flyby_guidance.controlPeriod, sim_dt, atol=1E-6)
+    flyby_guidance.filterReadPeriods = filter_periods
+    np.testing.assert_equal(flyby_guidance.filterReadPeriods, filter_periods)
     flyby_guidance.toleranceForCollinearity = 1E-5
     np.testing.assert_allclose(flyby_guidance.toleranceForCollinearity, 1E-5, atol=1E-6)
     flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign

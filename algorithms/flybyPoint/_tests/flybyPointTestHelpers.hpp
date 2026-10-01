@@ -4,7 +4,6 @@
 #include "flybyPointAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
-#include "utilities/fsw/timeConstants.h"
 
 #include <gtest/gtest.h>
 #include <Eigen/Geometry>
@@ -20,8 +19,8 @@ struct ReferenceFlybyOutput {
 // so it serves as ground truth against which the float32 production outputs are compared.
 struct ReferenceFlybyState {
     bool firstRead = true;
-    uint64_t lastFilterReadTime = 0;
-    double timeOfFirstRead = 0.0;
+    uint64_t periodsSinceLastRead = 0;
+    uint64_t periodsSinceFirstRead = 0;
     Eigen::Vector3d firstNavPosition = Eigen::Vector3d::Zero();
     Eigen::Vector3d firstNavVelocity = Eigen::Vector3d::Zero();
     double f0 = 0.0;
@@ -35,7 +34,8 @@ struct ReferenceFlybyState {
  */
 inline void referenceReset(ReferenceFlybyState& s) {
     s.firstRead = true;
-    s.lastFilterReadTime = 0;
+    s.periodsSinceLastRead = 0;
+    s.periodsSinceFirstRead = 0;
 }
 
 /*! Computes f0 and gamma0 from r and v and stores them in state, mirroring
@@ -75,13 +75,11 @@ inline void referenceComputeRN(ReferenceFlybyState& s, const Eigen::Vector3d& r,
  *  exactly as the production code does.
  @return true if all validity checks pass and a re-seed should proceed
  @param s The current reference state (read-only)
- @param currentSimNanos The current simulation time [ns]
  @param r The new relative position state [m]
  @param v The new relative velocity state [m/s]
  @param config Algorithm configuration
  */
 inline bool referenceCheckValidity(const ReferenceFlybyState& s,
-                                   uint64_t currentSimNanos,
                                    const Eigen::Vector3d& r,
                                    const Eigen::Vector3d& v,
                                    const FlybyPointConfig& config) {
@@ -100,7 +98,7 @@ inline bool referenceCheckValidity(const ReferenceFlybyState& s,
     if (maxAccel > config.getMaximumAccelerationThreshold() && config.getMaximumAccelerationThreshold() > 0)
         return false;
 
-    const double deltaT = static_cast<double>(currentSimNanos) * kNano2Sec - s.timeOfFirstRead;
+    const double deltaT = static_cast<double>(s.periodsSinceFirstRead) * config.getControlPeriod();
     const double deltaPosNorm = (r - (s.firstNavPosition + deltaT * s.firstNavVelocity)).norm();
     if (deltaPosNorm > config.getPositionKnowledgeSigma() && config.getPositionKnowledgeSigma() > 0) return false;
 
@@ -132,44 +130,44 @@ inline ReferenceFlybyOutput referenceGuidanceSolution(const ReferenceFlybyState&
             RtN.transpose() * Eigen::Vector3d{0, 0, thetaDDot}};
 }
 
-/*! Advances the reference state by one call, mirroring FlybyPointAlgorithm::updateState().
+/*! Advances the reference state by one control period, mirroring FlybyPointAlgorithm::updateState().
  *  Handles the full state machine: first-read seeding, validity-gated re-seeding, and extrapolation.
  @return ReferenceFlybyOutput containing sigma_RN, omega_RN_N, and domega_RN_N
  @param s The reference state to update
- @param currentSimNanos The current simulation time [ns]
  @param r The relative position state [m]
  @param v The relative velocity state [m/s]
  @param config Algorithm configuration
  */
 inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
-                                                 uint64_t currentSimNanos,
                                                  const Eigen::Vector3d& r,
                                                  const Eigen::Vector3d& v,
                                                  const FlybyPointConfig& config) {
-    s.dt = static_cast<double>(currentSimNanos - s.lastFilterReadTime) * kNano2Sec;
-    if ((s.dt >= config.getTimeBetweenFilterData()) || s.firstRead) {
-        if (s.firstRead) {
-            s.timeOfFirstRead = static_cast<double>(currentSimNanos) * kNano2Sec;
-            s.firstNavPosition = r;
-            s.firstNavVelocity = v;
+    if (s.firstRead) {
+        s.firstNavPosition = r;
+        s.firstNavVelocity = v;
+        referenceComputeFlybyParameters(s, r, v);
+        referenceComputeRN(s, r, v);
+        s.periodsSinceLastRead = 0;
+        s.periodsSinceFirstRead = 0;
+        s.firstRead = false;
+    } else {
+        ++s.periodsSinceLastRead;
+        ++s.periodsSinceFirstRead;
+        if (s.periodsSinceLastRead >= config.getFilterReadPeriods() && referenceCheckValidity(s, r, v, config)) {
             referenceComputeFlybyParameters(s, r, v);
             referenceComputeRN(s, r, v);
-            s.firstRead = false;
-        } else if (referenceCheckValidity(s, currentSimNanos, r, v, config)) {
-            referenceComputeFlybyParameters(s, r, v);
-            referenceComputeRN(s, r, v);
-            s.lastFilterReadTime = currentSimNanos;
-            s.dt = 0;
+            s.periodsSinceLastRead = 0;
         }
     }
+    s.dt = static_cast<double>(s.periodsSinceLastRead) * config.getControlPeriod();
     return referenceGuidanceSolution(s, config.getSignOfOrbitNormalFrameVector());
 }
 
 /*! Drives the algorithm and the reference through numSteps calls with the same (r, v) inputs
  *  and compares sigma_RN, omega_RN_N, and domega_RN_N at each step.
- *  Both are seeded together at t=0 and then stepped in lock-step. The reference handles all
- *  branches of the state machine (extrapolation and re-seeding) so there is no constraint on
- *  stepNanos or numSteps relative to timeBetweenFilterData.
+ *  Both are seeded together and then stepped in lock-step, one control period per call. The
+ *  reference handles all branches of the state machine (extrapolation and re-seeding) so there
+ *  is no constraint on numSteps relative to filterReadPeriods.
  *
  *  Tolerance strategy:
  *  - sigma_RN    : absolute kSigmaTol. MRP magnitude is bounded by 1 after shadow-set mapping,
@@ -188,13 +186,11 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
  @param config Algorithm configuration
  @param r_BN_N The relative position state passed at every call [m]
  @param v_BN_N The relative velocity state passed at every call [m/s]
- @param stepNanos Time between successive updateState calls [ns]
- @param numSteps Number of steps to run after the initial seed at t=0
+ @param numSteps Number of control periods to run after the initial seed
  */
 inline void regressionTestFlybyPoint(const FlybyPointConfig& config,
                                      const Eigen::Vector3d& r_BN_N,
                                      const Eigen::Vector3d& v_BN_N,
-                                     uint64_t stepNanos,
                                      int numSteps) {
     static constexpr float kSigmaTol = 1e-6F;  // absolute: sigma bounded by |sigma| <= 1
     static constexpr float kRelTol = 1e-5F;    // relative: ~4 ops * float_eps * 20x margin
@@ -206,14 +202,12 @@ inline void regressionTestFlybyPoint(const FlybyPointConfig& config,
     ReferenceFlybyState refState{};
     referenceReset(refState);
 
-    alg.updateState(0U, r_BN_N, v_BN_N);
-    referenceUpdateState(refState, 0U, r_BN_N, v_BN_N, config);
+    alg.updateState(r_BN_N, v_BN_N);
+    referenceUpdateState(refState, r_BN_N, v_BN_N, config);
 
     for (int k = 1; k <= numSteps; ++k) {
-        const uint64_t simNanos = static_cast<uint64_t>(k) * stepNanos;
-
-        const AttGuideOutput out = alg.updateState(simNanos, r_BN_N, v_BN_N);
-        const ReferenceFlybyOutput ref = referenceUpdateState(refState, simNanos, r_BN_N, v_BN_N, config);
+        const AttGuideOutput out = alg.updateState(r_BN_N, v_BN_N);
+        const ReferenceFlybyOutput ref = referenceUpdateState(refState, r_BN_N, v_BN_N, config);
 
         if (out.validOutput) {
             // Compare MRPs using nominal and shadow representations
@@ -249,17 +243,17 @@ inline void regressionTestFlybyPoint(const FlybyPointConfig& config,
     }
 }
 
-// Expected output if the algorithm keeps extrapolating the (seedR, seedV) solution for dt > timeBetweenFilterData
-// (the reseed-attempt time used by the trigger tests below) instead of re-seeding -- i.e. what
+// Expected output if the algorithm keeps extrapolating the (seedR, seedV) solution for elapsedSeconds after the
+// seed (the reseed-attempt time used by the trigger tests below) instead of re-seeding -- i.e. what
 // a rejected reseed (checkValidity == false) should produce.
-inline ReferenceFlybyOutput expectedExtrapolatedOutput(const double timeBetweenFilterData,
+inline ReferenceFlybyOutput expectedExtrapolatedOutput(const double elapsedSeconds,
                                                        const Eigen::Vector3d& seedR,
                                                        const Eigen::Vector3d& seedV,
                                                        int signOfOrbitNormal) {
     ReferenceFlybyState s{};
     referenceComputeFlybyParameters(s, seedR, seedV);
     referenceComputeRN(s, seedR, seedV);
-    s.dt = timeBetweenFilterData + 0.1;
+    s.dt = elapsedSeconds;
     return referenceGuidanceSolution(s, signOfOrbitNormal);
 }
 

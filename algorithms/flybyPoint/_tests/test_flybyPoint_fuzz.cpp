@@ -6,9 +6,10 @@
 // Regression fuzz: random configs and nav inputs must agree with the
 // independent reference implementation across multiple steps. Both the
 // extrapolation branch and the validity-gated re-seeding branch are exercised
-// depending on how stepNanos compares to timeBetweenFilterData.
+// depending on how numSteps compares to filterReadPeriods.
 // ---------------------------------------------------------------------------
-static void fuzzRegressionFlybyPoint(double timeBetweenFilterData,
+static void fuzzRegressionFlybyPoint(double controlPeriod,
+                                     uint32_t filterReadPeriods,
                                      float toleranceForCollinearity,
                                      int signOfOrbitNormalFrameVector,
                                      float maximumRateThreshold,
@@ -16,30 +17,30 @@ static void fuzzRegressionFlybyPoint(double timeBetweenFilterData,
                                      float positionKnowledgeSigma,
                                      const Eigen::Vector3d& r_BN_N,
                                      const Eigen::Vector3d& v_BN_N,
-                                     uint64_t stepNanos,
                                      int numSteps) {
     // The first read seeds the frame unchecked, so the algorithm assumes it is valid. Skip (near-)collinear
     // r/v: r x v vanishes, the orbit frame is undefined, and the outputs depend on platform rounding (FMA).
     if (r_BN_N.normalized().cross(v_BN_N.normalized()).norm() < 1e-6) {
         return;
     }
-    const FlybyPointConfig cfg = FlybyPointConfig::create(timeBetweenFilterData,
+    const FlybyPointConfig cfg = FlybyPointConfig::create(controlPeriod,
+                                                          filterReadPeriods,
                                                           toleranceForCollinearity,
                                                           signOfOrbitNormalFrameVector,
                                                           maximumRateThreshold,
                                                           maximumAccelerationThreshold,
                                                           positionKnowledgeSigma);
-    regressionTestFlybyPoint(cfg, r_BN_N, v_BN_N, stepNanos, numSteps);
+    regressionTestFlybyPoint(cfg, r_BN_N, v_BN_N, numSteps);
 }
 
 FUZZ_TEST(FlybyPointAlgorithmFuzz, fuzzRegressionFlybyPoint)
-    .WithDomains(fuzztest::InRange(1e-6, 1e6),                                 // timeBetweenFilterData [s]
-                 fuzztest::InRange(1e-6F, 1e6F),                               // toleranceForCollinearity [-]
-                 fuzztest::ElementOf<int>({-1, 1}),                            // signOfOrbitNormalFrameVector
-                 fuzztest::InRange(1e-6F, 1e6F),                               // maximumRateThreshold [deg/s]
-                 fuzztest::InRange(1e-6F, 1e6F),                               // maximumAccelerationThreshold [deg/s^2]
-                 fuzztest::InRange(1e-6F, 1e6F),                               // positionKnowledgeSigma [m]
-                 xmera::fuzz::Vector3dInRange(-1e14, 1e14),                    // r_BN_N [m]
-                 xmera::fuzz::Vector3dInRange(-1e14, 1e14),                    // v_BN_N [m/s]
-                 fuzztest::InRange<uint64_t>(1'000'000ULL, 1'000'000'000ULL),  // stepNanos [ns],
-                 fuzztest::InRange(1, 120));                                   // numSteps [-]
+    .WithDomains(fuzztest::InRange(1e-3, 1.0),               // controlPeriod [s]
+                 fuzztest::InRange<uint32_t>(1U, 200U),      // filterReadPeriods [-]
+                 fuzztest::InRange(1e-6F, 1e6F),             // toleranceForCollinearity [-]
+                 fuzztest::ElementOf<int>({-1, 1}),          // signOfOrbitNormalFrameVector
+                 fuzztest::InRange(1e-6F, 1e6F),             // maximumRateThreshold [deg/s]
+                 fuzztest::InRange(1e-6F, 1e6F),             // maximumAccelerationThreshold [deg/s^2]
+                 fuzztest::InRange(1e-6F, 1e6F),             // positionKnowledgeSigma [m]
+                 xmera::fuzz::Vector3dInRange(-1e14, 1e14),  // r_BN_N [m]
+                 xmera::fuzz::Vector3dInRange(-1e14, 1e14),  // v_BN_N [m/s]
+                 fuzztest::InRange(1, 120));                 // numSteps [-]

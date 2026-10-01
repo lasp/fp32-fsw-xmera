@@ -6,7 +6,8 @@ void FlybyPoint::reset(uint64_t currentSimNanos) {
     if (!this->filterInMsg.isLinked()) {
         throw std::runtime_error("flybyPoint.filterInMsg wasn't connected.");
     }
-    auto config = FlybyPointConfig::create(this->timeBetweenFilterData,
+    auto config = FlybyPointConfig::create(this->controlPeriod,
+                                           this->filterReadPeriods,
                                            this->toleranceForCollinearity,
                                            this->signOfOrbitNormalFrameVector,
                                            this->maximumRateThreshold,
@@ -20,7 +21,7 @@ void FlybyPoint::updateState(uint64_t currentSimNanos) {
         throw XmeraLifecycleException("FlybyPoint reset() has not been called.");
     }
     auto [r_BN_N, v_BN_N] = this->readRelativeState();
-    auto algo_output = this->algorithm->updateState(currentSimNanos, r_BN_N, v_BN_N);
+    auto algo_output = this->algorithm->updateState(r_BN_N, v_BN_N);
     AttRefMsgF32Payload attMsgBuffer{};
     eigenVectorToCArray(algo_output.sigma_RN, attMsgBuffer.sigma_RN);
     eigenVectorToCArray(algo_output.omega_RN_N, attMsgBuffer.omega_RN_N);

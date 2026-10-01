@@ -1,16 +1,15 @@
 #include "flybyPointTestHelpers.hpp"
 #include <gtest/gtest.h>
 
-// Approach trajectory seeded at t=0, stepped at 0.3 s intervals.
-// timeBetweenFilterData=0.5 s triggers re-seeding at steps 2 and 4 (dt=0.6 s),
+// Approach trajectory seeded at step 0, stepped at a 0.3 s control period.
+// filterReadPeriods=2 triggers re-seeding at steps 2 and 4 (dt=0.6 s),
 // while steps 1 and 3 stay in extrapolation mode (dt=0.3 s). Both branches of
 // the state machine are covered in a single run.
 TEST(FlybyPointTest, RegressionTest) {
-    const FlybyPointConfig cfg = FlybyPointConfig::create(0.5, 1e-3F, 1, 10.0F, 1.0F, 1e9F);
+    const FlybyPointConfig cfg = FlybyPointConfig::create(0.3, 2U, 1e-3F, 1, 10.0F, 1.0F, 1e9F);
     regressionTestFlybyPoint(cfg,
                              {-5e7, 7.5e6, 5e5},  // r_BN_N [m]
                              {2e4, 0, 0},         // v_BN_N [m/s]
-                             300'000'000ULL,      // stepNanos: 0.3 s
                              4);
 }
 
@@ -21,26 +20,25 @@ TEST(FlybyPointTest, RegressionTest) {
 // computed from the un-flipped RtN in computeGuidanceSolution, before the sign is applied).
 TEST(FlybyPointTest,
      SignOfOrbitNormalRotatesOutputBy180DegAboutRadialAxis) {  // NOLINT(readability-function-cognitive-complexity)
-    const FlybyPointConfig cfgPlus = FlybyPointConfig::create(0.5, 1e-3F, 1, 10.0F, 1.0F, 1e9F);
-    const FlybyPointConfig cfgMinus = FlybyPointConfig::create(0.5, 1e-3F, -1, 10.0F, 1.0F, 1e9F);
+    // 0.3 s control period, re-read every 2 periods: matches RegressionTest cadence
+    const FlybyPointConfig cfgPlus = FlybyPointConfig::create(0.3, 2U, 1e-3F, 1, 10.0F, 1.0F, 1e9F);
+    const FlybyPointConfig cfgMinus = FlybyPointConfig::create(0.3, 2U, 1e-3F, -1, 10.0F, 1.0F, 1e9F);
     FlybyPointAlgorithm algPlus(cfgPlus);
     FlybyPointAlgorithm algMinus(cfgMinus);
 
     const Eigen::Vector3d r_BN_N{-5e7, 7.5e6, 5e5};
     const Eigen::Vector3d v_BN_N{2e4, 0, 0};
-    constexpr uint64_t stepNanos = 300'000'000ULL;  // 0.3 s, matches RegressionTest cadence
 
     Eigen::Matrix3d flipAboutRadial = Eigen::Matrix3d::Identity();
     flipAboutRadial(1, 1) = -1.0;
     flipAboutRadial(2, 2) = -1.0;
 
-    algPlus.updateState(0U, r_BN_N, v_BN_N);
-    algMinus.updateState(0U, r_BN_N, v_BN_N);
+    algPlus.updateState(r_BN_N, v_BN_N);
+    algMinus.updateState(r_BN_N, v_BN_N);
 
     for (int k = 1; k <= 4; ++k) {
-        const uint64_t simNanos = static_cast<uint64_t>(k) * stepNanos;
-        const AttGuideOutput outPlus = algPlus.updateState(simNanos, r_BN_N, v_BN_N);
-        const AttGuideOutput outMinus = algMinus.updateState(simNanos, r_BN_N, v_BN_N);
+        const AttGuideOutput outPlus = algPlus.updateState(r_BN_N, v_BN_N);
+        const AttGuideOutput outMinus = algMinus.updateState(r_BN_N, v_BN_N);
         ASSERT_TRUE(outPlus.validOutput);
         ASSERT_TRUE(outMinus.validOutput);
 
@@ -65,14 +63,14 @@ TEST(FlybyPointTest,
 TEST(FlybyPointTest, CollinearityRejectsReseed) {
     const Eigen::Vector3d r_BN_N{-5e7, 7.5e6, 5e5};
     const Eigen::Vector3d v_BN_N{2e4, 0, 0};
-    const FlybyPointConfig cfg = FlybyPointConfig::create(0.5, 1e-3F, 1, 10.0F, 1.0F, 1e9F);
+    const FlybyPointConfig cfg = FlybyPointConfig::create(0.6, 1U, 1e-3F, 1, 10.0F, 1.0F, 1e9F);
 
     FlybyPointAlgorithm alg(cfg);
-    alg.updateState(0U, r_BN_N, v_BN_N);
+    alg.updateState(r_BN_N, v_BN_N);
 
     // Radial-only velocity at the same position: r and v become exactly collinear.
     const Eigen::Vector3d collinearV = r_BN_N.normalized() * v_BN_N.norm();
-    const AttGuideOutput out = alg.updateState(600'000'000ULL, r_BN_N, collinearV);
+    const AttGuideOutput out = alg.updateState(r_BN_N, collinearV);
 
     EXPECT_TRUE(out.collinearityTrigger);
     EXPECT_FALSE(out.maxRateTrigger);
@@ -82,21 +80,23 @@ TEST(FlybyPointTest, CollinearityRejectsReseed) {
 
     expectMatchesExtrapolation(
         out,
-        expectedExtrapolatedOutput(
-            cfg.getTimeBetweenFilterData(), r_BN_N, v_BN_N, cfg.getSignOfOrbitNormalFrameVector()));
+        expectedExtrapolatedOutput(static_cast<double>(cfg.getFilterReadPeriods()) * cfg.getControlPeriod(),
+                                   r_BN_N,
+                                   v_BN_N,
+                                   cfg.getSignOfOrbitNormalFrameVector()));
 }
 
 TEST(FlybyPointTest, CollinearityRejectsAntiParallelReseed) {
     const Eigen::Vector3d r_BN_N{-5e7, 7.5e6, 5e5};
     const Eigen::Vector3d v_BN_N{2e4, 0, 0};
-    const FlybyPointConfig cfg = FlybyPointConfig::create(0.5, 1e-3F, 1, 10.0F, 1.0F, 1e9F);
+    const FlybyPointConfig cfg = FlybyPointConfig::create(0.6, 1U, 1e-3F, 1, 10.0F, 1.0F, 1e9F);
 
     FlybyPointAlgorithm alg(cfg);
-    alg.updateState(0U, r_BN_N, v_BN_N);
+    alg.updateState(r_BN_N, v_BN_N);
 
     // Radial-only velocity toward the body (head-on collision course): r and v become exactly anti-parallel.
     const Eigen::Vector3d antiParallelV = -r_BN_N.normalized() * v_BN_N.norm();
-    const AttGuideOutput out = alg.updateState(600'000'000ULL, r_BN_N, antiParallelV);
+    const AttGuideOutput out = alg.updateState(r_BN_N, antiParallelV);
 
     EXPECT_TRUE(out.collinearityTrigger);
     EXPECT_FALSE(out.maxRateTrigger);
@@ -106,8 +106,10 @@ TEST(FlybyPointTest, CollinearityRejectsAntiParallelReseed) {
 
     expectMatchesExtrapolation(
         out,
-        expectedExtrapolatedOutput(
-            cfg.getTimeBetweenFilterData(), r_BN_N, v_BN_N, cfg.getSignOfOrbitNormalFrameVector()));
+        expectedExtrapolatedOutput(static_cast<double>(cfg.getFilterReadPeriods()) * cfg.getControlPeriod(),
+                                   r_BN_N,
+                                   v_BN_N,
+                                   cfg.getSignOfOrbitNormalFrameVector()));
 }
 
 TEST(FlybyPointTest, MaxRateRejectsReseed) {
@@ -115,11 +117,11 @@ TEST(FlybyPointTest, MaxRateRejectsReseed) {
     const Eigen::Vector3d v_BN_N{2e4, 0, 0};
     // maximumRateThreshold set below small value
     // maximumAccelerationThreshold left loose so only the rate trigger fires.
-    const FlybyPointConfig cfg = FlybyPointConfig::create(0.5, 1e-3F, 1, 1e-6F, 1.0F, 1e9F);
+    const FlybyPointConfig cfg = FlybyPointConfig::create(0.6, 1U, 1e-3F, 1, 1e-6F, 1.0F, 1e9F);
 
     FlybyPointAlgorithm alg(cfg);
-    alg.updateState(0U, r_BN_N, v_BN_N);
-    const AttGuideOutput out = alg.updateState(600'000'000ULL, r_BN_N, v_BN_N);
+    alg.updateState(r_BN_N, v_BN_N);
+    const AttGuideOutput out = alg.updateState(r_BN_N, v_BN_N);
 
     EXPECT_TRUE(out.maxRateTrigger);
     EXPECT_FALSE(out.collinearityTrigger);
@@ -129,8 +131,10 @@ TEST(FlybyPointTest, MaxRateRejectsReseed) {
 
     expectMatchesExtrapolation(
         out,
-        expectedExtrapolatedOutput(
-            cfg.getTimeBetweenFilterData(), r_BN_N, v_BN_N, cfg.getSignOfOrbitNormalFrameVector()));
+        expectedExtrapolatedOutput(static_cast<double>(cfg.getFilterReadPeriods()) * cfg.getControlPeriod(),
+                                   r_BN_N,
+                                   v_BN_N,
+                                   cfg.getSignOfOrbitNormalFrameVector()));
 }
 
 TEST(FlybyPointTest, MaxAccelerationRejectsReseed) {
@@ -138,11 +142,11 @@ TEST(FlybyPointTest, MaxAccelerationRejectsReseed) {
     const Eigen::Vector3d v_BN_N{2e4, 0, 0};
     // maximumAccelerationThreshold set below small value
     // maximumRateThreshold left loose so only the accel trigger fires.
-    const FlybyPointConfig cfg = FlybyPointConfig::create(0.5, 1e-3F, 1, 10.0F, 1e-6F, 1e9F);
+    const FlybyPointConfig cfg = FlybyPointConfig::create(0.6, 1U, 1e-3F, 1, 10.0F, 1e-6F, 1e9F);
 
     FlybyPointAlgorithm alg(cfg);
-    alg.updateState(0U, r_BN_N, v_BN_N);
-    const AttGuideOutput out = alg.updateState(600'000'000ULL, r_BN_N, v_BN_N);
+    alg.updateState(r_BN_N, v_BN_N);
+    const AttGuideOutput out = alg.updateState(r_BN_N, v_BN_N);
 
     EXPECT_TRUE(out.maxAccelerationTrigger);
     EXPECT_FALSE(out.collinearityTrigger);
@@ -152,8 +156,10 @@ TEST(FlybyPointTest, MaxAccelerationRejectsReseed) {
 
     expectMatchesExtrapolation(
         out,
-        expectedExtrapolatedOutput(
-            cfg.getTimeBetweenFilterData(), r_BN_N, v_BN_N, cfg.getSignOfOrbitNormalFrameVector()));
+        expectedExtrapolatedOutput(static_cast<double>(cfg.getFilterReadPeriods()) * cfg.getControlPeriod(),
+                                   r_BN_N,
+                                   v_BN_N,
+                                   cfg.getSignOfOrbitNormalFrameVector()));
 }
 
 TEST(FlybyPointTest, PositionKnowledgeRejectsReseed) {
@@ -162,13 +168,13 @@ TEST(FlybyPointTest, PositionKnowledgeRejectsReseed) {
     // positionKnowledgeSigma tight enough that a position far off the straight-line prediction
     // (firstNavPosition + dt*firstNavVelocity) is rejected, while direction/speed stay close
     // enough to the seed that the rate/accel/collinearity checks stay well clear.
-    const FlybyPointConfig cfg = FlybyPointConfig::create(0.5, 1e-3F, 1, 10.0F, 1.0F, 1.0F);
+    const FlybyPointConfig cfg = FlybyPointConfig::create(0.6, 1U, 1e-3F, 1, 10.0F, 1.0F, 1.0F);
 
     FlybyPointAlgorithm alg(cfg);
-    alg.updateState(0U, r_BN_N, v_BN_N);
+    alg.updateState(r_BN_N, v_BN_N);
 
     const Eigen::Vector3d offPredictionR = r_BN_N + Eigen::Vector3d{0, 0, 2e5};
-    const AttGuideOutput out = alg.updateState(600'000'000ULL, offPredictionR, v_BN_N);
+    const AttGuideOutput out = alg.updateState(offPredictionR, v_BN_N);
 
     EXPECT_TRUE(out.positionKnowledgeExceedTrigger);
     EXPECT_FALSE(out.collinearityTrigger);
@@ -178,40 +184,42 @@ TEST(FlybyPointTest, PositionKnowledgeRejectsReseed) {
 
     expectMatchesExtrapolation(
         out,
-        expectedExtrapolatedOutput(
-            cfg.getTimeBetweenFilterData(), r_BN_N, v_BN_N, cfg.getSignOfOrbitNormalFrameVector()));
+        expectedExtrapolatedOutput(static_cast<double>(cfg.getFilterReadPeriods()) * cfg.getControlPeriod(),
+                                   r_BN_N,
+                                   v_BN_N,
+                                   cfg.getSignOfOrbitNormalFrameVector()));
 }
 
 TEST(FlybyPointTest, SetupTest) {
     // Valid config builds without throwing.
     EXPECT_NO_THROW({
-        const FlybyPointConfig cfg = FlybyPointConfig::create(1.0, 1e-3F, 1, 1.0F, 1.0F, 1e3F);
+        const FlybyPointConfig cfg = FlybyPointConfig::create(1.0, 1U, 1e-3F, 1, 1.0F, 1.0F, 1e3F);
         const FlybyPointAlgorithm alg(cfg);
         (void)alg;
     });
 
-    // timeBetweenFilterData must be > 0
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(0.0, 1e-3F, 1, 1.0F, 1.0F, 1e3F));
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(-1.0, 1e-3F, 1, 1.0F, 1.0F, 1e3F));
+    // controlPeriod must be > 0
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(0.0, 1U, 1e-3F, 1, 1.0F, 1.0F, 1e3F));
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(-1.0, 1U, 1e-3F, 1, 1.0F, 1.0F, 1e3F));
 
     // toleranceForCollinearity must be > 0
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 0.0F, 1, 1.0F, 1.0F, 1e3F));
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, -1e-3F, 1, 1.0F, 1.0F, 1e3F));
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1U, 0.0F, 1, 1.0F, 1.0F, 1e3F));
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1U, -1e-3F, 1, 1.0F, 1.0F, 1e3F));
 
     // signOfOrbitNormalFrameVector must be +1 or -1
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1e-3F, 0, 1.0F, 1.0F, 1e3F));
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1e-3F, 2, 1.0F, 1.0F, 1e3F));
-    EXPECT_NO_THROW((void)FlybyPointConfig::create(1.0, 1e-3F, -1, 1.0F, 1.0F, 1e3F));
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1U, 1e-3F, 0, 1.0F, 1.0F, 1e3F));
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1U, 1e-3F, 2, 1.0F, 1.0F, 1e3F));
+    EXPECT_NO_THROW((void)FlybyPointConfig::create(1.0, 1U, 1e-3F, -1, 1.0F, 1.0F, 1e3F));
 
     // maximumRateThreshold must be > 0
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1e-3F, 1, 0.0F, 1.0F, 1e3F));
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1e-3F, 1, -1.0F, 1.0F, 1e3F));
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1U, 1e-3F, 1, 0.0F, 1.0F, 1e3F));
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1U, 1e-3F, 1, -1.0F, 1.0F, 1e3F));
 
     // maximumAccelerationThreshold must be > 0
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1e-3F, 1, 1.0F, 0.0F, 1e3F));
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1e-3F, 1, 1.0F, -1.0F, 1e3F));
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1U, 1e-3F, 1, 1.0F, 0.0F, 1e3F));
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1U, 1e-3F, 1, 1.0F, -1.0F, 1e3F));
 
     // positionKnowledgeSigma must be > 0
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1e-3F, 1, 1.0F, 1.0F, 0.0F));
-    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1e-3F, 1, 1.0F, 1.0F, -1e3F));
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1U, 1e-3F, 1, 1.0F, 1.0F, 0.0F));
+    EXPECT_ANY_THROW((void)FlybyPointConfig::create(1.0, 1U, 1e-3F, 1, 1.0F, 1.0F, -1e3F));
 }

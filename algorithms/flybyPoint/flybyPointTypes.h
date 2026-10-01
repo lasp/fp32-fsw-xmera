@@ -4,6 +4,7 @@
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,7 +18,8 @@ extern "C" {
  * invalid input.
  */
 typedef struct {
-    double timeBetweenFilterData;       /*!< [s]       minimum time between filter data reads (> 0) */
+    double controlPeriod;               /*!< [s]       time between updateState calls (finite, > 0) */
+    uint32_t filterReadPeriods;         /*!< [-]       control periods between filter data reads (>= 1) */
     float toleranceForCollinearity;     /*!< [-]       collinearity tolerance threshold (> 0) */
     int signOfOrbitNormalFrameVector;   /*!< [-]       sign of orbit-normal reference vector (+1 or -1) */
     float maximumRateThreshold;         /*!< [deg/s]   maximum allowed predicted angular rate (> 0) */

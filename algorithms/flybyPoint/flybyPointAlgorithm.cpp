@@ -1,7 +1,6 @@
 #include "flybyPointAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
-#include "utilities/fsw/timeConstants.h"
 #include <Eigen/Geometry>
 #include <numbers>
 
@@ -16,48 +15,53 @@ static constexpr double kMaxAccelCoeff = 3.0 * std::numbers::sqrt3 / 8.0;
  @return void
  */
 void FlybyPointAlgorithm::reset() {
-    this->lastFilterReadTime = 0;
     this->firstRead = true;
+    this->periodsSinceLastRead = 0;
+    this->periodsSinceFirstRead = 0;
 }
 
 /*! This function computes a reference attitude frame for a spacecraft in relative motion about a small body.
+ It must be called once per control period: time is counted in whole control periods since the last and the first
+ filter read, and converted to seconds only for the guidance equations.
  @return AttGuideOutput containing reference attitude (sigma_RN, omega_RN_N, domega_RN_N) and validity flags
- @param currentSimNanos The current simulation time for system
  @param r_BN_N The relative position state
  @param v_BN_N The relative velocity state
  */
-AttGuideOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
-                                                const Eigen::Vector3d& r_BN_N,
-                                                const Eigen::Vector3d& v_BN_N) {
+AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
+    /*! advance the period counters first, so time keeps elapsing through calls that return early below */
+    if (!this->firstRead) {
+        ++this->periodsSinceLastRead;
+        ++this->periodsSinceFirstRead;
+    }
+
     /*! init diagnostic message */
     AttGuideOutput output{};
     if (r_BN_N.stableNorm() < 1e-3 || v_BN_N.stableNorm() < 1e-3) {
         return output;
     }
-    /*! compute dt from current time and last filter read time and get new states*/
-    this->dt = static_cast<double>(currentSimNanos - this->lastFilterReadTime) * kNano2Sec;
-    if ((this->dt >= this->cfg.getTimeBetweenFilterData()) || this->firstRead) {
-        /*! If this is the first read, seed the algorithm with the solution  */
-        if (this->firstRead) {
-            this->timeOfFirstRead = static_cast<double>(currentSimNanos) * kNano2Sec;
-            this->firstNavPosition = r_BN_N;
-            this->firstNavVelocity = v_BN_N;
-            this->computeFlybyParameters(r_BN_N, v_BN_N);
-            this->computeRN(r_BN_N, v_BN_N);
-            this->firstRead = false;
-        }
-        /*! Protect against bad new solutions by checking validity */
-        else if (this->checkValidity(currentSimNanos, r_BN_N, v_BN_N, output)) {
-            /*! update flyby parameters and guidance frame */
-            this->computeFlybyParameters(r_BN_N, v_BN_N);
-            this->computeRN(r_BN_N, v_BN_N);
-
-            /*! update lastFilterReadTime to current time and dt to zero */
-            this->lastFilterReadTime = currentSimNanos;
-            this->dt = 0;
-        }
+    /*! If this is the first read, seed the algorithm with the solution  */
+    if (this->firstRead) {
+        this->firstNavPosition = r_BN_N;
+        this->firstNavVelocity = v_BN_N;
+        this->computeFlybyParameters(r_BN_N, v_BN_N);
+        this->computeRN(r_BN_N, v_BN_N);
+        this->periodsSinceLastRead = 0;
+        this->periodsSinceFirstRead = 0;
+        this->firstRead = false;
     }
-    auto [sigma_RN, omega_RN_N, omegaDot_RN_N] = this->computeGuidanceSolution();
+    /*! At the re-read cadence, protect against bad new solutions by checking validity */
+    else if (this->periodsSinceLastRead >= this->cfg.getFilterReadPeriods() &&
+             this->checkValidity(r_BN_N, v_BN_N, output)) {
+        /*! update flyby parameters and guidance frame */
+        this->computeFlybyParameters(r_BN_N, v_BN_N);
+        this->computeRN(r_BN_N, v_BN_N);
+
+        /*! restart the count from the new filter read */
+        this->periodsSinceLastRead = 0;
+    }
+    /*! [s] time since the last accepted filter read */
+    const double dt = static_cast<double>(this->periodsSinceLastRead) * this->cfg.getControlPeriod();
+    auto [sigma_RN, omega_RN_N, omegaDot_RN_N] = this->computeGuidanceSolution(dt);
     output.sigma_RN = sigma_RN.cast<float>();
     output.omega_RN_N = omega_RN_N.cast<float>();
     output.domega_RN_N = omegaDot_RN_N.cast<float>();
@@ -79,8 +83,7 @@ void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, 
     this->gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));
 }
 
-bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
-                                        const Eigen::Vector3d& r_BN_N,
+bool FlybyPointAlgorithm::checkValidity(const Eigen::Vector3d& r_BN_N,
                                         const Eigen::Vector3d& v_BN_N,
                                         AttGuideOutput& output) const {
     bool valid = true;
@@ -116,7 +119,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the position error exceeds a-priori sigma bound */
-    const double deltaT = (static_cast<double>(currentSimNanos) * kNano2Sec) - this->timeOfFirstRead;
+    const double deltaT = static_cast<double>(this->periodsSinceFirstRead) * this->cfg.getControlPeriod();
     const double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
     if (deltaPositionNorm > this->cfg.getPositionKnowledgeSigma() && this->cfg.getPositionKnowledgeSigma() > 0) {
         valid = false;
@@ -142,9 +145,10 @@ void FlybyPointAlgorithm::computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::
     this->R0N.row(2) = uh_N.cast<float>();
 }
 
-std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorithm::computeGuidanceSolution() const {
+std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorithm::computeGuidanceSolution(
+    const double dt) const {
     /*! compute DCM (RtR0) of reference frame from last read time */
-    const double theta = safeAtan(safeTan(this->gamma0) + (this->f0 / safeCos(this->gamma0) * this->dt)) - this->gamma0;
+    const double theta = safeAtan(safeTan(this->gamma0) + (this->f0 / safeCos(this->gamma0) * dt)) - this->gamma0;
     const Eigen::Vector3d PRV_theta{0, 0, theta};
     const Eigen::Matrix3d RtR0 = prvToDcm(PRV_theta);
 
@@ -152,11 +156,10 @@ std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorith
     const Eigen::Matrix3d RtN = RtR0 * this->R0N.cast<double>();
 
     /*! compute scalar angular rate and acceleration of the reference frame in R-frame coordinates */
-    const double den =
-        ((this->f0 * this->f0 * this->dt * this->dt) + (2 * this->f0 * safeSin(this->gamma0) * this->dt) + 1);
+    const double den = ((this->f0 * this->f0 * dt * dt) + (2 * this->f0 * safeSin(this->gamma0) * dt) + 1);
     const double thetaDot = this->f0 * safeCos(this->gamma0) / den;
     const double thetaDDot =
-        -2 * this->f0 * this->f0 * safeCos(this->gamma0) * (this->f0 * this->dt + safeSin(this->gamma0)) / (den * den);
+        -2 * this->f0 * this->f0 * safeCos(this->gamma0) * (this->f0 * dt + safeSin(this->gamma0)) / (den * den);
     const Eigen::Vector3d omega_RN_R{0, 0, thetaDot};
     const Eigen::Vector3d omegaDot_RN_R{0, 0, thetaDDot};
 
