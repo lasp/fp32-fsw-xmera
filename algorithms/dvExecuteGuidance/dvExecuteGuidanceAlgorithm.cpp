@@ -21,29 +21,31 @@ DvExecuteGuidanceOutput DvExecuteGuidanceAlgorithm::update(const uint64_t callTi
                                                            const Eigen::Vector3f& vehAccumDV,
                                                            const Eigen::Vector3f& dvInrtlCmd,
                                                            const uint64_t burnStartTime) {
-    /*! - the control period (FSW time step) is used as the burn time delta-t */
-    const float burnDt = this->cfg.getControlPeriod();
+    if (this->burnComplete == 0U) {
+        /*! - the control period (FSW time step) is used as the burn time delta-t */
+        const float burnDt = this->cfg.getControlPeriod();
 
-    if ((this->burnExecuting == 0 && callTime >= burnStartTime) && this->burnComplete != 1) {
-        this->burnExecuting = 1;
-        this->dvInit = vehAccumDV;
-        this->burnComplete = 0;
+        if ((this->burnExecuting == 0 && callTime >= burnStartTime) && this->burnComplete != 1) {
+            this->burnExecuting = 1;
+            this->dvInit = vehAccumDV;
+            this->burnComplete = 0;
+        }
+
+        if (this->burnExecuting != 0) {
+            this->burnTime += burnDt;
+        }
+
+        const Eigen::Vector3f burnAccum = vehAccumDV - this->dvInit;
+        const float dvMag = dvInrtlCmd.stableNorm();
+        const float dvExecuteMag = burnAccum.stableNorm();
+
+        this->burnComplete = static_cast<uint32_t>(this->burnComplete == 1 || dvExecuteMag >= dvMag);
+        this->burnComplete &= static_cast<uint32_t>(this->burnTime > this->cfg.getMinTime());
+        this->burnComplete |= static_cast<uint32_t>(this->burnTime > this->cfg.getMaxTime());
+        this->burnExecuting = static_cast<uint32_t>(this->burnComplete != 1 && this->burnExecuting == 1);
     }
 
-    if (this->burnExecuting != 0) {
-        this->burnTime += burnDt;
-    }
-
-    const Eigen::Vector3f burnAccum = vehAccumDV - this->dvInit;
-
-    const float dvMag = dvInrtlCmd.norm();
-    const float dvExecuteMag = burnAccum.norm();
-    this->burnComplete = static_cast<uint32_t>(this->burnComplete == 1 || dvExecuteMag >= dvMag);
-    this->burnComplete &= static_cast<uint32_t>(this->burnTime > this->cfg.getMinTime());
-    this->burnComplete |=
-        static_cast<uint32_t>(this->cfg.getMaxTime() != 0.0F && this->burnTime > this->cfg.getMaxTime());
-    this->burnExecuting = static_cast<uint32_t>(this->burnComplete != 1 && this->burnExecuting == 1);
-
+    // once burnComplete == 1, nothing above ever runs again — reconfigure() can never reopen it
     DvExecuteGuidanceOutput out;
     out.burnExecuting = this->burnExecuting;
     out.burnComplete = this->burnComplete;

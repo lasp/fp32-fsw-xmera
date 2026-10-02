@@ -1,24 +1,16 @@
 Executive Summary
 -----------------
 
-The dvExecuteGuidance module executes a Delta-V maneuver by monitoring the accumulated Delta-V and turning the
-thrusters off once the commanded Delta-V has been achieved. It compares the magnitude of the accumulated Delta-V from
-the :ref:`NavTransMsgF32Payload` message against the desired Delta-V magnitude from the :ref:`DvBurnCmdMsgF32Payload`
-message. Before the commanded burn start time is reached the module holds the thrusters off; once the desired Delta-V
-has been accumulated (subject to the minimum/maximum burn-time gates) the module commands the thrusters off again.
+The ``dvExecuteGuidance`` module executes a Delta-V maneuver by monitoring the Delta-V accumulated during the
+current burn and controlling the thruster on-time command. At burn start, the module latches the accumulated
+Delta-V provided by the :ref:`NavTransMsgF32Payload` message. It then compares the magnitude of the Delta-V
+accumulated since that point against the desired Delta-V magnitude from the :ref:`DvBurnCmdMsgF32Payload` message.
+Before the commanded burn start time is reached the module holds the thrusters off; once the desired Delta-V has
+been accumulated, subject to the minimum and maximum burn-time gates, the module commands the thrusters off again.
 
-The module assumes the thrusters are turned on by another module (such as :ref:`thrFiringRemainder`) and only ever
-commands them off, by writing a zeroed :ref:`THRArrayOnTimeCmdMsgF32Payload` output. A minimum and a maximum burn time
-can be configured: the thrusters are turned off once the desired Delta-V has been accumulated and the burn time is
-greater than the minimum time, unless the burn time first exceeds the maximum time (in which case the thrusters are
-turned off regardless of the accumulated Delta-V). A maximum time of zero disables the maximum-time criterion, so the
-burn is stopped using the accumulated-Delta-V criterion alone.
-
-If the same set of Delta-V thrusters is also used for attitude control (with :ref:`thrForceMapping`,
-:ref:`thrFiringRemainder`, or :ref:`thrFiringSchmitt`), those modules turn the thrusters on at the beginning of the
-burn and dvExecuteGuidance turns them off at the end. To ensure the :ref:`THRArrayOnTimeCmdMsgF32Payload` output turns
-the thrusters off, this module should be updated more frequently than, and with a lower task priority than, the
-firing modules.
+The module writes the thruster on-time command every update. While the burn is executing, it commands an on-time of
+``1.1 * controlPeriod`` for each thruster entry. Before the burn starts and after the burn completes, it commands
+zero on-time.
 
 This is the FP32 port of the Xmera ``dvExecuteGuidance`` module. Inputs and outputs are single-precision (FP32); the
 algorithm is single-precision throughout.
@@ -34,8 +26,9 @@ Adapter Layer
 
 The adapter inherits from ``SysModel``. It owns the input / output message hooks, validates that the required inputs
 are connected at ``reset()`` time, constructs the algorithm via the two-phase init pattern, converts the message
-payloads to and from the algorithm's Eigen types, and writes the zeroed thruster on-time command when the algorithm
-requests it.
+payloads to and from the algorithm's Eigen types, and converts the algorithm's thruster command state into a
+:ref:`THRArrayOnTimeCmdMsgF32Payload` written every update. The adapter writes ``1.1 * controlPeriod`` while the burn is
+executing and zero otherwise.
 
 .. list-table:: Module I/O Messages
     :widths: 25 30 45
@@ -52,7 +45,8 @@ requests it.
       - Commanded burn: the inertial Delta-V vector and the burn start time.
     * - ``thrCmdOutMsg``
       - :ref:`THRArrayOnTimeCmdMsgF32Payload`
-      - Thruster on-time command; written as an all-zero payload to turn the thrusters off.
+      - Thruster on-time command. Each entry is set to 1.1 * controlPeriod while the burn is
+        executing and to zero when the burn is not executing or is complete.
     * - ``burnExecOutMsg``
       - :ref:`DvExecutionDataMsgF32Payload`
       - Burn execution status: whether the burn is executing and whether it has completed.
@@ -74,9 +68,8 @@ The configuration is set through public properties on the adapter before ``reset
       - :math:`\ge 0`, finite
       - [s] Minimum burn time that must elapse before the burn may complete on the Delta-V criterion.
     * - ``maxTime``
-      - :math:`\ge 0`, finite
-      - [s] Maximum burn time; the burn is forced complete once it is exceeded. A value of ``0`` disables this
-        criterion.
+      - > 0, finite, and > minTime
+      - [s] Maximum burn time. The burn is forced complete once burnTime exceeds maxTime.
     * - ``controlPeriod``
       - :math:`> 0`, finite
       - [s] Flight-software control period, used as the fixed time step for accumulating the burn time. Must be set
@@ -100,9 +93,10 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
     sim.InitializeSimulation()
     sim.ExecuteSimulation()
 
-If an input message has not been connected when ``reset()`` runs, an ``std::invalid_argument`` is thrown. If
-``controlPeriod`` is not positive when ``reset()`` runs, the configuration validator throws. If ``updateState()`` is
-called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
+If an input message has not been connected when ``reset()`` runs, an ``std::invalid_argument`` is thrown.
+Invalid configuration values cause the configuration validator to throw fsw::invalid_argument. minTime
+must be non-negative and finite, maxTime must be positive, finite, and greater than minTime, and controlPeriod
+must be positive and finite. If ``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
 
 Mathematical Formulation
 ------------------------
@@ -136,19 +130,24 @@ is exceeded:
 
 .. math::
 
-   \text{complete} = \Big( \| \Delta\boldsymbol{v}_{\text{burn}} \| \ge \| \Delta\boldsymbol{v}_{\text{cmd}} \|
+   \text{complete} =
+   \Big( \| \Delta\boldsymbol{v}_{\text{burn}} \| \ge \| \Delta\boldsymbol{v}_{\text{cmd}} \|
    \;\wedge\; t_{\text{burn}} > t_{\min} \Big)
-   \;\vee\; \big( t_{\max} \ne 0 \;\wedge\; t_{\text{burn}} > t_{\max} \big).
+   \;\vee\;
+   \big( t_{\text{burn}} > t_{\max} \big).
 
-**Thruster command.** The module writes a zeroed thruster on-time command whenever the burn is complete or not
-executing, i.e. whenever the thrusters should be held off.
+**Thruster command.** The adapter writes a thruster on-time command every update. While the burn is executing,
+every onTimeRequest entry is set to 1.1 * controlPeriod. When the burn is not executing or has completed,
+every entry is set to zero.
 
 Assumptions and Limitations
 ---------------------------
 
-- The thrusters are turned on by a separate firing module; dvExecuteGuidance only ever commands them off.
-- The burn time is accumulated using the fixed configured ``controlPeriod`` rather than the wall-clock time between
-  calls, so the module must be driven at that period for the burn-time gates to be accurate.
-- ``maxTime`` of zero disables the maximum-time criterion. Configuring ``minTime`` greater than a nonzero ``maxTime``
-  is contradictory and is not currently rejected; the maximum-time criterion wins in that case.
-- All computation is single-precision (FP32).
+- The configured ``controlPeriod`` is assumed to match the actual rate at which the module is updated; a mismatch
+causes ``burnTime`` to drift from real elapsed time, shifting when the minimum and maximum time gates actually fire.
+
+- Burn-command sequencing is assumed to be handled externally, including providing the appropriate command
+when the burn state is reinitialized.
+
+- The accumulated Delta-V provided by ``navDataInMsg`` is assumed to remain continuous and consistently
+referenced throughout the burn.

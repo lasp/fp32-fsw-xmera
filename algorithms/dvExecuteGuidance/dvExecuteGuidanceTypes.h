@@ -12,7 +12,7 @@ extern "C" {
  * @brief Plain-old-data mirror of the C++ DvExecuteGuidanceOutput fields.
  *  - burnExecuting       [-] flag indicating whether the burn is in progress
  *  - burnComplete        [-] flag indicating whether the burn has completed
- *  - commandThrustersOff [-] caller should write a zeroed thruster on-time command this step
+ *  - commandThrustersOff [-] true to command zero on-time; false to command nonzero on-time
  */
 typedef struct {
     uint32_t burnExecuting;

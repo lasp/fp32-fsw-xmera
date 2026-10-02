@@ -11,12 +11,13 @@ from xmera.utilities import macros
 # parameters
 dv_magnitude = [4.3, 5.0, 10.0]
 min_time = [0.0, 4.0]
-max_time = [0.0, 3.0]
+max_time = [3.0, 5.0]
 start_time = [0.0, 1.0]
 
 param_array = [dv_magnitude, min_time, max_time, start_time]
-# create list with all combinations of parameters
-param_list = list(itertools.product(*param_array))
+# exclude invalid min/max time configurations (maxTime must always be greater than minTime)
+param_list = [p for p in itertools.product(*param_array) if p[2] > p[1]]
+
 
 
 @pytest.mark.parametrize("p1_dv, p2_tmin, p3_tmax, p4_tstart", param_list)
@@ -77,11 +78,12 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     dv_burn_cmd_msg_data.burnStartTime = macros.sec2nano(p4_tstart)
     dv_burn_cmd_msg = messaging.DvBurnCmdMsgF32().write(dv_burn_cmd_msg_data)
 
-    # Create thruster on time message and add the module as author. This allows us to write an initial message that does
-    # not come from the module
+    # Create the thruster on-time message and assign it as the module output.
+    # The test also writes an initial value so we can verify that the module overwrites it.
     on_time_cmd_msg = messaging.THRArrayOnTimeCmdMsgF32()
     on_time_cmd_msg_data = messaging.THRArrayOnTimeCmdMsgF32Payload()
-    # set on time to some non-zero values to simulate that DV burn is executed. Needs to be stopped/zeroed by module
+    # Seed the message with a nonzero value; the module overwrites it with
+    # the commanded on-time while executing or zero when the thrusters are off.
     default_on_time = np.ones(num_thrusters)
     on_time_cmd_msg_data.onTimeRequest = default_on_time
     on_time_cmd_msg.write(on_time_cmd_msg_data)
@@ -100,7 +102,7 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     sim.InitializeSimulation()
 
     # compute true values
-    num_time_steps = 10
+    num_time_steps = 16
     on_time_true = np.zeros([num_time_steps, num_thrusters])
     burn_executing_true = np.zeros([num_time_steps])
     burn_complete_true = np.zeros([num_time_steps])
@@ -109,7 +111,8 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
             nav_trans_msg_data.vehAccumDV = acceleration_N * (update_rate * i - p4_tstart)
         nav_trans_msg.write(nav_trans_msg_data, sim.TotalSim.getCurrentNanos())
 
-        # thrusters nominally on, module needs to overwrite and zero if necessary
+        # Write the seeded value before each step so the test verifies that the module
+        # writes a fresh on-time command every update.
         on_time_cmd_msg.write(on_time_cmd_msg_data, sim.TotalSim.getCurrentNanos())
 
         sim.ConfigureStopTime(i * test_process_rate)
@@ -121,12 +124,12 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
             burn_complete_true[i] = 0
         elif (np.linalg.norm(nav_trans_msg_data.vehAccumDV) >= np.linalg.norm(dv_burn_cmd_msg_data.dvInrtlCmd)) and \
                 (update_rate * (i + 1) - p4_tstart > module.minTime) or \
-                (module.maxTime != 0.0 and update_rate * (i + 1) - p4_tstart > module.maxTime):
+                (update_rate * (i + 1) - p4_tstart > module.maxTime):
             on_time_true[i] = np.zeros(num_thrusters)
             burn_executing_true[i] = 0
             burn_complete_true[i] = 1
         else:
-            on_time_true[i] = np.ones(num_thrusters)
+            on_time_true[i] = np.full(num_thrusters, 1.1 * update_rate)
             burn_executing_true[i] = 1
             burn_complete_true[i] = 0
 
@@ -142,10 +145,12 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
         str(p3_tmax),
         str(p4_tstart))
 
-    np.testing.assert_equal(on_time,
-                            on_time_true,
-                            err_msg=('Variable: on_time' + params_string),
-                            verbose=True)
+    np.testing.assert_allclose(on_time,
+                               on_time_true,
+                               atol=1e-6,
+                               rtol=1e-6,
+                               err_msg=('Variable: on_time' + params_string),
+                               verbose=True)
 
     np.testing.assert_equal(burn_executing,
                             burn_executing_true,
