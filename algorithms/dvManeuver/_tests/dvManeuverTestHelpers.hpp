@@ -68,7 +68,7 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
 // ---------------------------------------------------------------------------
 inline void regressionTestDvManeuver(uint64_t minTime,
                                      uint64_t maxTime,
-                                     float controlPeriod,
+                                     uint64_t stepNs,
                                      const Eigen::Vector3f& cmdForce_B,
                                      const Eigen::Vector3f& cmdDv_N,
                                      const Eigen::Vector3f& acceleration,
@@ -77,8 +77,6 @@ inline void regressionTestDvManeuver(uint64_t minTime,
     const auto config = DvManeuverConfig::create(minTime, maxTime, cmdForce_B, cmdDv_N, burnStartTime);
     DvManeuverAlgorithm alg{config};
     DvManeuverReferenceState refState{};
-
-    const auto stepNs = static_cast<uint64_t>(std::llround(static_cast<double>(controlPeriod) * 1e9));
 
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
@@ -100,19 +98,19 @@ inline void regressionTestDvManeuver(uint64_t minTime,
     }
 }
 
-// Fuzz-compatible regression helper: drives regressionTestDvManeuver with three fuzz-supplied
-// Eigen::Vector3f inputs (configured force, commanded delta-V and acceleration) and fixed valid times.
+// Fuzz-compatible regression helper: drives regressionTestDvManeuver with fuzz-supplied vectors and timing.
+// maxTime is minTime plus a positive offset, so every input is a valid configuration. The run lasts until two
+// steps past the latest possible completion, so both time gates are reachable.
 inline void fuzzRegressionDvManeuver(const Eigen::Vector3f& cmdForce_B,
                                      const Eigen::Vector3f& cmdDv_N,
-                                     const Eigen::Vector3f& acceleration) {
-    regressionTestDvManeuver(/* minTime = */ 0U,
-                             /* maxTime = */ 3000000000U,
-                             /* controlPeriod = */ 0.5F,
-                             /* cmdForce_B = */ cmdForce_B,
-                             /* cmdDv_N = */ cmdDv_N,
-                             /* acceleration = */ acceleration,
-                             /* burnStartTime = */ 500000000U,
-                             /* numSteps = */ 20);
+                                     const Eigen::Vector3f& acceleration,
+                                     uint64_t minTime,
+                                     uint64_t maxTimeAboveMinTime,
+                                     uint64_t burnStartTime,
+                                     uint64_t stepNs) {
+    const uint64_t maxTime = minTime + maxTimeAboveMinTime;
+    const auto numSteps = static_cast<int>((burnStartTime + maxTime) / stepNs + 2U);
+    regressionTestDvManeuver(minTime, maxTime, stepNs, cmdForce_B, cmdDv_N, acceleration, burnStartTime, numSteps);
 }
 
 // ---------------------------------------------------------------------------
