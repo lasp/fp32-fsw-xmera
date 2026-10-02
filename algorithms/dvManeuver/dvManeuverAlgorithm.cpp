@@ -5,7 +5,10 @@ DvManeuverAlgorithm::DvManeuverAlgorithm(const DvManeuverConfig& config) : cfg(c
     this->reInitialize();
 }
 
-void DvManeuverAlgorithm::setConfig(const DvManeuverConfig& config) { this->cfg = config; }
+void DvManeuverAlgorithm::setConfig(const DvManeuverConfig& config) {
+    this->cfg = config;
+    this->cmdDvMagnitude = this->cfg.getCmdDv().stableNorm();
+}
 
 void DvManeuverAlgorithm::reInitialize() {
     this->state = DvManeuverBurnState::Pending;
@@ -22,7 +25,7 @@ DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime, const Eige
 
     if (this->state == DvManeuverBurnState::Executing) {
         const uint64_t burnTime = callTime - this->burnStartCallTime;  // [ns]
-        const bool dvReached = (dvAccumulated - this->dvInitial).stableNorm() >= this->cfg.getCmdDv().stableNorm();
+        const bool dvReached = (dvAccumulated - this->dvInitial).stableNorm() >= this->cmdDvMagnitude;
         if ((dvReached && burnTime >= this->cfg.getMinTime()) || burnTime >= this->cfg.getMaxTime()) {
             this->state = DvManeuverBurnState::Complete;
         }
