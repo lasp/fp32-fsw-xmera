@@ -163,20 +163,29 @@ class FlybyPointAlgorithm final {
         Eigen::Vector3f domega_RN_N = Eigen::Vector3f::Zero();  //!< [rad/s^2] reference angular acceleration
     };
 
+    /*! Pointing profile from the last accepted read */
+    struct Profile {
+        double f0 = 0;                                      //!< [1/s] |v| / |r| at the read
+        double gamma0 = 0;                                  //!< [rad] flight path angle at the read
+        Eigen::Matrix3f R0N = Eigen::Matrix3f::Identity();  //!< [-] inertial-to-reference DCM at the read
+        uint64_t periodsSinceRead = 0;                      //!< [-] control periods elapsed since the read
+    };
+
+    /*! First accepted read; the position-knowledge check compares re-reads with its rectilinear prediction */
+    struct FirstRead {
+        Eigen::Vector3d r_N = Eigen::Vector3d::Zero();  //!< [m] position at the first read
+        Eigen::Vector3d v_N = Eigen::Vector3d::Zero();  //!< [m/s] velocity at the first read
+        uint64_t periodsSince = 0;                      //!< [-] control periods elapsed since the first read
+    };
+
     void seedProfile(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     FlybyValidityTriggers reReadFromWindow();
     GuidanceReference computeGuidanceReference() const;
 
     FlybyPointConfig cfg;
-    bool firstRead = true;               //!< variable to attest if this is the first read after a Reset
-    uint64_t periodsSinceLastRead = 0;   //!< [-] control periods elapsed since the last accepted filter read
-    uint64_t periodsSinceFirstRead = 0;  //!< [-] control periods elapsed since the first filter read
-    AveragingWindow window{};            //!< averaging window in progress
-    double f0 = 0;                       //!< ratio between relative velocity and position norms at time of read [Hz]
-    double gamma0 = 0;                   //!< flight path angle of the spacecraft at time of read [rad]
-    Eigen::Matrix3f R0N{Eigen::Matrix3f::Identity()};            //!< inertial-to-reference DCM at time of read
-    Eigen::Vector3d firstNavPosition = Eigen::Vector3d::Zero();  //!< First position used to create profile
-    Eigen::Vector3d firstNavVelocity = Eigen::Vector3d::Zero();  //!< First velocity used to create profile
+    std::optional<Profile> profile;  //!< empty until the first seed, and again after reset()
+    FirstRead firstRead{};           //!< set at the first seed
+    AveragingWindow window{};        //!< averaging window in progress
 };
 
 #endif  // F32XMERA_FLYBY_POINT_ALGORITHM_H
