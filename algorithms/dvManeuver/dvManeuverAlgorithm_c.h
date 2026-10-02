@@ -17,8 +17,8 @@ typedef struct DvManeuverAlgorithmHandle DvManeuverAlgorithmHandle;
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param minTime       [s] minimum burn time before completion; must be >= 0 and finite.
- * @param maxTime       [s] maximum burn time; must be positive and finite.
+ * @param minTime       [ns] minimum burn time before completion.
+ * @param maxTime       [ns] maximum burn time; must be positive and greater than minTime.
  * @param controlPeriod [s] FSW time step used as the burn-time delta-t; must be > 0 and finite.
  * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
  * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
@@ -26,8 +26,8 @@ typedef struct DvManeuverAlgorithmHandle DvManeuverAlgorithmHandle;
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool DvManeuverAlgorithm_validateConfig(float minTime,
-                                        float maxTime,
+bool DvManeuverAlgorithm_validateConfig(uint64_t minTime,
+                                        uint64_t maxTime,
                                         float controlPeriod,
                                         const Vector3f_c* cmdForce_B,
                                         const Vector3f_c* cmdDv_N,
@@ -35,8 +35,8 @@ bool DvManeuverAlgorithm_validateConfig(float minTime,
 
 /**
  * @brief Construct a new DvManeuverAlgorithm instance from the supplied configuration.
- * @param minTime       [s] minimum burn time before completion; must be >= 0 and finite.
- * @param maxTime       [s] maximum burn time; must be positive and finite.
+ * @param minTime       [ns] minimum burn time before completion.
+ * @param maxTime       [ns] maximum burn time; must be positive and greater than minTime.
  * @param controlPeriod [s] FSW time step used as the burn-time delta-t; must be > 0 and finite.
  * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
  * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
@@ -44,8 +44,8 @@ bool DvManeuverAlgorithm_validateConfig(float minTime,
  * @return Pointer to a new DvManeuverAlgorithm (must be destroyed).
  * Validate the values with validateConfig first; invalid input throws.
  */
-DvManeuverAlgorithmHandle* DvManeuverAlgorithm_create(float minTime,
-                                                      float maxTime,
+DvManeuverAlgorithmHandle* DvManeuverAlgorithm_create(uint64_t minTime,
+                                                      uint64_t maxTime,
                                                       float controlPeriod,
                                                       const Vector3f_c* cmdForce_B,
                                                       const Vector3f_c* cmdDv_N,
@@ -61,8 +61,8 @@ void DvManeuverAlgorithm_destroy(DvManeuverAlgorithmHandle* self);
  * @brief Install the configuration on an existing instance (parameters only; call _reInitialize to
  *        reset the burn state machine).
  * @param self          Pointer to the instance.
- * @param minTime       [s] minimum burn time before completion; must be >= 0 and finite.
- * @param maxTime       [s] maximum burn time; must be positive and finite.
+ * @param minTime       [ns] minimum burn time before completion.
+ * @param maxTime       [ns] maximum burn time; must be positive and greater than minTime.
  * @param controlPeriod [s] FSW time step used as the burn-time delta-t; must be > 0 and finite.
  * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
  * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
@@ -70,8 +70,8 @@ void DvManeuverAlgorithm_destroy(DvManeuverAlgorithmHandle* self);
  * Validate the values with validateConfig first; invalid input throws.
  */
 void DvManeuverAlgorithm_setConfig(DvManeuverAlgorithmHandle* self,
-                                   float minTime,
-                                   float maxTime,
+                                   uint64_t minTime,
+                                   uint64_t maxTime,
                                    float controlPeriod,
                                    const Vector3f_c* cmdForce_B,
                                    const Vector3f_c* cmdDv_N,
