@@ -34,9 +34,9 @@ void DvExecuteGuidance::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! Compares the accumulated Delta-V against the commanded Delta-V and, once the burn is complete, writes a
-    zeroed thruster on-time command to turn the thrusters off. Also flags whether the burn is executing and
-    whether it has completed. */
+/*! Compares the accumulated Delta-V against the commanded Delta-V and writes the commanded thruster on-time
+    every update — nonzero while the burn executes, zero once it completes. Also flags whether the burn is
+    executing and whether it has completed. */
 void DvExecuteGuidance::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
         throw XmeraLifecycleException("DvExecuteGuidance reset() has not been called.");
@@ -51,10 +51,16 @@ void DvExecuteGuidance::updateState(const uint64_t callTime) {
     const DvExecuteGuidanceOutput out =
         this->algorithm->update(callTime, vehAccumDV, dvInrtlCmd, localBurnData.burnStartTime);
 
+    float onTime = 1.1F * this->controlPeriod;
     if (out.commandThrustersOff) {
-        const THRArrayOnTimeCmdMsgF32Payload onTimeMsgOut = {};
-        this->thrCmdOutMsg.write(onTimeMsgOut, this->moduleID, callTime);
+        onTime = 0.0F;
     }
+
+    THRArrayOnTimeCmdMsgF32Payload onTimeMsgOut{};
+    for (uint32_t i = 0U; i < kMaxThrusterCount; ++i) {
+        onTimeMsgOut.onTimeRequest[i] = onTime;
+    }
+    this->thrCmdOutMsg.write(onTimeMsgOut, this->moduleID, callTime);
 
     DvExecutionDataMsgF32Payload localExeData = {};
     localExeData.burnComplete = out.burnComplete;

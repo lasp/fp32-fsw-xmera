@@ -78,11 +78,12 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     dv_burn_cmd_msg_data.burnStartTime = macros.sec2nano(p4_tstart)
     dv_burn_cmd_msg = messaging.DvBurnCmdMsgF32().write(dv_burn_cmd_msg_data)
 
-    # Create thruster on time message and add the module as author. This allows us to write an initial message that does
-    # not come from the module
+    # Create the thruster on-time message and assign it as the module output.
+    # The test also writes an initial value so we can verify that the module overwrites it.
     on_time_cmd_msg = messaging.THRArrayOnTimeCmdMsgF32()
     on_time_cmd_msg_data = messaging.THRArrayOnTimeCmdMsgF32Payload()
-    # set on time to some non-zero values to simulate that DV burn is executed. Needs to be stopped/zeroed by module
+    # Seed the message with a nonzero value; the module overwrites it with
+    # the commanded on-time while executing or zero when the thrusters are off.
     default_on_time = np.ones(num_thrusters)
     on_time_cmd_msg_data.onTimeRequest = default_on_time
     on_time_cmd_msg.write(on_time_cmd_msg_data)
@@ -110,7 +111,8 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
             nav_trans_msg_data.vehAccumDV = acceleration_N * (update_rate * i - p4_tstart)
         nav_trans_msg.write(nav_trans_msg_data, sim.TotalSim.getCurrentNanos())
 
-        # thrusters nominally on, module needs to overwrite and zero if necessary
+        # Write the seeded value before each step so the test verifies that the module
+        # writes a fresh on-time command every update.
         on_time_cmd_msg.write(on_time_cmd_msg_data, sim.TotalSim.getCurrentNanos())
 
         sim.ConfigureStopTime(i * test_process_rate)
@@ -127,7 +129,7 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
             burn_executing_true[i] = 0
             burn_complete_true[i] = 1
         else:
-            on_time_true[i] = np.ones(num_thrusters)
+            on_time_true[i] = np.full(num_thrusters, 1.1 * update_rate)
             burn_executing_true[i] = 1
             burn_complete_true[i] = 0
 

@@ -6,12 +6,12 @@
 #include <stdint.h>
 #include <Eigen/Core>
 
-/// Burn execution status produced each update. @c commandThrustersOff tells the adapter to write a
-/// zeroed thruster on-time command (turning the thrusters off) for this step.
+/// Burn execution status produced each update. @c commandThrustersOff tells the adapter whether to
+/// command thrusters off (zero on-time) or on (nonzero on-time) for this step.
 struct DvExecuteGuidanceOutput {
     uint32_t burnExecuting{};    ///< [-] flag indicating whether the burn is in progress
     uint32_t burnComplete{};     ///< [-] flag indicating whether the burn has completed
-    bool commandThrustersOff{};  ///< [-] adapter should write a zeroed thruster on-time command this step
+    bool commandThrustersOff{};  ///< [-] true: adapter commands thrusters off; false: adapter commands thrusters on
 };
 
 /// Validated, immutable configuration for the delta-V burn executor. Construct via create(), which
@@ -76,7 +76,7 @@ class DvExecuteGuidanceAlgorithm final {
     /// @param vehAccumDV     Total accumulated delta-V from navigation [m/s].
     /// @param dvInrtlCmd     Commanded delta-V in inertial coordinates [m/s].
     /// @param burnStartTime  Commanded burn start time [ns].
-    /// @return Burn execution status and thruster-off command flag for this step.
+    /// @return Burn execution status and thruster command-state flag for this step.
     DvExecuteGuidanceOutput update(uint64_t callTime,
                                    const Eigen::Vector3f& vehAccumDV,
                                    const Eigen::Vector3f& dvInrtlCmd,
