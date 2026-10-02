@@ -7,7 +7,9 @@
 #include <Eigen/Dense>
 #include <cstdint>
 
-/*! @brief Structure containing the attitude guidance output of the algorithm */
+/*! @brief Structure containing the attitude guidance output of the algorithm. As in the other guidance algorithms,
+ * the reference (sigma_RN, omega_RN_N, domega_RN_N) is all zero when no solution is available: before the first seed,
+ * or if the guidance solution is not finite. */
 struct AttGuideOutput {
     Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();
     Eigen::Vector3f omega_RN_N = Eigen::Vector3f::Zero();
@@ -19,7 +21,6 @@ struct AttGuideOutput {
     bool positionKnowledgeExceedTrigger = false;  // true if the position error exceeds a-priori sigma bound
     bool inputSampleRejected = false;  // true if this period's filter sample was unusable and left out of the average
     uint32_t rejectedSamplesInWindow = 0;  // number of unusable samples in the window ending this period, else 0
-    bool validOutput = false;              // false only before the first seed, or if an output is not finite
 };
 
 /*!
@@ -122,11 +123,16 @@ class FlybyPointConfig final {
  * re-reads a single sample, as without averaging.
  *
  * An unusable sample is left out of the average and reported through the diagnostics; it does not affect the
- * guidance output, which comes from the last accepted profile. The output is therefore valid on every period after
- * the first seed.
+ * guidance output, which comes from the last accepted profile. The output is therefore a valid reference on every
+ * period after the first seed. The first seed must not be collinear, since r and v then define no orbit normal.
  */
 class FlybyPointAlgorithm final {
    public:
+    /*! [-] smallest |r_hat x v_hat| (sine of the r-v angle) for which r and v define an orbit normal. Below it the
+     orbit-normal direction would be dominated by rounding, so the pair is treated as collinear whatever
+     toleranceForCollinearity is; this only matters for a toleranceForCollinearity below double resolution. */
+    static constexpr double kMinOrbitNormalNorm = 1e-12;
+
     explicit FlybyPointAlgorithm(const FlybyPointConfig& config);
     void setConfig(const FlybyPointConfig& config);
     void reset();
@@ -141,6 +147,7 @@ class FlybyPointAlgorithm final {
         Eigen::Vector3d vSum_N = Eigen::Vector3d::Zero();       //!< [m/s] sum of velocities
     };
 
+    bool isCollinear(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) const;
     bool checkValidity(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N, AttGuideOutput& output) const;
     void accumulateSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     void reReadFromWindowAverage(AttGuideOutput& output);

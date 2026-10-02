@@ -18,8 +18,9 @@ static void fuzzRegressionFlybyPoint(double controlPeriod,
                                      const Eigen::Vector3d& r_BN_N,
                                      const Eigen::Vector3d& v_BN_N,
                                      int numSteps) {
-    // The first read seeds the frame unchecked, so the algorithm assumes it is valid. Skip (near-)collinear
-    // r/v: r x v vanishes, the orbit frame is undefined, and the outputs depend on platform rounding (FMA).
+    // Skip (near-)collinear r/v: r x v vanishes and the orbit frame is undefined, so both the algorithm and the
+    // reference refuse the seed, and close to the collinearity tolerance the refusal can depend on platform
+    // rounding (FMA).
     if (r_BN_N.normalized().cross(v_BN_N.normalized()).norm() < 1e-6) {
         return;
     }

@@ -2,7 +2,8 @@ Executive Summary
 -----------------
 This module computes a reference attitude frame for a spacecraft in relative motion about a small body. The implicit assumption is that the small body's mass does not perturb the motion of the spacecraft significantly. Conceptually, this module is equivalent to :ref:`hillPoint`, but for the relative motion of a spacecraft about a body that is not the main center of gravity.
 
-The module starts by reading the first input under the assumption it is valid in order to compute a solution.
+The module starts by reading the first usable, non-collinear input under the assumption it is valid in order to compute
+a solution.
 At a settable cadence, the module will update the pointing profile with the help of a new filter solution. That
 solution is the average of all the filter states received since the previous update, each propagated to the update
 time, which low-pass filters the noisy filter output. Before using it, the module checks the validity of the solution: 1. It does not predict a collision trajectory 2. It does not predict
@@ -26,7 +27,9 @@ provides information on what this message is used for.
       - Input message containing the relative position and velocity of the spacecraft with respect to the small body, estimated from a filter. Read at every update.
     * - attRefOutMsg
       - :ref:`AttRefMsgF32Payload`
-      - Output attitude reference message containing reference attitude, reference angular rates and accelerations. Zero until the first usable filter state seeds the profile; valid at every update after that.
+      - Output attitude reference message containing reference attitude, reference angular rates and accelerations. As in the other guidance modules there is no validity flag: the reference is all zero until the first usable,
+        non-collinear filter state seeds the profile, and zero for any update whose guidance solution is not finite
+        (numerical overflow). Otherwise it is the reference propagated from the last accepted update.
     * - flybyDiagnosticOutMsg
       - :ref:`FlybyDiagnosticMsgF32Payload`
       - Output diagnostic message, written at every update. ``collinearityTrigger``, ``maxRateTrigger``, ``maxAccelerationTrigger`` and ``positionKnowledgeExceedTrigger`` report which validity checks rejected the averaged filter state, on the update that ends an averaging window (false otherwise). ``inputSampleRejected`` is true when the filter state of this update was unusable and left out of the average. ``rejectedSamplesInWindow`` is the number of unusable filter states in the averaging window that ends on this update, and 0 on other updates.
@@ -72,22 +75,23 @@ before averaging, the average has no time lag under the rectilinear model. The a
 :math:`(\bar{\boldsymbol{r}}, \bar{\boldsymbol{v}})` is the candidate that goes through the validity checks below and,
 if it passes, re-seeds the pointing profile.
 
-- A state that is not finite, or whose position or velocity is (near) zero, is unusable. It is left out of the
+- A state that is not finite, whose position or velocity is (near) zero, or so large that the products the module
+  forms from it, :math:`\|\boldsymbol{r}\|\|\boldsymbol{v}\|` and :math:`(\|\boldsymbol{v}\| / \|\boldsymbol{r}\|)^2`,
+  overflow, is unusable. It is left out of the
   average and flagged with ``inputSampleRejected`` for that control period. The attitude reference of that period is
   unaffected and stays valid, because it is propagated from the last accepted update and does not depend on the
   current state. The window still ends on time, and on its last control period ``rejectedSamplesInWindow`` gives the
   number of unusable states it received. A count equal to :math:`N` means the window had no usable state, so no
   re-read was attempted.
-- Before the first seed there is no profile, so an unusable state gives no valid output (``validOutput`` is false in
-  the algorithm output). This is the only case in which the output is not valid, apart from a non-finite numerical
-  result.
+- Before the first seed there is no profile, so the reference is all zero. Apart from a guidance solution that is
+  not finite (see `Zero Reference Fallback`_), this is the only case in which the reference is zero.
 - Usable states can still average to an unusable state, for example velocities that cancel. Such a window makes no
   re-read attempt, and ``rejectedSamplesInWindow`` does not count it.
 - Every window end starts a new window, whether the average was accepted, rejected, or no usable state was received.
   A rejected average is therefore retried after another full window, while the profile keeps being propagated from the
   last accepted update.
-- The first usable state after a reset seeds the profile immediately, without averaging, and the first window starts
-  after it. Changing the configuration discards the window in progress.
+- The first usable, non-collinear state after a reset seeds the profile immediately, without averaging, and the first
+  window starts after it. Changing the configuration discards the window in progress.
 - With :math:`N = 1` the average is the latest state itself, so the module behaves as without averaging.
 
 Averaging reduces the effect of noise on the update. For uncorrelated noise the reduction is about
@@ -128,6 +132,21 @@ keeps being propagated from the last accepted read.
    :math:`\boldsymbol{r}_{first} + \Delta t \, \boldsymbol{v}_{first}` made from the first read.
 
 
+Zero Reference Fallback
+.......................
+Like the other guidance modules, the module outputs no validity flag. When no guidance solution is available, the
+reference attitude, rate and acceleration are all output as zero:
+
+- **Before the first seed.** Filter states that are unusable, or collinear (a collision course, for which
+  :math:`\hat{\boldsymbol{r}} \times \hat{\boldsymbol{v}}` defines no orbit normal), do not seed the profile. A
+  collinear state raises ``collinearityTrigger``. A state with
+  :math:`\|\hat{\boldsymbol{r}} \times \hat{\boldsymbol{v}}\| < 10^{-12}` counts as collinear whatever
+  ``toleranceForCollinearity`` is, since its orbit-normal direction would be dominated by rounding.
+- **Non-finite solution.** If the propagated profile is not finite, for example because :math:`f_0^2` in
+  :math:`\ddot{\theta}` overflows single precision, the whole reference is zero for that update. The fallback is
+  checked again at every update, so it does not latch: the next update with a finite solution is output normally.
+
+
 Clohessy-Wiltshire Equations Model
 ..................................
 T.B.D.
@@ -140,8 +159,9 @@ The limitations of this module are inherent to the geometry of the problem, whic
 Due to the difficulty in developing an analytical formulation for the reference angular rate and angular acceleration vectors, these are computed via second-order finite differences. At every time step, the current reference attitude and time stamp are stored in a module variable and used in the following time updates to compute angular rates and accelerations via finite differences.
 
 Algorithmically, there is an assumption that the first solution is somewhat trustworthy as it seeds the algorithm.
-It will get overwritten by new measurements if they are valid, but it does not get checked for validity as the algorithm
-needs a seed.
+It will get overwritten by new measurements if they are valid. Because the algorithm needs a seed, the seed is only
+checked for collinearity, which would leave the flyby frame undefined; the rate, acceleration and position-knowledge
+checks apply from the first re-read on.
 
 User Guide
 ----------

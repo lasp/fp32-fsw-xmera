@@ -79,6 +79,33 @@ inline void referenceComputeRN(ReferenceFlybyState& s, const Eigen::Vector3d& r,
     s.R0N.row(2) = uh;
 }
 
+/*! Mirrors the algorithm's usable-sample test: finite, with neither r nor v (near) zero, and with |r||v| and
+ *  (|v|/|r|)^2 finite.
+ @return true if the sample can seed the algorithm or enter the averaging window
+ @param r The relative position state [m]
+ @param v The relative velocity state [m/s]
+ */
+inline bool referenceIsUsableSample(const Eigen::Vector3d& r, const Eigen::Vector3d& v) {
+    const double rNorm = r.stableNorm();
+    const double vNorm = v.stableNorm();
+    return r.allFinite() && v.allFinite() && rNorm >= 1e-3 && vNorm >= 1e-3 && std::isfinite(rNorm * vNorm) &&
+           std::isfinite((vNorm / rNorm) * (vNorm / rNorm));
+}
+
+/*! Mirrors FlybyPointAlgorithm::isCollinear(): the r-v angle cosine is within toleranceForCollinearity of 1, or the
+ *  orbit normal is too short to normalize.
+ @return true if r and v are collinear
+ @param r The relative position state [m]
+ @param v The relative velocity state [m/s]
+ @param config Algorithm configuration
+ */
+inline bool referenceIsCollinear(const Eigen::Vector3d& r, const Eigen::Vector3d& v, const FlybyPointConfig& config) {
+    const Eigen::Vector3d ur = r.normalized();
+    const Eigen::Vector3d uv = v.normalized();
+    return 1.0 - std::fabs(ur.dot(uv)) < config.getToleranceForCollinearity() ||
+           ur.cross(uv).norm() < FlybyPointAlgorithm::kMinOrbitNormalNorm;
+}
+
 /*! Mirrors FlybyPointAlgorithm::checkValidity(). The closest-approach distance comes from the candidate
  *  (r, v) alone: d_CA = |r x v| / |v|. A collinear candidate returns false before d_CA is formed, so d_CA > 0
  *  below.
@@ -95,9 +122,7 @@ inline bool referenceCheckValidity(const ReferenceFlybyState& s,
     static constexpr double kRad2Deg = 180.0 / std::numbers::pi;
     static constexpr double kMaxAccelCoeff = 3.0 * std::numbers::sqrt3 / 8.0;
 
-    const Eigen::Vector3d ur = r.normalized();
-    const Eigen::Vector3d uv = v.normalized();
-    if (1.0 - std::fabs(ur.dot(uv)) < config.getToleranceForCollinearity()) return false;
+    if (referenceIsCollinear(r, v, config)) return false;
 
     const double dca = r.cross(v).norm() / v.norm();
     const double speedOverDistance = v.norm() / dca;
@@ -116,21 +141,28 @@ inline bool referenceCheckValidity(const ReferenceFlybyState& s,
 }
 
 /*! Computes the guidance frame from the current reference state, mirroring
- *  FlybyPointAlgorithm::computeGuidanceSolution().
+ *  FlybyPointAlgorithm::computeGuidanceSolution(), including its zero solution for a non-finite profile.
  @return ReferenceFlybyOutput containing sigma_RN, omega_RN_N, and domega_RN_N
  @param s The current reference state (read-only)
  @param signOfOrbitNormal Sign of the orbit-normal reference vector (+1 or -1)
  */
 inline ReferenceFlybyOutput referenceGuidanceSolution(const ReferenceFlybyState& s, int signOfOrbitNormal) {
+    const ReferenceFlybyOutput zero{Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
     const double theta = safeAtan(safeTan(s.gamma0) + s.f0 / safeCos(s.gamma0) * s.dt) - s.gamma0;
-    const Eigen::Matrix3d RtR0 = prvToDcm(Eigen::Vector3d{0, 0, theta});
-    const Eigen::Matrix3d RtN = RtR0 * s.R0N;
-
     const double den = s.f0 * s.f0 * s.dt * s.dt + 2.0 * s.f0 * safeSin(s.gamma0) * s.dt + 1.0;
     const double thetaDot = s.f0 * safeCos(s.gamma0) / den;
     const double thetaDDot = -2.0 * s.f0 * s.f0 * safeCos(s.gamma0) * (s.f0 * s.dt + safeSin(s.gamma0)) / (den * den);
+    if (!std::isfinite(s.f0) || !std::isfinite(s.gamma0) || !std::isfinite(theta) || !std::isfinite(thetaDot) ||
+        !std::isfinite(thetaDDot)) {
+        return zero;
+    }
 
+    const Eigen::Matrix3d RtR0 = prvToDcm(Eigen::Vector3d{0, 0, theta});
+    const Eigen::Matrix3d RtN = RtR0 * s.R0N;
     Eigen::Vector3d sigma_RN = dcmToMrp(RtN);
+    if (!sigma_RN.allFinite()) {
+        return zero;
+    }
     if (signOfOrbitNormal == -1) {
         Eigen::Vector3d const halfRotX{1, 0, 0};
         sigma_RN = addMrp(sigma_RN, halfRotX);
@@ -143,6 +175,8 @@ inline ReferenceFlybyOutput referenceGuidanceSolution(const ReferenceFlybyState&
 /*! Advances the reference state by one control period, mirroring FlybyPointAlgorithm::updateState().
  *  Handles the full state machine: first-read seeding, batch averaging of each window's samples propagated
  *  to the window end, validity-gated re-seeding from the average, and extrapolation.
+ *  Unusable samples are left out of the average, and the reference stays zero until a usable, non-collinear
+ *  sample seeds it.
  @return ReferenceFlybyOutput containing sigma_RN, omega_RN_N, and domega_RN_N
  @param s The reference state to update
  @param r The relative position state [m]
@@ -154,7 +188,11 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
                                                  const Eigen::Vector3d& v,
                                                  const FlybyPointConfig& config) {
     const uint32_t windowLength = config.getFilterReadPeriods();
+    const bool usable = referenceIsUsableSample(r, v);
     if (s.firstRead) {
+        if (!usable || referenceIsCollinear(r, v, config)) {
+            return {Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
+        }
         s.firstNavPosition = r;
         s.firstNavVelocity = v;
         referenceComputeFlybyParameters(s, r, v);
@@ -172,21 +210,25 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
         ++s.periodsInWindow;
 
         // Rectilinear propagation of this sample to the window end, (windowLength - periodsInWindow) periods ahead.
-        const double timeToWindowEnd =
-            static_cast<double>(windowLength - s.periodsInWindow) * config.getControlPeriod();
-        s.rSumAtWindowEnd += r + timeToWindowEnd * v;
-        s.vSum += v;
-        ++s.samplesInWindow;
+        if (usable) {
+            const double timeToWindowEnd =
+                static_cast<double>(windowLength - s.periodsInWindow) * config.getControlPeriod();
+            s.rSumAtWindowEnd += r + timeToWindowEnd * v;
+            s.vSum += v;
+            ++s.samplesInWindow;
+        }
 
-        if (s.periodsInWindow >= windowLength) {
+        if (s.periodsInWindow >= windowLength && s.samplesInWindow > 0U) {
             const double n = static_cast<double>(s.samplesInWindow);
             const Eigen::Vector3d rAverage = s.rSumAtWindowEnd / n;
             const Eigen::Vector3d vAverage = s.vSum / n;
-            if (referenceCheckValidity(s, rAverage, vAverage, config)) {
+            if (referenceIsUsableSample(rAverage, vAverage) && referenceCheckValidity(s, rAverage, vAverage, config)) {
                 referenceComputeFlybyParameters(s, rAverage, vAverage);
                 referenceComputeRN(s, rAverage, vAverage);
                 s.periodsSinceLastRead = 0;
             }
+        }
+        if (s.periodsInWindow >= windowLength) {
             s.periodsInWindow = 0;
             s.samplesInWindow = 0;
             s.rSumAtWindowEnd.setZero();
@@ -243,36 +285,41 @@ inline void regressionTestFlybyPoint(const FlybyPointConfig& config,
         const AttGuideOutput out = alg.updateState(r_BN_N, v_BN_N);
         const ReferenceFlybyOutput ref = referenceUpdateState(refState, r_BN_N, v_BN_N, config);
 
-        if (out.validOutput) {
-            // Compare MRPs using nominal and shadow representations
-            Eigen::Vector3d sigma_out = out.sigma_RN.cast<double>();
-            Eigen::Vector3d sigma_ref = ref.sigma_RN;
-            Eigen::Vector3d sigma_ref_shadow = sigma_ref;
+        // The algorithm outputs a zero reference when its float solution is not finite; mirror that here.
+        ReferenceFlybyOutput expected = ref;
+        if (!ref.sigma_RN.cast<float>().allFinite() || !ref.omega_RN_N.cast<float>().allFinite() ||
+            !ref.domega_RN_N.cast<float>().allFinite()) {
+            expected = {Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
+        }
 
-            if (sigma_ref.squaredNorm() > 1e-12) {
-                sigma_ref_shadow = -sigma_ref / sigma_ref.squaredNorm();
-            }
+        // Compare MRPs using nominal and shadow representations
+        Eigen::Vector3d sigma_out = out.sigma_RN.cast<double>();
+        Eigen::Vector3d sigma_ref = expected.sigma_RN;
+        Eigen::Vector3d sigma_ref_shadow = sigma_ref;
 
-            double error_norm = (sigma_out - sigma_ref).norm();
-            double error_shadow = (sigma_out - sigma_ref_shadow).norm();
+        if (sigma_ref.squaredNorm() > 1e-12) {
+            sigma_ref_shadow = -sigma_ref / sigma_ref.squaredNorm();
+        }
 
-            EXPECT_TRUE(error_norm < 1e-6 || error_shadow < 1e-6);
+        double error_norm = (sigma_out - sigma_ref).norm();
+        double error_shadow = (sigma_out - sigma_ref_shadow).norm();
 
-            Eigen::Vector3d sigma_compared = sigma_ref;
-            if (error_shadow < error_norm) {
-                sigma_compared = sigma_ref_shadow;
-            }
+        EXPECT_TRUE(error_norm < 1e-6 || error_shadow < 1e-6);
 
-            for (int i = 0; i < 3; ++i) {
-                const float refOmega = static_cast<float>(ref.omega_RN_N[i]);
-                const float refDomega = static_cast<float>(ref.domega_RN_N[i]);
-                EXPECT_NEAR(sigma_out[i], sigma_compared[i], kSigmaTol);
-                EXPECT_NEAR(out.omega_RN_N[i], refOmega, kRelTol * std::abs(refOmega) + kAbsFloor);
-                EXPECT_NEAR(out.domega_RN_N[i], refDomega, kRelTol * std::abs(refDomega) + kAbsFloor);
-                EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-                EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-                EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
-            }
+        Eigen::Vector3d sigma_compared = sigma_ref;
+        if (error_shadow < error_norm) {
+            sigma_compared = sigma_ref_shadow;
+        }
+
+        for (int i = 0; i < 3; ++i) {
+            const float refOmega = static_cast<float>(expected.omega_RN_N[i]);
+            const float refDomega = static_cast<float>(expected.domega_RN_N[i]);
+            EXPECT_NEAR(sigma_out[i], sigma_compared[i], kSigmaTol);
+            EXPECT_NEAR(out.omega_RN_N[i], refOmega, kRelTol * std::abs(refOmega) + kAbsFloor);
+            EXPECT_NEAR(out.domega_RN_N[i], refDomega, kRelTol * std::abs(refDomega) + kAbsFloor);
+            EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
+            EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
+            EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
         }
     }
 }
@@ -289,6 +336,15 @@ inline ReferenceFlybyOutput expectedExtrapolatedOutput(const double elapsedSecon
     referenceComputeRN(s, seedR, seedV);
     s.dt = elapsedSeconds;
     return referenceGuidanceSolution(s, signOfOrbitNormal);
+}
+
+// A guidance solution is available: every component is finite and the frame rotates (a seeded, non-collinear
+// profile always has a non-zero rate), so the output is not the zero fallback.
+inline void expectFiniteGuidance(const AttGuideOutput& out) {
+    EXPECT_TRUE(out.sigma_RN.allFinite());
+    EXPECT_TRUE(out.omega_RN_N.allFinite());
+    EXPECT_TRUE(out.domega_RN_N.allFinite());
+    EXPECT_GT(out.omega_RN_N.norm(), 0.0F);
 }
 
 inline void expectMatchesExtrapolation(const AttGuideOutput& out, const ReferenceFlybyOutput& ref) {

@@ -18,14 +18,18 @@ void FlybyPointAlgorithm::setConfig(const FlybyPointConfig& config) {
 static constexpr double kRad2Deg = 180.0 / std::numbers::pi;
 static constexpr double kMaxAccelCoeff = 3.0 * std::numbers::sqrt3 / 8.0;
 
-/*! A filter sample is usable if it is finite and neither r nor v is (near) zero, which would leave the flyby frame
- undefined.
+/*! A filter sample is usable if it is finite, neither r nor v is (near) zero, which would leave the flyby frame
+ undefined, and the products formed from it are finite: |r||v| (closest approach) and f0^2 = (|v|/|r|)^2 (frame
+ acceleration).
  @return true if the sample can seed the algorithm or enter the averaging window
  @param r_BN_N The relative position state
  @param v_BN_N The relative velocity state
  */
 static bool isUsableSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
-    return r_BN_N.allFinite() && v_BN_N.allFinite() && r_BN_N.stableNorm() >= 1e-3 && v_BN_N.stableNorm() >= 1e-3;
+    const double rNorm = r_BN_N.stableNorm();
+    const double vNorm = v_BN_N.stableNorm();
+    return r_BN_N.allFinite() && v_BN_N.allFinite() && rNorm >= 1e-3 && vNorm >= 1e-3 &&
+           fsw::is_finite(rNorm * vNorm) && fsw::is_finite((vNorm / rNorm) * (vNorm / rNorm));
 }
 
 /*! This method is used to reset the module.
@@ -43,8 +47,9 @@ void FlybyPointAlgorithm::reset() {
  filter read, and converted to seconds only for the guidance equations. Each usable sample is propagated to the end
  of the current averaging window and accumulated; at the window end the average is the re-read candidate. An unusable
  sample is left out and flagged in the diagnostics; after the first seed the guidance output stays valid, since it
- comes from the last accepted profile and not from the current sample.
- @return AttGuideOutput containing reference attitude (sigma_RN, omega_RN_N, domega_RN_N) and validity flags
+ comes from the last accepted profile and not from the current sample. The reference is zero before the first seed,
+ and zero if the guidance solution is not finite.
+ @return AttGuideOutput containing reference attitude (sigma_RN, omega_RN_N, domega_RN_N) and diagnostic flags
  @param r_BN_N The relative position state
  @param v_BN_N The relative velocity state
  */
@@ -62,9 +67,15 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
     output.inputSampleRejected = !usableSample;
 
     if (this->firstRead) {
-        /*! seed the algorithm with the first usable solution; it is not checked, since the algorithm needs a seed.
-         Until then there is no profile, so an unusable sample gives no valid output */
+        /*! seed the algorithm with the first usable, non-collinear solution; it is not otherwise checked, since the
+         algorithm needs a seed. Until then there is no profile, so the reference stays zero */
         if (!usableSample) {
+            return output;
+        }
+        /*! a collinear seed (collision course) defines no orbit normal, so the flyby frame would be undefined; it is
+         refused like a collinear re-read candidate, and the next non-collinear sample seeds */
+        if (this->isCollinear(r_BN_N, v_BN_N)) {
+            output.collinearityTrigger = true;
             return output;
         }
         this->firstNavPosition = r_BN_N;
@@ -93,10 +104,17 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
     /*! [s] time since the last accepted filter read */
     const double dt = static_cast<double>(this->periodsSinceLastRead) * this->cfg.getControlPeriod();
     auto [sigma_RN, omega_RN_N, omegaDot_RN_N] = this->computeGuidanceSolution(dt);
-    output.sigma_RN = sigma_RN.cast<float>();
-    output.omega_RN_N = omega_RN_N.cast<float>();
-    output.domega_RN_N = omegaDot_RN_N.cast<float>();
-    output.validOutput = output.sigma_RN.allFinite() && output.omega_RN_N.allFinite() && output.domega_RN_N.allFinite();
+
+    /*! a solution that is finite in double can still overflow float (e.g. f0^2 in the acceleration); like the other
+     guidance algorithms, output a zero reference rather than a non-finite one */
+    const Eigen::Vector3f sigma_RN_f = sigma_RN.cast<float>();
+    const Eigen::Vector3f omega_RN_N_f = omega_RN_N.cast<float>();
+    const Eigen::Vector3f domega_RN_N_f = omegaDot_RN_N.cast<float>();
+    if (sigma_RN_f.allFinite() && omega_RN_N_f.allFinite() && domega_RN_N_f.allFinite()) {
+        output.sigma_RN = sigma_RN_f;
+        output.omega_RN_N = omega_RN_N_f;
+        output.domega_RN_N = domega_RN_N_f;
+    }
     return output;
 }
 
@@ -160,15 +178,28 @@ void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, 
     this->gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));
 }
 
+/*! r and v are collinear, parallel or anti-parallel (collision trajectory), if the cosine of their angle is within
+ toleranceForCollinearity of 1, or if |r_hat x v_hat| is below kMinOrbitNormalNorm, below which the
+ orbit-normal direction would be dominated by rounding (only reachable with a toleranceForCollinearity below
+ double resolution).
+ @return true if r and v are collinear
+ @param r_BN_N The relative position state
+ @param v_BN_N The relative velocity state
+ */
+bool FlybyPointAlgorithm::isCollinear(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) const {
+    const Eigen::Vector3d ur_N = r_BN_N.normalized();
+    const Eigen::Vector3d uv_N = v_BN_N.normalized();
+    return 1.0 - fabs(ur_N.dot(uv_N)) < this->cfg.getToleranceForCollinearity() ||
+           ur_N.cross(uv_N).norm() < kMinOrbitNormalNorm;
+}
+
 bool FlybyPointAlgorithm::checkValidity(const Eigen::Vector3d& r_BN_N,
                                         const Eigen::Vector3d& v_BN_N,
                                         AttGuideOutput& output) const {
     bool valid = true;
-    const Eigen::Vector3d ur_N = r_BN_N.normalized();
-    const Eigen::Vector3d uv_N = v_BN_N.normalized();
 
     /*! assert r and v are not collinear, parallel or anti-parallel (collision trajectory) */
-    if (1.0 - fabs(ur_N.dot(uv_N)) < this->cfg.getToleranceForCollinearity()) {
+    if (this->isCollinear(r_BN_N, v_BN_N)) {
         valid = false;
         output.collinearityTrigger = true;
     } else {
@@ -237,24 +268,38 @@ void FlybyPointAlgorithm::computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::
 
 std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> FlybyPointAlgorithm::computeGuidanceSolution(
     const double dt) const {
-    /*! compute DCM (RtR0) of reference frame from last read time */
+    const std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> zeroSolution{
+        Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
+
+    /*! compute the rotation angle of the reference frame from the last read time, and its scalar angular rate and
+     acceleration in R-frame coordinates */
     const double theta = safeAtan(safeTan(this->gamma0) + (this->f0 / safeCos(this->gamma0) * dt)) - this->gamma0;
+    const double den = ((this->f0 * this->f0 * dt * dt) + (2 * this->f0 * safeSin(this->gamma0) * dt) + 1);
+    const double thetaDot = this->f0 * safeCos(this->gamma0) / den;
+    const double thetaDDot =
+        -2 * this->f0 * this->f0 * safeCos(this->gamma0) * (this->f0 * dt + safeSin(this->gamma0)) / (den * den);
+
+    /*! a profile that overflows (e.g. an f0 = |v| / |r| too large for double) has no finite solution; return the zero
+     reference before any attitude conversion, which must not be given non-finite values */
+    if (!fsw::is_finite(this->f0) || !fsw::is_finite(this->gamma0) || !fsw::is_finite(theta) ||
+        !fsw::is_finite(thetaDot) || !fsw::is_finite(thetaDDot)) {
+        return zeroSolution;
+    }
+
+    /*! compute DCM (RtR0) of reference frame from last read time */
     const Eigen::Vector3d PRV_theta{0, 0, theta};
     const Eigen::Matrix3d RtR0 = prvToDcm(PRV_theta);
 
     /*! compute DCM of reference frame at time t_0 + dt with respect to inertial frame */
     const Eigen::Matrix3d RtN = RtR0 * this->R0N.cast<double>();
-
-    /*! compute scalar angular rate and acceleration of the reference frame in R-frame coordinates */
-    const double den = ((this->f0 * this->f0 * dt * dt) + (2 * this->f0 * safeSin(this->gamma0) * dt) + 1);
-    const double thetaDot = this->f0 * safeCos(this->gamma0) / den;
-    const double thetaDDot =
-        -2 * this->f0 * this->f0 * safeCos(this->gamma0) * (this->f0 * dt + safeSin(this->gamma0)) / (den * den);
     const Eigen::Vector3d omega_RN_R{0, 0, thetaDot};
     const Eigen::Vector3d omegaDot_RN_R{0, 0, thetaDDot};
 
     /*! populate attRefOut with reference frame information */
     Eigen::Vector3d sigma_RN = dcmToMrp(RtN);
+    if (!sigma_RN.allFinite()) {
+        return zeroSolution;
+    }
 
     if (this->cfg.getSignOfOrbitNormalFrameVector() == -1) {
         Eigen::Vector3d const halfRotationX{1, 0, 0};
