@@ -22,7 +22,7 @@ TEST(DvManeuverTest, RegressionNominalBurn) {
     // never triggers.
     regressionTestDvManeuver(/* minTime = */ 0U,
                              /* maxTime = */ 3000000000U,
-                             /* controlPeriod = */ 0.5F,
+                             /* stepNs = */ 500000000U,
                              /* cmdForce_B = */ kCmdForce_B,
                              /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 5.0F},
                              /* acceleration = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
@@ -35,7 +35,7 @@ TEST(DvManeuverTest, RegressionMinTimeGate) {
     // time exceeds the minimum.
     regressionTestDvManeuver(/* minTime = */ 4000000000U,
                              /* maxTime = */ 100000000000U,
-                             /* controlPeriod = */ 0.5F,
+                             /* stepNs = */ 500000000U,
                              /* cmdForce_B = */ kCmdForce_B,
                              /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 4.3F},
                              /* acceleration = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
@@ -47,7 +47,7 @@ TEST(DvManeuverTest, RegressionMaxTimeCutoff) {
     // The delta-V target is never reached, so the maxTime = 3 s cutoff forces completion.
     regressionTestDvManeuver(/* minTime = */ 0U,
                              /* maxTime = */ 3000000000U,
-                             /* controlPeriod = */ 0.5F,
+                             /* stepNs = */ 500000000U,
                              /* cmdForce_B = */ kCmdForce_B,
                              /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 100.0F},
                              /* acceleration = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
@@ -59,7 +59,7 @@ TEST(DvManeuverTest, RegressionDelayedStart) {
     // Burn commanded to start at t = 1 s; the force command stays zero until then.
     regressionTestDvManeuver(/* minTime = */ 0U,
                              /* maxTime = */ 100000000000U,
-                             /* controlPeriod = */ 0.5F,
+                             /* stepNs = */ 500000000U,
                              /* cmdForce_B = */ kCmdForce_B,
                              /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 10.0F},
                              /* acceleration = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
