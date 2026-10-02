@@ -45,10 +45,11 @@ bool isCollinear(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N, c
  read
  @param cfg validated configuration (collinearity tolerance and the rate, acceleration and position thresholds)
  */
-std::optional<FlybyValidityTriggers> checkValidity(const Eigen::Vector3d& r_BN_N,
-                                                   const Eigen::Vector3d& v_BN_N,
-                                                   const Eigen::Vector3d& rPredicted_BN_N,
-                                                   const FlybyPointConfig& cfg) {
+std::optional<FlybyValidityTriggers> checkValidity(
+    const Eigen::Vector3d& r_BN_N,
+    const Eigen::Vector3d& v_BN_N,  // NOLINT(bugprone-easily-swappable-parameters)
+    const Eigen::Vector3d& rPredicted_BN_N,
+    const FlybyPointConfig& cfg) {
     FlybyValidityTriggers triggers{};
     triggers.collinearityTrigger = isCollinear(r_BN_N, v_BN_N, cfg.getToleranceForCollinearity());
 
@@ -146,7 +147,7 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
          was accepted or no re-read was attempted), then start a new window */
         if (this->window.periods >= this->cfg.getFilterReadPeriods()) {
             output.rejectedSamplesInWindow = this->window.periods - this->window.samples;
-            const FlybyValidityTriggers triggers = this->reReadFromWindow();
+            const FlybyValidityTriggers triggers = this->reReadFromWindow(*this->profile);
             output.collinearityTrigger = triggers.collinearityTrigger;
             output.maxRateTrigger = triggers.maxRateTrigger;
             output.maxAccelerationTrigger = triggers.maxAccelerationTrigger;
@@ -156,10 +157,12 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
     }
 
     /*! 5. Output the reference propagated from the last accepted read */
-    const GuidanceReference reference = this->computeGuidanceReference();
-    output.sigma_RN = reference.sigma_RN;
-    output.omega_RN_N = reference.omega_RN_N;
-    output.domega_RN_N = reference.domega_RN_N;
+    if (this->profile) {
+        const GuidanceReference reference = this->computeGuidanceReference(*this->profile);
+        output.sigma_RN = reference.sigma_RN;
+        output.omega_RN_N = reference.omega_RN_N;
+        output.domega_RN_N = reference.domega_RN_N;
+    }
     return output;
 }
 
@@ -189,10 +192,11 @@ void FlybyPointAlgorithm::seedProfile(const Eigen::Vector3d& r_BN_N, const Eigen
 /*! Re-read from the average of the window that just ended: re-seed the profile if the average passes the validity
  checks, otherwise keep extrapolating the last accepted profile.
  @return the checks that rejected the average; all false if it was accepted, or if no re-read was attempted (no
- profile yet, no usable sample in the window, or an unusable average such as cancelling velocities)
+ usable sample in the window, or an unusable average such as cancelling velocities)
+ @param p the profile of the last accepted read
  */
-FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow() {
-    if (!this->profile || this->window.samples == 0U) {
+FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow(const Profile& p) {
+    if (this->window.samples == 0U) {
         return {};
     }
     const auto sampleCount = static_cast<double>(this->window.samples);
@@ -201,8 +205,9 @@ FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow() {
     if (!isUsableSample(rAverage_N, vAverage_N)) {
         return {};
     }
-    const double deltaT = static_cast<double>(this->profile->periodsSinceRead) * this->cfg.getControlPeriod();
-    const Eigen::Vector3d rPredicted_N = this->profile->r_N + deltaT * this->profile->v_N;
+    /*! p is read here, before seedProfile() replaces the profile, and not used afterwards */
+    const double deltaT = static_cast<double>(p.periodsSinceRead) * this->cfg.getControlPeriod();
+    const Eigen::Vector3d rPredicted_N = p.r_N + deltaT * p.v_N;
     if (const std::optional<FlybyValidityTriggers> rejection =
             checkValidity(rAverage_N, vAverage_N, rPredicted_N, this->cfg)) {
         return *rejection;
@@ -212,18 +217,12 @@ FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow() {
 }
 
 /*! Compute the reference attitude, rate and acceleration of the profile propagated to the current control period.
- @return the reference; all zero before the first seed, or if the solution is not finite, in double or after the cast
- to float
+ @return the reference; all zero if the solution is not finite, in double or after the cast to float
+ @param p the profile of the last accepted read
  */
-FlybyPointAlgorithm::GuidanceReference FlybyPointAlgorithm::computeGuidanceReference() const {
-    /*! no profile before the first seed: zero reference */
-    if (!this->profile) {
-        return {};
-    }
-
+FlybyPointAlgorithm::GuidanceReference FlybyPointAlgorithm::computeGuidanceReference(const Profile& p) const {
     /*! rotation angle of the reference frame since the last read, and its scalar rate and acceleration in R-frame
      coordinates, dt [s] after that read */
-    const Profile& p = *this->profile;
     const double f0 = p.f0;
     const double gamma0 = p.gamma0;
     const double dt = static_cast<double>(p.periodsSinceRead) * this->cfg.getControlPeriod();
@@ -242,9 +241,6 @@ FlybyPointAlgorithm::GuidanceReference FlybyPointAlgorithm::computeGuidanceRefer
     /*! DCM of the reference frame at the last read time + dt with respect to the inertial frame */
     const Eigen::Matrix3d RtN = prvToDcm(Eigen::Vector3d{0, 0, theta}) * p.R0N.cast<double>();
     Eigen::Vector3d sigma_RN = dcmToMrp(RtN);
-    if (!sigma_RN.allFinite()) {
-        return {};
-    }
     if (this->cfg.getSignOfOrbitNormalFrameVector() == -1) {
         sigma_RN = addMrp(sigma_RN, Eigen::Vector3d{1, 0, 0});
     }
