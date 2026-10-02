@@ -145,6 +145,42 @@ TEST(DvExecuteGuidanceTest, EdgeZeroCommandedDvCompletesImmediately) {
     EXPECT_TRUE(out.commandThrustersOff);
 }
 
+TEST(DvExecuteGuidanceTest, EdgeCountsOnlyDeltaVFromThisBurn) {
+    // The spacecraft already carries 5 m/s of delta-V accumulated before this burn even starts.
+    // dvInit must latch onto that value at burn start, so only the delta-V accumulated during THIS
+    // burn counts toward completion -- not the pre-existing total.
+    DvExecuteGuidanceAlgorithm alg{DvExecuteGuidanceConfig::create(0.0F, 10.0F, 0.5F)};
+    const Eigen::Vector3f priorAccumDV{0.0F, 0.0F, 5.0F};
+    const Eigen::Vector3f dvCmd{0.0F, 0.0F, 1.0F};
+
+    // Burn starts immediately; vehAccumDV already carries the prior 5 m/s offset.
+    DvExecuteGuidanceOutput out = alg.update(/* callTime = */ 0U,
+                                             priorAccumDV,
+                                             dvCmd,
+                                             /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnExecuting, 1U);
+    EXPECT_EQ(out.burnComplete, 0U);
+
+    // Halfway through this burn's own delta-V: 5.5 - 5.0 = 0.5 m/s.
+    out = alg.update(/* callTime = */ 500000000U,
+                     priorAccumDV + Eigen::Vector3f{0.0F, 0.0F, 0.5F},
+                     dvCmd,
+                     /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnExecuting, 1U);
+    EXPECT_EQ(out.burnComplete, 0U);
+
+    // This burn's own delta-V reaches the commanded 1.0 m/s: 6.0 - 5.0 = 1.0 m/s.
+    out = alg.update(/* callTime = */ 1000000000U,
+                     priorAccumDV + Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                     dvCmd,
+                     /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnExecuting, 0U);
+    EXPECT_EQ(out.burnComplete, 1U);
+}
+
 // ---------------------------------------------------------------------------
 // Config validation tests.
 // ---------------------------------------------------------------------------
