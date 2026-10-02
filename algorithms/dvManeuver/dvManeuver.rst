@@ -1,16 +1,15 @@
 Executive Summary
 -----------------
 
-The ``dvManeuver`` module executes a Delta-V maneuver by monitoring the Delta-V accumulated during the
-current burn and controlling the thruster on-time command. At burn start, the module latches the accumulated
-Delta-V provided by the :ref:`NavTransMsgF32Payload` message. It then compares the magnitude of the Delta-V
-accumulated since that point against the desired Delta-V magnitude from the :ref:`DvBurnCmdMsgF32Payload` message.
-Before the commanded burn start time is reached the module holds the thrusters off; once the desired Delta-V has
-been accumulated, subject to the minimum and maximum burn-time gates, the module commands the thrusters off again.
+The ``dvManeuver`` module controls a Delta-V maneuver. It monitors the Delta-V that the spacecraft accumulates
+during the current burn, and it writes a body force command. At burn start, the module latches the accumulated
+Delta-V from the :ref:`NavTransMsgF32Payload` message. It then compares the magnitude of the Delta-V that accumulates
+after that point with the desired Delta-V magnitude from the :ref:`DvBurnCmdMsgF32Payload` message. The minimum and
+maximum burn-time gates also control when the burn completes.
 
-The module writes the thruster on-time command every update. While the burn is executing, it commands an on-time of
-``1.1 * controlPeriod`` for each thruster entry. Before the burn starts and after the burn completes, it commands
-zero on-time.
+The module writes the body force command at each update. While the burn executes, the command is equal to the
+configured ``cmdForce_B``. Before the burn starts and after the burn completes, the command is zero. A downstream
+module, for example :ref:`forceTorqueThrForceMapping`, converts the force command into thruster commands.
 
 This is the FP32 port of the Xmera ``dvExecuteGuidance`` module. Inputs and outputs are single-precision (FP32); the
 algorithm is single-precision throughout.
@@ -26,9 +25,8 @@ Adapter Layer
 
 The adapter inherits from ``SysModel``. It owns the input / output message hooks, validates that the required inputs
 are connected at ``reset()`` time, constructs the algorithm via the two-phase init pattern, converts the message
-payloads to and from the algorithm's Eigen types, and converts the algorithm's thruster command state into a
-:ref:`THRArrayOnTimeCmdMsgF32Payload` written every update. The adapter writes ``1.1 * controlPeriod`` while the burn is
-executing and zero otherwise.
+payloads to and from the algorithm's Eigen types, and writes the algorithm's force command to a
+:ref:`CmdForceBodyMsgF32Payload` at each update.
 
 .. list-table:: Module I/O Messages
     :widths: 25 30 45
@@ -43,10 +41,10 @@ executing and zero otherwise.
     * - ``burnDataInMsg``
       - :ref:`DvBurnCmdMsgF32Payload`
       - Commanded burn: the inertial Delta-V vector and the burn start time.
-    * - ``thrCmdOutMsg``
-      - :ref:`THRArrayOnTimeCmdMsgF32Payload`
-      - Thruster on-time command. Each entry is set to 1.1 * controlPeriod while the burn is
-        executing and to zero when the burn is not executing or is complete.
+    * - ``cmdForceOutMsg``
+      - :ref:`CmdForceBodyMsgF32Payload`
+      - Body force command. It is equal to ``cmdForce_B`` while the burn executes. It is zero before the burn
+        starts and after the burn completes.
     * - ``burnExecOutMsg``
       - :ref:`DvExecutionDataMsgF32Payload`
       - Burn execution status: whether the burn is executing and whether it has completed.
@@ -74,6 +72,9 @@ The configuration is set through public properties on the adapter before ``reset
       - :math:`> 0`, finite
       - [s] Flight-software control period, used as the fixed time step for accumulating the burn time. Must be set
         to a positive value before ``reset()``.
+    * - ``cmdForce_B``
+      - finite
+      - [N] Body force that the module commands while the burn executes. A zero force is permitted.
 
 Two-Phase Initialization
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -85,6 +86,7 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
     module.controlPeriod = 0.5
     module.minTime = 2.0
     module.maxTime = 10.0
+    module.cmdForce_B = [0.0, 0.0, 10.0]
 
     module.navDataInMsg.subscribeTo(nav_trans_msg)
     module.burnDataInMsg.subscribeTo(dv_burn_cmd_msg)
@@ -95,8 +97,9 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
 
 If an input message has not been connected when ``reset()`` runs, an ``std::invalid_argument`` is thrown.
 Invalid configuration values cause the configuration validator to throw fsw::invalid_argument. minTime
-must be non-negative and finite, maxTime must be positive, finite, and greater than minTime, and controlPeriod
-must be positive and finite. If ``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
+must be non-negative and finite, maxTime must be positive, finite, and greater than minTime, controlPeriod
+must be positive and finite, and cmdForce_B must be finite. If ``updateState()`` is called before ``reset()``, an
+``XmeraLifecycleException`` is thrown.
 
 Mathematical Formulation
 ------------------------
@@ -136,9 +139,16 @@ is exceeded:
    \;\vee\;
    \big( t_{\text{burn}} > t_{\max} \big).
 
-**Thruster command.** The adapter writes a thruster on-time command every update. While the burn is executing,
-every onTimeRequest entry is set to 1.1 * controlPeriod. When the burn is not executing or has completed,
-every entry is set to zero.
+**Force command.** The algorithm returns the body force command :math:`\boldsymbol{F}_{\text{cmd}}` at each update.
+Let :math:`\boldsymbol{F}_{\text{cfg}}` be the configured ``cmdForce_B``:
+
+.. math::
+
+   \boldsymbol{F}_{\text{cmd}} =
+   \begin{cases}
+   \boldsymbol{F}_{\text{cfg}} & \text{if the burn executes,} \\
+   \boldsymbol{0} & \text{before the burn starts and after the burn completes.}
+   \end{cases}
 
 Assumptions and Limitations
 ---------------------------
@@ -151,3 +161,6 @@ when the burn state is reinitialized.
 
 - The accumulated Delta-V provided by ``navDataInMsg`` is assumed to remain continuous and consistently
 referenced throughout the burn.
+
+- The attitude guidance is assumed to align ``cmdForce_B`` with the commanded Delta-V direction during the burn.
+The module does not compare the two directions.
