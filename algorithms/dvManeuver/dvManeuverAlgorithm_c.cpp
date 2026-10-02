@@ -6,11 +6,17 @@
 
 #include <Eigen/Core>
 
+static_assert(DV_MANEUVER_BURN_STATE_PENDING_C == static_cast<int>(DvManeuverBurnState::Pending),
+              "DvManeuverBurnState_c must match DvManeuverBurnState");
+static_assert(DV_MANEUVER_BURN_STATE_EXECUTING_C == static_cast<int>(DvManeuverBurnState::Executing),
+              "DvManeuverBurnState_c must match DvManeuverBurnState");
+static_assert(DV_MANEUVER_BURN_STATE_COMPLETE_C == static_cast<int>(DvManeuverBurnState::Complete),
+              "DvManeuverBurnState_c must match DvManeuverBurnState");
+
 namespace {
 DvManeuverOutput_c outputToC(const DvManeuverOutput& out) {
     DvManeuverOutput_c result{};
-    result.burnExecuting = out.burnExecuting;
-    result.burnComplete = out.burnComplete;
+    result.state = static_cast<DvManeuverBurnState_c>(out.state);
     eigenVectorToCArray(out.cmdForce_B, result.cmdForce_B.data);
     return result;
 }

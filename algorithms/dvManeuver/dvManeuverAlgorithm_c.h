@@ -88,7 +88,7 @@ void DvManeuverAlgorithm_reInitialize(DvManeuverAlgorithmHandle* self);
  * @param self          Pointer to the instance.
  * @param callTime      Evaluation time [ns].
  * @param vehAccumDV    Total accumulated delta-V from navigation [m/s].
- * @return DvManeuverOutput_c  Burn execution status and body force command.
+ * @return DvManeuverOutput_c  Burn state and body force command.
  */
 DvManeuverOutput_c DvManeuverAlgorithm_update(DvManeuverAlgorithmHandle* self,
                                               uint64_t callTime,

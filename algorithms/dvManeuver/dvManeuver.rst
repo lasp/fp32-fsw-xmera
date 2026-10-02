@@ -26,7 +26,8 @@ Adapter Layer
 The adapter inherits from ``SysModel``. It owns the input / output message hooks, validates that the required input
 is connected at ``reset()`` time, constructs the algorithm via the two-phase init pattern, converts the message
 payloads to and from the algorithm's Eigen types, and writes the algorithm's force command to a
-:ref:`CmdForceBodyMsgF32Payload` at each update.
+:ref:`CmdForceBodyMsgF32Payload` at each update. The adapter also sets the ``burnExecuting`` and ``burnComplete`` flags
+of the :ref:`DvExecutionDataMsgF32Payload` from the burn state.
 
 .. list-table:: Module I/O Messages
     :widths: 25 30 45
@@ -117,8 +118,11 @@ time, :math:`t_{\text{start}}` the configured burn start time, :math:`\Delta t` 
 :math:`\boldsymbol{v}_{\text{accum}}` the accumulated Delta-V from navigation, and
 :math:`\Delta\boldsymbol{v}_{\text{cmd}}` the configured ``cmdDv_N``.
 
-**Burn start.** The burn begins on the first call at or after the start time, provided it is not already executing and
-has not completed. At that instant the accumulated Delta-V is latched as the burn's initial value
+The state machine has three states: pending, executing, and complete. The burn starts in the pending state. Only
+``reInitialize()`` moves the burn out of the complete state.
+
+**Burn start.** The burn moves from pending to executing on the first call at or after the start time. At that
+instant the accumulated Delta-V is latched as the burn's initial value
 :math:`\boldsymbol{v}_{\text{init}}`:
 
 .. math::
@@ -131,7 +135,7 @@ has not completed. At that instant the accumulated Delta-V is latched as the bur
 
    t_{\text{burn}} \leftarrow t_{\text{burn}} + \Delta t.
 
-**Completion.** The Delta-V accumulated since burn start is
+**Completion.** While the burn is executing, the Delta-V accumulated since burn start is
 :math:`\Delta\boldsymbol{v}_{\text{burn}} = \boldsymbol{v}_{\text{accum}} - \boldsymbol{v}_{\text{init}}`. The burn is
 complete when the accumulated magnitude reaches the command and the minimum time has elapsed, or when the maximum time
 is exceeded:

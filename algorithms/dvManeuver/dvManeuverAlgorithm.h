@@ -6,11 +6,13 @@
 #include <stdint.h>
 #include <Eigen/Core>
 
-/// Burn execution status and the body force command produced each update.
+/// Burn state machine state. Complete is terminal until reInitialize().
+enum class DvManeuverBurnState : uint8_t { Pending = 0, Executing = 1, Complete = 2 };
+
+/// Burn state and the body force command produced each update.
 struct DvManeuverOutput {
-    uint32_t burnExecuting{};                              ///< [-] flag indicating whether the burn is in progress
-    uint32_t burnComplete{};                               ///< [-] flag indicating whether the burn has completed
-    Eigen::Vector3f cmdForce_B = Eigen::Vector3f::Zero();  ///< [N] configured force while executing, else zero
+    DvManeuverBurnState state = DvManeuverBurnState::Pending;  ///< [-] burn state after this update
+    Eigen::Vector3f cmdForce_B = Eigen::Vector3f::Zero();      ///< [N] configured force while executing, else zero
 };
 
 /// Validated, immutable configuration for the delta-V burn executor. Construct via create(), which
@@ -104,15 +106,14 @@ class DvManeuverAlgorithm final {
     /// Advances the burn state machine one step.
     /// @param callTime      Evaluation time [ns].
     /// @param vehAccumDV    Total accumulated delta-V from navigation [m/s].
-    /// @return Burn execution status and body force command for this step.
+    /// @return Burn state and body force command for this step.
     DvManeuverOutput update(uint64_t callTime, const Eigen::Vector3f& vehAccumDV);
 
    private:
     DvManeuverConfig cfg;
-    Eigen::Vector3f dvInit = Eigen::Vector3f::Zero();  ///< [m/s] accumulated delta-V latched at burn start
-    uint32_t burnExecuting{};                          ///< [-] burn currently in progress
-    uint32_t burnComplete{};                           ///< [-] burn has completed
-    float burnTime{};                                  ///< [s] elapsed burn time
+    Eigen::Vector3f dvInit = Eigen::Vector3f::Zero();          ///< [m/s] accumulated delta-V latched at burn start
+    DvManeuverBurnState state = DvManeuverBurnState::Pending;  ///< [-] burn state machine state
+    float burnTime{};                                          ///< [s] elapsed burn time
 };
 
 #endif
