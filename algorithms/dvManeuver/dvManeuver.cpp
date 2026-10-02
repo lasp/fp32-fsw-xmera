@@ -17,7 +17,7 @@ void DvManeuver::reset(const uint64_t callTime) {
 }
 
 DvManeuverConfig DvManeuver::toConfig() const {
-    return DvManeuverConfig::create(this->minTime, this->maxTime, this->controlPeriod);
+    return DvManeuverConfig::create(this->minTime, this->maxTime, this->controlPeriod, this->cmdForce_B);
 }
 
 void DvManeuver::reconfigure() {
@@ -34,8 +34,8 @@ void DvManeuver::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! Compares the accumulated Delta-V against the commanded Delta-V and writes the commanded thruster on-time
-    every update — nonzero while the burn executes, zero once it completes. Also flags whether the burn is
+/*! Compares the accumulated Delta-V against the commanded Delta-V and writes the body force command every
+    update: the configured force while the burn executes, zero otherwise. Also flags whether the burn is
     executing and whether it has completed. */
 void DvManeuver::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
@@ -50,16 +50,9 @@ void DvManeuver::updateState(const uint64_t callTime) {
 
     const DvManeuverOutput out = this->algorithm->update(callTime, vehAccumDV, dvInrtlCmd, localBurnData.burnStartTime);
 
-    float onTime = 1.1F * this->controlPeriod;
-    if (out.commandThrustersOff) {
-        onTime = 0.0F;
-    }
-
-    THRArrayOnTimeCmdMsgF32Payload onTimeMsgOut{};
-    for (uint32_t i = 0U; i < kMaxThrusterCount; ++i) {
-        onTimeMsgOut.onTimeRequest[i] = onTime;
-    }
-    this->thrCmdOutMsg.write(onTimeMsgOut, this->moduleID, callTime);
+    CmdForceBodyMsgF32Payload forceMsgOut{};
+    eigenVectorToCArray(out.cmdForce_B, forceMsgOut.forceRequestBody);
+    this->cmdForceOutMsg.write(forceMsgOut, this->moduleID, callTime);
 
     DvExecutionDataMsgF32Payload localExeData = {};
     localExeData.burnComplete = out.burnComplete;

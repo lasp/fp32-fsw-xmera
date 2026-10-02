@@ -6,12 +6,11 @@
 #include <stdint.h>
 #include <Eigen/Core>
 
-/// Burn execution status produced each update. @c commandThrustersOff tells the adapter whether to
-/// command thrusters off (zero on-time) or on (nonzero on-time) for this step.
+/// Burn execution status and the body force command produced each update.
 struct DvManeuverOutput {
-    uint32_t burnExecuting{};    ///< [-] flag indicating whether the burn is in progress
-    uint32_t burnComplete{};     ///< [-] flag indicating whether the burn has completed
-    bool commandThrustersOff{};  ///< [-] true: adapter commands thrusters off; false: adapter commands thrusters on
+    uint32_t burnExecuting{};                              ///< [-] flag indicating whether the burn is in progress
+    uint32_t burnComplete{};                               ///< [-] flag indicating whether the burn has completed
+    Eigen::Vector3f cmdForce_B = Eigen::Vector3f::Zero();  ///< [N] configured force while executing, else zero
 };
 
 /// Validated, immutable configuration for the delta-V burn executor. Construct via create(), which
@@ -21,7 +20,10 @@ class DvManeuverConfig final {
     // minTime, maxTime, and controlPeriod share the float type but have distinct roles; construction is funneled
     // through the named create() factory, which makes the argument roles explicit at every call site.
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-    static DvManeuverConfig create(float minTime, float maxTime, float controlPeriod) {
+    static DvManeuverConfig create(float minTime,
+                                   float maxTime,
+                                   float controlPeriod,
+                                   const Eigen::Vector3f& cmdForce_B) {
         if (!isValidMinTime(minTime)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: minTime must be non-negative and finite.");
         }
@@ -34,7 +36,10 @@ class DvManeuverConfig final {
         if (!isValidMaxTimeRelativeToMinTime(minTime, maxTime)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime must be greater than minTime.");
         }
-        return {minTime, maxTime, controlPeriod};
+        if (!isValidCmdForce(cmdForce_B)) {
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: cmdForce_B must be finite.");
+        }
+        return {minTime, maxTime, controlPeriod, cmdForce_B};
     }
 
     static bool isValidMinTime(float minTime) { return minTime >= 0.0F && fsw::is_finite(minTime); }
@@ -43,24 +48,28 @@ class DvManeuverConfig final {
     static bool isValidControlPeriod(float controlPeriod) {
         return controlPeriod > 0.0F && fsw::is_finite(controlPeriod);
     }
+    static bool isValidCmdForce(const Eigen::Vector3f& cmdForce_B) { return cmdForce_B.allFinite(); }
 
     float getMinTime() const { return minTime; }
     float getMaxTime() const { return maxTime; }
     float getControlPeriod() const { return controlPeriod; }
+    const Eigen::Vector3f& getCmdForce() const { return cmdForce_B; }
 
    private:
-    DvManeuverConfig(float minTime, float maxTime, float controlPeriod)
-        : minTime(minTime), maxTime(maxTime), controlPeriod(controlPeriod) {}
+    DvManeuverConfig(float minTime, float maxTime, float controlPeriod, const Eigen::Vector3f& cmdForce_B)
+        : minTime(minTime), maxTime(maxTime), controlPeriod(controlPeriod), cmdForce_B(cmdForce_B) {}
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
     float minTime;
     float maxTime;
     float controlPeriod;
+    Eigen::Vector3f cmdForce_B;
 };
 
 /// Executes a delta-V burn: compares the accumulated delta-V against the commanded delta-V and,
-/// subject to minimum/maximum burn-time gates, decides when the burn is complete and the thrusters
-/// must be turned off. The module holds its own burn state machine across updates.
+/// subject to minimum/maximum burn-time gates, decides when the burn is complete. While the burn
+/// executes it commands the configured body force, otherwise a zero force. The module holds its own
+/// burn state machine across updates.
 class DvManeuverAlgorithm final {
    public:
     explicit DvManeuverAlgorithm(const DvManeuverConfig& config);
@@ -76,7 +85,7 @@ class DvManeuverAlgorithm final {
     /// @param vehAccumDV     Total accumulated delta-V from navigation [m/s].
     /// @param dvInrtlCmd     Commanded delta-V in inertial coordinates [m/s].
     /// @param burnStartTime  Commanded burn start time [ns].
-    /// @return Burn execution status and thruster command-state flag for this step.
+    /// @return Burn execution status and body force command for this step.
     DvManeuverOutput update(uint64_t callTime,
                             const Eigen::Vector3f& vehAccumDV,
                             const Eigen::Vector3f& dvInrtlCmd,
