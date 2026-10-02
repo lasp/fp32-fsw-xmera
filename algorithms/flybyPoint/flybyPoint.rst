@@ -7,7 +7,7 @@ a solution.
 At a settable cadence, the module will update the pointing profile with the help of a new filter solution. That
 solution is the average of all the filter states received since the previous update, each propagated to the update
 time, which low-pass filters the noisy filter output. Before using it, the module checks the validity of the solution: 1. It does not predict a collision trajectory 2. It does not predict
-excessive rates and accelerations 3. Its position agrees with the rectilinear prediction made from the first read. If
+excessive rates and accelerations 3. Its position agrees with the rectilinear prediction made from the last accepted read. If
 the solution is valid a new pointing profile is constructed.
 
 Message Connection Descriptions
@@ -129,7 +129,9 @@ keeps being propagated from the last accepted read.
    the spacecraft is approaching or receding. Past closest approach, these values are upper bounds on the remaining
    profile.
 3. **Position knowledge.** The position must lie within ``positionKnowledgeSigma`` of the rectilinear prediction
-   :math:`\boldsymbol{r}_{first} + \Delta t \, \boldsymbol{v}_{first}` made from the first read.
+   :math:`\boldsymbol{r}_{read} + \Delta t \, \boldsymbol{v}_{read}` made from the last accepted read, where
+   :math:`\Delta t` is the time since that read. The bound therefore limits the error accumulated since the latest
+   trusted fix, for example from the small body's gravity or a maneuver, rather than over the whole flyby.
 
 
 Zero Reference Fallback
@@ -207,7 +209,7 @@ The module is configurable with the following parameters:
      - [deg/s^2] maximum allowable predicted acceleration at closest approach. If greater, the filter solution is discarded. Must be greater than zero
    * - ``positionKnowledgeSigma``
      - 0
-     - [m] maximum allowable deviation of the filter position from the rectilinear prediction made from the first read. If greater, the filter solution is discarded. Must be greater than zero
+     - [m] maximum allowable deviation of the filter position from the rectilinear prediction made from the last accepted read. If greater, the filter solution is discarded. Must be greater than zero
 
 Unit Test
 ---------

@@ -37,11 +37,12 @@ bool isCollinear(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N, c
 }
 
 /*! Check a re-read candidate (r, v) against the configured thresholds and against the rectilinear prediction from the
- first read.
+ last accepted read.
  @return std::nullopt if the candidate passes every check, otherwise the checks that rejected it
  @param r_BN_N [m] candidate relative position
  @param v_BN_N [m/s] candidate relative velocity
- @param rPredicted_BN_N [m] rectilinear prediction of the position at the candidate's time, made from the first read
+ @param rPredicted_BN_N [m] rectilinear prediction of the position at the candidate's time, made from the last accepted
+ read
  @param cfg validated configuration (collinearity tolerance and the rate, acceleration and position thresholds)
  */
 std::optional<FlybyValidityTriggers> checkValidity(const Eigen::Vector3d& r_BN_N,
@@ -66,7 +67,7 @@ std::optional<FlybyValidityTriggers> checkValidity(const Eigen::Vector3d& r_BN_N
         triggers.maxAccelerationTrigger = true;
     }
 
-    /*! position error with respect to the prediction from the first read against the a-priori sigma bound */
+    /*! position error with respect to the prediction from the last accepted read against the a-priori sigma bound */
     const double deltaPositionNorm = (r_BN_N - rPredicted_BN_N).stableNorm();
     triggers.positionKnowledgeExceedTrigger = deltaPositionNorm > cfg.getPositionKnowledgeSigma();
 
@@ -114,8 +115,8 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
 
     if (!this->profile) {
         /*! 1. Seed: no profile (zero reference) until the first usable, non-collinear sample, which is not otherwise
-         checked since the algorithm needs a seed. It is also the first read; the window is still at its reset value,
-         since nothing accumulates before the seed */
+         checked since the algorithm needs a seed. The window is still at its reset value, since nothing accumulates
+         before the seed */
         if (!usableSample) {
             return output;
         }
@@ -123,12 +124,10 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
             output.collinearityTrigger = true;
             return output;
         }
-        this->firstRead = {.r_N = r_BN_N, .v_N = v_BN_N, .periodsSince = 0};
         this->seedProfile(r_BN_N, v_BN_N);
     } else {
         /*! 2. Advance time, whether or not the sample is usable */
         ++this->profile->periodsSinceRead;
-        ++this->firstRead.periodsSince;
         ++this->window.periods;
 
         /*! 3. Low-pass filter: propagate a usable sample to the window end with the rectilinear model (constant
@@ -183,16 +182,17 @@ void FlybyPointAlgorithm::seedProfile(const Eigen::Vector3d& r_BN_N, const Eigen
     R0N.row(2) = uh_N.cast<float>();
     const double f0 = v_BN_N.stableNorm() / r_BN_N.stableNorm();
     const double gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));  // flight path angle
-    this->profile = Profile{.f0 = f0, .gamma0 = gamma0, .R0N = R0N, .periodsSinceRead = 0};
+    this->profile =
+        Profile{.r_N = r_BN_N, .v_N = v_BN_N, .f0 = f0, .gamma0 = gamma0, .R0N = R0N, .periodsSinceRead = 0};
 }
 
 /*! Re-read from the average of the window that just ended: re-seed the profile if the average passes the validity
  checks, otherwise keep extrapolating the last accepted profile.
- @return the checks that rejected the average; all false if it was accepted, or if no re-read was attempted (no usable
- sample in the window, or an unusable average such as cancelling velocities)
+ @return the checks that rejected the average; all false if it was accepted, or if no re-read was attempted (no
+ profile yet, no usable sample in the window, or an unusable average such as cancelling velocities)
  */
 FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow() {
-    if (this->window.samples == 0U) {
+    if (!this->profile || this->window.samples == 0U) {
         return {};
     }
     const auto sampleCount = static_cast<double>(this->window.samples);
@@ -201,8 +201,8 @@ FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow() {
     if (!isUsableSample(rAverage_N, vAverage_N)) {
         return {};
     }
-    const double deltaT = static_cast<double>(this->firstRead.periodsSince) * this->cfg.getControlPeriod();
-    const Eigen::Vector3d rPredicted_N = this->firstRead.r_N + deltaT * this->firstRead.v_N;
+    const double deltaT = static_cast<double>(this->profile->periodsSinceRead) * this->cfg.getControlPeriod();
+    const Eigen::Vector3d rPredicted_N = this->profile->r_N + deltaT * this->profile->v_N;
     if (const std::optional<FlybyValidityTriggers> rejection =
             checkValidity(rAverage_N, vAverage_N, rPredicted_N, this->cfg)) {
         return *rejection;

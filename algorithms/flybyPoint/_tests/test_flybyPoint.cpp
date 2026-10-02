@@ -170,7 +170,7 @@ TEST(FlybyPointTest, PositionKnowledgeRejectsReseed) {
     const Eigen::Vector3d r_BN_N{-5e7, 7.5e6, 5e5};
     const Eigen::Vector3d v_BN_N{2e4, 0, 0};
     // positionKnowledgeSigma tight enough that a position far off the straight-line prediction
-    // (firstNavPosition + dt*firstNavVelocity) is rejected, while direction/speed stay close
+    // (the last accepted read propagated by dt) is rejected, while direction/speed stay close
     // enough to the seed that the rate/accel/collinearity checks stay well clear.
     const FlybyPointConfig cfg = FlybyPointConfig::create(0.6, 1U, 1e-3F, 1, 10.0F, 1.0F, 1.0F);
 

@@ -20,13 +20,12 @@ struct ReferenceFlybyOutput {
 struct ReferenceFlybyState {
     bool firstRead = true;
     uint64_t periodsSinceLastRead = 0;
-    uint64_t periodsSinceFirstRead = 0;
     uint32_t periodsInWindow = 0;
     uint32_t samplesInWindow = 0;
     Eigen::Vector3d rSumAtWindowEnd = Eigen::Vector3d::Zero();
     Eigen::Vector3d vSum = Eigen::Vector3d::Zero();
-    Eigen::Vector3d firstNavPosition = Eigen::Vector3d::Zero();
-    Eigen::Vector3d firstNavVelocity = Eigen::Vector3d::Zero();
+    Eigen::Vector3d readPosition = Eigen::Vector3d::Zero();  // last accepted read, for the position-knowledge check
+    Eigen::Vector3d readVelocity = Eigen::Vector3d::Zero();
     double f0 = 0.0;
     double gamma0 = 0.0;
     Eigen::Matrix3d R0N = Eigen::Matrix3d::Identity();
@@ -39,7 +38,6 @@ struct ReferenceFlybyState {
 inline void referenceReset(ReferenceFlybyState& s) {
     s.firstRead = true;
     s.periodsSinceLastRead = 0;
-    s.periodsSinceFirstRead = 0;
     s.periodsInWindow = 0;
     s.samplesInWindow = 0;
     s.rSumAtWindowEnd.setZero();
@@ -133,8 +131,8 @@ inline bool referenceCheckValidity(const ReferenceFlybyState& s,
     if (maxAccel > config.getMaximumAccelerationThreshold() && config.getMaximumAccelerationThreshold() > 0)
         return false;
 
-    const double deltaT = static_cast<double>(s.periodsSinceFirstRead) * config.getControlPeriod();
-    const double deltaPosNorm = (r - (s.firstNavPosition + deltaT * s.firstNavVelocity)).stableNorm();
+    const double deltaT = static_cast<double>(s.periodsSinceLastRead) * config.getControlPeriod();
+    const double deltaPosNorm = (r - (s.readPosition + deltaT * s.readVelocity)).stableNorm();
     if (deltaPosNorm > config.getPositionKnowledgeSigma() && config.getPositionKnowledgeSigma() > 0) return false;
 
     return true;
@@ -193,12 +191,11 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
         if (!usable || referenceIsCollinear(r, v, config)) {
             return {Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
         }
-        s.firstNavPosition = r;
-        s.firstNavVelocity = v;
+        s.readPosition = r;
+        s.readVelocity = v;
         referenceComputeFlybyParameters(s, r, v);
         referenceComputeRN(s, r, v);
         s.periodsSinceLastRead = 0;
-        s.periodsSinceFirstRead = 0;
         s.periodsInWindow = 0;
         s.samplesInWindow = 0;
         s.rSumAtWindowEnd.setZero();
@@ -206,7 +203,6 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
         s.firstRead = false;
     } else {
         ++s.periodsSinceLastRead;
-        ++s.periodsSinceFirstRead;
         ++s.periodsInWindow;
 
         // Rectilinear propagation of this sample to the window end, (windowLength - periodsInWindow) periods ahead.
@@ -225,6 +221,8 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
             if (referenceIsUsableSample(rAverage, vAverage) && referenceCheckValidity(s, rAverage, vAverage, config)) {
                 referenceComputeFlybyParameters(s, rAverage, vAverage);
                 referenceComputeRN(s, rAverage, vAverage);
+                s.readPosition = rAverage;
+                s.readVelocity = vAverage;
                 s.periodsSinceLastRead = 0;
             }
         }
