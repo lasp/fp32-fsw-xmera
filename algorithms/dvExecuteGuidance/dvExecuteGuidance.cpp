@@ -5,10 +5,6 @@
 #include <memory>
 #include <stdexcept>
 
-DvExecuteGuidanceConfig DvExecuteGuidance::toConfig() const {
-    return DvExecuteGuidanceConfig::create(this->minTime, this->maxTime, this->controlPeriod);
-}
-
 /*! Validates that the required input messages are connected and constructs the algorithm. */
 void DvExecuteGuidance::reset(const uint64_t callTime) {
     if (!this->navDataInMsg.isLinked()) {
@@ -18,6 +14,10 @@ void DvExecuteGuidance::reset(const uint64_t callTime) {
         throw std::invalid_argument("dvExecuteGuidance.burnDataInMsg wasn't connected.");
     }
     this->algorithm = std::make_unique<DvExecuteGuidanceAlgorithm>(this->toConfig());
+}
+
+DvExecuteGuidanceConfig DvExecuteGuidance::toConfig() const {
+    return DvExecuteGuidanceConfig::create(this->minTime, this->maxTime, this->controlPeriod);
 }
 
 void DvExecuteGuidance::reconfigure() {
