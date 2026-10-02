@@ -269,6 +269,10 @@ TEST(DvExecuteGuidanceConfigTest, RejectsMaxTimeZero) {
     EXPECT_THROW(DvExecuteGuidanceConfig::create(0.0F, 0.0F, 0.5F), fsw::invalid_argument);
 }
 
+TEST(DvExecuteGuidanceConfigTest, RejectsMaxTimeEqualToMinTime) {
+    EXPECT_THROW(DvExecuteGuidanceConfig::create(1.0F, 1.0F, 0.5F), fsw::invalid_argument);
+}
+
 TEST(DvExecuteGuidanceConfigTest, RejectsNonPositiveControlPeriod) {
     EXPECT_THROW(DvExecuteGuidanceConfig::create(0.0F, 1.0F, 0.0F), fsw::invalid_argument);
     EXPECT_THROW(DvExecuteGuidanceConfig::create(0.0F, 1.0F, -0.1F), fsw::invalid_argument);
