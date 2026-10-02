@@ -1,7 +1,7 @@
-#ifndef TEST_DV_EXECUTE_GUIDANCE_HELPERS_H
-#define TEST_DV_EXECUTE_GUIDANCE_HELPERS_H
+#ifndef TEST_DV_MANEUVER_HELPERS_H
+#define TEST_DV_MANEUVER_HELPERS_H
 
-#include "dvExecuteGuidanceAlgorithm.h"
+#include "dvManeuverAlgorithm.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <gtest/gtest.h>
@@ -11,29 +11,29 @@
 
 // Independent reference re-implementation of the burn state machine, kept in the same FP32
 // precision as the algorithm so the integer flag outputs must match bit-for-bit. It encodes the
-// expected DvExecuteGuidanceAlgorithm::update() semantics so any change to the production state
+// expected DvManeuverAlgorithm::update() semantics so any change to the production state
 // machine is caught by the regression comparison below.
-struct DvExecuteGuidanceReferenceState {
+struct DvManeuverReferenceState {
     Eigen::Vector3f dvInit = Eigen::Vector3f::Zero();
     uint32_t burnExecuting = 0;
     uint32_t burnComplete = 0;
     float burnTime = 0.0F;
 };
 
-struct DvExecuteGuidanceReferenceOutput {
+struct DvManeuverReferenceOutput {
     uint32_t burnExecuting;
     uint32_t burnComplete;
     bool commandThrustersOff;
 };
 
-inline DvExecuteGuidanceReferenceOutput referenceUpdate(DvExecuteGuidanceReferenceState& state,
-                                                        float minTime,
-                                                        float maxTime,
-                                                        float controlPeriod,
-                                                        uint64_t callTime,
-                                                        const Eigen::Vector3f& vehAccumDV,
-                                                        const Eigen::Vector3f& dvInrtlCmd,
-                                                        uint64_t burnStartTime) {
+inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state,
+                                                 float minTime,
+                                                 float maxTime,
+                                                 float controlPeriod,
+                                                 uint64_t callTime,
+                                                 const Eigen::Vector3f& vehAccumDV,
+                                                 const Eigen::Vector3f& dvInrtlCmd,
+                                                 uint64_t burnStartTime) {
     if (state.burnComplete != 0U) {
         return {state.burnExecuting, state.burnComplete, (state.burnComplete || state.burnExecuting != 1)};
     }
@@ -67,16 +67,16 @@ inline DvExecuteGuidanceReferenceOutput referenceUpdate(DvExecuteGuidanceReferen
 // implementation at every step. The spacecraft accumulates delta-V under a constant acceleration
 // starting at burnStartTime, exactly as the Python validation test models it.
 // ---------------------------------------------------------------------------
-inline void regressionTestDvExecuteGuidance(float minTime,
-                                            float maxTime,
-                                            float controlPeriod,
-                                            const Eigen::Vector3f& dvInrtlCmd,
-                                            const Eigen::Vector3f& acceleration,
-                                            uint64_t burnStartTime,
-                                            int numSteps) {
-    const auto config = DvExecuteGuidanceConfig::create(minTime, maxTime, controlPeriod);
-    DvExecuteGuidanceAlgorithm alg{config};
-    DvExecuteGuidanceReferenceState refState{};
+inline void regressionTestDvManeuver(float minTime,
+                                     float maxTime,
+                                     float controlPeriod,
+                                     const Eigen::Vector3f& dvInrtlCmd,
+                                     const Eigen::Vector3f& acceleration,
+                                     uint64_t burnStartTime,
+                                     int numSteps) {
+    const auto config = DvManeuverConfig::create(minTime, maxTime, controlPeriod);
+    DvManeuverAlgorithm alg{config};
+    DvManeuverReferenceState refState{};
 
     const auto stepNs = static_cast<uint64_t>(std::llround(static_cast<double>(controlPeriod) * 1e9));
 
@@ -89,7 +89,7 @@ inline void regressionTestDvExecuteGuidance(float minTime,
             vehAccumDV = acceleration * elapsed;
         }
 
-        DvExecuteGuidanceOutput algOut{};
+        DvManeuverOutput algOut{};
         EXPECT_NO_THROW(algOut = alg.update(callTime, vehAccumDV, dvInrtlCmd, burnStartTime));
         const auto refOut =
             referenceUpdate(refState, minTime, maxTime, controlPeriod, callTime, vehAccumDV, dvInrtlCmd, burnStartTime);
@@ -100,16 +100,16 @@ inline void regressionTestDvExecuteGuidance(float minTime,
     }
 }
 
-// Fuzz-compatible regression helper: drives regressionTestDvExecuteGuidance with two fuzz-supplied
+// Fuzz-compatible regression helper: drives regressionTestDvManeuver with two fuzz-supplied
 // Eigen::Vector3f inputs (commanded delta-V and acceleration) and a fixed valid configuration.
-inline void fuzzRegressionDvExecuteGuidance(const Eigen::Vector3f& dvInrtlCmd, const Eigen::Vector3f& acceleration) {
-    regressionTestDvExecuteGuidance(/* minTime = */ 0.0F,
-                                    /* maxTime = */ 3.0F,
-                                    /* controlPeriod = */ 0.5F,
-                                    /* dvInrtlCmd = */ dvInrtlCmd,
-                                    /* acceleration = */ acceleration,
-                                    /* burnStartTime = */ 500000000U,
-                                    /* numSteps = */ 20);
+inline void fuzzRegressionDvManeuver(const Eigen::Vector3f& dvInrtlCmd, const Eigen::Vector3f& acceleration) {
+    regressionTestDvManeuver(/* minTime = */ 0.0F,
+                             /* maxTime = */ 3.0F,
+                             /* controlPeriod = */ 0.5F,
+                             /* dvInrtlCmd = */ dvInrtlCmd,
+                             /* acceleration = */ acceleration,
+                             /* burnStartTime = */ 500000000U,
+                             /* numSteps = */ 20);
 }
 
 // ---------------------------------------------------------------------------
@@ -121,8 +121,8 @@ inline void propertyOutputFlagsWellFormed(const Eigen::Vector3f& dvInrtlCmd, con
     constexpr float kControlPeriod = 0.5F;
     constexpr uint64_t kBurnStartTime = 500000000U;  // 0.5 s
     constexpr int kNumSteps = 20;
-    const auto config = DvExecuteGuidanceConfig::create(0.0F, 100.0F, kControlPeriod);
-    DvExecuteGuidanceAlgorithm alg{config};
+    const auto config = DvManeuverConfig::create(0.0F, 100.0F, kControlPeriod);
+    DvManeuverAlgorithm alg{config};
 
     const auto stepNs = static_cast<uint64_t>(std::llround(static_cast<double>(kControlPeriod) * 1e9));
 
@@ -134,7 +134,7 @@ inline void propertyOutputFlagsWellFormed(const Eigen::Vector3f& dvInrtlCmd, con
             vehAccumDV = acceleration * (static_cast<float>(callTime - kBurnStartTime) * 1e-9F);
         }
 
-        DvExecuteGuidanceOutput out{};
+        DvManeuverOutput out{};
         EXPECT_NO_THROW(out = alg.update(callTime, vehAccumDV, dvInrtlCmd, kBurnStartTime));
 
         EXPECT_LE(out.burnExecuting, 1U);
@@ -145,11 +145,11 @@ inline void propertyOutputFlagsWellFormed(const Eigen::Vector3f& dvInrtlCmd, con
 }
 
 // Setup helper: constructing the algorithm with a valid configuration must not throw.
-inline void testDvExecuteGuidanceSetup() {
+inline void testDvManeuverSetup() {
     EXPECT_NO_THROW({
-        const DvExecuteGuidanceAlgorithm alg{DvExecuteGuidanceConfig::create(0.0F, 1.0F, 0.5F)};
+        const DvManeuverAlgorithm alg{DvManeuverConfig::create(0.0F, 1.0F, 0.5F)};
         (void)alg;
     });
 }
 
-#endif  // TEST_DV_EXECUTE_GUIDANCE_HELPERS_H
+#endif  // TEST_DV_MANEUVER_HELPERS_H

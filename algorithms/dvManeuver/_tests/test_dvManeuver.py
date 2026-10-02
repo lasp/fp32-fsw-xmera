@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from xmera.architecture import messaging
-from xmera.fp32 import dvExecuteGuidanceF32
+from xmera.fp32 import dvManeuverF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
@@ -21,7 +21,7 @@ param_list = [p for p in itertools.product(*param_array) if p[2] > p[1]]
 
 
 @pytest.mark.parametrize("p1_dv, p2_tmin, p3_tmax, p4_tstart", param_list)
-def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
+def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     r"""
     **Validation Test Description**
 
@@ -53,8 +53,8 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     test_proc.addTask(sim.CreateNewTask(task_name, test_process_rate))
 
     # Construct algorithm and associated C++ container
-    module = dvExecuteGuidanceF32.DvExecuteGuidance()
-    module.modelTag = "dvExecuteGuidance"
+    module = dvManeuverF32.DvManeuver()
+    module.modelTag = "dvManeuver"
 
     # Add test module to runtime call list
     sim.AddModelToTask(task_name, module)
@@ -168,4 +168,4 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
 # stand-along python script
 #
 if __name__ == "__main__":
-    test_dv_execute_guidance(False, dv_magnitude[0], min_time[0], max_time[0], start_time[1])
+    test_dv_maneuver(False, dv_magnitude[0], min_time[0], max_time[0], start_time[1])

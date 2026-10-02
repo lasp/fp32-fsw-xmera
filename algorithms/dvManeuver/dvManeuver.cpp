@@ -1,4 +1,4 @@
-#include "dvExecuteGuidance.h"
+#include "dvManeuver.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
@@ -6,30 +6,30 @@
 #include <stdexcept>
 
 /*! Validates that the required input messages are connected and constructs the algorithm. */
-void DvExecuteGuidance::reset(const uint64_t callTime) {
+void DvManeuver::reset(const uint64_t callTime) {
     if (!this->navDataInMsg.isLinked()) {
-        throw std::invalid_argument("dvExecuteGuidance.navDataInMsg wasn't connected.");
+        throw std::invalid_argument("dvManeuver.navDataInMsg wasn't connected.");
     }
     if (!this->burnDataInMsg.isLinked()) {
-        throw std::invalid_argument("dvExecuteGuidance.burnDataInMsg wasn't connected.");
+        throw std::invalid_argument("dvManeuver.burnDataInMsg wasn't connected.");
     }
-    this->algorithm = std::make_unique<DvExecuteGuidanceAlgorithm>(this->toConfig());
+    this->algorithm = std::make_unique<DvManeuverAlgorithm>(this->toConfig());
 }
 
-DvExecuteGuidanceConfig DvExecuteGuidance::toConfig() const {
-    return DvExecuteGuidanceConfig::create(this->minTime, this->maxTime, this->controlPeriod);
+DvManeuverConfig DvManeuver::toConfig() const {
+    return DvManeuverConfig::create(this->minTime, this->maxTime, this->controlPeriod);
 }
 
-void DvExecuteGuidance::reconfigure() {
+void DvManeuver::reconfigure() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("DvExecuteGuidance reset() has not been called.");
+        throw XmeraLifecycleException("DvManeuver reset() has not been called.");
     }
     this->algorithm->setConfig(this->toConfig());
 }
 
-void DvExecuteGuidance::reInitialize() {
+void DvManeuver::reInitialize() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("DvExecuteGuidance reset() has not been called.");
+        throw XmeraLifecycleException("DvManeuver reset() has not been called.");
     }
     this->algorithm->reInitialize();
 }
@@ -37,9 +37,9 @@ void DvExecuteGuidance::reInitialize() {
 /*! Compares the accumulated Delta-V against the commanded Delta-V and writes the commanded thruster on-time
     every update — nonzero while the burn executes, zero once it completes. Also flags whether the burn is
     executing and whether it has completed. */
-void DvExecuteGuidance::updateState(const uint64_t callTime) {
+void DvManeuver::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("DvExecuteGuidance reset() has not been called.");
+        throw XmeraLifecycleException("DvManeuver reset() has not been called.");
     }
 
     const NavTransMsgF32Payload navData = this->navDataInMsg();
@@ -48,8 +48,7 @@ void DvExecuteGuidance::updateState(const uint64_t callTime) {
     const Eigen::Vector3f vehAccumDV = cArrayToEigenVector3<float>(navData.vehAccumDV);
     const Eigen::Vector3f dvInrtlCmd = cArrayToEigenVector3<float>(localBurnData.dvInrtlCmd);
 
-    const DvExecuteGuidanceOutput out =
-        this->algorithm->update(callTime, vehAccumDV, dvInrtlCmd, localBurnData.burnStartTime);
+    const DvManeuverOutput out = this->algorithm->update(callTime, vehAccumDV, dvInrtlCmd, localBurnData.burnStartTime);
 
     float onTime = 1.1F * this->controlPeriod;
     if (out.commandThrustersOff) {
