@@ -19,21 +19,18 @@ struct DvManeuverOutput {
 /// enforces the parameter constraints and throws fsw::invalid_argument on a violation.
 class DvManeuverConfig final {
    public:
-    // minTime, maxTime, and controlPeriod share the float type, and cmdForce_B and cmdDv_N share the Eigen::Vector3f
-    // type, but each has a distinct role; construction is funneled through the named create() factory, which makes
-    // the argument roles explicit at every call site.
+    // minTime, maxTime, and burnStartTime share the uint64_t type, and cmdForce_B and cmdDv_N share the
+    // Eigen::Vector3f type, but each has a distinct role; construction is funneled through the named create()
+    // factory, which makes the argument roles explicit at every call site.
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-    static DvManeuverConfig create(float minTime,
-                                   float maxTime,
+    static DvManeuverConfig create(uint64_t minTime,
+                                   uint64_t maxTime,
                                    float controlPeriod,
                                    const Eigen::Vector3f& cmdForce_B,
                                    const Eigen::Vector3f& cmdDv_N,
                                    uint64_t burnStartTime) {
-        if (!isValidMinTime(minTime)) {
-            FSW_THROW_INVALID_ARGUMENT("dvManeuver: minTime must be non-negative and finite.");
-        }
         if (!isValidMaxTime(maxTime)) {
-            FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime must be positive and finite.");
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime must be positive.");
         }
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: controlPeriod must be positive and finite.");
@@ -50,25 +47,24 @@ class DvManeuverConfig final {
         return {minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N, burnStartTime};
     }
 
-    static bool isValidMinTime(float minTime) { return minTime >= 0.0F && fsw::is_finite(minTime); }
-    static bool isValidMaxTime(float maxTime) { return maxTime > 0.0F && fsw::is_finite(maxTime); }
-    static bool isValidMaxTimeRelativeToMinTime(float minTime, float maxTime) { return maxTime > minTime; }
+    static bool isValidMaxTime(uint64_t maxTime) { return maxTime > 0U; }
+    static bool isValidMaxTimeRelativeToMinTime(uint64_t minTime, uint64_t maxTime) { return maxTime > minTime; }
     static bool isValidControlPeriod(float controlPeriod) {
         return controlPeriod > 0.0F && fsw::is_finite(controlPeriod);
     }
     static bool isValidCmdForce(const Eigen::Vector3f& cmdForce_B) { return cmdForce_B.allFinite(); }
     static bool isValidCmdDv(const Eigen::Vector3f& cmdDv_N) { return cmdDv_N.allFinite(); }
 
-    float getMinTime() const { return minTime; }
-    float getMaxTime() const { return maxTime; }
+    uint64_t getMinTime() const { return minTime; }
+    uint64_t getMaxTime() const { return maxTime; }
     float getControlPeriod() const { return controlPeriod; }
     const Eigen::Vector3f& getCmdForce() const { return cmdForce_B; }
     const Eigen::Vector3f& getCmdDv() const { return cmdDv_N; }
     uint64_t getBurnStartTime() const { return burnStartTime; }
 
    private:
-    DvManeuverConfig(float minTime,
-                     float maxTime,
+    DvManeuverConfig(uint64_t minTime,
+                     uint64_t maxTime,
                      float controlPeriod,
                      const Eigen::Vector3f& cmdForce_B,
                      const Eigen::Vector3f& cmdDv_N,
@@ -81,8 +77,8 @@ class DvManeuverConfig final {
           burnStartTime(burnStartTime) {}
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
-    float minTime;
-    float maxTime;
+    uint64_t minTime;
+    uint64_t maxTime;
     float controlPeriod;
     Eigen::Vector3f cmdForce_B;
     Eigen::Vector3f cmdDv_N;

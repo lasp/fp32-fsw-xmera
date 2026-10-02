@@ -27,8 +27,8 @@ struct DvManeuverReferenceOutput {
 };
 
 inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state,
-                                                 float minTime,
-                                                 float maxTime,
+                                                 uint64_t minTime,
+                                                 uint64_t maxTime,
                                                  float controlPeriod,
                                                  const Eigen::Vector3f& cmdForce_B,
                                                  uint64_t callTime,
@@ -56,8 +56,8 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
     const float dvExecuteMag = burnAccum.norm();
 
     state.burnComplete = state.burnComplete || dvExecuteMag >= dvMag;
-    state.burnComplete = state.burnComplete && state.burnTime > minTime;
-    state.burnComplete = state.burnComplete || (state.burnTime > maxTime);
+    state.burnComplete = state.burnComplete && static_cast<double>(state.burnTime) > static_cast<double>(minTime) / 1e9;
+    state.burnComplete = state.burnComplete || static_cast<double>(state.burnTime) > static_cast<double>(maxTime) / 1e9;
     state.burnExecuting = !state.burnComplete && state.burnExecuting;
 
     const Eigen::Vector3f force_B = state.burnExecuting ? cmdForce_B : Eigen::Vector3f::Zero();
@@ -69,8 +69,8 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
 // implementation at every step. The spacecraft accumulates delta-V under a constant acceleration
 // starting at burnStartTime, exactly as the Python validation test models it.
 // ---------------------------------------------------------------------------
-inline void regressionTestDvManeuver(float minTime,
-                                     float maxTime,
+inline void regressionTestDvManeuver(uint64_t minTime,
+                                     uint64_t maxTime,
                                      float controlPeriod,
                                      const Eigen::Vector3f& cmdForce_B,
                                      const Eigen::Vector3f& cmdDv_N,
@@ -108,8 +108,8 @@ inline void regressionTestDvManeuver(float minTime,
 inline void fuzzRegressionDvManeuver(const Eigen::Vector3f& cmdForce_B,
                                      const Eigen::Vector3f& cmdDv_N,
                                      const Eigen::Vector3f& acceleration) {
-    regressionTestDvManeuver(/* minTime = */ 0.0F,
-                             /* maxTime = */ 3.0F,
+    regressionTestDvManeuver(/* minTime = */ 0U,
+                             /* maxTime = */ 3000000000U,
                              /* controlPeriod = */ 0.5F,
                              /* cmdForce_B = */ cmdForce_B,
                              /* cmdDv_N = */ cmdDv_N,
@@ -129,7 +129,8 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
     constexpr float kControlPeriod = 0.5F;
     constexpr uint64_t kBurnStartTime = 500000000U;  // 0.5 s
     constexpr int kNumSteps = 20;
-    const auto config = DvManeuverConfig::create(0.0F, 100.0F, kControlPeriod, cmdForce_B, cmdDv_N, kBurnStartTime);
+    const auto config =
+        DvManeuverConfig::create(0U, 100000000000U, kControlPeriod, cmdForce_B, cmdDv_N, kBurnStartTime);
     DvManeuverAlgorithm alg{config};
 
     const auto stepNs = static_cast<uint64_t>(std::llround(static_cast<double>(kControlPeriod) * 1e9));
@@ -159,7 +160,7 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
 inline void testDvManeuverSetup() {
     EXPECT_NO_THROW({
         const DvManeuverAlgorithm alg{DvManeuverConfig::create(
-            0.0F, 1.0F, 0.5F, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0U)};
+            0U, 1000000000U, 0.5F, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0U)};
         (void)alg;
     });
 }
