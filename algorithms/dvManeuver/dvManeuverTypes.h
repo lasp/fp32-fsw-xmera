@@ -2,21 +2,29 @@
 #define F32XMERA_DV_MANEUVER_TYPES_H
 
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
-#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /**
+ * @brief C-compatible enumeration mirroring DvManeuverBurnState.
+ *
+ * Numeric values must stay in lockstep with the C++ enum class in dvManeuverAlgorithm.h.
+ */
+typedef enum {
+    DV_MANEUVER_BURN_STATE_PENDING_C = 0,
+    DV_MANEUVER_BURN_STATE_EXECUTING_C = 1,
+    DV_MANEUVER_BURN_STATE_COMPLETE_C = 2
+} DvManeuverBurnState_c;
+
+/**
  * @brief Plain-old-data mirror of the C++ DvManeuverOutput fields.
- *  - burnExecuting [-] flag indicating whether the burn is in progress
- *  - burnComplete  [-] flag indicating whether the burn has completed
- *  - cmdForce_B    [N] configured body force while the burn executes, else zero
+ *  - state      [-] burn state after this update
+ *  - cmdForce_B [N] configured body force while the burn executes, else zero
  */
 typedef struct {
-    uint32_t burnExecuting;
-    uint32_t burnComplete;
+    DvManeuverBurnState_c state;
     Vector3f_c cmdForce_B;
 } DvManeuverOutput_c;
 

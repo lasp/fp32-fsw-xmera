@@ -97,8 +97,8 @@ inline void regressionTestDvManeuver(float minTime,
         const auto refOut = referenceUpdate(
             refState, minTime, maxTime, controlPeriod, cmdForce_B, callTime, vehAccumDV, cmdDv_N, burnStartTime);
 
-        EXPECT_EQ(algOut.burnExecuting, refOut.burnExecuting);
-        EXPECT_EQ(algOut.burnComplete, refOut.burnComplete);
+        EXPECT_EQ(algOut.state == DvManeuverBurnState::Executing, refOut.burnExecuting == 1U);
+        EXPECT_EQ(algOut.state == DvManeuverBurnState::Complete, refOut.burnComplete == 1U);
         EXPECT_EQ(algOut.cmdForce_B, refOut.cmdForce_B);
     }
 }
@@ -119,13 +119,13 @@ inline void fuzzRegressionDvManeuver(const Eigen::Vector3f& cmdForce_B,
 }
 
 // ---------------------------------------------------------------------------
-// Property test helper: for any finite command / acceleration, the output flags are well-formed on
-// every step — each flag is 0 or 1, burnExecuting and burnComplete are never simultaneously set,
-// and the force command is the configured force while executing and zero otherwise.
+// Property test helper: for any finite command / acceleration, the output is well-formed on every
+// step — the burn state never moves backward, and the force command is the configured force while
+// executing and zero otherwise.
 // ---------------------------------------------------------------------------
-inline void propertyOutputFlagsWellFormed(const Eigen::Vector3f& cmdForce_B,
-                                          const Eigen::Vector3f& cmdDv_N,
-                                          const Eigen::Vector3f& acceleration) {
+inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
+                                     const Eigen::Vector3f& cmdDv_N,
+                                     const Eigen::Vector3f& acceleration) {
     constexpr float kControlPeriod = 0.5F;
     constexpr uint64_t kBurnStartTime = 500000000U;  // 0.5 s
     constexpr int kNumSteps = 20;
@@ -133,6 +133,7 @@ inline void propertyOutputFlagsWellFormed(const Eigen::Vector3f& cmdForce_B,
     DvManeuverAlgorithm alg{config};
 
     const auto stepNs = static_cast<uint64_t>(std::llround(static_cast<double>(kControlPeriod) * 1e9));
+    DvManeuverBurnState previousState = DvManeuverBurnState::Pending;
 
     for (int k = 0; k < kNumSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
@@ -145,11 +146,12 @@ inline void propertyOutputFlagsWellFormed(const Eigen::Vector3f& cmdForce_B,
         DvManeuverOutput out{};
         EXPECT_NO_THROW(out = alg.update(callTime, vehAccumDV));
 
-        EXPECT_LE(out.burnExecuting, 1U);
-        EXPECT_LE(out.burnComplete, 1U);
-        EXPECT_FALSE(out.burnExecuting == 1U && out.burnComplete == 1U);
-        const Eigen::Vector3f expectedForce_B = out.burnExecuting == 1U ? cmdForce_B : Eigen::Vector3f::Zero();
+        EXPECT_GE(static_cast<int>(out.state), static_cast<int>(previousState));
+        const Eigen::Vector3f expectedForce_B =
+            out.state == DvManeuverBurnState::Executing ? cmdForce_B : Eigen::Vector3f::Zero();
         EXPECT_EQ(out.cmdForce_B, expectedForce_B);
+
+        previousState = out.state;
     }
 }
 
