@@ -163,19 +163,15 @@ class FlybyPointAlgorithm final {
         Eigen::Vector3f domega_RN_N = Eigen::Vector3f::Zero();  //!< [rad/s^2] reference angular acceleration
     };
 
-    /*! Pointing profile from the last accepted read */
+    /*! Pointing profile from the last accepted read; the position-knowledge check compares re-reads with the read's
+     rectilinear prediction */
     struct Profile {
+        Eigen::Vector3d r_N = Eigen::Vector3d::Zero();      //!< [m] position of the accepted read
+        Eigen::Vector3d v_N = Eigen::Vector3d::Zero();      //!< [m/s] velocity of the accepted read
         double f0 = 0;                                      //!< [1/s] |v| / |r| at the read
         double gamma0 = 0;                                  //!< [rad] flight path angle at the read
         Eigen::Matrix3f R0N = Eigen::Matrix3f::Identity();  //!< [-] inertial-to-reference DCM at the read
         uint64_t periodsSinceRead = 0;                      //!< [-] control periods elapsed since the read
-    };
-
-    /*! First accepted read; the position-knowledge check compares re-reads with its rectilinear prediction */
-    struct FirstRead {
-        Eigen::Vector3d r_N = Eigen::Vector3d::Zero();  //!< [m] position at the first read
-        Eigen::Vector3d v_N = Eigen::Vector3d::Zero();  //!< [m/s] velocity at the first read
-        uint64_t periodsSince = 0;                      //!< [-] control periods elapsed since the first read
     };
 
     void seedProfile(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
@@ -184,7 +180,6 @@ class FlybyPointAlgorithm final {
 
     FlybyPointConfig cfg;
     std::optional<Profile> profile;  //!< empty until the first seed, and again after reset()
-    FirstRead firstRead{};           //!< set at the first seed
     AveragingWindow window{};        //!< averaging window in progress
 };
 
