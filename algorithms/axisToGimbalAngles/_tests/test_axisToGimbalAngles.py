@@ -79,7 +79,7 @@ def test_axis_to_gimbal_angles(angle1, angle2, mount_euler_angles, request_scale
                                verbose=True)
 
 
-def _run_single_request(request_B, theta_max):
+def _run_single_request(request_B, theta_max, sigma_MB=np.zeros(3)):
     """Run the module for one request and return the two gimbal angles and the achieved direction."""
     task_name = "unitTask"
     process_name = "TestProcess"
@@ -93,6 +93,7 @@ def _run_single_request(request_B, theta_max):
     module = axisToGimbalAnglesF32.AxisToGimbalAngles()
     module.modelTag = "axisToGimbalAngles"
     sim.AddModelToTask(task_name, module)
+    module.sigma_MB = sigma_MB
     module.thetaMax = theta_max
 
     thrust_direction_message = messaging.BodyHeadingMsgF32Payload()
@@ -125,20 +126,38 @@ def test_axis_to_gimbal_angles_request_without_direction():
     np.testing.assert_allclose(thrust_hat_B, np.array([0.0, 0.0, 1.0]), rtol=accuracy, atol=accuracy, verbose=True)
 
 
-@pytest.mark.parametrize("request_B", [np.array([1.0, 0.0, 0.0]),     # exactly 90 deg of deflection
+@pytest.mark.parametrize("request_M", [np.array([1.0, 0.0, 0.0]),     # exactly 90 deg of deflection
                                        np.array([0.0, 1.0, 0.0]),     # exactly 90 deg, on the other axis
                                        np.array([0.0, 0.0, -1.0]),    # opposite the neutral axis
-                                       np.array([1.0, 1.0, -1.0])])   # beyond the travel, off both axes
+                                       np.array([1.0, 1.0, -1.0]),    # beyond the travel, off both axes
+                                       np.array([3.0, -4.0, 5.0])])   # 45 deg, beyond only the smaller travel
 @pytest.mark.parametrize("theta_max", [15.0 * macros.D2R, 45.0 * macros.D2R])
-def test_axis_to_gimbal_angles_limits_the_deflection(request_B, theta_max):
-    """A request beyond the travel of the mechanism goes to the edge of the cone of half-angle thetaMax, rather
-    than to a railed pair of angles or back to the neutral position."""
+@pytest.mark.parametrize("mount_euler_angles", [np.zeros(3), np.array([5.0, 10.0, 0.0]) * macros.D2R])
+def test_axis_to_gimbal_angles_limits_the_deflection(request_M, theta_max, mount_euler_angles):
+    """A request beyond the travel of the mechanism goes to the reachable direction nearest to it, on the edge of
+    the cone of half-angle thetaMax, rather than to a railed pair of angles or back to the neutral position."""
     accuracy = 1e-5
-    theta1, theta2, _ = _run_single_request(request_B, theta_max)
+    sigma_MB = np.array(rbk.euler1232MRP(mount_euler_angles))
+    dcm_MB = rbk.MRP2C(sigma_MB)
+    request_hat_M = request_M / np.linalg.norm(request_M)
+    request_deflection = np.arctan2(np.linalg.norm(request_hat_M[:2]), request_hat_M[2])
 
-    # The two angles rebuild a direction at exactly the travel limit.
-    deflection = np.arccos(np.clip(gimbal_axis_M(theta1, theta2)[2], -1.0, 1.0))
-    np.testing.assert_allclose(deflection, theta_max, rtol=accuracy, atol=accuracy, verbose=True)
+    theta1, theta2, thrust_hat_B = _run_single_request(np.matmul(dcm_MB.transpose(), request_M), theta_max,
+                                                       sigma_MB)
+    achieved_M = np.matmul(dcm_MB, thrust_hat_B)
+
+    # The two angles and the achieved direction agree, and both are at the travel limit or at the request.
+    np.testing.assert_allclose(achieved_M, gimbal_axis_M(theta1, theta2), rtol=accuracy, atol=accuracy, verbose=True)
+    deflection = np.arctan2(np.linalg.norm(achieved_M[:2]), achieved_M[2])
+    np.testing.assert_allclose(deflection, min(request_deflection, theta_max), rtol=accuracy, atol=accuracy,
+                               verbose=True)
+
+    # Away from the antipode, the achieved direction keeps the azimuth of the request about the neutral axis, so
+    # the angle between the two is only the part of the request beyond the travel.
+    if np.linalg.norm(request_hat_M[:2]) > 1e-2:
+        separation = np.arctan2(np.linalg.norm(np.cross(achieved_M, request_hat_M)), np.dot(achieved_M, request_hat_M))
+        np.testing.assert_allclose(separation, max(request_deflection - theta_max, 0.0), rtol=accuracy, atol=accuracy,
+                                   verbose=True)
 
     # Each angle also stays inside the travel.
     assert abs(theta1) <= theta_max + accuracy

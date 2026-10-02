@@ -214,8 +214,8 @@ module can therefore use this direction to calculate the torque that the vehicle
 
 Requests that carry no direction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-A request of zero length, or one with a component that is not a number, carries no direction at all. There is
-nothing to limit and nothing to point at, thus the module gives the gimbal home position
+A request of zero length carries no direction at all. There is nothing to limit and nothing to point at, thus the
+module gives the gimbal home position
 :math:`(\alpha, \beta) = (0, 0)`. The home position is the neutral thrust axis.
 
 User Guide
@@ -269,3 +269,8 @@ difference.
 **Assumption.** One cone of half-angle :math:`\theta_\text{max}` gives the travel of the mechanism. A gimbal
 with a different limit on each axis, or with a limit that changes with the other angle, needs a different
 description. :ref:`gimbalAnglesToMotorAngles` applies the limits of the motors themselves.
+
+**Assumption.** Each component of the input direction is a finite number. The module does not examine the input
+for a NaN or an infinity. The module that sends ``thrustDirectionInMsg`` must give a finite direction. If a
+component is not finite, the two angles stay finite and inside the travel. But the angles are not always the home
+position, and the gimbal can move to the edge of the cone. Also, ``bodyHeadingOutMsg`` can contain NaN values.

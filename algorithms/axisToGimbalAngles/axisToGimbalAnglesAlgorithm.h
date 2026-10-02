@@ -75,7 +75,7 @@ class AxisToGimbalAnglesAlgorithm final {
     AxisToGimbalAnglesOutput update(const Eigen::Vector3f& thrustHat_B) const;
 
    private:
-    Eigen::Vector3f clampDeflection(const Eigen::Vector3f& thrustHat_M) const;
+    static Eigen::Vector3f clampDeflection(const Eigen::Vector3f& thrustHat_M, float cosThetaMax, float sinThetaMax);
 
     AxisToGimbalAnglesConfig cfg;  //!< [-] validated configuration
     //! Resolved from the configuration whenever it is set, so the per-cycle map never has to rebuild them. The

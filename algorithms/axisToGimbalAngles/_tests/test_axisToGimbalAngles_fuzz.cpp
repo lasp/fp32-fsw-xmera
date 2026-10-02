@@ -51,7 +51,12 @@ FUZZ_TEST(AxisToGimbalAnglesPropertyFuzz, propertyOutputIsUsable)
                  xmera::fuzz::Vector3fInRange(-kDirectionLimit, kDirectionLimit),
                  fuzztest::InRange(kMinThetaMax, kMaxThetaMax));
 
-FUZZ_TEST(AxisToGimbalAnglesPropertyFuzz, propertyDirectionRecovered)
+FUZZ_TEST(AxisToGimbalAnglesPropertyFuzz, propertyAchievedDirectionIsNearestReachable)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit),
+                 xmera::fuzz::Vector3fInRange(-kDirectionLimit, kDirectionLimit),
+                 fuzztest::InRange(kMinThetaMax, kMaxThetaMax));
+
+FUZZ_TEST(AxisToGimbalAnglesPropertyFuzz, propertyLimitIsIdempotent)
     .WithDomains(xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit),
                  xmera::fuzz::Vector3fInRange(-kDirectionLimit, kDirectionLimit),
                  fuzztest::InRange(kMinThetaMax, kMaxThetaMax));
