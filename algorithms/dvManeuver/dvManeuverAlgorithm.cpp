@@ -8,42 +8,29 @@ DvManeuverAlgorithm::DvManeuverAlgorithm(const DvManeuverConfig& config) : cfg(c
 void DvManeuverAlgorithm::setConfig(const DvManeuverConfig& config) { this->cfg = config; }
 
 void DvManeuverAlgorithm::reInitialize() {
-    this->burnExecuting = 0;
-    this->burnComplete = 0;
+    this->state = DvManeuverBurnState::Pending;
     this->burnTime = 0.0F;
     this->dvInit = Eigen::Vector3f::Zero();
 }
 
 DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime, const Eigen::Vector3f& vehAccumDV) {
-    if (this->burnComplete == 0U) {
-        /*! - the control period (FSW time step) is used as the burn time delta-t */
-        const float burnDt = this->cfg.getControlPeriod();
-
-        if ((this->burnExecuting == 0 && callTime >= this->cfg.getBurnStartTime()) && this->burnComplete != 1) {
-            this->burnExecuting = 1;
-            this->dvInit = vehAccumDV;
-            this->burnComplete = 0;
-        }
-
-        if (this->burnExecuting != 0) {
-            this->burnTime += burnDt;
-        }
-
-        const Eigen::Vector3f burnAccum = vehAccumDV - this->dvInit;
-        const float dvMag = this->cfg.getCmdDv().stableNorm();
-        const float dvExecuteMag = burnAccum.stableNorm();
-
-        this->burnComplete = static_cast<uint32_t>(this->burnComplete == 1 || dvExecuteMag >= dvMag);
-        this->burnComplete &= static_cast<uint32_t>(this->burnTime > this->cfg.getMinTime());
-        this->burnComplete |= static_cast<uint32_t>(this->burnTime > this->cfg.getMaxTime());
-        this->burnExecuting = static_cast<uint32_t>(this->burnComplete != 1 && this->burnExecuting == 1);
+    if (this->state == DvManeuverBurnState::Pending && callTime >= this->cfg.getBurnStartTime()) {
+        this->state = DvManeuverBurnState::Executing;
+        this->dvInit = vehAccumDV;
     }
 
-    // once burnComplete == 1, nothing above ever runs again — reconfigure() can never reopen it
+    if (this->state == DvManeuverBurnState::Executing) {
+        this->burnTime += this->cfg.getControlPeriod();
+        const bool dvReached = (vehAccumDV - this->dvInit).stableNorm() >= this->cfg.getCmdDv().stableNorm();
+        if ((dvReached && this->burnTime > this->cfg.getMinTime()) || this->burnTime > this->cfg.getMaxTime()) {
+            this->state = DvManeuverBurnState::Complete;
+        }
+    }
+
+    // Complete is terminal: only reInitialize() leaves it, so reconfigure() can never reopen a finished burn
     DvManeuverOutput out;
-    out.burnExecuting = this->burnExecuting;
-    out.burnComplete = this->burnComplete;
-    if (this->burnExecuting == 1U) {
+    out.state = this->state;
+    if (this->state == DvManeuverBurnState::Executing) {
         out.cmdForce_B = this->cfg.getCmdForce();
     }
     return out;

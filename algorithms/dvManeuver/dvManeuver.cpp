@@ -51,7 +51,7 @@ void DvManeuver::updateState(const uint64_t callTime) {
     this->cmdForceOutMsg.write(forceMsgOut, this->moduleID, callTime);
 
     DvExecutionDataMsgF32Payload localExeData = {};
-    localExeData.burnComplete = out.burnComplete;
-    localExeData.burnExecuting = out.burnExecuting;
+    localExeData.burnComplete = static_cast<uint32_t>(out.state == DvManeuverBurnState::Complete);
+    localExeData.burnExecuting = static_cast<uint32_t>(out.state == DvManeuverBurnState::Executing);
     this->burnExecOutMsg.write(localExeData, this->moduleID, callTime);
 }
