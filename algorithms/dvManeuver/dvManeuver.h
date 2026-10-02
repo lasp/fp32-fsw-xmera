@@ -3,7 +3,6 @@
 
 #include "dvManeuverAlgorithm.h"
 #include "msgPayloadDef/CmdForceBodyMsgF32Payload.h"
-#include "msgPayloadDef/DvBurnCmdMsgF32Payload.h"
 #include "msgPayloadDef/DvExecutionDataMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
@@ -29,11 +28,12 @@ class DvManeuver final : public SysModel {
     float maxTime = 0.0F;       /*!< [s] Maximum burn time; must be set to a positive value before reset() */
     float controlPeriod = 0.0F; /*!< [s] Control period (FSW time step); must be set > 0 before reset() */
     Eigen::Vector3f cmdForce_B = Eigen::Vector3f::Zero(); /*!< [N] Body force commanded while the burn executes */
+    Eigen::Vector3f cmdDv_N = Eigen::Vector3f::Zero();    /*!< [m/s] Commanded delta-V in inertial frame components */
+    uint64_t burnStartTime = 0U;                          /*!< [ns] Time at which the burn starts */
 
     // Input messages
     ReadFunctor<NavTransMsgF32Payload>
         navDataInMsg; /*!< [-] navigation input message that includes dv accumulation info */
-    ReadFunctor<DvBurnCmdMsgF32Payload> burnDataInMsg; /*!< [-] commanded burn input message */
 
     // Output messages
     Message<CmdForceBodyMsgF32Payload> cmdForceOutMsg;    /*!< [N] body force command output message */

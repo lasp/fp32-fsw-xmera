@@ -21,13 +21,17 @@ typedef struct DvManeuverAlgorithmHandle DvManeuverAlgorithmHandle;
  * @param maxTime       [s] maximum burn time; must be positive and finite.
  * @param controlPeriod [s] FSW time step used as the burn-time delta-t; must be > 0 and finite.
  * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
+ * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
+ * @param burnStartTime [ns] time at which the burn starts.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
 bool DvManeuverAlgorithm_validateConfig(float minTime,
                                         float maxTime,
                                         float controlPeriod,
-                                        const Vector3f_c* cmdForce_B);
+                                        const Vector3f_c* cmdForce_B,
+                                        const Vector3f_c* cmdDv_N,
+                                        uint64_t burnStartTime);
 
 /**
  * @brief Construct a new DvManeuverAlgorithm instance from the supplied configuration.
@@ -35,13 +39,17 @@ bool DvManeuverAlgorithm_validateConfig(float minTime,
  * @param maxTime       [s] maximum burn time; must be positive and finite.
  * @param controlPeriod [s] FSW time step used as the burn-time delta-t; must be > 0 and finite.
  * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
+ * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
+ * @param burnStartTime [ns] time at which the burn starts.
  * @return Pointer to a new DvManeuverAlgorithm (must be destroyed).
  * Validate the values with validateConfig first; invalid input throws.
  */
 DvManeuverAlgorithmHandle* DvManeuverAlgorithm_create(float minTime,
                                                       float maxTime,
                                                       float controlPeriod,
-                                                      const Vector3f_c* cmdForce_B);
+                                                      const Vector3f_c* cmdForce_B,
+                                                      const Vector3f_c* cmdDv_N,
+                                                      uint64_t burnStartTime);
 
 /**
  * @brief Destroy a previously created DvManeuverAlgorithm.
@@ -57,13 +65,17 @@ void DvManeuverAlgorithm_destroy(DvManeuverAlgorithmHandle* self);
  * @param maxTime       [s] maximum burn time; must be positive and finite.
  * @param controlPeriod [s] FSW time step used as the burn-time delta-t; must be > 0 and finite.
  * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
+ * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
+ * @param burnStartTime [ns] time at which the burn starts.
  * Validate the values with validateConfig first; invalid input throws.
  */
 void DvManeuverAlgorithm_setConfig(DvManeuverAlgorithmHandle* self,
                                    float minTime,
                                    float maxTime,
                                    float controlPeriod,
-                                   const Vector3f_c* cmdForce_B);
+                                   const Vector3f_c* cmdForce_B,
+                                   const Vector3f_c* cmdDv_N,
+                                   uint64_t burnStartTime);
 
 /**
  * @brief Reset the burn state machine to its initial (pre-burn) condition.
@@ -76,15 +88,11 @@ void DvManeuverAlgorithm_reInitialize(DvManeuverAlgorithmHandle* self);
  * @param self          Pointer to the instance.
  * @param callTime      Evaluation time [ns].
  * @param vehAccumDV    Total accumulated delta-V from navigation [m/s].
- * @param dvInrtlCmd    Commanded delta-V in inertial coordinates [m/s].
- * @param burnStartTime Commanded burn start time [ns].
  * @return DvManeuverOutput_c  Burn execution status and body force command.
  */
 DvManeuverOutput_c DvManeuverAlgorithm_update(DvManeuverAlgorithmHandle* self,
                                               uint64_t callTime,
-                                              const Vector3f_c* vehAccumDV,
-                                              const Vector3f_c* dvInrtlCmd,
-                                              uint64_t burnStartTime);
+                                              const Vector3f_c* vehAccumDV);
 
 #ifdef __cplusplus
 }  // extern "C"

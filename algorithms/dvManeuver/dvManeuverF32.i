@@ -11,6 +11,5 @@
 %include "dvManeuverAlgorithm.h"
 
 %include "msgPayloadDef/NavTransMsgF32Payload.h"
-%include "msgPayloadDef/DvBurnCmdMsgF32Payload.h"
 %include "msgPayloadDef/DvExecutionDataMsgF32Payload.h"
 %include "msgPayloadDef/CmdForceBodyMsgF32Payload.h"
