@@ -160,9 +160,18 @@ TEST(DvManeuverTest, SetConfigDuringBurnAppliesNextUpdate) {
 // ---------------------------------------------------------------------------
 
 TEST(DvManeuverTest, PropertyOutputWellFormed) {
-    propertyOutputWellFormed(kCmdForce_B, {0.0F, 0.0F, 5.0F}, {0.0F, 0.0F, 2.0F});
-    propertyOutputWellFormed({1.0F, -2.0F, 3.0F}, {1.0F, -2.0F, 3.0F}, {-0.5F, 1.0F, 0.25F});
-    propertyOutputWellFormed({0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F});
+    // Arguments after the vectors: minTime, maxTime - minTime, burnStartTime, and step period, all in ns.
+    propertyOutputWellFormed(
+        kCmdForce_B, {0.0F, 0.0F, 5.0F}, {0.0F, 0.0F, 2.0F}, 0U, 100000000000U, 500000000U, 500000000U);
+    propertyOutputWellFormed(
+        {1.0F, -2.0F, 3.0F}, {1.0F, -2.0F, 3.0F}, {-0.5F, 1.0F, 0.25F}, 0U, 100000000000U, 500000000U, 500000000U);
+    propertyOutputWellFormed(
+        {0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F}, 0U, 100000000000U, 500000000U, 500000000U);
+    // Both time gates active: the delta-V is reached early, so minTime decides; a large command leaves maxTime.
+    propertyOutputWellFormed(
+        kCmdForce_B, {0.0F, 0.0F, 1.0F}, {0.0F, 0.0F, 2.0F}, 2000000000U, 3000000000U, 1000000000U, 100000000U);
+    propertyOutputWellFormed(
+        kCmdForce_B, {0.0F, 0.0F, 100.0F}, {0.0F, 0.0F, 2.0F}, 2000000000U, 3000000000U, 1000000000U, 100000000U);
 }
 
 // ---------------------------------------------------------------------------
