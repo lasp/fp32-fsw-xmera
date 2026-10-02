@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 FUZZ_TEST(DvManeuverFuzz, fuzzRegressionDvManeuver)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e3F, 1e3F),   // cmdForce_B [N]
-                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // dvInrtlCmd [m/s]
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // cmdDv_N [m/s]
                  xmera::fuzz::Vector3fInRange(-1e3F, 1e3F));  // acceleration [m/s^2]
 
 // ---------------------------------------------------------------------------
@@ -16,5 +16,5 @@ FUZZ_TEST(DvManeuverFuzz, fuzzRegressionDvManeuver)
 // ---------------------------------------------------------------------------
 FUZZ_TEST(DvManeuverPropertyFuzz, propertyOutputFlagsWellFormed)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e3F, 1e3F),   // cmdForce_B [N]
-                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // dvInrtlCmd [m/s]
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // cmdDv_N [m/s]
                  xmera::fuzz::Vector3fInRange(-1e3F, 1e3F));  // acceleration [m/s^2]
