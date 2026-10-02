@@ -34,9 +34,13 @@ inline DvExecuteGuidanceReferenceOutput referenceUpdate(DvExecuteGuidanceReferen
                                                         const Eigen::Vector3f& vehAccumDV,
                                                         const Eigen::Vector3f& dvInrtlCmd,
                                                         uint64_t burnStartTime) {
+    if (state.burnComplete != 0U) {
+        return {state.burnExecuting, state.burnComplete, (state.burnComplete || state.burnExecuting != 1)};
+    }
+
     const float burnDt = controlPeriod;
 
-    if ((state.burnExecuting == 0 && callTime >= burnStartTime) && state.burnComplete != 1) {
+    if ((state.burnExecuting == 0 && callTime >= burnStartTime)) {
         state.burnExecuting = 1;
         state.dvInit = vehAccumDV;
         state.burnComplete = 0;
@@ -49,6 +53,7 @@ inline DvExecuteGuidanceReferenceOutput referenceUpdate(DvExecuteGuidanceReferen
     const Eigen::Vector3f burnAccum = vehAccumDV - state.dvInit;
     const float dvMag = dvInrtlCmd.norm();
     const float dvExecuteMag = burnAccum.norm();
+
     state.burnComplete = state.burnComplete == 1 || dvExecuteMag >= dvMag;
     state.burnComplete &= state.burnTime > minTime;
     state.burnComplete |= (state.burnTime > maxTime);

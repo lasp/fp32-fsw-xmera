@@ -58,6 +58,55 @@ TEST(DvExecuteGuidanceTest, RegressionDelayedStart) {
                                     /* numSteps = */ 10);
 }
 
+TEST(DvExecuteGuidanceTest, ReconfigureCannotReExecuteCompletedBurn) {
+    DvExecuteGuidanceAlgorithm alg{DvExecuteGuidanceConfig::create(0.0F, 10.0F, 0.5F)};
+
+    const Eigen::Vector3f dvCmd{0.0F, 0.0F, 1.0F};
+
+    // Start the burn.
+    DvExecuteGuidanceOutput out = alg.update(/* callTime = */ 0U,
+                                             Eigen::Vector3f::Zero(),
+                                             dvCmd,
+                                             /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnExecuting, 1U);
+    EXPECT_EQ(out.burnComplete, 0U);
+    EXPECT_FALSE(out.commandThrustersOff);
+
+    // Reach the commanded delta-V and complete the burn.
+    out = alg.update(/* callTime = */ 500000000U,
+                     Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                     dvCmd,
+                     /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnExecuting, 0U);
+    EXPECT_EQ(out.burnComplete, 1U);
+    EXPECT_TRUE(out.commandThrustersOff);
+
+    // Change the configuration after completion.
+    alg.setConfig(DvExecuteGuidanceConfig::create(2.0F, 10.0F, 0.5F));
+
+    // Completion must remain latched.
+    out = alg.update(/* callTime = */ 1000000000U,
+                     Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                     dvCmd,
+                     /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnExecuting, 0U);
+    EXPECT_EQ(out.burnComplete, 1U);
+    EXPECT_TRUE(out.commandThrustersOff);
+
+    // A second update verifies the old burn cannot restart.
+    out = alg.update(/* callTime = */ 1500000000U,
+                     Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                     dvCmd,
+                     /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnExecuting, 0U);
+    EXPECT_EQ(out.burnComplete, 1U);
+    EXPECT_TRUE(out.commandThrustersOff);
+}
+
 // ---------------------------------------------------------------------------
 // Property tests.
 // ---------------------------------------------------------------------------
