@@ -99,13 +99,13 @@ TEST(SunAvoidanceTest, EdgeSmallSlewRate) {
     constexpr float kSmallSlewRate = 1.0e-4F;  // [r/s]
     const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kSmallSlewRate);
     SunAvoidanceAlgorithm alg{config};
-    const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+    const SunAvoidanceAttRef refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
 
-    const SunAvoidanceOutput first = alg.update(kSigmaBN, refIn, kSunHat_B, 0);
+    const SunAvoidanceAttRef first = alg.update(kSigmaBN, refIn, kSunHat_B, 0);
     // Total angle decay over the run is kSmallSlewRate * 11 * 0.5 s ~ 5.5e-4 rad.
     constexpr float tol = 2e-3F;
     for (int k = 1; k < 12; ++k) {
-        const SunAvoidanceOutput out = alg.update(kSigmaBN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceAttRef out = alg.update(kSigmaBN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(out.sigma_RN(i), first.sigma_RN(i), tol);
             EXPECT_NEAR(out.omega_RN_N(i), first.omega_RN_N(i), tol);
@@ -126,12 +126,12 @@ TEST(SunAvoidanceTest, EdgeSmallManeuverNearAlignment) {
 TEST(SunAvoidanceTest, EdgeNoSunInformationPassThrough) {
     const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate);
     SunAvoidanceAlgorithm alg{config};
-    const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+    const SunAvoidanceAttRef refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
     const Eigen::Matrix3f dcm_RN_in = mrpToDcm(kSigmaRN);
     constexpr float tol = 1e-5F;
 
     for (int k = 0; k < 5; ++k) {
-        const SunAvoidanceOutput out =
+        const SunAvoidanceAttRef out =
             alg.update(kSigmaBN, refIn, Eigen::Vector3f::Zero(), static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
@@ -152,13 +152,13 @@ TEST(SunAvoidanceTest, EdgeNoSunInformationPassThrough) {
 TEST(SunAvoidanceTest, EdgeBodyAtReferencePassThrough) {
     const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate);
     SunAvoidanceAlgorithm alg{config};
-    const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+    const SunAvoidanceAttRef refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
     const Eigen::Matrix3f dcm_RN_in = mrpToDcm(kSigmaRN);
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < 5; ++k) {
         // sigma_BN == sigma_RN with the maneuver enabled and valid Sun geometry.
-        const SunAvoidanceOutput out = alg.update(kSigmaRN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceAttRef out = alg.update(kSigmaRN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
         for (int r = 0; r < 3; ++r) {
@@ -175,11 +175,11 @@ namespace {
 void expectManeuverBoundedAndFinite(const Eigen::Vector3f& sHat_B) {
     const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate);
     SunAvoidanceAlgorithm alg{config};
-    const SunAvoidanceAttRefInputs refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+    const SunAvoidanceAttRef refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
 
     constexpr float normBound = 1.0F + 1e-5F;
     for (int k = 0; k < 10; ++k) {
-        const SunAvoidanceOutput out = alg.update(kSigmaBN, refIn, sHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceAttRef out = alg.update(kSigmaBN, refIn, sHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
         EXPECT_LE(out.sigma_RN.norm(), normBound);
@@ -210,11 +210,11 @@ TEST(SunAvoidanceTest, EdgeAntiParallelSensitiveAxes) {
     const Eigen::Vector3f sigmaRN{1.0F, 0.0F, 0.0F};          // 180 deg about X: flips the y sensitive axis
     const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate);
     SunAvoidanceAlgorithm alg{config};
-    const SunAvoidanceAttRefInputs refIn{sigmaRN, kOmegaRNN, kDomegaRNN};
+    const SunAvoidanceAttRef refIn{sigmaRN, kOmegaRNN, kDomegaRNN};
 
     constexpr float normBound = 1.0F + 1e-5F;
     for (int k = 0; k < 10; ++k) {
-        const SunAvoidanceOutput out = alg.update(sigmaBN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceAttRef out = alg.update(sigmaBN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
         EXPECT_LE(out.sigma_RN.norm(), normBound);

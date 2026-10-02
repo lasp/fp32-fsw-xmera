@@ -142,14 +142,14 @@ inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
     // corrected-reference offset, so the reference frame is the input reference directly (sigma_R0R == 0).
     SunAvoidanceReference ref{Eigen::Vector3f::Zero(), sensitiveHat_B, slewRate};
 
-    const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
+    const SunAvoidanceAttRef refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
 
         // sunAvoidance produces the maneuver-adjusted reference frame ...
-        const SunAvoidanceOutput adjustedRef = alg.update(sigma_BN, refIn, sHat_B, callTime);
+        const SunAvoidanceAttRef adjustedRef = alg.update(sigma_BN, refIn, sHat_B, callTime);
         // ... and attTrackingError forms the attitude tracking error from it and the navigation attitude.
         const AttGuidOutput algOut =
             attError.update(AttNavInput{sigma_BN, omega_BN_B},

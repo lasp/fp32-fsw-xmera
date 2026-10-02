@@ -8,7 +8,8 @@ extern "C" {
 #endif
 
 /**
- * @brief Plain-old-data mirror of the C++ SunAvoidanceAttRefInputs fields.
+ * @brief Plain-old-data mirror of the C++ SunAvoidanceAttRef fields, shaped like AttRefMsgF32Payload.
+ * Used for both the input reference and the maneuver-adjusted reference.
  *
  *  - sigma_RN    [-]      reference MRP attitude of R wrt inertial N
  *  - omega_RN_N  [r/s]    reference angular velocity in N-frame components
@@ -18,20 +19,7 @@ typedef struct {
     Vector3f_c sigma_RN;
     Vector3f_c omega_RN_N;
     Vector3f_c domega_RN_N;
-} SunAvoidanceAttRefInputs_c;
-
-/**
- * @brief Plain-old-data mirror of the C++ SunAvoidanceOutput fields: the maneuver-adjusted
- * reference frame, shaped like AttRefMsgF32Payload.
- *  - sigma_RN    [-]      adjusted reference MRP attitude wrt inertial N
- *  - omega_RN_N  [r/s]    adjusted reference angular velocity in N-frame components
- *  - domega_RN_N [r/s^2]  adjusted reference angular acceleration in N-frame components
- */
-typedef struct {
-    Vector3f_c sigma_RN;
-    Vector3f_c omega_RN_N;
-    Vector3f_c domega_RN_N;
-} SunAvoidanceOutput_c;
+} SunAvoidanceAttRef_c;
 
 #ifdef __cplusplus
 }  // extern "C"

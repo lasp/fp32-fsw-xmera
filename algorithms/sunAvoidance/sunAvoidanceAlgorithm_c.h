@@ -62,14 +62,14 @@ void SunAvoidanceAlgorithm_reInitialize(SunAvoidanceAlgorithmHandle* self);
  * @brief Compute the Sun-avoidance maneuver-adjusted reference frame.
  * @param self     Pointer to the instance.
  * @param sigma_BN Measured MRP attitude of the body wrt inertial N.
- * @param ref      Attitude reference inputs (algorithm-native POD, mirrors AttRefMsgF32Payload).
+ * @param ref      Input attitude reference (algorithm-native POD, mirrors AttRefMsgF32Payload).
  * @param sHat_B   Sun direction in body frame components; a zero vector means no Sun direction.
  * @param callTime The clock time at which the function was called (nanoseconds).
- * @return SunAvoidanceOutput_c  The maneuver-adjusted reference frame.
+ * @return SunAvoidanceAttRef_c  The maneuver-adjusted reference frame.
  */
-SunAvoidanceOutput_c SunAvoidanceAlgorithm_update(SunAvoidanceAlgorithmHandle* self,
+SunAvoidanceAttRef_c SunAvoidanceAlgorithm_update(SunAvoidanceAlgorithmHandle* self,
                                                   const Vector3f_c* sigma_BN,
-                                                  const SunAvoidanceAttRefInputs_c* ref,
+                                                  const SunAvoidanceAttRef_c* ref,
                                                   const Vector3f_c* sHat_B,
                                                   uint64_t callTime);
 

@@ -25,8 +25,8 @@ void SunAvoidanceAlgorithm::reInitialize() { this->maneuver.reset(); }
  @param callTime call time (nanoseconds)
  @return the maneuver-adjusted reference frame
  */
-SunAvoidanceOutput SunAvoidanceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
-                                                 const SunAvoidanceAttRefInputs& ref,
+SunAvoidanceAttRef SunAvoidanceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
+                                                 const SunAvoidanceAttRef& ref,
                                                  const Eigen::Vector3f& sHat_B,
                                                  const uint64_t callTime) {
     if (!this->maneuver.has_value()) {
@@ -51,7 +51,7 @@ SunAvoidanceOutput SunAvoidanceAlgorithm::update(const Eigen::Vector3f& sigma_BN
  @return the initialized maneuver (axis and angle; start time is set by the caller)
  */
 SunAvoidanceAlgorithm::Maneuver SunAvoidanceAlgorithm::initializeManeuver(const Eigen::Vector3f& sigma_BN,
-                                                                          const SunAvoidanceAttRefInputs& ref,
+                                                                          const SunAvoidanceAttRef& ref,
                                                                           const Eigen::Vector3f& sHat_N) const {
     // Phase 1: compute the maneuver -- the short-way principal rotation from the body to the reference.
     // The rotation is taken from R to B so the stored axis points the way the slew travels.
@@ -106,8 +106,8 @@ SunAvoidanceAlgorithm::Maneuver SunAvoidanceAlgorithm::initializeManeuver(const 
  @param callTime call time (nanoseconds)
  @return the maneuver-adjusted reference frame
  */
-SunAvoidanceOutput SunAvoidanceAlgorithm::computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
-                                                                   const SunAvoidanceAttRefInputs& ref,
+SunAvoidanceAttRef SunAvoidanceAlgorithm::computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
+                                                                   const SunAvoidanceAttRef& ref,
                                                                    const uint64_t callTime) const {
     const Eigen::Matrix3f dcm_RN = mrpToDcm(ref.sigma_RN);
 
@@ -120,7 +120,7 @@ SunAvoidanceOutput SunAvoidanceAlgorithm::computeAdjustedReference(const Eigen::
     float remainingManeuverAngle = maneuver.angle - (this->cfg.getSlewRate() * dtSeconds);
     remainingManeuverAngle = remainingManeuverAngle < 0.0F ? 0.0F : remainingManeuverAngle;
 
-    SunAvoidanceOutput out{};
+    SunAvoidanceAttRef out{};
 
     // Adjusted reference attitude: input reference rotated by the residual maneuver. The residual is
     // measured against the slew direction, so the reference is rotated back along it.
