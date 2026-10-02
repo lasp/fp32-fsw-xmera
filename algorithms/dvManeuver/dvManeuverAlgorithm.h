@@ -104,14 +104,14 @@ class DvManeuverAlgorithm final {
     void reInitialize();
 
     /// Advances the burn state machine one step.
-    /// @param callTime      Evaluation time [ns].
-    /// @param vehAccumDV    Total accumulated delta-V from navigation [m/s].
+    /// @param callTime       Evaluation time [ns].
+    /// @param dvAccumulated  Total accumulated delta-V from navigation [m/s].
     /// @return Burn state and body force command for this step.
-    DvManeuverOutput update(uint64_t callTime, const Eigen::Vector3f& vehAccumDV);
+    DvManeuverOutput update(uint64_t callTime, const Eigen::Vector3f& dvAccumulated);
 
    private:
     DvManeuverConfig cfg;
-    Eigen::Vector3f dvInit = Eigen::Vector3f::Zero();          ///< [m/s] accumulated delta-V latched at burn start
+    Eigen::Vector3f dvInitial = Eigen::Vector3f::Zero();       ///< [m/s] accumulated delta-V latched at burn start
     DvManeuverBurnState state = DvManeuverBurnState::Pending;  ///< [-] burn state machine state
     float burnTime{};                                          ///< [s] elapsed burn time
 };

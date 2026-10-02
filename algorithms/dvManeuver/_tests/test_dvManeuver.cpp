@@ -135,13 +135,13 @@ TEST(DvManeuverTest, EdgeZeroCommandedDvCompletesImmediately) {
 
 TEST(DvManeuverTest, EdgeCountsOnlyDeltaVFromThisBurn) {
     // The spacecraft already carries 5 m/s of delta-V accumulated before this burn even starts.
-    // dvInit must latch onto that value at burn start, so only the delta-V accumulated during THIS
+    // dvInitial must latch onto that value at burn start, so only the delta-V accumulated during THIS
     // burn counts toward completion -- not the pre-existing total.
     const Eigen::Vector3f priorAccumDV{0.0F, 0.0F, 5.0F};
     const Eigen::Vector3f dvCmd{0.0F, 0.0F, 1.0F};
     DvManeuverAlgorithm alg{DvManeuverConfig::create(0.0F, 10.0F, 0.5F, kCmdForce_B, dvCmd, /* burnStartTime = */ 0U)};
 
-    // Burn starts immediately; vehAccumDV already carries the prior 5 m/s offset.
+    // Burn starts immediately; dvAccumulated already carries the prior 5 m/s offset.
     DvManeuverOutput out = alg.update(/* callTime = */ 0U, priorAccumDV);
 
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
