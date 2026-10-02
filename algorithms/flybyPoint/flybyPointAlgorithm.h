@@ -175,8 +175,8 @@ class FlybyPointAlgorithm final {
     };
 
     void seedProfile(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
-    FlybyValidityTriggers reReadFromWindow();
-    GuidanceReference computeGuidanceReference() const;
+    FlybyValidityTriggers reReadFromWindow(const Profile& p);
+    GuidanceReference computeGuidanceReference(const Profile& p) const;
 
     FlybyPointConfig cfg;
     std::optional<Profile> profile;  //!< empty until the first seed, and again after reset()
