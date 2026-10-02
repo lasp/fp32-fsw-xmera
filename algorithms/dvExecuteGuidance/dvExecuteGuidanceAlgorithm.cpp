@@ -36,8 +36,8 @@ DvExecuteGuidanceOutput DvExecuteGuidanceAlgorithm::update(const uint64_t callTi
         }
 
         const Eigen::Vector3f burnAccum = vehAccumDV - this->dvInit;
-        const float dvMag = dvInrtlCmd.norm();
-        const float dvExecuteMag = burnAccum.norm();
+        const float dvMag = dvInrtlCmd.stableNorm();
+        const float dvExecuteMag = burnAccum.stableNorm();
 
         this->burnComplete = static_cast<uint32_t>(this->burnComplete == 1 || dvExecuteMag >= dvMag);
         this->burnComplete &= static_cast<uint32_t>(this->burnTime > this->cfg.getMinTime());
