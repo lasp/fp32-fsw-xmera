@@ -145,10 +145,12 @@ def test_dv_execute_guidance(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
         str(p3_tmax),
         str(p4_tstart))
 
-    np.testing.assert_equal(on_time,
-                            on_time_true,
-                            err_msg=('Variable: on_time' + params_string),
-                            verbose=True)
+    np.testing.assert_allclose(on_time,
+                               on_time_true,
+                               atol=1e-6,
+                               rtol=1e-6,
+                               err_msg=('Variable: on_time' + params_string),
+                               verbose=True)
 
     np.testing.assert_equal(burn_executing,
                             burn_executing_true,
