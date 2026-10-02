@@ -17,13 +17,16 @@ struct DvManeuverOutput {
 /// enforces the parameter constraints and throws fsw::invalid_argument on a violation.
 class DvManeuverConfig final {
    public:
-    // minTime, maxTime, and controlPeriod share the float type but have distinct roles; construction is funneled
-    // through the named create() factory, which makes the argument roles explicit at every call site.
+    // minTime, maxTime, and controlPeriod share the float type, and cmdForce_B and cmdDv_N share the Eigen::Vector3f
+    // type, but each has a distinct role; construction is funneled through the named create() factory, which makes
+    // the argument roles explicit at every call site.
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     static DvManeuverConfig create(float minTime,
                                    float maxTime,
                                    float controlPeriod,
-                                   const Eigen::Vector3f& cmdForce_B) {
+                                   const Eigen::Vector3f& cmdForce_B,
+                                   const Eigen::Vector3f& cmdDv_N,
+                                   uint64_t burnStartTime) {
         if (!isValidMinTime(minTime)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: minTime must be non-negative and finite.");
         }
@@ -39,7 +42,10 @@ class DvManeuverConfig final {
         if (!isValidCmdForce(cmdForce_B)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: cmdForce_B must be finite.");
         }
-        return {minTime, maxTime, controlPeriod, cmdForce_B};
+        if (!isValidCmdDv(cmdDv_N)) {
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: cmdDv_N must be finite.");
+        }
+        return {minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N, burnStartTime};
     }
 
     static bool isValidMinTime(float minTime) { return minTime >= 0.0F && fsw::is_finite(minTime); }
@@ -49,21 +55,36 @@ class DvManeuverConfig final {
         return controlPeriod > 0.0F && fsw::is_finite(controlPeriod);
     }
     static bool isValidCmdForce(const Eigen::Vector3f& cmdForce_B) { return cmdForce_B.allFinite(); }
+    static bool isValidCmdDv(const Eigen::Vector3f& cmdDv_N) { return cmdDv_N.allFinite(); }
 
     float getMinTime() const { return minTime; }
     float getMaxTime() const { return maxTime; }
     float getControlPeriod() const { return controlPeriod; }
     const Eigen::Vector3f& getCmdForce() const { return cmdForce_B; }
+    const Eigen::Vector3f& getCmdDv() const { return cmdDv_N; }
+    uint64_t getBurnStartTime() const { return burnStartTime; }
 
    private:
-    DvManeuverConfig(float minTime, float maxTime, float controlPeriod, const Eigen::Vector3f& cmdForce_B)
-        : minTime(minTime), maxTime(maxTime), controlPeriod(controlPeriod), cmdForce_B(cmdForce_B) {}
+    DvManeuverConfig(float minTime,
+                     float maxTime,
+                     float controlPeriod,
+                     const Eigen::Vector3f& cmdForce_B,
+                     const Eigen::Vector3f& cmdDv_N,
+                     uint64_t burnStartTime)
+        : minTime(minTime),
+          maxTime(maxTime),
+          controlPeriod(controlPeriod),
+          cmdForce_B(cmdForce_B),
+          cmdDv_N(cmdDv_N),
+          burnStartTime(burnStartTime) {}
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
     float minTime;
     float maxTime;
     float controlPeriod;
     Eigen::Vector3f cmdForce_B;
+    Eigen::Vector3f cmdDv_N;
+    uint64_t burnStartTime;
 };
 
 /// Executes a delta-V burn: compares the accumulated delta-V against the commanded delta-V and,
@@ -82,14 +103,9 @@ class DvManeuverAlgorithm final {
 
     /// Advances the burn state machine one step.
     /// @param callTime      Evaluation time [ns].
-    /// @param vehAccumDV     Total accumulated delta-V from navigation [m/s].
-    /// @param dvInrtlCmd     Commanded delta-V in inertial coordinates [m/s].
-    /// @param burnStartTime  Commanded burn start time [ns].
+    /// @param vehAccumDV    Total accumulated delta-V from navigation [m/s].
     /// @return Burn execution status and body force command for this step.
-    DvManeuverOutput update(uint64_t callTime,
-                            const Eigen::Vector3f& vehAccumDV,
-                            const Eigen::Vector3f& dvInrtlCmd,
-                            uint64_t burnStartTime);
+    DvManeuverOutput update(uint64_t callTime, const Eigen::Vector3f& vehAccumDV);
 
    private:
     DvManeuverConfig cfg;

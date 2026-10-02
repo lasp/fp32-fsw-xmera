@@ -5,19 +5,17 @@
 #include <memory>
 #include <stdexcept>
 
-/*! Validates that the required input messages are connected and constructs the algorithm. */
+/*! Validates that the required input message is connected and constructs the algorithm. */
 void DvManeuver::reset(const uint64_t callTime) {
     if (!this->navDataInMsg.isLinked()) {
         throw std::invalid_argument("dvManeuver.navDataInMsg wasn't connected.");
-    }
-    if (!this->burnDataInMsg.isLinked()) {
-        throw std::invalid_argument("dvManeuver.burnDataInMsg wasn't connected.");
     }
     this->algorithm = std::make_unique<DvManeuverAlgorithm>(this->toConfig());
 }
 
 DvManeuverConfig DvManeuver::toConfig() const {
-    return DvManeuverConfig::create(this->minTime, this->maxTime, this->controlPeriod, this->cmdForce_B);
+    return DvManeuverConfig::create(
+        this->minTime, this->maxTime, this->controlPeriod, this->cmdForce_B, this->cmdDv_N, this->burnStartTime);
 }
 
 void DvManeuver::reconfigure() {
@@ -43,12 +41,10 @@ void DvManeuver::updateState(const uint64_t callTime) {
     }
 
     const NavTransMsgF32Payload navData = this->navDataInMsg();
-    const DvBurnCmdMsgF32Payload localBurnData = this->burnDataInMsg();
 
     const Eigen::Vector3f vehAccumDV = cArrayToEigenVector3<float>(navData.vehAccumDV);
-    const Eigen::Vector3f dvInrtlCmd = cArrayToEigenVector3<float>(localBurnData.dvInrtlCmd);
 
-    const DvManeuverOutput out = this->algorithm->update(callTime, vehAccumDV, dvInrtlCmd, localBurnData.burnStartTime);
+    const DvManeuverOutput out = this->algorithm->update(callTime, vehAccumDV);
 
     CmdForceBodyMsgF32Payload forceMsgOut{};
     eigenVectorToCArray(out.cmdForce_B, forceMsgOut.forceRequestBody);

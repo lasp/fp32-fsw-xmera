@@ -14,18 +14,12 @@ void DvManeuverAlgorithm::reInitialize() {
     this->dvInit = Eigen::Vector3f::Zero();
 }
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-// vehAccumDV and dvInrtlCmd share the Eigen::Vector3f type but have distinct roles, documented in the
-// header; they follow the message-payload ordering the adapter reads them in.
-DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime,
-                                             const Eigen::Vector3f& vehAccumDV,
-                                             const Eigen::Vector3f& dvInrtlCmd,
-                                             const uint64_t burnStartTime) {
+DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime, const Eigen::Vector3f& vehAccumDV) {
     if (this->burnComplete == 0U) {
         /*! - the control period (FSW time step) is used as the burn time delta-t */
         const float burnDt = this->cfg.getControlPeriod();
 
-        if ((this->burnExecuting == 0 && callTime >= burnStartTime) && this->burnComplete != 1) {
+        if ((this->burnExecuting == 0 && callTime >= this->cfg.getBurnStartTime()) && this->burnComplete != 1) {
             this->burnExecuting = 1;
             this->dvInit = vehAccumDV;
             this->burnComplete = 0;
@@ -36,7 +30,7 @@ DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime,
         }
 
         const Eigen::Vector3f burnAccum = vehAccumDV - this->dvInit;
-        const float dvMag = dvInrtlCmd.stableNorm();
+        const float dvMag = this->cfg.getCmdDv().stableNorm();
         const float dvExecuteMag = burnAccum.stableNorm();
 
         this->burnComplete = static_cast<uint32_t>(this->burnComplete == 1 || dvExecuteMag >= dvMag);
@@ -54,4 +48,3 @@ DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime,
     }
     return out;
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)

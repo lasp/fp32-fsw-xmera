@@ -65,6 +65,9 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     module.maxTime = p3_tmax
     cmd_force_B = np.array([1.0, -2.0, 5.0])  # [N] body force commanded while the burn executes
     module.cmdForce_B = cmd_force_B
+    cmd_dv_N = np.array([0.0, 0.0, p1_dv])  # [m/s] commanded Delta-V
+    module.cmdDv_N = cmd_dv_N
+    module.burnStartTime = macros.sec2nano(p4_tstart)
 
     acceleration_N = np.array([0.0, 0.0, 2.0])  # acceleration of spacecraft due to thrusters
 
@@ -73,14 +76,8 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     nav_trans_msg_data.vehAccumDV = np.array([0.0, 0.0, 0.0])
     nav_trans_msg = messaging.NavTransMsgF32().write(nav_trans_msg_data)
 
-    dv_burn_cmd_msg_data = messaging.DvBurnCmdMsgF32Payload()
-    dv_burn_cmd_msg_data.dvInrtlCmd = np.array([0.0, 0.0, p1_dv])
-    dv_burn_cmd_msg_data.burnStartTime = macros.sec2nano(p4_tstart)
-    dv_burn_cmd_msg = messaging.DvBurnCmdMsgF32().write(dv_burn_cmd_msg_data)
-
     # connect messages
     module.navDataInMsg.subscribeTo(nav_trans_msg)
-    module.burnDataInMsg.subscribeTo(dv_burn_cmd_msg)
 
     # Setup logging on the test module output messages so that we get all the writes to it
     cmd_force_data_log = module.cmdForceOutMsg.recorder()
@@ -106,7 +103,7 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
         if (update_rate * (i + 1) <= p4_tstart):
             burn_executing_true[i] = 0
             burn_complete_true[i] = 0
-        elif (np.linalg.norm(nav_trans_msg_data.vehAccumDV) >= np.linalg.norm(dv_burn_cmd_msg_data.dvInrtlCmd)) and \
+        elif (np.linalg.norm(nav_trans_msg_data.vehAccumDV) >= np.linalg.norm(cmd_dv_N)) and \
                 (update_rate * (i + 1) - p4_tstart > module.minTime) or \
                 (update_rate * (i + 1) - p4_tstart > module.maxTime):
             burn_executing_true[i] = 0
