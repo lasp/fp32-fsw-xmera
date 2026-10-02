@@ -1,7 +1,7 @@
 Executive Summary
 -----------------
 
-The ``dvExecuteGuidance`` module executes a Delta-V maneuver by monitoring the Delta-V accumulated during the
+The ``dvManeuver`` module executes a Delta-V maneuver by monitoring the Delta-V accumulated during the
 current burn and controlling the thruster on-time command. At burn start, the module latches the accumulated
 Delta-V provided by the :ref:`NavTransMsgF32Payload` message. It then compares the magnitude of the Delta-V
 accumulated since that point against the desired Delta-V magnitude from the :ref:`DvBurnCmdMsgF32Payload` message.
@@ -18,8 +18,8 @@ algorithm is single-precision throughout.
 Module Architecture
 -------------------
 
-The module is split into a thin adapter (``DvExecuteGuidance``) that handles framework integration and an algorithm
-class (``DvExecuteGuidanceAlgorithm``) that contains the pure burn state machine.
+The module is split into a thin adapter (``DvManeuver``) that handles framework integration and an algorithm
+class (``DvManeuverAlgorithm``) that contains the pure burn state machine.
 
 Adapter Layer
 ~~~~~~~~~~~~~
@@ -55,7 +55,7 @@ Configuration
 ~~~~~~~~~~~~~
 
 The configuration is set through public properties on the adapter before ``reset()`` and validated (via
-``DvExecuteGuidanceConfig``) when the algorithm is constructed.
+``DvManeuverConfig``) when the algorithm is constructed.
 
 .. list-table:: Configuration parameters
     :widths: 25 25 50
@@ -81,7 +81,7 @@ Two-Phase Initialization
 The Python usage follows the standard adapter lifecycle: set the configuration properties, subscribe inputs, call
 ``reset()`` once, then drive ``updateState()`` each cycle. ::
 
-    module = dvExecuteGuidanceF32.DvExecuteGuidance()
+    module = dvManeuverF32.DvManeuver()
     module.controlPeriod = 0.5
     module.minTime = 2.0
     module.maxTime = 10.0
