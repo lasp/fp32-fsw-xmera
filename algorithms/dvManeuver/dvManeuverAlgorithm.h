@@ -1,5 +1,5 @@
-#ifndef F32XMERA_DV_EXECUTE_GUIDANCE_ALGORITHM_H
-#define F32XMERA_DV_EXECUTE_GUIDANCE_ALGORITHM_H
+#ifndef F32XMERA_DV_MANEUVER_ALGORITHM_H
+#define F32XMERA_DV_MANEUVER_ALGORITHM_H
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
@@ -8,7 +8,7 @@
 
 /// Burn execution status produced each update. @c commandThrustersOff tells the adapter whether to
 /// command thrusters off (zero on-time) or on (nonzero on-time) for this step.
-struct DvExecuteGuidanceOutput {
+struct DvManeuverOutput {
     uint32_t burnExecuting{};    ///< [-] flag indicating whether the burn is in progress
     uint32_t burnComplete{};     ///< [-] flag indicating whether the burn has completed
     bool commandThrustersOff{};  ///< [-] true: adapter commands thrusters off; false: adapter commands thrusters on
@@ -16,23 +16,23 @@ struct DvExecuteGuidanceOutput {
 
 /// Validated, immutable configuration for the delta-V burn executor. Construct via create(), which
 /// enforces the parameter constraints and throws fsw::invalid_argument on a violation.
-class DvExecuteGuidanceConfig final {
+class DvManeuverConfig final {
    public:
     // minTime, maxTime, and controlPeriod share the float type but have distinct roles; construction is funneled
     // through the named create() factory, which makes the argument roles explicit at every call site.
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-    static DvExecuteGuidanceConfig create(float minTime, float maxTime, float controlPeriod) {
+    static DvManeuverConfig create(float minTime, float maxTime, float controlPeriod) {
         if (!isValidMinTime(minTime)) {
-            FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: minTime must be non-negative and finite.");
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: minTime must be non-negative and finite.");
         }
         if (!isValidMaxTime(maxTime)) {
-            FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: maxTime must be positive and finite.");
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime must be positive and finite.");
         }
         if (!isValidControlPeriod(controlPeriod)) {
-            FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: controlPeriod must be positive and finite.");
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: controlPeriod must be positive and finite.");
         }
         if (!isValidMaxTimeRelativeToMinTime(minTime, maxTime)) {
-            FSW_THROW_INVALID_ARGUMENT("dvExecuteGuidance: maxTime must be greater than minTime.");
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime must be greater than minTime.");
         }
         return {minTime, maxTime, controlPeriod};
     }
@@ -49,7 +49,7 @@ class DvExecuteGuidanceConfig final {
     float getControlPeriod() const { return controlPeriod; }
 
    private:
-    DvExecuteGuidanceConfig(float minTime, float maxTime, float controlPeriod)
+    DvManeuverConfig(float minTime, float maxTime, float controlPeriod)
         : minTime(minTime), maxTime(maxTime), controlPeriod(controlPeriod) {}
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
@@ -61,12 +61,12 @@ class DvExecuteGuidanceConfig final {
 /// Executes a delta-V burn: compares the accumulated delta-V against the commanded delta-V and,
 /// subject to minimum/maximum burn-time gates, decides when the burn is complete and the thrusters
 /// must be turned off. The module holds its own burn state machine across updates.
-class DvExecuteGuidanceAlgorithm final {
+class DvManeuverAlgorithm final {
    public:
-    explicit DvExecuteGuidanceAlgorithm(const DvExecuteGuidanceConfig& config);
+    explicit DvManeuverAlgorithm(const DvManeuverConfig& config);
 
     /// Installs the configuration parameters. Does not touch runtime state.
-    void setConfig(const DvExecuteGuidanceConfig& config);
+    void setConfig(const DvManeuverConfig& config);
 
     /// Resets the burn state machine to its initial (pre-burn) condition.
     void reInitialize();
@@ -77,13 +77,13 @@ class DvExecuteGuidanceAlgorithm final {
     /// @param dvInrtlCmd     Commanded delta-V in inertial coordinates [m/s].
     /// @param burnStartTime  Commanded burn start time [ns].
     /// @return Burn execution status and thruster command-state flag for this step.
-    DvExecuteGuidanceOutput update(uint64_t callTime,
-                                   const Eigen::Vector3f& vehAccumDV,
-                                   const Eigen::Vector3f& dvInrtlCmd,
-                                   uint64_t burnStartTime);
+    DvManeuverOutput update(uint64_t callTime,
+                            const Eigen::Vector3f& vehAccumDV,
+                            const Eigen::Vector3f& dvInrtlCmd,
+                            uint64_t burnStartTime);
 
    private:
-    DvExecuteGuidanceConfig cfg;
+    DvManeuverConfig cfg;
     Eigen::Vector3f dvInit = Eigen::Vector3f::Zero();  ///< [m/s] accumulated delta-V latched at burn start
     uint32_t burnExecuting{};                          ///< [-] burn currently in progress
     uint32_t burnComplete{};                           ///< [-] burn has completed

@@ -204,7 +204,7 @@ The necessary module configuration is::
     module.controlPeriod = 0.2      # [s] integration step, necessary (> 0), must be the task rate
     module.accelBias_B = [0., 0., 0.]  # [m/s^2] measured bias, subtracted per sample, optional
     module.imuInMsg.subscribeTo(mimuMajorityVote.imuSensorBodyOutMsg)
-    # Subscribe a downstream consumer (for example, dvExecuteGuidance) to module.dvAccumulationOutMsg.
+    # Subscribe a downstream consumer (for example, dvManeuver) to module.dvAccumulationOutMsg.
 
 Set ``controlPeriod`` to the rate of the adapter before ``reset()``. Use ``reset(callTime)`` one time
 before the first ``updateState(callTime)``. ``reset`` throws ``std::invalid_argument`` if

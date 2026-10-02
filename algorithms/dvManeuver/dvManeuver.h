@@ -1,7 +1,7 @@
-#ifndef F32XMERA_DV_EXECUTE_GUIDANCE_H
-#define F32XMERA_DV_EXECUTE_GUIDANCE_H
+#ifndef F32XMERA_DV_MANEUVER_H
+#define F32XMERA_DV_MANEUVER_H
 
-#include "dvExecuteGuidanceAlgorithm.h"
+#include "dvManeuverAlgorithm.h"
 #include "msgPayloadDef/DvBurnCmdMsgF32Payload.h"
 #include "msgPayloadDef/DvExecutionDataMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
@@ -13,10 +13,10 @@
 #include <memory>
 
 /*! @brief Adapter for the delta-V burn execution algorithm. */
-class DvExecuteGuidance final : public SysModel {
+class DvManeuver final : public SysModel {
    public:
-    DvExecuteGuidance() = default;
-    ~DvExecuteGuidance() override = default;
+    DvManeuver() = default;
+    ~DvManeuver() override = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
@@ -38,8 +38,8 @@ class DvExecuteGuidance final : public SysModel {
     Message<DvExecutionDataMsgF32Payload> burnExecOutMsg; /*!< [-] burn execution output message */
 
    private:
-    DvExecuteGuidanceConfig toConfig() const;  //!< single source of truth for reset() + reconfigure()
-    std::unique_ptr<DvExecuteGuidanceAlgorithm> algorithm = nullptr;
+    DvManeuverConfig toConfig() const;  //!< single source of truth for reset() + reconfigure()
+    std::unique_ptr<DvManeuverAlgorithm> algorithm = nullptr;
 };
 
 #endif

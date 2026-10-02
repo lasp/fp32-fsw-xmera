@@ -1,13 +1,13 @@
-%module dvExecuteGuidanceF32
+%module dvManeuverF32
 %{
-   #include "dvExecuteGuidance.h"
+   #include "dvManeuver.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 
-%include "dvExecuteGuidance.h"
-%include "dvExecuteGuidanceAlgorithm.h"
+%include "dvManeuver.h"
+%include "dvManeuverAlgorithm.h"
 
 %include "msgPayloadDef/NavTransMsgF32Payload.h"
 %include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"

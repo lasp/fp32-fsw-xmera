@@ -1,13 +1,13 @@
-#include "dvExecuteGuidanceAlgorithm.h"
+#include "dvManeuverAlgorithm.h"
 
-DvExecuteGuidanceAlgorithm::DvExecuteGuidanceAlgorithm(const DvExecuteGuidanceConfig& config) : cfg(config) {
+DvManeuverAlgorithm::DvManeuverAlgorithm(const DvManeuverConfig& config) : cfg(config) {
     this->setConfig(config);
     this->reInitialize();
 }
 
-void DvExecuteGuidanceAlgorithm::setConfig(const DvExecuteGuidanceConfig& config) { this->cfg = config; }
+void DvManeuverAlgorithm::setConfig(const DvManeuverConfig& config) { this->cfg = config; }
 
-void DvExecuteGuidanceAlgorithm::reInitialize() {
+void DvManeuverAlgorithm::reInitialize() {
     this->burnExecuting = 0;
     this->burnComplete = 0;
     this->burnTime = 0.0F;
@@ -17,10 +17,10 @@ void DvExecuteGuidanceAlgorithm::reInitialize() {
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 // vehAccumDV and dvInrtlCmd share the Eigen::Vector3f type but have distinct roles, documented in the
 // header; they follow the message-payload ordering the adapter reads them in.
-DvExecuteGuidanceOutput DvExecuteGuidanceAlgorithm::update(const uint64_t callTime,
-                                                           const Eigen::Vector3f& vehAccumDV,
-                                                           const Eigen::Vector3f& dvInrtlCmd,
-                                                           const uint64_t burnStartTime) {
+DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime,
+                                             const Eigen::Vector3f& vehAccumDV,
+                                             const Eigen::Vector3f& dvInrtlCmd,
+                                             const uint64_t burnStartTime) {
     if (this->burnComplete == 0U) {
         /*! - the control period (FSW time step) is used as the burn time delta-t */
         const float burnDt = this->cfg.getControlPeriod();
@@ -46,7 +46,7 @@ DvExecuteGuidanceOutput DvExecuteGuidanceAlgorithm::update(const uint64_t callTi
     }
 
     // once burnComplete == 1, nothing above ever runs again — reconfigure() can never reopen it
-    DvExecuteGuidanceOutput out;
+    DvManeuverOutput out;
     out.burnExecuting = this->burnExecuting;
     out.burnComplete = this->burnComplete;
     out.commandThrustersOff = (this->burnComplete != 0) || (this->burnExecuting != 1);
