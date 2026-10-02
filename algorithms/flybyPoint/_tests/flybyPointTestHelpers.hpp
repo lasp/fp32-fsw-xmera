@@ -100,10 +100,10 @@ inline bool referenceIsUsableSample(const Eigen::Vector3d& r, const Eigen::Vecto
  @param config Algorithm configuration
  */
 inline bool referenceIsCollinear(const Eigen::Vector3d& r, const Eigen::Vector3d& v, const FlybyPointConfig& config) {
-    const Eigen::Vector3d ur = r.normalized();
-    const Eigen::Vector3d uv = v.normalized();
+    const Eigen::Vector3d ur = r.stableNormalized();
+    const Eigen::Vector3d uv = v.stableNormalized();
     return 1.0 - std::fabs(ur.dot(uv)) < config.getToleranceForCollinearity() ||
-           ur.cross(uv).norm() < FlybyPointAlgorithm::kMinOrbitNormalNorm;
+           ur.cross(uv).stableNorm() < FlybyPointAlgorithm::kMinOrbitNormalNorm;
 }
 
 /*! Mirrors FlybyPointAlgorithm::checkValidity(). The closest-approach distance comes from the candidate

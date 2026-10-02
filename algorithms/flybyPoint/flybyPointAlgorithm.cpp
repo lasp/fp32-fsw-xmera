@@ -30,10 +30,10 @@ bool isUsableSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N
  @param toleranceForCollinearity [-] tolerance on 1 - |cos| of the r-v angle
  */
 bool isCollinear(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N, const float toleranceForCollinearity) {
-    const Eigen::Vector3d ur_N = r_BN_N.normalized();
-    const Eigen::Vector3d uv_N = v_BN_N.normalized();
+    const Eigen::Vector3d ur_N = r_BN_N.stableNormalized();
+    const Eigen::Vector3d uv_N = v_BN_N.stableNormalized();
     return 1.0 - fabs(ur_N.dot(uv_N)) < toleranceForCollinearity ||
-           ur_N.cross(uv_N).norm() < FlybyPointAlgorithm::kMinOrbitNormalNorm;
+           ur_N.cross(uv_N).stableNorm() < FlybyPointAlgorithm::kMinOrbitNormalNorm;
 }
 
 /*! Check a re-read candidate (r, v) against the configured thresholds and against the rectilinear prediction from the
@@ -55,9 +55,9 @@ std::optional<FlybyValidityTriggers> checkValidity(const Eigen::Vector3d& r_BN_N
      trajectory, at distance d_CA = |r x v| / |v| = |r| |cos(gamma)|: peak rate |v| / d_CA and peak acceleration
      3 sqrt(3) / 8 (|v| / d_CA)^2, compared with the spacecraft limits. An exactly collinear candidate has d_CA = 0, so
      its peaks are unbounded and exceed both limits */
-    const double distanceClosestApproach = r_BN_N.cross(v_BN_N).norm() / v_BN_N.norm();
+    const double distanceClosestApproach = r_BN_N.cross(v_BN_N).stableNorm() / v_BN_N.stableNorm();
     if (distanceClosestApproach > 0.0) {
-        const double speedOverDistance = v_BN_N.norm() / distanceClosestApproach;
+        const double speedOverDistance = v_BN_N.stableNorm() / distanceClosestApproach;
         triggers.maxRateTrigger = speedOverDistance * kRad2Deg > cfg.getMaximumRateThreshold();
         triggers.maxAccelerationTrigger =
             kMaxAccelCoeff * speedOverDistance * speedOverDistance * kRad2Deg > cfg.getMaximumAccelerationThreshold();
@@ -67,7 +67,7 @@ std::optional<FlybyValidityTriggers> checkValidity(const Eigen::Vector3d& r_BN_N
     }
 
     /*! position error with respect to the prediction from the first read against the a-priori sigma bound */
-    const double deltaPositionNorm = (r_BN_N - rPredicted_BN_N).norm();
+    const double deltaPositionNorm = (r_BN_N - rPredicted_BN_N).stableNorm();
     triggers.positionKnowledgeExceedTrigger = deltaPositionNorm > cfg.getPositionKnowledgeSigma();
 
     if (triggers.collinearityTrigger || triggers.maxRateTrigger || triggers.maxAccelerationTrigger ||
@@ -172,16 +172,16 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
  */
 void FlybyPointAlgorithm::seedProfile(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
     /*! radial (ur_N), velocity (uv_N), out-of-plane (uh_N) and along-track (ut_N) unit direction vectors */
-    const Eigen::Vector3d ur_N = r_BN_N.normalized();
-    const Eigen::Vector3d uv_N = v_BN_N.normalized();
-    const Eigen::Vector3d uh_N = ur_N.cross(uv_N).normalized();
-    const Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
+    const Eigen::Vector3d ur_N = r_BN_N.stableNormalized();
+    const Eigen::Vector3d uv_N = v_BN_N.stableNormalized();
+    const Eigen::Vector3d uh_N = ur_N.cross(uv_N).stableNormalized();
+    const Eigen::Vector3d ut_N = uh_N.cross(ur_N).stableNormalized();
 
     Eigen::Matrix3f R0N;
     R0N.row(0) = ur_N.cast<float>();
     R0N.row(1) = ut_N.cast<float>();
     R0N.row(2) = uh_N.cast<float>();
-    const double f0 = v_BN_N.norm() / r_BN_N.norm();
+    const double f0 = v_BN_N.stableNorm() / r_BN_N.stableNorm();
     const double gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));  // flight path angle
     this->profile = Profile{.f0 = f0, .gamma0 = gamma0, .R0N = R0N, .periodsSinceRead = 0};
 }
