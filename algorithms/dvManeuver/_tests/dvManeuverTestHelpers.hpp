@@ -14,7 +14,7 @@
 // the expected DvManeuverAlgorithm::update() semantics so any change to the production state
 // machine is caught by the regression comparison below.
 struct DvManeuverReferenceState {
-    Eigen::Vector3f dvInit = Eigen::Vector3f::Zero();
+    Eigen::Vector3f dvInitial = Eigen::Vector3f::Zero();
     bool burnExecuting = false;
     bool burnComplete = false;
     float burnTime = 0.0F;
@@ -32,7 +32,7 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
                                                  float controlPeriod,
                                                  const Eigen::Vector3f& cmdForce_B,
                                                  uint64_t callTime,
-                                                 const Eigen::Vector3f& vehAccumDV,
+                                                 const Eigen::Vector3f& dvAccumulated,
                                                  const Eigen::Vector3f& cmdDv_N,
                                                  uint64_t burnStartTime) {
     if (state.burnComplete) {
@@ -43,7 +43,7 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
 
     if ((!state.burnExecuting && callTime >= burnStartTime)) {
         state.burnExecuting = true;
-        state.dvInit = vehAccumDV;
+        state.dvInitial = dvAccumulated;
         state.burnComplete = false;
     }
 
@@ -51,7 +51,7 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
         state.burnTime += burnDt;
     }
 
-    const Eigen::Vector3f burnAccum = vehAccumDV - state.dvInit;
+    const Eigen::Vector3f burnAccum = dvAccumulated - state.dvInitial;
     const float dvMag = cmdDv_N.norm();
     const float dvExecuteMag = burnAccum.norm();
 
@@ -86,16 +86,16 @@ inline void regressionTestDvManeuver(float minTime,
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
 
-        Eigen::Vector3f vehAccumDV = Eigen::Vector3f::Zero();
+        Eigen::Vector3f dvAccumulated = Eigen::Vector3f::Zero();
         if (callTime > burnStartTime) {
             const float elapsed = static_cast<float>(callTime - burnStartTime) * 1e-9F;
-            vehAccumDV = acceleration * elapsed;
+            dvAccumulated = acceleration * elapsed;
         }
 
         DvManeuverOutput algOut{};
-        EXPECT_NO_THROW(algOut = alg.update(callTime, vehAccumDV));
+        EXPECT_NO_THROW(algOut = alg.update(callTime, dvAccumulated));
         const auto refOut = referenceUpdate(
-            refState, minTime, maxTime, controlPeriod, cmdForce_B, callTime, vehAccumDV, cmdDv_N, burnStartTime);
+            refState, minTime, maxTime, controlPeriod, cmdForce_B, callTime, dvAccumulated, cmdDv_N, burnStartTime);
 
         EXPECT_EQ(algOut.state == DvManeuverBurnState::Executing, refOut.burnExecuting);
         EXPECT_EQ(algOut.state == DvManeuverBurnState::Complete, refOut.burnComplete);
@@ -138,13 +138,13 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
     for (int k = 0; k < kNumSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
 
-        Eigen::Vector3f vehAccumDV = Eigen::Vector3f::Zero();
+        Eigen::Vector3f dvAccumulated = Eigen::Vector3f::Zero();
         if (callTime > kBurnStartTime) {
-            vehAccumDV = acceleration * (static_cast<float>(callTime - kBurnStartTime) * 1e-9F);
+            dvAccumulated = acceleration * (static_cast<float>(callTime - kBurnStartTime) * 1e-9F);
         }
 
         DvManeuverOutput out{};
-        EXPECT_NO_THROW(out = alg.update(callTime, vehAccumDV));
+        EXPECT_NO_THROW(out = alg.update(callTime, dvAccumulated));
 
         EXPECT_GE(static_cast<int>(out.state), static_cast<int>(previousState));
         const Eigen::Vector3f expectedForce_B =
