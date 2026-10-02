@@ -11,19 +11,19 @@ SunAvoidanceConfig makeConfig(const Vector3f_c& sensitiveHat_B, float slewRate) 
     return SunAvoidanceConfig::create(cArrayToEigenVector3<float>(sensitiveHat_B.data), slewRate);
 }
 
-SunAvoidanceAttRefInputs refFromC(const SunAvoidanceAttRefInputs_c& c) {
-    return SunAvoidanceAttRefInputs{
+SunAvoidanceAttRef attRefFromC(const SunAvoidanceAttRef_c& c) {
+    return SunAvoidanceAttRef{
         cArrayToEigenVector3<float>(c.sigma_RN.data),
         cArrayToEigenVector3<float>(c.omega_RN_N.data),
         cArrayToEigenVector3<float>(c.domega_RN_N.data),
     };
 }
 
-SunAvoidanceOutput_c outputToC(const SunAvoidanceOutput& out) {
-    SunAvoidanceOutput_c result{};
-    eigenVectorToCArray(out.sigma_RN, result.sigma_RN.data);
-    eigenVectorToCArray(out.omega_RN_N, result.omega_RN_N.data);
-    eigenVectorToCArray(out.domega_RN_N, result.domega_RN_N.data);
+SunAvoidanceAttRef_c attRefToC(const SunAvoidanceAttRef& attRef) {
+    SunAvoidanceAttRef_c result{};
+    eigenVectorToCArray(attRef.sigma_RN, result.sigma_RN.data);
+    eigenVectorToCArray(attRef.omega_RN_N, result.omega_RN_N.data);
+    eigenVectorToCArray(attRef.domega_RN_N, result.domega_RN_N.data);
     return result;
 }
 }  // namespace
@@ -56,17 +56,15 @@ void SunAvoidanceAlgorithm_reInitialize(SunAvoidanceAlgorithmHandle* self) {
     fsw::fromHandle<::SunAvoidanceAlgorithm>(self)->reInitialize();
 }
 
-SunAvoidanceOutput_c SunAvoidanceAlgorithm_update(SunAvoidanceAlgorithmHandle* self,
+SunAvoidanceAttRef_c SunAvoidanceAlgorithm_update(SunAvoidanceAlgorithmHandle* self,
                                                   const Vector3f_c* sigma_BN,
-                                                  const SunAvoidanceAttRefInputs_c* ref,
-                                                  const Vector3d_c* r_BN_N,
-                                                  const Vector3d_c* r_SN_N,
+                                                  const SunAvoidanceAttRef_c* ref,
+                                                  const Vector3f_c* sHat_B,
                                                   uint64_t callTime) {
-    const SunAvoidanceOutput out =
+    const SunAvoidanceAttRef out =
         fsw::fromHandle<::SunAvoidanceAlgorithm>(self)->update(cArrayToEigenVector3<float>(sigma_BN->data),
-                                                               refFromC(*ref),
-                                                               cArrayToEigenVector3<double>(r_BN_N->data),
-                                                               cArrayToEigenVector3<double>(r_SN_N->data),
+                                                               attRefFromC(*ref),
+                                                               cArrayToEigenVector3<float>(sHat_B->data),
                                                                callTime);
-    return outputToC(out);
+    return attRefToC(out);
 }
