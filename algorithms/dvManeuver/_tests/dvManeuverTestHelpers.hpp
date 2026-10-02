@@ -176,7 +176,11 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
 inline void testDvManeuverSetup() {
     EXPECT_NO_THROW({
         const DvManeuverAlgorithm alg{DvManeuverConfig::create(
-            0U, 1000000000U, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0U)};
+            /* minTime = */ 0U,
+            /* maxTime = */ 1000000000U,
+            /* cmdForce_B = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+            /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+            /* burnStartTime = */ 0U)};
         (void)alg;
     });
 }
