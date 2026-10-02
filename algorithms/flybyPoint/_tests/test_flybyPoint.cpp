@@ -39,8 +39,8 @@ TEST(FlybyPointTest,
     for (int k = 1; k <= 4; ++k) {
         const AttGuideOutput outPlus = algPlus.updateState(r_BN_N, v_BN_N);
         const AttGuideOutput outMinus = algMinus.updateState(r_BN_N, v_BN_N);
-        ASSERT_TRUE(outPlus.validOutput);
-        ASSERT_TRUE(outMinus.validOutput);
+        expectFiniteGuidance(outPlus);
+        expectFiniteGuidance(outMinus);
 
         const Eigen::Matrix3d dcmPlus = mrpToDcm(Eigen::Vector3d(outPlus.sigma_RN.cast<double>()));
         const Eigen::Matrix3d dcmMinus = mrpToDcm(Eigen::Vector3d(outMinus.sigma_RN.cast<double>()));
@@ -78,7 +78,7 @@ TEST(FlybyPointTest, CollinearityRejectsReseed) {
     EXPECT_TRUE(out.maxRateTrigger);
     EXPECT_TRUE(out.maxAccelerationTrigger);
     EXPECT_FALSE(out.positionKnowledgeExceedTrigger);
-    ASSERT_TRUE(out.validOutput);
+    expectFiniteGuidance(out);
 
     expectMatchesExtrapolation(
         out,
@@ -106,7 +106,7 @@ TEST(FlybyPointTest, CollinearityRejectsAntiParallelReseed) {
     EXPECT_TRUE(out.maxRateTrigger);
     EXPECT_TRUE(out.maxAccelerationTrigger);
     EXPECT_FALSE(out.positionKnowledgeExceedTrigger);
-    ASSERT_TRUE(out.validOutput);
+    expectFiniteGuidance(out);
 
     expectMatchesExtrapolation(
         out,
@@ -131,7 +131,7 @@ TEST(FlybyPointTest, MaxRateRejectsReseed) {
     EXPECT_FALSE(out.collinearityTrigger);
     EXPECT_FALSE(out.maxAccelerationTrigger);
     EXPECT_FALSE(out.positionKnowledgeExceedTrigger);
-    ASSERT_TRUE(out.validOutput);
+    expectFiniteGuidance(out);
 
     expectMatchesExtrapolation(
         out,
@@ -156,7 +156,7 @@ TEST(FlybyPointTest, MaxAccelerationRejectsReseed) {
     EXPECT_FALSE(out.collinearityTrigger);
     EXPECT_FALSE(out.maxRateTrigger);
     EXPECT_FALSE(out.positionKnowledgeExceedTrigger);
-    ASSERT_TRUE(out.validOutput);
+    expectFiniteGuidance(out);
 
     expectMatchesExtrapolation(
         out,
@@ -184,7 +184,7 @@ TEST(FlybyPointTest, PositionKnowledgeRejectsReseed) {
     EXPECT_FALSE(out.collinearityTrigger);
     EXPECT_FALSE(out.maxRateTrigger);
     EXPECT_FALSE(out.maxAccelerationTrigger);
-    ASSERT_TRUE(out.validOutput);
+    expectFiniteGuidance(out);
 
     expectMatchesExtrapolation(
         out,
