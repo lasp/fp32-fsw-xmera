@@ -14,8 +14,7 @@ void DvManeuver::reset(const uint64_t callTime) {
 }
 
 DvManeuverConfig DvManeuver::toConfig() const {
-    return DvManeuverConfig::create(
-        this->minTime, this->maxTime, this->controlPeriod, this->cmdForce_B, this->cmdDv_N, this->burnStartTime);
+    return DvManeuverConfig::create(this->minTime, this->maxTime, this->cmdForce_B, this->cmdDv_N, this->burnStartTime);
 }
 
 void DvManeuver::reconfigure() {

@@ -2,7 +2,6 @@
 #define F32XMERA_DV_MANEUVER_ALGORITHM_H
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
-#include "utilities/fsw/freestandingIsFinite.hpp"
 #include <stdint.h>
 #include <Eigen/Core>
 
@@ -25,15 +24,11 @@ class DvManeuverConfig final {
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     static DvManeuverConfig create(uint64_t minTime,
                                    uint64_t maxTime,
-                                   float controlPeriod,
                                    const Eigen::Vector3f& cmdForce_B,
                                    const Eigen::Vector3f& cmdDv_N,
                                    uint64_t burnStartTime) {
         if (!isValidMaxTime(maxTime)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime must be positive.");
-        }
-        if (!isValidControlPeriod(controlPeriod)) {
-            FSW_THROW_INVALID_ARGUMENT("dvManeuver: controlPeriod must be positive and finite.");
         }
         if (!isValidMaxTimeRelativeToMinTime(minTime, maxTime)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime must be greater than minTime.");
@@ -44,20 +39,16 @@ class DvManeuverConfig final {
         if (!isValidCmdDv(cmdDv_N)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: cmdDv_N must be finite.");
         }
-        return {minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N, burnStartTime};
+        return {minTime, maxTime, cmdForce_B, cmdDv_N, burnStartTime};
     }
 
     static bool isValidMaxTime(uint64_t maxTime) { return maxTime > 0U; }
     static bool isValidMaxTimeRelativeToMinTime(uint64_t minTime, uint64_t maxTime) { return maxTime > minTime; }
-    static bool isValidControlPeriod(float controlPeriod) {
-        return controlPeriod > 0.0F && fsw::is_finite(controlPeriod);
-    }
     static bool isValidCmdForce(const Eigen::Vector3f& cmdForce_B) { return cmdForce_B.allFinite(); }
     static bool isValidCmdDv(const Eigen::Vector3f& cmdDv_N) { return cmdDv_N.allFinite(); }
 
     uint64_t getMinTime() const { return minTime; }
     uint64_t getMaxTime() const { return maxTime; }
-    float getControlPeriod() const { return controlPeriod; }
     const Eigen::Vector3f& getCmdForce() const { return cmdForce_B; }
     const Eigen::Vector3f& getCmdDv() const { return cmdDv_N; }
     uint64_t getBurnStartTime() const { return burnStartTime; }
@@ -65,21 +56,14 @@ class DvManeuverConfig final {
    private:
     DvManeuverConfig(uint64_t minTime,
                      uint64_t maxTime,
-                     float controlPeriod,
                      const Eigen::Vector3f& cmdForce_B,
                      const Eigen::Vector3f& cmdDv_N,
                      uint64_t burnStartTime)
-        : minTime(minTime),
-          maxTime(maxTime),
-          controlPeriod(controlPeriod),
-          cmdForce_B(cmdForce_B),
-          cmdDv_N(cmdDv_N),
-          burnStartTime(burnStartTime) {}
+        : minTime(minTime), maxTime(maxTime), cmdForce_B(cmdForce_B), cmdDv_N(cmdDv_N), burnStartTime(burnStartTime) {}
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
     uint64_t minTime;
     uint64_t maxTime;
-    float controlPeriod;
     Eigen::Vector3f cmdForce_B;
     Eigen::Vector3f cmdDv_N;
     uint64_t burnStartTime;
@@ -109,7 +93,7 @@ class DvManeuverAlgorithm final {
     DvManeuverConfig cfg;
     Eigen::Vector3f dvInitial = Eigen::Vector3f::Zero();       ///< [m/s] accumulated delta-V latched at burn start
     DvManeuverBurnState state = DvManeuverBurnState::Pending;  ///< [-] burn state machine state
-    float burnTime{};                                          ///< [s] elapsed burn time
+    uint64_t burnStartCallTime{};                              ///< [ns] call time at which the burn started executing
 };
 
 #endif
