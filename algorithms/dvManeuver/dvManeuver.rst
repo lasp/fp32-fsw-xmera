@@ -65,11 +65,7 @@ The configuration is set through public properties on the adapter before ``reset
       - [ns] Minimum burn time that must elapse before the burn can complete on the Delta-V criterion.
     * - ``maxTime``
       - > 0 and > minTime
-      - [ns] Maximum burn time. The burn is forced complete once burnTime exceeds maxTime.
-    * - ``controlPeriod``
-      - :math:`> 0`, finite
-      - [s] Flight-software control period, used as the fixed time step for accumulating the burn time. Must be set
-        to a positive value before ``reset()``.
+      - [ns] Maximum burn time. The burn completes when the burn time reaches maxTime.
     * - ``cmdForce_B``
       - finite
       - [N] Body force that the module commands while the burn executes. A zero force is permitted.
@@ -88,7 +84,6 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
 ``reset()`` once, then drive ``updateState()`` each cycle. ::
 
     module = dvManeuverF32.DvManeuver()
-    module.controlPeriod = 0.5
     module.minTime = macros.sec2nano(2.0)
     module.maxTime = macros.sec2nano(10.0)
     module.cmdForce_B = [0.0, 0.0, 10.0]
@@ -103,8 +98,8 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
 
 If ``navDataInMsg`` has not been connected when ``reset()`` runs, an ``std::invalid_argument`` is thrown.
 Invalid configuration values cause the configuration validator to throw fsw::invalid_argument. maxTime
-must be positive and greater than minTime, controlPeriod must be positive and finite, and cmdForce_B and cmdDv_N
-must be finite. If ``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
+must be positive and greater than minTime, and cmdForce_B and cmdDv_N must be finite. If ``updateState()`` is
+called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
 
 Mathematical Formulation
 ------------------------
@@ -113,7 +108,7 @@ Algorithm Layer
 ~~~~~~~~~~~~~~~
 
 The algorithm is a burn state machine advanced one step per ``update()`` call. Let :math:`t` be the current call
-time, :math:`t_{\text{start}}` the configured burn start time, :math:`\Delta t` the configured control period,
+time, :math:`t_{\text{start}}` the configured burn start time,
 :math:`\boldsymbol{v}_{\text{accum}}` the accumulated Delta-V from navigation, and
 :math:`\Delta\boldsymbol{v}_{\text{cmd}}` the configured ``cmdDv_N``.
 
@@ -121,31 +116,34 @@ The state machine has three states: pending, executing, and complete. The burn s
 ``reInitialize()`` moves the burn out of the complete state.
 
 **Burn start.** The burn moves from pending to executing on the first call at or after the start time. At that
-instant the accumulated Delta-V is latched as the burn's initial value
-:math:`\boldsymbol{v}_{\text{init}}`:
+instant the module latches the accumulated Delta-V as the burn's initial value :math:`\boldsymbol{v}_{\text{init}}`,
+and the call time as :math:`t_0`:
 
 .. math::
 
-   \text{if } t \ge t_{\text{start}}: \quad \boldsymbol{v}_{\text{init}} \leftarrow \boldsymbol{v}_{\text{accum}}.
+   \text{if } t \ge t_{\text{start}}: \quad \boldsymbol{v}_{\text{init}} \leftarrow \boldsymbol{v}_{\text{accum}},
+   \quad t_0 \leftarrow t.
 
-**Burn time.** While the burn is executing, the elapsed burn time accumulates by the fixed control period each step:
+**Burn time.** While the burn is executing, the burn time is the call time since burn start:
 
 .. math::
 
-   t_{\text{burn}} \leftarrow t_{\text{burn}} + \Delta t.
+   t_{\text{burn}} = t - t_0.
+
+All times are integer nanoseconds, so the burn time and the time gates have no rounding error.
 
 **Completion.** While the burn is executing, the Delta-V accumulated since burn start is
 :math:`\Delta\boldsymbol{v}_{\text{burn}} = \boldsymbol{v}_{\text{accum}} - \boldsymbol{v}_{\text{init}}`. The burn is
-complete when the accumulated magnitude reaches the command and the minimum time has elapsed, or when the maximum time
-is exceeded:
+complete when the accumulated magnitude reaches the command and the burn time reaches the minimum time, or when the
+burn time reaches the maximum time:
 
 .. math::
 
    \text{complete} =
    \Big( \| \Delta\boldsymbol{v}_{\text{burn}} \| \ge \| \Delta\boldsymbol{v}_{\text{cmd}} \|
-   \;\wedge\; t_{\text{burn}} > t_{\min} \Big)
+   \;\wedge\; t_{\text{burn}} \ge t_{\min} \Big)
    \;\vee\;
-   \big( t_{\text{burn}} > t_{\max} \big).
+   \big( t_{\text{burn}} \ge t_{\max} \big).
 
 **Force command.** The algorithm returns the body force command :math:`\boldsymbol{F}_{\text{cmd}}` at each update.
 Let :math:`\boldsymbol{F}_{\text{cfg}}` be the configured ``cmdForce_B``:
@@ -160,9 +158,6 @@ Let :math:`\boldsymbol{F}_{\text{cfg}}` be the configured ``cmdForce_B``:
 
 Assumptions and Limitations
 ---------------------------
-
-- The configured ``controlPeriod`` is assumed to match the actual rate at which the module is updated; a mismatch
-causes ``burnTime`` to drift from real elapsed time, shifting when the minimum and maximum time gates actually fire.
 
 - Burn sequencing is assumed to be handled externally. Before the burn state is reinitialized for a new burn, the
 operator is assumed to set ``cmdDv_N`` and ``burnStartTime`` for that burn and to call ``reconfigure()``.

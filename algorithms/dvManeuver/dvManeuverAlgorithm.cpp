@@ -1,5 +1,4 @@
 #include "dvManeuverAlgorithm.h"
-#include "utilities/fsw/timeConstants.h"
 
 DvManeuverAlgorithm::DvManeuverAlgorithm(const DvManeuverConfig& config) : cfg(config) {
     this->setConfig(config);
@@ -10,7 +9,7 @@ void DvManeuverAlgorithm::setConfig(const DvManeuverConfig& config) { this->cfg 
 
 void DvManeuverAlgorithm::reInitialize() {
     this->state = DvManeuverBurnState::Pending;
-    this->burnTime = 0.0F;
+    this->burnStartCallTime = 0U;
     this->dvInitial = Eigen::Vector3f::Zero();
 }
 
@@ -18,14 +17,13 @@ DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime, const Eige
     if (this->state == DvManeuverBurnState::Pending && callTime >= this->cfg.getBurnStartTime()) {
         this->state = DvManeuverBurnState::Executing;
         this->dvInitial = dvAccumulated;
+        this->burnStartCallTime = callTime;
     }
 
     if (this->state == DvManeuverBurnState::Executing) {
-        this->burnTime += this->cfg.getControlPeriod();
+        const uint64_t burnTime = callTime - this->burnStartCallTime;  // [ns]
         const bool dvReached = (dvAccumulated - this->dvInitial).stableNorm() >= this->cfg.getCmdDv().stableNorm();
-        const float minTime = static_cast<float>(this->cfg.getMinTime()) / kSec2NanoF;
-        const float maxTime = static_cast<float>(this->cfg.getMaxTime()) / kSec2NanoF;
-        if ((dvReached && this->burnTime > minTime) || this->burnTime > maxTime) {
+        if ((dvReached && burnTime >= this->cfg.getMinTime()) || burnTime >= this->cfg.getMaxTime()) {
             this->state = DvManeuverBurnState::Complete;
         }
     }
