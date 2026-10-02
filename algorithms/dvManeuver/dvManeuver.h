@@ -2,14 +2,15 @@
 #define F32XMERA_DV_MANEUVER_H
 
 #include "dvManeuverAlgorithm.h"
+#include "msgPayloadDef/CmdForceBodyMsgF32Payload.h"
 #include "msgPayloadDef/DvBurnCmdMsgF32Payload.h"
 #include "msgPayloadDef/DvExecutionDataMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
-#include "msgPayloadDef/THRArrayOnTimeCmdMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
 
 #include <stdint.h>
+#include <Eigen/Core>
 #include <memory>
 
 /*! @brief Adapter for the delta-V burn execution algorithm. */
@@ -27,6 +28,7 @@ class DvManeuver final : public SysModel {
     float minTime = 0.0F;       /*!< [s] Minimum burn time allowed to elapse */
     float maxTime = 0.0F;       /*!< [s] Maximum burn time; must be set to a positive value before reset() */
     float controlPeriod = 0.0F; /*!< [s] Control period (FSW time step); must be set > 0 before reset() */
+    Eigen::Vector3f cmdForce_B = Eigen::Vector3f::Zero(); /*!< [N] Body force commanded while the burn executes */
 
     // Input messages
     ReadFunctor<NavTransMsgF32Payload>
@@ -34,7 +36,7 @@ class DvManeuver final : public SysModel {
     ReadFunctor<DvBurnCmdMsgF32Payload> burnDataInMsg; /*!< [-] commanded burn input message */
 
     // Output messages
-    Message<THRArrayOnTimeCmdMsgF32Payload> thrCmdOutMsg; /*!< [-] thruster command on time output message */
+    Message<CmdForceBodyMsgF32Payload> cmdForceOutMsg;    /*!< [N] body force command output message */
     Message<DvExecutionDataMsgF32Payload> burnExecOutMsg; /*!< [-] burn execution output message */
 
    private:

@@ -49,7 +49,9 @@ DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime,
     DvManeuverOutput out;
     out.burnExecuting = this->burnExecuting;
     out.burnComplete = this->burnComplete;
-    out.commandThrustersOff = (this->burnComplete != 0) || (this->burnExecuting != 1);
+    if (this->burnExecuting == 1U) {
+        out.cmdForce_B = this->cfg.getCmdForce();
+    }
     return out;
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
