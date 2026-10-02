@@ -90,8 +90,8 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     # compute true values
     num_time_steps = 16
     cmd_force_true = np.zeros([num_time_steps, 3])
-    burn_executing_true = np.zeros([num_time_steps])
-    burn_complete_true = np.zeros([num_time_steps])
+    burn_executing_true = np.zeros([num_time_steps], dtype=bool)
+    burn_complete_true = np.zeros([num_time_steps], dtype=bool)
     for i in range(0, num_time_steps):
         if update_rate * i > p4_tstart:
             nav_trans_msg_data.vehAccumDV = acceleration_N * (update_rate * i - p4_tstart)
@@ -101,17 +101,17 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
         sim.ExecuteSimulation()
 
         if (update_rate * (i + 1) <= p4_tstart):
-            burn_executing_true[i] = 0
-            burn_complete_true[i] = 0
+            burn_executing_true[i] = False
+            burn_complete_true[i] = False
         elif (np.linalg.norm(nav_trans_msg_data.vehAccumDV) >= np.linalg.norm(cmd_dv_N)) and \
                 (update_rate * (i + 1) - p4_tstart > module.minTime) or \
                 (update_rate * (i + 1) - p4_tstart > module.maxTime):
-            burn_executing_true[i] = 0
-            burn_complete_true[i] = 1
+            burn_executing_true[i] = False
+            burn_complete_true[i] = True
         else:
             cmd_force_true[i] = cmd_force_B
-            burn_executing_true[i] = 1
-            burn_complete_true[i] = 0
+            burn_executing_true[i] = True
+            burn_complete_true[i] = False
 
     # pull module output
     cmd_force = cmd_force_data_log.forceRequestBody

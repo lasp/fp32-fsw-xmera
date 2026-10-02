@@ -10,19 +10,19 @@
 #include <cstdint>
 
 // Independent reference re-implementation of the burn state machine, kept in the same FP32
-// precision as the algorithm so the integer flags and the force command must match exactly. It encodes
+// precision as the algorithm so the burn flags and the force command must match exactly. It encodes
 // the expected DvManeuverAlgorithm::update() semantics so any change to the production state
 // machine is caught by the regression comparison below.
 struct DvManeuverReferenceState {
     Eigen::Vector3f dvInit = Eigen::Vector3f::Zero();
-    uint32_t burnExecuting = 0;
-    uint32_t burnComplete = 0;
+    bool burnExecuting = false;
+    bool burnComplete = false;
     float burnTime = 0.0F;
 };
 
 struct DvManeuverReferenceOutput {
-    uint32_t burnExecuting;
-    uint32_t burnComplete;
+    bool burnExecuting;
+    bool burnComplete;
     Eigen::Vector3f cmdForce_B;
 };
 
@@ -35,16 +35,16 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
                                                  const Eigen::Vector3f& vehAccumDV,
                                                  const Eigen::Vector3f& cmdDv_N,
                                                  uint64_t burnStartTime) {
-    if (state.burnComplete != 0U) {
+    if (state.burnComplete) {
         return {state.burnExecuting, state.burnComplete, Eigen::Vector3f::Zero()};
     }
 
     const float burnDt = controlPeriod;
 
-    if ((state.burnExecuting == 0 && callTime >= burnStartTime)) {
-        state.burnExecuting = 1;
+    if ((!state.burnExecuting && callTime >= burnStartTime)) {
+        state.burnExecuting = true;
         state.dvInit = vehAccumDV;
-        state.burnComplete = 0;
+        state.burnComplete = false;
     }
 
     if (state.burnExecuting) {
@@ -55,12 +55,12 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
     const float dvMag = cmdDv_N.norm();
     const float dvExecuteMag = burnAccum.norm();
 
-    state.burnComplete = state.burnComplete == 1 || dvExecuteMag >= dvMag;
-    state.burnComplete &= state.burnTime > minTime;
-    state.burnComplete |= (state.burnTime > maxTime);
-    state.burnExecuting = state.burnComplete != 1 && state.burnExecuting == 1;
+    state.burnComplete = state.burnComplete || dvExecuteMag >= dvMag;
+    state.burnComplete = state.burnComplete && state.burnTime > minTime;
+    state.burnComplete = state.burnComplete || (state.burnTime > maxTime);
+    state.burnExecuting = !state.burnComplete && state.burnExecuting;
 
-    const Eigen::Vector3f force_B = state.burnExecuting == 1U ? cmdForce_B : Eigen::Vector3f::Zero();
+    const Eigen::Vector3f force_B = state.burnExecuting ? cmdForce_B : Eigen::Vector3f::Zero();
     return {state.burnExecuting, state.burnComplete, force_B};
 }
 
@@ -97,8 +97,8 @@ inline void regressionTestDvManeuver(float minTime,
         const auto refOut = referenceUpdate(
             refState, minTime, maxTime, controlPeriod, cmdForce_B, callTime, vehAccumDV, cmdDv_N, burnStartTime);
 
-        EXPECT_EQ(algOut.state == DvManeuverBurnState::Executing, refOut.burnExecuting == 1U);
-        EXPECT_EQ(algOut.state == DvManeuverBurnState::Complete, refOut.burnComplete == 1U);
+        EXPECT_EQ(algOut.state == DvManeuverBurnState::Executing, refOut.burnExecuting);
+        EXPECT_EQ(algOut.state == DvManeuverBurnState::Complete, refOut.burnComplete);
         EXPECT_EQ(algOut.cmdForce_B, refOut.cmdForce_B);
     }
 }
