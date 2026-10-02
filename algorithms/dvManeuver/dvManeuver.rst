@@ -11,8 +11,7 @@ The module writes the body force command at each update. While the burn executes
 configured ``cmdForce_B``. Before the burn starts and after the burn completes, the command is zero. A downstream
 module, for example :ref:`forceTorqueThrForceMapping`, converts the force command into thruster commands.
 
-This is the FP32 port of the Xmera ``dvExecuteGuidance`` module. Inputs and outputs are single-precision (FP32); the
-algorithm is single-precision throughout.
+The floating-point inputs and outputs are single precision. All times are integer nanoseconds.
 
 Module Architecture
 -------------------
@@ -61,7 +60,7 @@ The configuration is set through public properties on the adapter before ``reset
       - Valid range
       - Description
     * - ``minTime``
-      - any
+      - :math:`\ge 0`
       - [ns] Minimum burn time that must elapse before the burn can complete on the Delta-V criterion.
     * - ``maxTime``
       - > 0 and > minTime
@@ -75,7 +74,7 @@ The configuration is set through public properties on the adapter before ``reset
         accumulated Delta-V. A zero Delta-V is permitted.
     * - ``burnStartTime``
       - any
-      - [ns] Time at which the burn starts.
+      - [ns] The burn starts on the first update at or after this time.
 
 Two-Phase Initialization
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -164,6 +163,9 @@ operator is assumed to set ``cmdDv_N`` and ``burnStartTime`` for that burn and t
 
 - The accumulated Delta-V provided by ``navDataInMsg`` is assumed to remain continuous and consistently
 referenced throughout the burn.
+
+- The call time is assumed to increase from one update to the next. If it decreases during a burn, the burn time
+decreases too. If it drops below the call time at burn start, the burn completes at that update.
 
 - The attitude guidance is assumed to align ``cmdForce_B`` with the commanded Delta-V direction during the burn.
 The module does not compare the two directions.
