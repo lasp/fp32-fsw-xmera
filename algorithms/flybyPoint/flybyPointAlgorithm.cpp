@@ -3,6 +3,7 @@
 #include "utilities/fsw/safeMath.h"
 #include <Eigen/Geometry>
 #include <numbers>
+#include <optional>
 
 FlybyPointAlgorithm::FlybyPointAlgorithm(const FlybyPointConfig& config) : cfg(config) {}
 
@@ -18,19 +19,90 @@ void FlybyPointAlgorithm::setConfig(const FlybyPointConfig& config) {
 static constexpr double kRad2Deg = 180.0 / std::numbers::pi;
 static constexpr double kMaxAccelCoeff = 3.0 * std::numbers::sqrt3 / 8.0;
 
-/*! A filter sample is usable if it is finite, neither r nor v is (near) zero, which would leave the flyby frame
- undefined, and the products formed from it are finite: |r||v| (closest approach) and f0^2 = (|v|/|r|)^2 (frame
- acceleration).
- @return true if the sample can seed the algorithm or enter the averaging window
- @param r_BN_N The relative position state
- @param v_BN_N The relative velocity state
+namespace {
+/*! Check whether a filter sample can seed the profile or enter the averaging window: it must be finite, neither r
+ nor v may be (near) zero, and the products formed from it must be finite, |r||v| (closest approach) and
+ f0^2 = (|v|/|r|)^2 (frame acceleration).
+ @return true if the sample is usable
+ @param r_BN_N [m] relative position
+ @param v_BN_N [m/s] relative velocity
  */
-static bool isUsableSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
+bool isUsableSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
     const double rNorm = r_BN_N.stableNorm();
     const double vNorm = v_BN_N.stableNorm();
     return r_BN_N.allFinite() && v_BN_N.allFinite() && rNorm >= 1e-3 && vNorm >= 1e-3 &&
            fsw::is_finite(rNorm * vNorm) && fsw::is_finite((vNorm / rNorm) * (vNorm / rNorm));
 }
+
+/*! Copy the validity checks of a re-read attempt into the diagnostic output.
+ @return void
+ @param output The output whose trigger flags are set
+ @param triggers The checks that rejected the candidate; all false if none did
+ */
+void applyTriggers(AttGuideOutput& output, const FlybyValidityTriggers& triggers) {
+    output.collinearityTrigger = triggers.collinearityTrigger;
+    output.maxRateTrigger = triggers.maxRateTrigger;
+    output.maxAccelerationTrigger = triggers.maxAccelerationTrigger;
+    output.positionKnowledgeExceedTrigger = triggers.positionKnowledgeExceedTrigger;
+}
+
+/*! Check whether r and v are collinear (parallel or anti-parallel, a collision course): 1 - |cos| of their angle is
+ below toleranceForCollinearity, or |r_hat x v_hat| is below FlybyPointAlgorithm::kMinOrbitNormalNorm, below which the
+ orbit-normal direction would be dominated by rounding (only reachable with a toleranceForCollinearity below double
+ resolution).
+ @return true if r and v are collinear
+ @param r_BN_N [m] relative position
+ @param v_BN_N [m/s] relative velocity
+ @param toleranceForCollinearity [-] tolerance on 1 - |cos| of the r-v angle
+ */
+bool isCollinear(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N, const float toleranceForCollinearity) {
+    const Eigen::Vector3d ur_N = r_BN_N.normalized();
+    const Eigen::Vector3d uv_N = v_BN_N.normalized();
+    return 1.0 - fabs(ur_N.dot(uv_N)) < toleranceForCollinearity ||
+           ur_N.cross(uv_N).norm() < FlybyPointAlgorithm::kMinOrbitNormalNorm;
+}
+
+/*! Check a re-read candidate (r, v) against the configured thresholds and against the rectilinear prediction from the
+ first read.
+ @return std::nullopt if the candidate passes every check, otherwise the checks that rejected it
+ @param r_BN_N [m] candidate relative position
+ @param v_BN_N [m/s] candidate relative velocity
+ @param rPredicted_BN_N [m] rectilinear prediction of the position at the candidate's time, made from the first read
+ @param cfg validated configuration (collinearity tolerance and the rate, acceleration and position thresholds)
+ */
+std::optional<FlybyValidityTriggers> checkValidity(const Eigen::Vector3d& r_BN_N,
+                                                   const Eigen::Vector3d& v_BN_N,
+                                                   const Eigen::Vector3d& rPredicted_BN_N,
+                                                   const FlybyPointConfig& cfg) {
+    FlybyValidityTriggers triggers{};
+    triggers.collinearityTrigger = isCollinear(r_BN_N, v_BN_N, cfg.getToleranceForCollinearity());
+
+    /*! the predicted peak rate and acceleration occur near closest approach of the candidate's own rectilinear
+     trajectory, at distance d_CA = |r x v| / |v| = |r| |cos(gamma)|: peak rate |v| / d_CA and peak acceleration
+     3 sqrt(3) / 8 (|v| / d_CA)^2, compared with the spacecraft limits. An exactly collinear candidate has d_CA = 0, so
+     its peaks are unbounded and exceed both limits */
+    const double distanceClosestApproach = r_BN_N.cross(v_BN_N).norm() / v_BN_N.norm();
+    if (distanceClosestApproach > 0.0) {
+        const double speedOverDistance = v_BN_N.norm() / distanceClosestApproach;
+        triggers.maxRateTrigger = speedOverDistance * kRad2Deg > cfg.getMaximumRateThreshold();
+        triggers.maxAccelerationTrigger =
+            kMaxAccelCoeff * speedOverDistance * speedOverDistance * kRad2Deg > cfg.getMaximumAccelerationThreshold();
+    } else {
+        triggers.maxRateTrigger = true;
+        triggers.maxAccelerationTrigger = true;
+    }
+
+    /*! position error with respect to the prediction from the first read against the a-priori sigma bound */
+    const double deltaPositionNorm = (r_BN_N - rPredicted_BN_N).norm();
+    triggers.positionKnowledgeExceedTrigger = deltaPositionNorm > cfg.getPositionKnowledgeSigma();
+
+    if (triggers.collinearityTrigger || triggers.maxRateTrigger || triggers.maxAccelerationTrigger ||
+        triggers.positionKnowledgeExceedTrigger) {
+        return triggers;
+    }
+    return std::nullopt;
+}
+}  // namespace
 
 /*! This method is used to reset the module.
  @return void
@@ -74,7 +146,7 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
         }
         /*! a collinear seed (collision course) defines no orbit normal, so the flyby frame would be undefined; it is
          refused like a collinear re-read candidate, and the next non-collinear sample seeds */
-        if (this->isCollinear(r_BN_N, v_BN_N)) {
+        if (isCollinear(r_BN_N, v_BN_N, this->cfg.getToleranceForCollinearity())) {
             output.collinearityTrigger = true;
             return output;
         }
@@ -97,7 +169,7 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
          underflow */
         if (this->window.periods >= this->cfg.getFilterReadPeriods()) {
             output.rejectedSamplesInWindow = this->window.periods - this->window.samples;
-            this->reReadFromWindowAverage(output);
+            applyTriggers(output, this->reReadFromWindow());
             this->window = {};
         }
     }
@@ -136,32 +208,31 @@ void FlybyPointAlgorithm::accumulateSample(const Eigen::Vector3d& r_BN_N, const 
     ++this->window.samples;
 }
 
-/*! Form the window average and, if it passes the validity checks, re-seed the flyby parameters and guidance frame
- from it. A window with no usable sample, or whose average is itself unusable (for example velocities that cancel),
- makes no re-read attempt; only the first case shows in rejectedSamplesInWindow.
- @return void
- @param output The diagnostic flags of the validity checks are written here
+/*! Re-read from the average of the window that just ended: re-seed the profile if the average passes the validity
+ checks, otherwise keep extrapolating the last accepted profile.
+ @return the checks that rejected the average; all false if it was accepted, or if no re-read was attempted (no usable
+ sample in the window, or an unusable average such as cancelling velocities)
  */
-void FlybyPointAlgorithm::reReadFromWindowAverage(AttGuideOutput& output) {
+FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow() {
     if (this->window.samples == 0U) {
-        return;
+        return {};
     }
     const double sampleCount = static_cast<double>(this->window.samples);
     const Eigen::Vector3d rAverage_N = this->window.rSumAtEnd_N / sampleCount;
     const Eigen::Vector3d vAverage_N = this->window.vSum_N / sampleCount;
     if (!isUsableSample(rAverage_N, vAverage_N)) {
-        return;
+        return {};
     }
-
-    /*! Protect against a bad average by checking validity */
-    if (this->checkValidity(rAverage_N, vAverage_N, output)) {
-        /*! update flyby parameters and guidance frame */
-        this->computeFlybyParameters(rAverage_N, vAverage_N);
-        this->computeRN(rAverage_N, vAverage_N);
-
-        /*! restart the count from the new filter read */
-        this->periodsSinceLastRead = 0;
+    const double deltaT = static_cast<double>(this->periodsSinceFirstRead) * this->cfg.getControlPeriod();
+    const Eigen::Vector3d rPredicted_N = this->firstNavPosition + deltaT * this->firstNavVelocity;
+    if (const std::optional<FlybyValidityTriggers> rejection =
+            checkValidity(rAverage_N, vAverage_N, rPredicted_N, this->cfg)) {
+        return *rejection;
     }
+    this->computeFlybyParameters(rAverage_N, vAverage_N);
+    this->computeRN(rAverage_N, vAverage_N);
+    this->periodsSinceLastRead = 0;
+    return {};
 }
 
 void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
@@ -176,80 +247,6 @@ void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, 
 
     // compute flight path angle at the time of read
     this->gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));
-}
-
-/*! r and v are collinear, parallel or anti-parallel (collision trajectory), if the cosine of their angle is within
- toleranceForCollinearity of 1, or if |r_hat x v_hat| is below kMinOrbitNormalNorm, below which the
- orbit-normal direction would be dominated by rounding (only reachable with a toleranceForCollinearity below
- double resolution).
- @return true if r and v are collinear
- @param r_BN_N The relative position state
- @param v_BN_N The relative velocity state
- */
-bool FlybyPointAlgorithm::isCollinear(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) const {
-    const Eigen::Vector3d ur_N = r_BN_N.normalized();
-    const Eigen::Vector3d uv_N = v_BN_N.normalized();
-    return 1.0 - fabs(ur_N.dot(uv_N)) < this->cfg.getToleranceForCollinearity() ||
-           ur_N.cross(uv_N).norm() < kMinOrbitNormalNorm;
-}
-
-bool FlybyPointAlgorithm::checkValidity(const Eigen::Vector3d& r_BN_N,
-                                        const Eigen::Vector3d& v_BN_N,
-                                        AttGuideOutput& output) const {
-    bool valid = true;
-
-    /*! assert r and v are not collinear, parallel or anti-parallel (collision trajectory) */
-    if (this->isCollinear(r_BN_N, v_BN_N)) {
-        valid = false;
-        output.collinearityTrigger = true;
-    } else {
-        output.collinearityTrigger = false;
-    }
-
-    /*! the predicted peak rate and acceleration occur near closest approach of the candidate's own rectilinear
-     trajectory, at distance d_CA = |r x v| / |v| = |r| |cos(gamma)|: peak rate |v| / d_CA and peak acceleration
-     3 sqrt(3) / 8 (|v| / d_CA)^2. An exactly collinear candidate has d_CA = 0, so its peaks are unbounded and exceed
-     both limits */
-    const double distanceClosestApproach = r_BN_N.cross(v_BN_N).norm() / v_BN_N.norm();
-    bool rateExceeded = true;
-    bool accelerationExceeded = true;
-    if (distanceClosestApproach > 0.0) {
-        const double speedOverDistance = v_BN_N.norm() / distanceClosestApproach;
-        const double maxPredictedRate = speedOverDistance * kRad2Deg;
-        rateExceeded =
-            maxPredictedRate > this->cfg.getMaximumRateThreshold() && this->cfg.getMaximumRateThreshold() > 0;
-        const double maxPredictedAcceleration = kMaxAccelCoeff * speedOverDistance * speedOverDistance * kRad2Deg;
-        accelerationExceeded = maxPredictedAcceleration > this->cfg.getMaximumAccelerationThreshold() &&
-                               this->cfg.getMaximumAccelerationThreshold() > 0;
-    }
-
-    /*! check if the predicted rate exceeds the maximum rate of the spacecraft */
-    if (rateExceeded) {
-        valid = false;
-        output.maxRateTrigger = true;
-    } else {
-        output.maxRateTrigger = false;
-    }
-
-    /*! check if the predicted acceleration exceeds the maximum acceleration of the spacecraft */
-    if (accelerationExceeded) {
-        valid = false;
-        output.maxAccelerationTrigger = true;
-    } else {
-        output.maxAccelerationTrigger = false;
-    }
-
-    /*! check if the position error exceeds a-priori sigma bound */
-    const double deltaT = static_cast<double>(this->periodsSinceFirstRead) * this->cfg.getControlPeriod();
-    const double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
-    if (deltaPositionNorm > this->cfg.getPositionKnowledgeSigma() && this->cfg.getPositionKnowledgeSigma() > 0) {
-        valid = false;
-        output.positionKnowledgeExceedTrigger = true;
-    } else {
-        output.positionKnowledgeExceedTrigger = false;
-    }
-
-    return valid;
 }
 
 void FlybyPointAlgorithm::computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
