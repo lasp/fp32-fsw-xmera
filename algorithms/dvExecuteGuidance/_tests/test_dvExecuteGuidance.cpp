@@ -181,6 +181,39 @@ TEST(DvExecuteGuidanceTest, EdgeCountsOnlyDeltaVFromThisBurn) {
     EXPECT_EQ(out.burnComplete, 1U);
 }
 
+TEST(DvExecuteGuidanceTest, EdgeMinTimeBoundaryRequiresStrictlyGreater) {
+    // Since the commanded delta-V is zero, the target is already met and only minTime can delay completion.
+    DvExecuteGuidanceAlgorithm alg{DvExecuteGuidanceConfig::create(/* minTime = */ 1.0F,
+                                                                   /* maxTime = */ 100.0F,
+                                                                   /* controlPeriod = */ 0.5F)};
+    const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
+
+    // burnTime = 0.5 s, below minTime: not yet complete.
+    DvExecuteGuidanceOutput out = alg.update(/* callTime = */ 0U,
+                                             zero,
+                                             zero,
+                                             /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnComplete, 0U);
+
+    // burnTime = 1.0 s, exactly equal to minTime: still not complete.
+    // The gate requires burnTime > minTime, not >=.
+    out = alg.update(/* callTime = */ 500000000U,
+                     zero,
+                     zero,
+                     /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnComplete, 0U);
+
+    // burnTime = 1.5 s, now strictly greater than minTime: complete.
+    out = alg.update(/* callTime = */ 1000000000U,
+                     zero,
+                     zero,
+                     /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnComplete, 1U);
+}
+
 // ---------------------------------------------------------------------------
 // Config validation tests.
 // ---------------------------------------------------------------------------
