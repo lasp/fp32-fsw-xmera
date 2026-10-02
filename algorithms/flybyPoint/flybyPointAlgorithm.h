@@ -6,6 +6,7 @@
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include <Eigen/Dense>
 #include <cstdint>
+#include <optional>
 
 /*! @brief Structure containing the attitude guidance output of the algorithm. As in the other guidance algorithms,
  * the reference (sigma_RN, omega_RN_N, domega_RN_N) is all zero when no solution is available: before the first seed,
@@ -21,6 +22,14 @@ struct AttGuideOutput {
     bool positionKnowledgeExceedTrigger = false;  // true if the position error exceeds a-priori sigma bound
     bool inputSampleRejected = false;  // true if this period's filter sample was unusable and left out of the average
     uint32_t rejectedSamplesInWindow = 0;  // number of unusable samples in the window ending this period, else 0
+};
+
+/*! @brief Which validity checks rejected a re-read candidate; all false when none did. */
+struct FlybyValidityTriggers {
+    bool collinearityTrigger = false;             // true if vectors r and v are collinear
+    bool maxRateTrigger = false;                  // true if the predicted peak rate exceeds the maximum rate
+    bool maxAccelerationTrigger = false;          // true if the predicted peak acceleration exceeds the maximum
+    bool positionKnowledgeExceedTrigger = false;  // true if the position error exceeds a-priori sigma bound
 };
 
 /*!
@@ -147,10 +156,8 @@ class FlybyPointAlgorithm final {
         Eigen::Vector3d vSum_N = Eigen::Vector3d::Zero();       //!< [m/s] sum of velocities
     };
 
-    bool isCollinear(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) const;
-    bool checkValidity(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N, AttGuideOutput& output) const;
     void accumulateSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
-    void reReadFromWindowAverage(AttGuideOutput& output);
+    FlybyValidityTriggers reReadFromWindow();
     void computeFlybyParameters(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     void computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> computeGuidanceSolution(double dt) const;
