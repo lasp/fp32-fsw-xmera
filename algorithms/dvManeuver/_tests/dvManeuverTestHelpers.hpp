@@ -6,7 +6,6 @@
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
-#include <cmath>
 #include <cstdint>
 
 // Independent reference re-implementation of the burn state machine, kept in the same FP32
@@ -114,33 +113,56 @@ inline void fuzzRegressionDvManeuver(const Eigen::Vector3f& cmdForce_B,
 }
 
 // ---------------------------------------------------------------------------
-// Property test helper: for any finite command / acceleration, the output is well-formed on every
-// step — the burn state never moves backward, and the force command is the configured force while
-// executing and zero otherwise.
+// Property test helper: for any finite command, acceleration, time limits, start time and update rate, the
+// output is well-formed on every step, without reference to the expected state sequence:
+//  - the burn is pending exactly while the call time is before burnStartTime,
+//  - the burn never completes before minTime has elapsed since it started executing,
+//  - the burn never executes once maxTime has elapsed since it started executing,
+//  - the burn state never moves backward,
+//  - the force command is the configured force while executing and zero otherwise.
+// maxTime is minTime plus a positive offset, so every input is a valid configuration.
 // ---------------------------------------------------------------------------
 inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
                                      const Eigen::Vector3f& cmdDv_N,
-                                     const Eigen::Vector3f& acceleration) {
-    constexpr float kControlPeriod = 0.5F;
-    constexpr uint64_t kBurnStartTime = 500000000U;  // 0.5 s
-    constexpr int kNumSteps = 20;
-    const auto config = DvManeuverConfig::create(0U, 100000000000U, cmdForce_B, cmdDv_N, kBurnStartTime);
+                                     const Eigen::Vector3f& acceleration,
+                                     uint64_t minTime,
+                                     uint64_t maxTimeAboveMinTime,
+                                     uint64_t burnStartTime,
+                                     uint64_t stepNs) {
+    const uint64_t maxTime = minTime + maxTimeAboveMinTime;
+    const auto config = DvManeuverConfig::create(minTime, maxTime, cmdForce_B, cmdDv_N, burnStartTime);
     DvManeuverAlgorithm alg{config};
 
-    const auto stepNs = static_cast<uint64_t>(std::llround(static_cast<double>(kControlPeriod) * 1e9));
+    const uint64_t numSteps = (burnStartTime + maxTime) / stepNs + 2U;
     DvManeuverBurnState previousState = DvManeuverBurnState::Pending;
+    bool started = false;
+    uint64_t startCallTime = 0U;
 
-    for (int k = 0; k < kNumSteps; ++k) {
-        const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
+    for (uint64_t k = 0U; k < numSteps; ++k) {
+        const uint64_t callTime = k * stepNs;
+        if (!started && callTime >= burnStartTime) {
+            started = true;
+            startCallTime = callTime;
+        }
 
         Eigen::Vector3f dvAccumulated = Eigen::Vector3f::Zero();
-        if (callTime > kBurnStartTime) {
-            dvAccumulated = acceleration * (static_cast<float>(callTime - kBurnStartTime) * 1e-9F);
+        if (callTime > burnStartTime) {
+            dvAccumulated = acceleration * (static_cast<float>(callTime - burnStartTime) * 1e-9F);
         }
 
         DvManeuverOutput out{};
         EXPECT_NO_THROW(out = alg.update(callTime, dvAccumulated));
 
+        EXPECT_EQ(out.state == DvManeuverBurnState::Pending, callTime < burnStartTime) << "callTime " << callTime;
+        if (started) {
+            const uint64_t burnTime = callTime - startCallTime;
+            if (out.state == DvManeuverBurnState::Complete) {
+                EXPECT_GE(burnTime, minTime) << "callTime " << callTime;
+            }
+            if (burnTime >= maxTime) {
+                EXPECT_EQ(out.state, DvManeuverBurnState::Complete) << "callTime " << callTime;
+            }
+        }
         EXPECT_GE(static_cast<int>(out.state), static_cast<int>(previousState));
         const Eigen::Vector3f expectedForce_B =
             out.state == DvManeuverBurnState::Executing ? cmdForce_B : Eigen::Vector3f::Zero();
