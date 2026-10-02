@@ -61,8 +61,8 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
 
     # Initialize the test module configuration data
     module.controlPeriod = update_rate
-    module.minTime = p2_tmin
-    module.maxTime = p3_tmax
+    module.minTime = macros.sec2nano(p2_tmin)
+    module.maxTime = macros.sec2nano(p3_tmax)
     cmd_force_B = np.array([1.0, -2.0, 5.0])  # [N] body force commanded while the burn executes
     module.cmdForce_B = cmd_force_B
     cmd_dv_N = np.array([0.0, 0.0, p1_dv])  # [m/s] commanded Delta-V
@@ -104,8 +104,8 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
             burn_executing_true[i] = False
             burn_complete_true[i] = False
         elif (np.linalg.norm(nav_trans_msg_data.vehAccumDV) >= np.linalg.norm(cmd_dv_N)) and \
-                (update_rate * (i + 1) - p4_tstart > module.minTime) or \
-                (update_rate * (i + 1) - p4_tstart > module.maxTime):
+                (update_rate * (i + 1) - p4_tstart > p2_tmin) or \
+                (update_rate * (i + 1) - p4_tstart > p3_tmax):
             burn_executing_true[i] = False
             burn_complete_true[i] = True
         else:

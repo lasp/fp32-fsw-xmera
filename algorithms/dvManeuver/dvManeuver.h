@@ -24,8 +24,8 @@ class DvManeuver final : public SysModel {
     void reInitialize();  //!< State-transition hook; resets the algorithm internal states
 
     // Phase 1: Public config properties — set before reset()
-    float minTime = 0.0F;       /*!< [s] Minimum burn time allowed to elapse */
-    float maxTime = 0.0F;       /*!< [s] Maximum burn time; must be set to a positive value before reset() */
+    uint64_t minTime = 0U;      /*!< [ns] Minimum burn time allowed to elapse */
+    uint64_t maxTime = 0U;      /*!< [ns] Maximum burn time; must be set to a positive value before reset() */
     float controlPeriod = 0.0F; /*!< [s] Control period (FSW time step); must be set > 0 before reset() */
     Eigen::Vector3f cmdForce_B = Eigen::Vector3f::Zero(); /*!< [N] Body force commanded while the burn executes */
     Eigen::Vector3f cmdDv_N = Eigen::Vector3f::Zero();    /*!< [m/s] Commanded delta-V in inertial frame components */

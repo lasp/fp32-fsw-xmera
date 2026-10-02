@@ -61,11 +61,11 @@ The configuration is set through public properties on the adapter before ``reset
       - Valid range
       - Description
     * - ``minTime``
-      - :math:`\ge 0`, finite
-      - [s] Minimum burn time that must elapse before the burn may complete on the Delta-V criterion.
+      - any
+      - [ns] Minimum burn time that must elapse before the burn can complete on the Delta-V criterion.
     * - ``maxTime``
-      - > 0, finite, and > minTime
-      - [s] Maximum burn time. The burn is forced complete once burnTime exceeds maxTime.
+      - > 0 and > minTime
+      - [ns] Maximum burn time. The burn is forced complete once burnTime exceeds maxTime.
     * - ``controlPeriod``
       - :math:`> 0`, finite
       - [s] Flight-software control period, used as the fixed time step for accumulating the burn time. Must be set
@@ -89,8 +89,8 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
 
     module = dvManeuverF32.DvManeuver()
     module.controlPeriod = 0.5
-    module.minTime = 2.0
-    module.maxTime = 10.0
+    module.minTime = macros.sec2nano(2.0)
+    module.maxTime = macros.sec2nano(10.0)
     module.cmdForce_B = [0.0, 0.0, 10.0]
     module.cmdDv_N = [0.0, 0.0, 5.0]
     module.burnStartTime = macros.sec2nano(1.0)
@@ -102,10 +102,9 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
     sim.ExecuteSimulation()
 
 If ``navDataInMsg`` has not been connected when ``reset()`` runs, an ``std::invalid_argument`` is thrown.
-Invalid configuration values cause the configuration validator to throw fsw::invalid_argument. minTime
-must be non-negative and finite, maxTime must be positive, finite, and greater than minTime, controlPeriod
-must be positive and finite, and cmdForce_B and cmdDv_N must be finite. If ``updateState()`` is called before
-``reset()``, an ``XmeraLifecycleException`` is thrown.
+Invalid configuration values cause the configuration validator to throw fsw::invalid_argument. maxTime
+must be positive and greater than minTime, controlPeriod must be positive and finite, and cmdForce_B and cmdDv_N
+must be finite. If ``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
 
 Mathematical Formulation
 ------------------------

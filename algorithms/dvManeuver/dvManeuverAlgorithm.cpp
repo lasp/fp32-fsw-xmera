@@ -1,4 +1,5 @@
 #include "dvManeuverAlgorithm.h"
+#include "utilities/fsw/timeConstants.h"
 
 DvManeuverAlgorithm::DvManeuverAlgorithm(const DvManeuverConfig& config) : cfg(config) {
     this->setConfig(config);
@@ -22,7 +23,9 @@ DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime, const Eige
     if (this->state == DvManeuverBurnState::Executing) {
         this->burnTime += this->cfg.getControlPeriod();
         const bool dvReached = (dvAccumulated - this->dvInitial).stableNorm() >= this->cfg.getCmdDv().stableNorm();
-        if ((dvReached && this->burnTime > this->cfg.getMinTime()) || this->burnTime > this->cfg.getMaxTime()) {
+        const float minTime = static_cast<float>(this->cfg.getMinTime()) / kSec2NanoF;
+        const float maxTime = static_cast<float>(this->cfg.getMaxTime()) / kSec2NanoF;
+        if ((dvReached && this->burnTime > minTime) || this->burnTime > maxTime) {
             this->state = DvManeuverBurnState::Complete;
         }
     }

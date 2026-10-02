@@ -21,8 +21,8 @@ DvManeuverOutput_c outputToC(const DvManeuverOutput& out) {
     return result;
 }
 
-DvManeuverConfig configFromC(float minTime,
-                             float maxTime,
+DvManeuverConfig configFromC(uint64_t minTime,
+                             uint64_t maxTime,
                              float controlPeriod,
                              const Vector3f_c* cmdForce_B,
                              const Vector3f_c* cmdDv_N,
@@ -36,8 +36,8 @@ DvManeuverConfig configFromC(float minTime,
 }
 }  // namespace
 
-bool DvManeuverAlgorithm_validateConfig(float minTime,
-                                        float maxTime,
+bool DvManeuverAlgorithm_validateConfig(uint64_t minTime,
+                                        uint64_t maxTime,
                                         float controlPeriod,
                                         const Vector3f_c* cmdForce_B,
                                         const Vector3f_c* cmdDv_N,
@@ -50,8 +50,8 @@ bool DvManeuverAlgorithm_validateConfig(float minTime,
     }
 }
 
-DvManeuverAlgorithmHandle* DvManeuverAlgorithm_create(float minTime,
-                                                      float maxTime,
+DvManeuverAlgorithmHandle* DvManeuverAlgorithm_create(uint64_t minTime,
+                                                      uint64_t maxTime,
                                                       float controlPeriod,
                                                       const Vector3f_c* cmdForce_B,
                                                       const Vector3f_c* cmdDv_N,
@@ -63,8 +63,8 @@ DvManeuverAlgorithmHandle* DvManeuverAlgorithm_create(float minTime,
 void DvManeuverAlgorithm_destroy(DvManeuverAlgorithmHandle* self) { fsw::deleteHandle<::DvManeuverAlgorithm>(self); }
 
 void DvManeuverAlgorithm_setConfig(DvManeuverAlgorithmHandle* self,
-                                   float minTime,
-                                   float maxTime,
+                                   uint64_t minTime,
+                                   uint64_t maxTime,
                                    float controlPeriod,
                                    const Vector3f_c* cmdForce_B,
                                    const Vector3f_c* cmdDv_N,
