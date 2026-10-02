@@ -79,8 +79,8 @@ void DvManeuverAlgorithm_reInitialize(DvManeuverAlgorithmHandle* self) {
 
 DvManeuverOutput_c DvManeuverAlgorithm_update(DvManeuverAlgorithmHandle* self,
                                               uint64_t callTime,
-                                              const Vector3f_c* vehAccumDV) {
-    const DvManeuverOutput out =
-        fsw::fromHandle<::DvManeuverAlgorithm>(self)->update(callTime, cArrayToEigenVector3<float>(vehAccumDV->data));
+                                              const Vector3f_c* dvAccumulated) {
+    const DvManeuverOutput out = fsw::fromHandle<::DvManeuverAlgorithm>(self)->update(
+        callTime, cArrayToEigenVector3<float>(dvAccumulated->data));
     return outputToC(out);
 }
