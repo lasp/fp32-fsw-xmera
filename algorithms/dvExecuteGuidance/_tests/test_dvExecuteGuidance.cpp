@@ -214,6 +214,40 @@ TEST(DvExecuteGuidanceTest, EdgeMinTimeBoundaryRequiresStrictlyGreater) {
     EXPECT_EQ(out.burnComplete, 1U);
 }
 
+TEST(DvExecuteGuidanceTest, EdgeMaxTimeBoundaryRequiresStrictlyGreater) {
+    // The delta-V target is intentionally set out of reach, so this test only checks the maxTime cutoff.
+    DvExecuteGuidanceAlgorithm alg{DvExecuteGuidanceConfig::create(/* minTime = */ 0.0F,
+                                                                   /* maxTime = */ 1.0F,
+                                                                   /* controlPeriod = */ 0.5F)};
+    const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
+    const Eigen::Vector3f dvCmd{0.0F, 0.0F, 100.0F};
+
+    // burnTime = 0.5 s, below maxTime: not yet complete.
+    DvExecuteGuidanceOutput out = alg.update(/* callTime = */ 0U,
+                                             zero,
+                                             dvCmd,
+                                             /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnComplete, 0U);
+
+    // burnTime = 1.0 s, exactly equal to maxTime: still not complete.
+    // The cutoff requires burnTime > maxTime, not >=.
+    out = alg.update(/* callTime = */ 500000000U,
+                     zero,
+                     dvCmd,
+                     /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnComplete, 0U);
+
+    // burnTime = 1.5 s, now strictly greater than maxTime: complete.
+    out = alg.update(/* callTime = */ 1000000000U,
+                     zero,
+                     dvCmd,
+                     /* burnStartTime = */ 0U);
+
+    EXPECT_EQ(out.burnComplete, 1U);
+}
+
 // ---------------------------------------------------------------------------
 // Config validation tests.
 // ---------------------------------------------------------------------------
