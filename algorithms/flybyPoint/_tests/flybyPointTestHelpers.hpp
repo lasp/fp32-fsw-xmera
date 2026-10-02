@@ -55,11 +55,11 @@ inline void referenceReset(ReferenceFlybyState& s) {
 inline void referenceComputeFlybyParameters(ReferenceFlybyState& s,
                                             const Eigen::Vector3d& r,
                                             const Eigen::Vector3d& v) {
-    s.f0 = v.norm() / r.norm();
-    const Eigen::Vector3d ur = r.normalized();
-    const Eigen::Vector3d uv = v.normalized();
-    const Eigen::Vector3d uh = ur.cross(uv).normalized();
-    const Eigen::Vector3d ut = uh.cross(ur).normalized();
+    s.f0 = v.stableNorm() / r.stableNorm();
+    const Eigen::Vector3d ur = r.stableNormalized();
+    const Eigen::Vector3d uv = v.stableNormalized();
+    const Eigen::Vector3d uh = ur.cross(uv).stableNormalized();
+    const Eigen::Vector3d ut = uh.cross(ur).stableNormalized();
     s.gamma0 = safeAtan2(v.dot(ur), v.dot(ut));
 }
 
@@ -70,10 +70,10 @@ inline void referenceComputeFlybyParameters(ReferenceFlybyState& s,
  @param v The relative velocity state [m/s]
  */
 inline void referenceComputeRN(ReferenceFlybyState& s, const Eigen::Vector3d& r, const Eigen::Vector3d& v) {
-    const Eigen::Vector3d ur = r.normalized();
-    const Eigen::Vector3d uv = v.normalized();
-    const Eigen::Vector3d uh = ur.cross(uv).normalized();
-    const Eigen::Vector3d ut = uh.cross(ur).normalized();
+    const Eigen::Vector3d ur = r.stableNormalized();
+    const Eigen::Vector3d uv = v.stableNormalized();
+    const Eigen::Vector3d uh = ur.cross(uv).stableNormalized();
+    const Eigen::Vector3d ut = uh.cross(ur).stableNormalized();
     s.R0N.row(0) = ur;
     s.R0N.row(1) = ut;
     s.R0N.row(2) = uh;
@@ -100,10 +100,10 @@ inline bool referenceIsUsableSample(const Eigen::Vector3d& r, const Eigen::Vecto
  @param config Algorithm configuration
  */
 inline bool referenceIsCollinear(const Eigen::Vector3d& r, const Eigen::Vector3d& v, const FlybyPointConfig& config) {
-    const Eigen::Vector3d ur = r.normalized();
-    const Eigen::Vector3d uv = v.normalized();
+    const Eigen::Vector3d ur = r.stableNormalized();
+    const Eigen::Vector3d uv = v.stableNormalized();
     return 1.0 - std::fabs(ur.dot(uv)) < config.getToleranceForCollinearity() ||
-           ur.cross(uv).norm() < FlybyPointAlgorithm::kMinOrbitNormalNorm;
+           ur.cross(uv).stableNorm() < FlybyPointAlgorithm::kMinOrbitNormalNorm;
 }
 
 /*! Mirrors FlybyPointAlgorithm::checkValidity(). The closest-approach distance comes from the candidate
@@ -124,8 +124,8 @@ inline bool referenceCheckValidity(const ReferenceFlybyState& s,
 
     if (referenceIsCollinear(r, v, config)) return false;
 
-    const double dca = r.cross(v).norm() / v.norm();
-    const double speedOverDistance = v.norm() / dca;
+    const double dca = r.cross(v).stableNorm() / v.stableNorm();
+    const double speedOverDistance = v.stableNorm() / dca;
     const double maxRate = speedOverDistance * kRad2Deg;
     if (maxRate > config.getMaximumRateThreshold() && config.getMaximumRateThreshold() > 0) return false;
 
@@ -134,7 +134,7 @@ inline bool referenceCheckValidity(const ReferenceFlybyState& s,
         return false;
 
     const double deltaT = static_cast<double>(s.periodsSinceFirstRead) * config.getControlPeriod();
-    const double deltaPosNorm = (r - (s.firstNavPosition + deltaT * s.firstNavVelocity)).norm();
+    const double deltaPosNorm = (r - (s.firstNavPosition + deltaT * s.firstNavVelocity)).stableNorm();
     if (deltaPosNorm > config.getPositionKnowledgeSigma() && config.getPositionKnowledgeSigma() > 0) return false;
 
     return true;
