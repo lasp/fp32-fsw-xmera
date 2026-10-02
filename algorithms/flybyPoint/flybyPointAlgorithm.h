@@ -156,11 +156,17 @@ class FlybyPointAlgorithm final {
         Eigen::Vector3d vSum_N = Eigen::Vector3d::Zero();       //!< [m/s] sum of velocities
     };
 
-    void accumulateSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
+    /*! Reference attitude, rate and acceleration of the propagated profile; all zero when it has no finite solution */
+    struct GuidanceReference {
+        Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();     //!< [-] reference attitude MRP
+        Eigen::Vector3f omega_RN_N = Eigen::Vector3f::Zero();   //!< [rad/s] reference angular rate
+        Eigen::Vector3f domega_RN_N = Eigen::Vector3f::Zero();  //!< [rad/s^2] reference angular acceleration
+    };
+
+    void seedProfile(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     FlybyValidityTriggers reReadFromWindow();
-    void computeFlybyParameters(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
-    void computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
-    std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d> computeGuidanceSolution(double dt) const;
+    GuidanceReference computeGuidanceReference() const;
+
     FlybyPointConfig cfg;
     bool firstRead = true;               //!< variable to attest if this is the first read after a Reset
     uint64_t periodsSinceLastRead = 0;   //!< [-] control periods elapsed since the last accepted filter read
