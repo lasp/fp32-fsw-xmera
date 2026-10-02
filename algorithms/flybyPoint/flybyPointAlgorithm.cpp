@@ -97,9 +97,7 @@ void FlybyPointAlgorithm::setConfig(const FlybyPointConfig& config) {
  @return void
  */
 void FlybyPointAlgorithm::reset() {
-    this->firstRead = true;
-    this->periodsSinceLastRead = 0;
-    this->periodsSinceFirstRead = 0;
+    this->profile.reset();
     this->window = {};
 }
 
@@ -114,7 +112,7 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
     const bool usableSample = isUsableSample(r_BN_N, v_BN_N);
     output.inputSampleRejected = !usableSample;
 
-    if (this->firstRead) {
+    if (!this->profile) {
         /*! 1. Seed: no profile (zero reference) until the first usable, non-collinear sample, which is not otherwise
          checked since the algorithm needs a seed. It is also the first read; the window is still at its reset value,
          since nothing accumulates before the seed */
@@ -125,14 +123,12 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
             output.collinearityTrigger = true;
             return output;
         }
-        this->firstRead = false;
-        this->firstNavPosition = r_BN_N;
-        this->firstNavVelocity = v_BN_N;
+        this->firstRead = {.r_N = r_BN_N, .v_N = v_BN_N, .periodsSince = 0};
         this->seedProfile(r_BN_N, v_BN_N);
     } else {
         /*! 2. Advance time, whether or not the sample is usable */
-        ++this->periodsSinceLastRead;
-        ++this->periodsSinceFirstRead;
+        ++this->profile->periodsSinceRead;
+        ++this->firstRead.periodsSince;
         ++this->window.periods;
 
         /*! 3. Low-pass filter: propagate a usable sample to the window end with the rectilinear model (constant
@@ -181,12 +177,13 @@ void FlybyPointAlgorithm::seedProfile(const Eigen::Vector3d& r_BN_N, const Eigen
     const Eigen::Vector3d uh_N = ur_N.cross(uv_N).normalized();
     const Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
 
-    this->f0 = v_BN_N.norm() / r_BN_N.norm();
-    this->gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));  // flight path angle
-    this->R0N.row(0) = ur_N.cast<float>();
-    this->R0N.row(1) = ut_N.cast<float>();
-    this->R0N.row(2) = uh_N.cast<float>();
-    this->periodsSinceLastRead = 0;
+    Eigen::Matrix3f R0N;
+    R0N.row(0) = ur_N.cast<float>();
+    R0N.row(1) = ut_N.cast<float>();
+    R0N.row(2) = uh_N.cast<float>();
+    const double f0 = v_BN_N.norm() / r_BN_N.norm();
+    const double gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));  // flight path angle
+    this->profile = Profile{.f0 = f0, .gamma0 = gamma0, .R0N = R0N, .periodsSinceRead = 0};
 }
 
 /*! Re-read from the average of the window that just ended: re-seed the profile if the average passes the validity
@@ -204,8 +201,8 @@ FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow() {
     if (!isUsableSample(rAverage_N, vAverage_N)) {
         return {};
     }
-    const double deltaT = static_cast<double>(this->periodsSinceFirstRead) * this->cfg.getControlPeriod();
-    const Eigen::Vector3d rPredicted_N = this->firstNavPosition + deltaT * this->firstNavVelocity;
+    const double deltaT = static_cast<double>(this->firstRead.periodsSince) * this->cfg.getControlPeriod();
+    const Eigen::Vector3d rPredicted_N = this->firstRead.r_N + deltaT * this->firstRead.v_N;
     if (const std::optional<FlybyValidityTriggers> rejection =
             checkValidity(rAverage_N, vAverage_N, rPredicted_N, this->cfg)) {
         return *rejection;
@@ -215,27 +212,35 @@ FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow() {
 }
 
 /*! Compute the reference attitude, rate and acceleration of the profile propagated to the current control period.
- @return the reference; all zero if the solution is not finite, in double or after the cast to float
+ @return the reference; all zero before the first seed, or if the solution is not finite, in double or after the cast
+ to float
  */
 FlybyPointAlgorithm::GuidanceReference FlybyPointAlgorithm::computeGuidanceReference() const {
+    /*! no profile before the first seed: zero reference */
+    if (!this->profile) {
+        return {};
+    }
+
     /*! rotation angle of the reference frame since the last read, and its scalar rate and acceleration in R-frame
      coordinates, dt [s] after that read */
-    const double dt = static_cast<double>(this->periodsSinceLastRead) * this->cfg.getControlPeriod();
-    const double theta = safeAtan(safeTan(this->gamma0) + (this->f0 / safeCos(this->gamma0) * dt)) - this->gamma0;
-    const double den = ((this->f0 * this->f0 * dt * dt) + (2 * this->f0 * safeSin(this->gamma0) * dt) + 1);
-    const double thetaDot = this->f0 * safeCos(this->gamma0) / den;
-    const double thetaDDot =
-        -2 * this->f0 * this->f0 * safeCos(this->gamma0) * ((this->f0 * dt) + safeSin(this->gamma0)) / (den * den);
+    const Profile& p = *this->profile;
+    const double f0 = p.f0;
+    const double gamma0 = p.gamma0;
+    const double dt = static_cast<double>(p.periodsSinceRead) * this->cfg.getControlPeriod();
+    const double theta = safeAtan(safeTan(gamma0) + (f0 / safeCos(gamma0) * dt)) - gamma0;
+    const double den = ((f0 * f0 * dt * dt) + (2 * f0 * safeSin(gamma0) * dt) + 1);
+    const double thetaDot = f0 * safeCos(gamma0) / den;
+    const double thetaDDot = -2 * f0 * f0 * safeCos(gamma0) * ((f0 * dt) + safeSin(gamma0)) / (den * den);
 
     /*! a profile that overflows (e.g. an f0 too large for double) has no finite solution; stop before the attitude
      conversions, which must not be given non-finite values */
-    if (!fsw::is_finite(this->f0) || !fsw::is_finite(this->gamma0) || !fsw::is_finite(theta) ||
-        !fsw::is_finite(thetaDot) || !fsw::is_finite(thetaDDot)) {
+    if (!fsw::is_finite(f0) || !fsw::is_finite(gamma0) || !fsw::is_finite(theta) || !fsw::is_finite(thetaDot) ||
+        !fsw::is_finite(thetaDDot)) {
         return {};
     }
 
     /*! DCM of the reference frame at the last read time + dt with respect to the inertial frame */
-    const Eigen::Matrix3d RtN = prvToDcm(Eigen::Vector3d{0, 0, theta}) * this->R0N.cast<double>();
+    const Eigen::Matrix3d RtN = prvToDcm(Eigen::Vector3d{0, 0, theta}) * p.R0N.cast<double>();
     Eigen::Vector3d sigma_RN = dcmToMrp(RtN);
     if (!sigma_RN.allFinite()) {
         return {};
