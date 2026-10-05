@@ -29,6 +29,14 @@ inline Eigen::Vector4d axisAngleToEp(const Eigen::Vector3d& axis, double angle) 
 }
 
 /*!
+ * @brief Reorder a scalar-first quaternion [q0, q1, q2, q3] to the scalar-last float form
+ *        [q1, q2, q3, q0] that ConvertStPlatformToBodyAlgorithm takes.
+ */
+inline Eigen::Vector4f toScalarLast(const Eigen::Vector4d& ep) {
+    return {static_cast<float>(ep(1)), static_cast<float>(ep(2)), static_cast<float>(ep(3)), static_cast<float>(ep(0))};
+}
+
+/*!
  * @brief Convert a case-frame angular velocity to a unit delta quaternion (scalar-last).
  *
  * Uses a one-sample interval (Δt = 1) so θ = ‖ω‖ and axis = ω/‖ω‖. The result is
@@ -82,10 +90,10 @@ inline void computeTruthValues(const Eigen::Vector4d& ep_CN,
 /*!
  * @brief Run the algorithm with the given inputs and verify against double-precision truth.
  *
- * Tests express the sensor measurement in physical units (quaternion + angular velocity);
- * this harness internally converts ω to the delta-quaternion representation the algorithm
- * now consumes, then confirms the algorithm recovers the expected body-frame attitude and
- * angular velocity.
+ * Tests express the sensor measurement in physical units (scalar-first quaternion + angular
+ * velocity); this harness reorders the quaternion to scalar-last and converts ω to the
+ * delta-quaternion representation the algorithm consumes, then confirms the algorithm
+ * recovers the expected body-frame attitude and angular velocity.
  */
 inline void testConvertStPlatformToBody(const Eigen::Vector4d& ep_CN,
                                         const Eigen::Vector3d& omega_CN_C,
@@ -96,7 +104,7 @@ inline void testConvertStPlatformToBody(const Eigen::Vector4d& ep_CN,
     computeTruthValues(ep_CN, omega_CN_C, dcm_CB, sigma_BN_truth, omega_BN_B_truth);
 
     // Build float-precision Eigen inputs
-    const Eigen::Vector4f q_CN = ep_CN.cast<float>();
+    const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
     const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
 
     // Configure and run algorithm

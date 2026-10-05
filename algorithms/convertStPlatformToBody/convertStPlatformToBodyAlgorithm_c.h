@@ -50,7 +50,7 @@ void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithm
  * @brief Run the update step.
  * @param self        Pointer to the instance.
  * @param measurement Pointer to the time-tagged inertial-to-case attitude quaternion and
- *                    case-frame delta quaternion.
+ *                    case-frame delta quaternion, both scalar-last as the sensor emits them.
  * @return StAttitudeOutput_c  The computed star tracker attitude output.
  */
 StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithmHandle* self,

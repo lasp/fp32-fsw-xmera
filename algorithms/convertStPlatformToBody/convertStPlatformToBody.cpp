@@ -34,7 +34,9 @@ void ConvertStPlatformToBody::updateState(const uint64_t callTime) {
         const auto [timeTag, qInrtl2Case, omega_CN_C] = this->stSensorInMsg();
         timeTagSeconds = timeTag;
 
-        q_CN = cArrayToEigenVector(qInrtl2Case);
+        // STSensorMsgF32Payload carries the scalar-first quaternion used across Xmera; the
+        // algorithm takes it scalar-last as the sensor emits it.
+        q_CN = {qInrtl2Case[1], qInrtl2Case[2], qInrtl2Case[3], qInrtl2Case[0]};
 
         // This is temporary given the module that feeds this algorithm
         // is still producing omega and not delta quaternions.

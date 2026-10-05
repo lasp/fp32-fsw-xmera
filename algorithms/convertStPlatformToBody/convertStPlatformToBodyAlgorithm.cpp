@@ -14,8 +14,10 @@ StAttitudeOutput ConvertStPlatformToBodyAlgorithm::update(const Eigen::Vector4f&
                                                           const Eigen::Vector4f& dq_CN) const {
     const Eigen::Matrix3f dcm_CB = this->cfg.getDcmCB();
 
-    // Convert the star tracker inertial attitude from quaternion to MRP, then offset by the mounting DCM
-    const Eigen::Vector3f sigma_CN = epToMrp(q_CN);
+    // Convert the star tracker inertial attitude from quaternion to MRP, then offset by the mounting DCM.
+    // q_CN arrives scalar-last as the sensor emits it; epToMrp expects scalar-first.
+    const Eigen::Vector4f ep_CN{q_CN[3], q_CN[0], q_CN[1], q_CN[2]};
+    const Eigen::Vector3f sigma_CN = epToMrp(ep_CN);
     const Eigen::Vector3f sigma_BC = dcmToMrp<float>(dcm_CB.transpose());
     const Eigen::Vector3f sigma_BN = addMrp(sigma_CN, sigma_BC);
 
