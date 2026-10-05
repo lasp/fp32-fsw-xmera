@@ -10,4 +10,5 @@
 %include "vectorDutyCycleAlgorithm.h"
 %include "vectorDutyCycle.h"
 
+%include "msgPayloadDef/CmdForceBodyMsgF32Payload.h"
 %include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"

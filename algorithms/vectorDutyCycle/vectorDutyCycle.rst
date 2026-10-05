@@ -4,7 +4,7 @@ Executive Summary
 This module gates a three-component vector on and off in a fixed duty cycle. During the on window it passes the
 input vector through unchanged; during the off window it outputs a zero vector. The cycle is counted in
 control periods and runs freely, independent of the vector it carries. The algorithm makes no assumption on what
-the vector describes; the Xmera adapter carries a commanded body torque.
+the vector describes; the Xmera adapter carries a commanded body force or torque, selected by ``vectorType``.
 
 It performs no arithmetic on the vector it carries: a passed-through vector is identical to its input, and all
 three components are gated together, so the output is always either the input or zero.
@@ -65,10 +65,12 @@ and returns the gated vector. The cadence counter is the module's only runtime s
 non-persistent, so ``reInitialize()`` restarts the cycle outright and there is no
 ``reInitializeExceptPersistentStates()``.
 
-The **Xmera adapter** (``VectorDutyCycle``) inherits from ``SysModel`` and owns all messaging concerns. It maps
-between the message payload's C array and the algorithm's ``Eigen::Vector3f`` and writes the output message on every
-update. Configuration uses two-phase initialization: the caller sets the public properties, then ``reset()``
-validates the input link, builds the configuration, and constructs the algorithm. The whole configuration lives in
+The **Xmera adapter** (``VectorDutyCycle``) inherits from ``SysModel`` and owns all messaging concerns. The
+adapter-only property ``vectorType`` selects whether the force or the torque message pair is gated; ``reset()``
+fixes the selection. The adapter reads only the selected input message, maps between its C array and the
+algorithm's ``Eigen::Vector3f``, and writes only the selected output message on every update. Configuration uses
+two-phase initialization: the caller sets the public properties, then ``reset()`` validates the selected input
+link, builds the configuration, and constructs the algorithm. The whole configuration lives in
 module properties, so no input message is read to build it.
 
 The **Adamant adapter** is a C shim (``vectorDutyCycleAlgorithm_c.h`` / ``.cpp``) exposing the algorithm through
@@ -89,13 +91,22 @@ information on what this message is used for.
     * - Msg Variable Name
       - Msg Type
       - Description
+    * - cmdForceInMsg
+      - :ref:`CmdForceBodyMsgF32Payload`
+      - Commanded body-frame force [N]. Required and read every update when ``vectorType`` is ``Force``;
+        otherwise ignored.
     * - cmdTorqueInMsg
       - :ref:`CmdTorqueBodyMsgF32Payload`
-      - Commanded body-frame torque [Nm], read every update.
+      - Commanded body-frame torque [Nm]. Required and read every update when ``vectorType`` is ``Torque``;
+        otherwise ignored.
+    * - cmdForceOutMsg
+      - :ref:`CmdForceBodyMsgF32Payload`
+      - Gated body-frame force [N]: the input during an on period, zero during an off period. Written every
+        update when ``vectorType`` is ``Force``; otherwise never written.
     * - cmdTorqueOutMsg
       - :ref:`CmdTorqueBodyMsgF32Payload`
-      - Gated body-frame torque [Nm]: the input during an on period, zero during an off period.
-        Written every update.
+      - Gated body-frame torque [Nm]: the input during an on period, zero during an off period. Written every
+        update when ``vectorType`` is ``Torque``; otherwise never written.
 
 Cadence
 -------
@@ -162,8 +173,13 @@ raises ``fsw::invalid_argument`` and the module is not constructed.
         permitted and holds the gate fully open, which is how duty
         cycling is disabled. The only rejected values are those whose sum with ``onPeriods`` would wrap
         around, since a wrapped cycle length would come out shorter than its own on window.
+    * - vectorType
+      - ``VectorType``
+      - ``Force`` or ``Torque``
+      - Adapter only. Selects the message pair that the adapter gates. Defaults to ``Torque``. ``reset()`` fixes
+        the selection; a later change takes effect at the next ``reset()``.
 
-Both parameters are counted in **control periods**, not seconds, so the module needs no ``controlPeriod``
+``onPeriods`` and ``offPeriods`` are counted in **control periods**, not seconds, so the module needs no ``controlPeriod``
 parameter and no measured time step: it counts its own invocations. This makes the cadence exact — there is no
 rounding of a duration onto a schedule — but it also means the wall-clock length of a cycle is set by the rate at
 which the module is scheduled.
@@ -184,14 +200,16 @@ The module uses two-phase initialization: set the public configuration propertie
     # Phase 1: configuration properties, set before reset()
     module.onPeriods = 1     # [-] pass through for one control period ...
     module.offPeriods = 4   # [-] ... then hold off for four, giving a 1-in-5 duty cycle
+    module.vectorType = vectorDutyCycleF32.VectorType_Torque  # gate the torque message pair (default)
 
-    # Connect the required input message
+    # Connect the input message of the selected vector type
     module.cmdTorqueInMsg.subscribeTo(cmd_torque_in_msg)
 
     # Phase 2: reset() validates the link and builds the config
     sim.AddModelToTask(task_name, module)
 
-The input message is required; ``reset()`` raises if it is unconnected.
+The input message of the selected vector type is required; ``reset()`` raises if it is unconnected. The other
+input message is not read and its output message is not written.
 
 To push edited configuration properties onto a running algorithm without restarting the cadence, call
 ``reconfigure()``. To restart the cadence at its on window, call ``reInitialize()``. Both raise

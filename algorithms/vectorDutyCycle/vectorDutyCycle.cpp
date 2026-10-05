@@ -5,20 +5,33 @@
 #include <memory>
 #include <stdexcept>
 
-/*! This method performs a complete reset of the module. It validates that the required input message is linked
- and builds the algorithm, whose constructor installs the configuration and restarts the duty cycle.
+/*! This method performs a complete reset of the module. It fixes the vectorType selection, validates that the
+ selected input message is linked, and builds the algorithm, whose constructor installs the configuration and
+ restarts the duty cycle.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void VectorDutyCycle::reset(const uint64_t callTime) {
-    // check if the required input messages are included
-    if (!this->cmdTorqueInMsg.isLinked()) {
-        throw std::invalid_argument("vectorDutyCycle.cmdTorqueInMsg wasn't connected.");
+    // check if the input message of the selected vector type is included
+    switch (this->vectorType) {
+        case VectorType::Force:
+            if (!this->cmdForceInMsg.isLinked()) {
+                throw std::invalid_argument("vectorDutyCycle.cmdForceInMsg wasn't connected.");
+            }
+            break;
+        case VectorType::Torque:
+            if (!this->cmdTorqueInMsg.isLinked()) {
+                throw std::invalid_argument("vectorDutyCycle.cmdTorqueInMsg wasn't connected.");
+            }
+            break;
+        default:
+            throw std::invalid_argument("vectorDutyCycle.vectorType is not a valid VectorType.");
     }
 
     /*! - create the algorithm, whose constructor installs the configuration and restarts the duty cycle
      (throws on an invalid config) */
     this->algorithm = std::make_unique<VectorDutyCycleAlgorithm>(this->toConfig());
+    this->activeVectorType = this->vectorType;
 }
 
 /*! Build a validated algorithm configuration from the current module properties. The whole configuration is
@@ -51,7 +64,7 @@ void VectorDutyCycle::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! The commanded torque is gated on and off in a fixed duty cycle.
+/*! The command of the vector type selected at reset() is gated on and off in a fixed duty cycle.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
@@ -60,14 +73,39 @@ void VectorDutyCycle::updateState(const uint64_t callTime) {
         throw XmeraLifecycleException("VectorDutyCycle reset() has not been called.");
     }
 
-    /*! - read in the torque command message and map to the freestanding type */
+    if (this->activeVectorType == VectorType::Force) {
+        this->updateForce(callTime);
+    } else {
+        this->updateTorque(callTime);
+    }
+}
+
+/*! Gates the commanded force and writes the force output message.
+ @return void
+ @param callTime The clock time at which the function was called (nanoseconds)
+ */
+void VectorDutyCycle::updateForce(const uint64_t callTime) {
+    const CmdForceBodyMsgF32Payload cmdForceIn = this->cmdForceInMsg();
+    const Eigen::Vector3f cmdForce_B = cArrayToEigenVector3<float>(cmdForceIn.forceRequestBody);
+
+    const Eigen::Vector3f gatedForce_B = this->algorithm->update(cmdForce_B);
+
+    CmdForceBodyMsgF32Payload cmdForceOut{};
+    eigenVectorToCArray(gatedForce_B, cmdForceOut.forceRequestBody);
+
+    this->cmdForceOutMsg.write(cmdForceOut, this->moduleID, callTime);
+}
+
+/*! Gates the commanded torque and writes the torque output message.
+ @return void
+ @param callTime The clock time at which the function was called (nanoseconds)
+ */
+void VectorDutyCycle::updateTorque(const uint64_t callTime) {
     const CmdTorqueBodyMsgF32Payload cmdTorqueIn = this->cmdTorqueInMsg();
     const Eigen::Vector3f cmdTorque_B = cArrayToEigenVector3<float>(cmdTorqueIn.torqueRequestBody);
 
-    /*! - call algorithm update */
     const Eigen::Vector3f gatedTorque_B = this->algorithm->update(cmdTorque_B);
 
-    /*! - map the freestanding type back to the message payload and write */
     CmdTorqueBodyMsgF32Payload cmdTorqueOut{};
     eigenVectorToCArray(gatedTorque_B, cmdTorqueOut.torqueRequestBody);
 
