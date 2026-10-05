@@ -288,7 +288,7 @@ double and narrow at the end with an explicit `static_cast<float>()`.
 ### 5.4 Recurrence Relations and Accumulated Error
 
 **Pattern:** Iterative formulas where each step's error compounds. The canonical example is the
-Chebyshev three-term recurrence in `chebyshevUtilities.h:40`:
+Chebyshev three-term recurrence in `chebyshevUtilities.h:45`:
 
 ```cpp
 chebyNow = (valueMult * chebyNow) - chebyPrev;
@@ -301,7 +301,7 @@ steps, the basis polynomial `T_n(x)` carries ~2n ULP of accumulated error.
 
 | Function | File | Steps | Float32 Error at n=20 |
 |----------|------|-------|-----------------------|
-| `calculateChebyValue` | `chebyshevUtilities.h:28` | n (number of coefficients) | ~40 * 1.19e-7 ~ 5e-6 relative |
+| `calculateChebyValue` | `chebyshevUtilities.h:26` | n (number of coefficients) | ~40 * 1.19e-7 ~ 5e-6 relative |
 
 **Mitigation:** Bound the maximum degree. Use the L1 norm analysis (Section 7.3) to verify that the
 accumulated error is acceptable for the given coefficient magnitudes. If the ratio of the largest to
@@ -453,7 +453,7 @@ A safety margin of 3-10x above the theoretical bound is appropriate. This is why
 This example walks through the tolerance derivation for the Chebyshev polynomial fuzz tests in
 `test_chebyshevUtilities_fuzz.cpp`.
 
-**The computation.** `calculateChebyValue` (`chebyshevUtilities.h:28`) evaluates a Chebyshev
+**The computation.** `calculateChebyValue` (`chebyshevUtilities.h:26`) evaluates a Chebyshev
 polynomial of degree `n-1` using the three-term recurrence:
 
 ```
@@ -471,6 +471,12 @@ The final result is `f(x) = sum(c_i * T_i(x))` for `i = 0..n-1`.
 Every Chebyshev polynomial satisfies `|T_k(x)| <= 1` for `x` in `[-1, 1]`. Therefore the output is
 bounded by the L1 norm of the coefficient vector: `|f(x)| <= sum(|c_i|) = L1_norm`.
 
+This bound only holds inside `[-1, 1]`. Outside it, `|T_k(x)|` grows like `(|x| + sqrt(x^2 - 1))^k`
+(for example `T_10(1.1) ~ 42`, `T_10(1.2) ~ 252`). `calculateChebyValue` therefore clamps a finite `x` to
+the nearest limit, so the result rails at the fit's endpoint value, and returns 0 for a non-finite `x`.
+The bound and the error budget below hold for every input as a result. Property 6 in
+`test_chebyshevUtilities_fuzz.cpp` checks the rail.
+
 **Step 3: Compute the error bound.**
 The floating-point error in the output is approximately:
 
@@ -485,7 +491,7 @@ error <= L1_norm * 80 * 1.19e-7 * (1 + ~2e-5)
 ```
 
 **Step 4: Set the tolerance.**
-The fuzz test in `test_chebyshevUtilities_fuzz.cpp:134` uses:
+The fuzz test in `test_chebyshevUtilities_fuzz.cpp:133` uses:
 
 ```cpp
 const float bound = l1Norm * (1.0f + 1e-4f) + 1e-6f;
@@ -494,7 +500,7 @@ const float bound = l1Norm * (1.0f + 1e-4f) + 1e-6f;
 - The `1e-4f` relative factor provides ~10x margin over the theoretical `9.5e-6`.
 - The `1e-6f` absolute floor handles the case where L1 norm is very small.
 
-**Comparison with double.** The double-precision fuzz test (`line 117`) uses:
+**Comparison with double.** The double-precision fuzz test (`line 116`) uses:
 
 ```cpp
 const double bound = l1Norm * (1.0 + 1e-10) + 1e-15;
@@ -640,7 +646,8 @@ conservation laws, symmetries, boundedness.
 **Examples from this codebase:**
 - `test_safeMath_fuzz.cpp`: Pythagorean identity (`safeCos^2 + safeSin^2 = 1`), inverse pairs
   (`safeAcos(safeCos(x)) = x`), finiteness of all outputs.
-- `test_chebyshevUtilities_fuzz.cpp`: L1 boundedness, recurrence relation, evaluation at x = +/-1.
+- `test_chebyshevUtilities_fuzz.cpp`: L1 boundedness, recurrence relation, evaluation at x = +/-1,
+  railing at the endpoint value outside [-1, 1].
 - `test_orbitalMotion_fuzz.cpp`: Vis-viva equation, angular momentum conservation, round-trip
   element conversions.
 
