@@ -5,29 +5,26 @@
 
 #include <Eigen/Core>
 
-bool VectorDutyCycleAlgorithm_validateConfig(uint32_t firingPeriods, uint32_t settlingPeriods) {
+bool VectorDutyCycleAlgorithm_validateConfig(uint32_t onPeriods, uint32_t offPeriods) {
     try {
-        (void)VectorDutyCycleConfig::create(firingPeriods, settlingPeriods);
+        (void)VectorDutyCycleConfig::create(onPeriods, offPeriods);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
     }
 }
 
-VectorDutyCycleAlgorithmHandle* VectorDutyCycleAlgorithm_create(uint32_t firingPeriods, uint32_t settlingPeriods) {
+VectorDutyCycleAlgorithmHandle* VectorDutyCycleAlgorithm_create(uint32_t onPeriods, uint32_t offPeriods) {
     return fsw::createHandle<::VectorDutyCycleAlgorithm, VectorDutyCycleAlgorithmHandle>(
-        VectorDutyCycleConfig::create(firingPeriods, settlingPeriods));
+        VectorDutyCycleConfig::create(onPeriods, offPeriods));
 }
 
 void VectorDutyCycleAlgorithm_destroy(VectorDutyCycleAlgorithmHandle* self) {
     fsw::deleteHandle<::VectorDutyCycleAlgorithm>(self);
 }
 
-void VectorDutyCycleAlgorithm_setConfig(VectorDutyCycleAlgorithmHandle* self,
-                                        uint32_t firingPeriods,
-                                        uint32_t settlingPeriods) {
-    fsw::fromHandle<::VectorDutyCycleAlgorithm>(self)->setConfig(
-        VectorDutyCycleConfig::create(firingPeriods, settlingPeriods));
+void VectorDutyCycleAlgorithm_setConfig(VectorDutyCycleAlgorithmHandle* self, uint32_t onPeriods, uint32_t offPeriods) {
+    fsw::fromHandle<::VectorDutyCycleAlgorithm>(self)->setConfig(VectorDutyCycleConfig::create(onPeriods, offPeriods));
 }
 
 void VectorDutyCycleAlgorithm_reInitialize(VectorDutyCycleAlgorithmHandle* self) {

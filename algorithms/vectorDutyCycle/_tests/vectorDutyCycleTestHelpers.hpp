@@ -20,14 +20,14 @@ inline Eigen::Vector3f makeInputVector(const std::vector<float>& components) {
 }
 
 // Independent reference for the cadence, written from the module description rather than from the algorithm:
-// a cycle is firingPeriods + settlingPeriods control periods long and fires during its leading slots, so the
-// nth update since the last restart fires exactly when n modulo the cycle length is inside the firing window.
+// a cycle is onPeriods + offPeriods control periods long and is on during its leading slots, so the
+// nth update since the last restart is on exactly when n modulo the cycle length is inside the on window.
 inline uint32_t referenceCycleLength(const VectorDutyCycleConfig& cfg) {
-    return cfg.getFiringPeriods() + cfg.getSettlingPeriods();
+    return cfg.getOnPeriods() + cfg.getOffPeriods();
 }
 
-inline bool referenceIsFiring(uint32_t updateIndex, const VectorDutyCycleConfig& cfg) {
-    return (updateIndex % referenceCycleLength(cfg)) < cfg.getFiringPeriods();
+inline bool referenceIsOn(uint32_t updateIndex, const VectorDutyCycleConfig& cfg) {
+    return (updateIndex % referenceCycleLength(cfg)) < cfg.getOnPeriods();
 }
 
 // Index of the first non-zero component of a vector, or kNumAxes when the vector is all zero. A gated output
@@ -74,36 +74,36 @@ inline void testGateActsOnTheWholeVector(const Eigen::Vector3f& inputVector,
 
     for (uint32_t update = 0U; update < numUpdates; ++update) {
         const Eigen::Vector3f gated = alg.update(inputVector);
-        const bool firing = referenceIsFiring(update, cfg);
+        const bool on = referenceIsOn(update, cfg);
 
         for (Eigen::Index i = 0; i < kNumAxes; ++i) {
-            EXPECT_EQ(gated(i), firing ? inputVector(i) : 0.0F) << "update " << update << " axis " << i;
+            EXPECT_EQ(gated(i), on ? inputVector(i) : 0.0F) << "update " << update << " axis " << i;
         }
     }
 }
 
-// Over a whole number of cycles the gate fires on exactly firingPeriods updates per cycle, so the delivered
-// duty ratio is exactly firingPeriods / (firingPeriods + settlingPeriods) with no drift or rounding.
-inline void testFiringCountMatchesDutyRatio(const Eigen::Vector3f& inputVector,
-                                            const VectorDutyCycleConfig& cfg,
-                                            uint32_t numCycles) {
+// Over a whole number of cycles the gate is on for exactly onPeriods updates per cycle, so the delivered
+// duty ratio is exactly onPeriods / (onPeriods + offPeriods) with no drift or rounding.
+inline void testOnCountMatchesDutyRatio(const Eigen::Vector3f& inputVector,
+                                        const VectorDutyCycleConfig& cfg,
+                                        uint32_t numCycles) {
     const Eigen::Index watched = firstNonZeroAxis(inputVector);
     ASSERT_LT(watched, kNumAxes) << "an all-zero input cannot reveal the cadence";
 
     VectorDutyCycleAlgorithm alg{cfg};
 
-    uint32_t firingUpdates = 0U;
+    uint32_t onUpdates = 0U;
     for (uint32_t update = 0U; update < numCycles * referenceCycleLength(cfg); ++update) {
         if (alg.update(inputVector)(watched) != 0.0F) {
-            ++firingUpdates;
+            ++onUpdates;
         }
     }
 
-    EXPECT_EQ(firingUpdates, numCycles * cfg.getFiringPeriods());
+    EXPECT_EQ(onUpdates, numCycles * cfg.getOnPeriods());
 }
 
 // The cadence is free-running: it depends only on how many updates have run, never on the input. Two
-// gates fed different input vectors must therefore fire on exactly the same updates.
+// gates fed different input vectors must therefore be on for exactly the same updates.
 inline void testCadenceIsIndependentOfInput(const Eigen::Vector3f& inputVector,
                                             const VectorDutyCycleConfig& cfg,
                                             uint32_t numUpdates) {
@@ -118,9 +118,9 @@ inline void testCadenceIsIndependentOfInput(const Eigen::Vector3f& inputVector,
     VectorDutyCycleAlgorithm otherAlg{cfg};
 
     for (uint32_t update = 0U; update < numUpdates; ++update) {
-        const bool fired = alg.update(inputVector)(watched) != 0.0F;
-        const bool otherFired = otherAlg.update(otherInputVector)(watched) != 0.0F;
-        EXPECT_EQ(fired, otherFired) << "update " << update;
+        const bool wasOn = alg.update(inputVector)(watched) != 0.0F;
+        const bool otherWasOn = otherAlg.update(otherInputVector)(watched) != 0.0F;
+        EXPECT_EQ(wasOn, otherWasOn) << "update " << update;
     }
 }
 
@@ -146,8 +146,8 @@ inline void testReInitializeRestartsCadence(const Eigen::Vector3f& inputVector,
     alg.reInitialize();
 
     for (uint32_t update = 0U; update < numUpdates; ++update) {
-        const bool fired = alg.update(inputVector)(watched) != 0.0F;
-        EXPECT_EQ(fired, fromConstruction[update]) << "update " << update << " after reInitialize";
+        const bool wasOn = alg.update(inputVector)(watched) != 0.0F;
+        EXPECT_EQ(wasOn, fromConstruction[update]) << "update " << update << " after reInitialize";
     }
 }
 
@@ -159,11 +159,11 @@ inline void regressionTestVectorDutyCycle(const Eigen::Vector3f& inputVector,
 
     for (uint32_t update = 0U; update < numUpdates; ++update) {
         const Eigen::Vector3f gated = alg.update(inputVector);
-        const bool expectFiring = referenceIsFiring(update, cfg);
+        const bool expectOn = referenceIsOn(update, cfg);
 
         for (Eigen::Index i = 0; i < kNumAxes; ++i) {
             // The gate does no arithmetic, so this is an exact comparison rather than a tolerance check.
-            const float expected = expectFiring ? inputVector(i) : 0.0F;
+            const float expected = expectOn ? inputVector(i) : 0.0F;
             EXPECT_EQ(gated(i), expected) << "update " << update << " axis " << i;
         }
     }
@@ -180,11 +180,11 @@ namespace detail {
 // validators drifting apart rather than an expected outcome.
 inline bool makeFuzzCase(const std::vector<float>& components,
                          float watchedComponent,
-                         uint32_t firingPeriods,
-                         uint32_t settlingPeriods,
+                         uint32_t onPeriods,
+                         uint32_t offPeriods,
                          Eigen::Vector3f& inputVector) {
-    if (!VectorDutyCycleConfig::isValidFiringPeriods(firingPeriods) ||
-        !VectorDutyCycleConfig::isValidSettlingPeriods(settlingPeriods, firingPeriods)) {
+    if (!VectorDutyCycleConfig::isValidOnPeriods(onPeriods) ||
+        !VectorDutyCycleConfig::isValidOffPeriods(offPeriods, onPeriods)) {
         return false;
     }
 
@@ -199,82 +199,78 @@ inline bool makeFuzzCase(const std::vector<float>& components,
 
 inline void propertyOutputIsInputOrZero(const std::vector<float>& components,
                                         float watchedComponent,
-                                        uint32_t firingPeriods,
-                                        uint32_t settlingPeriods,
+                                        uint32_t onPeriods,
+                                        uint32_t offPeriods,
                                         uint32_t numUpdates) {
     Eigen::Vector3f inputVector = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(components, watchedComponent, firingPeriods, settlingPeriods, inputVector)) {
+    if (!detail::makeFuzzCase(components, watchedComponent, onPeriods, offPeriods, inputVector)) {
         return;
     }
-    testOutputIsInputOrZero(inputVector, VectorDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+    testOutputIsInputOrZero(inputVector, VectorDutyCycleConfig::create(onPeriods, offPeriods), numUpdates);
 }
 
 inline void propertyGateActsOnTheWholeVector(const std::vector<float>& components,
                                              float watchedComponent,
-                                             uint32_t firingPeriods,
-                                             uint32_t settlingPeriods,
+                                             uint32_t onPeriods,
+                                             uint32_t offPeriods,
                                              uint32_t numUpdates) {
     Eigen::Vector3f inputVector = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(components, watchedComponent, firingPeriods, settlingPeriods, inputVector)) {
+    if (!detail::makeFuzzCase(components, watchedComponent, onPeriods, offPeriods, inputVector)) {
         return;
     }
-    testGateActsOnTheWholeVector(
-        inputVector, VectorDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+    testGateActsOnTheWholeVector(inputVector, VectorDutyCycleConfig::create(onPeriods, offPeriods), numUpdates);
 }
 
-inline void propertyFiringCountMatchesDutyRatio(const std::vector<float>& components,
-                                                float watchedComponent,
-                                                uint32_t firingPeriods,
-                                                uint32_t settlingPeriods,
-                                                uint32_t numCycles) {
+inline void propertyOnCountMatchesDutyRatio(const std::vector<float>& components,
+                                            float watchedComponent,
+                                            uint32_t onPeriods,
+                                            uint32_t offPeriods,
+                                            uint32_t numCycles) {
     Eigen::Vector3f inputVector = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(components, watchedComponent, firingPeriods, settlingPeriods, inputVector)) {
+    if (!detail::makeFuzzCase(components, watchedComponent, onPeriods, offPeriods, inputVector)) {
         return;
     }
-    testFiringCountMatchesDutyRatio(
-        inputVector, VectorDutyCycleConfig::create(firingPeriods, settlingPeriods), numCycles);
+    testOnCountMatchesDutyRatio(inputVector, VectorDutyCycleConfig::create(onPeriods, offPeriods), numCycles);
 }
 
 inline void propertyCadenceIsIndependentOfInput(const std::vector<float>& components,
                                                 float watchedComponent,
-                                                uint32_t firingPeriods,
-                                                uint32_t settlingPeriods,
+                                                uint32_t onPeriods,
+                                                uint32_t offPeriods,
                                                 uint32_t numUpdates) {
     Eigen::Vector3f inputVector = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(components, watchedComponent, firingPeriods, settlingPeriods, inputVector)) {
+    if (!detail::makeFuzzCase(components, watchedComponent, onPeriods, offPeriods, inputVector)) {
         return;
     }
-    testCadenceIsIndependentOfInput(
-        inputVector, VectorDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+    testCadenceIsIndependentOfInput(inputVector, VectorDutyCycleConfig::create(onPeriods, offPeriods), numUpdates);
 }
 
 inline void propertyReInitializeRestartsCadence(const std::vector<float>& components,
                                                 float watchedComponent,
-                                                uint32_t firingPeriods,
-                                                uint32_t settlingPeriods,
+                                                uint32_t onPeriods,
+                                                uint32_t offPeriods,
                                                 uint32_t numUpdates,
                                                 uint32_t updatesBeforeRestart) {
     Eigen::Vector3f inputVector = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(components, watchedComponent, firingPeriods, settlingPeriods, inputVector)) {
+    if (!detail::makeFuzzCase(components, watchedComponent, onPeriods, offPeriods, inputVector)) {
         return;
     }
     testReInitializeRestartsCadence(
-        inputVector, VectorDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates, updatesBeforeRestart);
+        inputVector, VectorDutyCycleConfig::create(onPeriods, offPeriods), numUpdates, updatesBeforeRestart);
 }
 
 inline void regressionFuzzVectorDutyCycle(const std::vector<float>& components,
                                           float watchedComponent,
-                                          uint32_t firingPeriods,
-                                          uint32_t settlingPeriods,
+                                          uint32_t onPeriods,
+                                          uint32_t offPeriods,
                                           uint32_t numUpdates) {
     Eigen::Vector3f inputVector = Eigen::Vector3f::Zero();
-    if (!detail::makeFuzzCase(components, watchedComponent, firingPeriods, settlingPeriods, inputVector)) {
+    if (!detail::makeFuzzCase(components, watchedComponent, onPeriods, offPeriods, inputVector)) {
         return;
     }
     // The gate performs no arithmetic, so the reference match is exact regardless of cadence or magnitude
     // and needs no error budget.
-    regressionTestVectorDutyCycle(
-        inputVector, VectorDutyCycleConfig::create(firingPeriods, settlingPeriods), numUpdates);
+    regressionTestVectorDutyCycle(inputVector, VectorDutyCycleConfig::create(onPeriods, offPeriods), numUpdates);
 }
 
 #endif

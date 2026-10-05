@@ -10,55 +10,53 @@ namespace {
 // that scrambled or rescaled the components would show.
 const std::vector<float> kNominalComponents = {1.2e-2F, -3.5e-3F, 7.0e-4F};
 
-// The nominal cadence: fire for one control period, then hold off for four.
-constexpr uint32_t kNominalFiringPeriods = 1U;
-constexpr uint32_t kNominalSettlingPeriods = 4U;
+// The nominal cadence: pass through for one control period, then hold off for four.
+constexpr uint32_t kNominalOnPeriods = 1U;
+constexpr uint32_t kNominalOffPeriods = 4U;
 
 // Enough updates to cover several whole cycles of the nominal cadence.
 constexpr uint32_t kManyUpdates = 20U;
 
-VectorDutyCycleConfig nominalConfig() {
-    return VectorDutyCycleConfig::create(kNominalFiringPeriods, kNominalSettlingPeriods);
-}
+VectorDutyCycleConfig nominalConfig() { return VectorDutyCycleConfig::create(kNominalOnPeriods, kNominalOffPeriods); }
 
 // Assert that a cadence is accepted and round-trips through the getters.
-void expectCadenceRoundTrips(uint32_t firingPeriods, uint32_t settlingPeriods) {
-    const VectorDutyCycleConfig cfg = VectorDutyCycleConfig::create(firingPeriods, settlingPeriods);
+void expectCadenceRoundTrips(uint32_t onPeriods, uint32_t offPeriods) {
+    const VectorDutyCycleConfig cfg = VectorDutyCycleConfig::create(onPeriods, offPeriods);
 
-    EXPECT_EQ(cfg.getFiringPeriods(), firingPeriods);
-    EXPECT_EQ(cfg.getSettlingPeriods(), settlingPeriods);
+    EXPECT_EQ(cfg.getOnPeriods(), onPeriods);
+    EXPECT_EQ(cfg.getOffPeriods(), offPeriods);
 }
 
 }  // namespace
 
-TEST(VectorDutyCycle, PassesVectorThroughDuringTheFiringWindow) {
+TEST(VectorDutyCycle, PassesVectorThroughDuringTheOnWindow) {
     const auto cfg = VectorDutyCycleConfig::create(3U, 5U);
     VectorDutyCycleAlgorithm alg{cfg};
     const Eigen::Vector3f inputVector = makeInputVector(kNominalComponents);
 
-    for (uint32_t update = 0U; update < cfg.getFiringPeriods(); ++update) {
+    for (uint32_t update = 0U; update < cfg.getOnPeriods(); ++update) {
         EXPECT_EQ(alg.update(inputVector), inputVector) << "update " << update;
     }
 }
 
-TEST(VectorDutyCycle, OutputsZeroDuringTheSettlingWindow) {
+TEST(VectorDutyCycle, OutputsZeroDuringTheOffWindow) {
     const auto cfg = VectorDutyCycleConfig::create(3U, 5U);
     VectorDutyCycleAlgorithm alg{cfg};
     const Eigen::Vector3f inputVector = makeInputVector(kNominalComponents);
 
-    // Burn through the firing window first.
-    for (uint32_t update = 0U; update < cfg.getFiringPeriods(); ++update) {
+    // Burn through the on window first.
+    for (uint32_t update = 0U; update < cfg.getOnPeriods(); ++update) {
         (void)alg.update(inputVector);
     }
 
     const Eigen::Vector3f allZero = Eigen::Vector3f::Zero();
-    for (uint32_t update = 0U; update < cfg.getSettlingPeriods(); ++update) {
-        EXPECT_EQ(alg.update(inputVector), allZero) << "settling update " << update;
+    for (uint32_t update = 0U; update < cfg.getOffPeriods(); ++update) {
+        EXPECT_EQ(alg.update(inputVector), allZero) << "off update " << update;
     }
 }
 
-// With no settling periods the gate is fully open, which is how a caller disables the duty cycle.
-TEST(VectorDutyCycle, AlwaysFiresWhenThereAreNoSettlingPeriods) {
+// With no off periods the gate is fully open, which is how a caller disables the duty cycle.
+TEST(VectorDutyCycle, AlwaysOnWhenThereAreNoOffPeriods) {
     VectorDutyCycleAlgorithm alg{VectorDutyCycleConfig::create(1U, 0U)};
     const Eigen::Vector3f inputVector = makeInputVector(kNominalComponents);
 
@@ -75,8 +73,8 @@ TEST(VectorDutyCycle, CadenceRepeatsWithTheCycleLength) {
 
     const std::vector<bool> expectedPattern = {true, false, false, false, false};
     for (uint32_t update = 0U; update < kManyUpdates; ++update) {
-        const bool fired = alg.update(inputVector)(0) != 0.0F;
-        EXPECT_EQ(fired, expectedPattern[update % expectedPattern.size()]) << "update " << update;
+        const bool wasOn = alg.update(inputVector)(0) != 0.0F;
+        EXPECT_EQ(wasOn, expectedPattern[update % expectedPattern.size()]) << "update " << update;
     }
 }
 
@@ -88,16 +86,16 @@ TEST(VectorDutyCycle, MatchesReferenceAcrossCases) {
     regressionTestVectorDutyCycle(inputVector, nominalConfig(), kManyUpdates);
     regressionTestVectorDutyCycle(inputVector, VectorDutyCycleConfig::create(3U, 2U), kManyUpdates);
     regressionTestVectorDutyCycle(inputVector, VectorDutyCycleConfig::create(7U, 1U), kManyUpdates);
-    // A settling window longer than the run: the gate fires once and then stays shut throughout.
+    // An off window longer than the run: the gate passes through once and then stays shut throughout.
     regressionTestVectorDutyCycle(inputVector, VectorDutyCycleConfig::create(1U, 100U), kManyUpdates);
 }
 
 TEST(VectorDutyCycle, DeliversTheConfiguredDutyRatio) {
     const Eigen::Vector3f inputVector = makeInputVector(kNominalComponents);
 
-    testFiringCountMatchesDutyRatio(inputVector, VectorDutyCycleConfig::create(1U, 0U), 5U);
-    testFiringCountMatchesDutyRatio(inputVector, nominalConfig(), 5U);
-    testFiringCountMatchesDutyRatio(inputVector, VectorDutyCycleConfig::create(3U, 2U), 4U);
+    testOnCountMatchesDutyRatio(inputVector, VectorDutyCycleConfig::create(1U, 0U), 5U);
+    testOnCountMatchesDutyRatio(inputVector, nominalConfig(), 5U);
+    testOnCountMatchesDutyRatio(inputVector, VectorDutyCycleConfig::create(3U, 2U), 4U);
 }
 
 TEST(VectorDutyCycle, CadenceIsIndependentOfTheInput) {
@@ -126,12 +124,12 @@ TEST(VectorDutyCycle, SetConfigChangesTheCadenceWithoutRestartingIt) {
     VectorDutyCycleAlgorithm alg{VectorDutyCycleConfig::create(1U, 3U)};
     const Eigen::Vector3f inputVector = makeInputVector(kNominalComponents);
 
-    // Fire, then advance two updates into the settling window.
+    // Pass through, then advance two updates into the off window.
     EXPECT_NE(alg.update(inputVector)(0), 0.0F);
     EXPECT_EQ(alg.update(inputVector)(0), 0.0F);
     EXPECT_EQ(alg.update(inputVector)(0), 0.0F);
 
-    // Widening the firing window to cover the whole cycle opens the gate from the next update onwards; the
+    // Widening the on window to cover the whole cycle opens the gate from the next update onwards; the
     // counter keeps its phase, it is only reinterpreted against the new window.
     alg.setConfig(VectorDutyCycleConfig::create(4U, 0U));
     for (uint32_t update = 0U; update < kManyUpdates; ++update) {
@@ -153,15 +151,15 @@ TEST(VectorDutyCycle, HandlesACadenceShortenedBelowTheCurrentPhase) {
     alg.setConfig(VectorDutyCycleConfig::create(1U, 1U));
 
     // The phase folds back into the new two-period cycle, so the gate must alternate from here on.
-    bool previousFired = alg.update(inputVector)(0) != 0.0F;
+    bool previousWasOn = alg.update(inputVector)(0) != 0.0F;
     for (uint32_t update = 0U; update < kManyUpdates; ++update) {
-        const bool fired = alg.update(inputVector)(0) != 0.0F;
-        EXPECT_NE(fired, previousFired) << "update " << update;
-        previousFired = fired;
+        const bool wasOn = alg.update(inputVector)(0) != 0.0F;
+        EXPECT_NE(wasOn, previousWasOn) << "update " << update;
+        previousWasOn = wasOn;
     }
 }
 
-// A zero input stays zero whether the gate is open or shut, so the module never invents a firing.
+// A zero input stays zero whether the gate is open or shut, so the module never invents a vector.
 TEST(VectorDutyCycle, ZeroInputStaysZero) {
     VectorDutyCycleAlgorithm alg{nominalConfig()};
     const Eigen::Vector3f allZero = Eigen::Vector3f::Zero();
@@ -180,8 +178,8 @@ TEST(VectorDutyCycleConfigTest, AcceptsValidInputs) {
     EXPECT_NO_THROW((void)VectorDutyCycleConfig::create(1U, 4U));
     EXPECT_NO_THROW((void)VectorDutyCycleConfig::create(3U, 2U));
     EXPECT_NO_THROW((void)VectorDutyCycleConfig::create(100U, 10000U));
-    // Both extremes of the representable cycle length: a single firing period followed by the longest
-    // possible hold-off, and a firing window that fills the whole range with no hold-off at all.
+    // Both extremes of the representable cycle length: a single on period followed by the longest
+    // possible hold-off, and a on window that fills the whole range with no hold-off at all.
     EXPECT_NO_THROW((void)VectorDutyCycleConfig::create(1U, UINT32_MAX - 1U));
     EXPECT_NO_THROW((void)VectorDutyCycleConfig::create(UINT32_MAX, 0U));
 }
@@ -198,13 +196,13 @@ TEST(VectorDutyCycleConfigTest, GettersRoundTrip) {
     expectCadenceRoundTrips(UINT32_MAX, 0U);
 }
 
-// A cycle that never fires would hold the vector at zero forever, silently disabling the input.
-TEST(VectorDutyCycleConfigTest, RejectsZeroFiringPeriods) {
+// A cycle that is never on would hold the vector at zero forever, silently disabling the input.
+TEST(VectorDutyCycleConfigTest, RejectsZeroOnPeriods) {
     EXPECT_THROW((void)VectorDutyCycleConfig::create(0U, 5U), fsw::invalid_argument);
     EXPECT_THROW((void)VectorDutyCycleConfig::create(0U, 0U), fsw::invalid_argument);
 }
 
-// A cycle length that wrapped around would come out shorter than its own firing window.
+// A cycle length that wrapped around would come out shorter than its own on window.
 TEST(VectorDutyCycleConfigTest, RejectsCycleLengthOverflow) {
     EXPECT_THROW((void)VectorDutyCycleConfig::create(2U, UINT32_MAX - 1U), fsw::invalid_argument);
     EXPECT_THROW((void)VectorDutyCycleConfig::create(UINT32_MAX, 1U), fsw::invalid_argument);
@@ -213,13 +211,13 @@ TEST(VectorDutyCycleConfigTest, RejectsCycleLengthOverflow) {
 // The public predicates must agree with create() exactly at the boundaries, since callers (the C shim's
 // validateConfig, and Ada through it) use them to pre-check a cadence before constructing.
 TEST(VectorDutyCycleConfigTest, StaticValidatorsCheckBoundaries) {
-    EXPECT_FALSE(VectorDutyCycleConfig::isValidFiringPeriods(0U));
-    EXPECT_TRUE(VectorDutyCycleConfig::isValidFiringPeriods(1U));
-    EXPECT_TRUE(VectorDutyCycleConfig::isValidFiringPeriods(UINT32_MAX));
+    EXPECT_FALSE(VectorDutyCycleConfig::isValidOnPeriods(0U));
+    EXPECT_TRUE(VectorDutyCycleConfig::isValidOnPeriods(1U));
+    EXPECT_TRUE(VectorDutyCycleConfig::isValidOnPeriods(UINT32_MAX));
 
-    EXPECT_TRUE(VectorDutyCycleConfig::isValidSettlingPeriods(0U, 1U));
-    EXPECT_TRUE(VectorDutyCycleConfig::isValidSettlingPeriods(UINT32_MAX - 1U, 1U));
-    EXPECT_FALSE(VectorDutyCycleConfig::isValidSettlingPeriods(UINT32_MAX, 1U));
-    EXPECT_TRUE(VectorDutyCycleConfig::isValidSettlingPeriods(0U, UINT32_MAX));
-    EXPECT_FALSE(VectorDutyCycleConfig::isValidSettlingPeriods(1U, UINT32_MAX));
+    EXPECT_TRUE(VectorDutyCycleConfig::isValidOffPeriods(0U, 1U));
+    EXPECT_TRUE(VectorDutyCycleConfig::isValidOffPeriods(UINT32_MAX - 1U, 1U));
+    EXPECT_FALSE(VectorDutyCycleConfig::isValidOffPeriods(UINT32_MAX, 1U));
+    EXPECT_TRUE(VectorDutyCycleConfig::isValidOffPeriods(0U, UINT32_MAX));
+    EXPECT_FALSE(VectorDutyCycleConfig::isValidOffPeriods(1U, UINT32_MAX));
 }
