@@ -18,16 +18,16 @@ from xmera.architecture import messaging
 # Fixed, representative navigation/reference inputs shared by the adapter tests.
 sigma_BN = [0.25, -0.45, 0.75]
 omega_BN_B = [-0.015, -0.012, 0.005]
+vehSunPntBdy = [0.078, -0.693, 0.717]
 sigma_RN = [0.35, -0.25, 0.15]
 omega_RN_N = [0.018, -0.032, 0.015]
 domega_RN_N = [0.048, -0.022, 0.025]
 
 
 def _run_sim(sun_visible):
-    """Run the module through a short Xmera simulation. All four input messages are connected: Sun
-    avoidance is not optional, so the translational-navigation and ephemeris messages are required.
-    When sun_visible is False the ephemeris carries a zero Sun position, which leaves no usable Sun
-    direction and the module passes the input reference through."""
+    """Run the module through a short Xmera simulation. When sun_visible is False the attitude
+    navigation message carries a zero Sun direction, which leaves no usable Sun direction and the
+    module passes the input reference through."""
     unitTestSim = SimulationBaseClass.SimBaseClass()
     testProcessRate = macros.sec2nano(0.5)
     testProc = unitTestSim.CreateNewProcess("TestProcess")
@@ -40,6 +40,7 @@ def _run_sim(sun_visible):
     NavStateOutData = messaging.NavAttMsgF32Payload()
     NavStateOutData.sigma_BN = sigma_BN
     NavStateOutData.omega_BN_B = omega_BN_B
+    NavStateOutData.vehSunPntBdy = vehSunPntBdy if sun_visible else [0.0, 0.0, 0.0]
     navStateInMsg = messaging.NavAttMsgF32().write(NavStateOutData)
 
     RefStateOutData = messaging.AttRefMsgF32Payload()
@@ -54,16 +55,6 @@ def _run_sim(sun_visible):
     # slewRate must be a valid (positive) rate whether or not there is a maneuver to feed forward.
     module.slewRate = 1 * np.pi / 180.0
     module.sensitiveHat_B = [0.0, -1.0, 0.0]
-
-    transNavData = messaging.NavTransMsgF32Payload()
-    transNavData.r_BN_N = [-30, 20, -50]
-    transNavMsg = messaging.NavTransMsgF32().write(transNavData)
-    module.transNavInMsg.subscribeTo(transNavMsg)
-
-    ephemerisData = messaging.EphemerisMsgF32Payload()
-    ephemerisData.r_BdyZero_N = np.array([1, 2, 3]) if sun_visible else np.zeros(3)
-    ephemerisMsg = messaging.EphemerisMsgF32().write(ephemerisData)
-    module.ephemerisInMsg.subscribeTo(ephemerisMsg)
 
     dataLog = module.attRefOutMsg.recorder()
     unitTestSim.AddModelToTask("unitTask", dataLog)
@@ -92,7 +83,7 @@ def test_sunAvoidance_config_roundtrip():
 
 
 def test_sunAvoidance_no_sun_information_passes_reference_through():
-    """A zero Sun position leaves no usable Sun direction, so no maneuver is applied and the output
+    """A zero Sun direction leaves no usable Sun information, so no maneuver is applied and the output
     reference frame equals the input reference. Verifies the adapter message I/O end to end."""
     dataLog = _run_sim(sun_visible=False)
 
@@ -104,8 +95,8 @@ def test_sunAvoidance_no_sun_information_passes_reference_through():
 
 def test_sunAvoidance_engages_maneuver():
     """A usable Sun direction engages the Sun-avoidance maneuver, which rotates the output reference
-    frame away from the input reference. Exercises the required-message wiring and the double[3]->float
-    position/ephemeris conversion path."""
+    frame away from the input reference. Exercises the body-frame Sun direction read from the attitude
+    navigation message."""
     on = _run_sim(sun_visible=True)
 
     assert np.all(np.isfinite(on.sigma_RN))

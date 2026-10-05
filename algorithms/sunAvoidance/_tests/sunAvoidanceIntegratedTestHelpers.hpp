@@ -43,16 +43,14 @@ class SunAvoidanceReference {
                                        const Eigen::Vector3f& sigma_RN,
                                        const Eigen::Vector3f& omega_RN_N,
                                        const Eigen::Vector3f& domega_RN_N,
-                                       const Eigen::Vector3d& r_BN_N,
-                                       const Eigen::Vector3d& r_SN_N,
+                                       const Eigen::Vector3f& sHat_B,
                                        uint64_t callTime) {
         if (!this->maneuverInitialized) {
-            // Sun avoidance always runs, but it needs a usable Sun direction: a zero Sun position (no
-            // ephemeris) or a Sun coincident with the spacecraft leaves no maneuver to perform.
-            const Eigen::Vector3d sunFromBody_N = r_SN_N - r_BN_N;
-            if (r_SN_N.norm() > 0.0 && sunFromBody_N.norm() > 0.0) {
+            // Sun avoidance always runs, but it needs a usable Sun direction: a zero Sun direction leaves
+            // no maneuver to perform.
+            if (sHat_B.norm() > 0.0F) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-                const Eigen::Vector3f sHat_N = sunFromBody_N.normalized().cast<float>();
+                const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.normalized();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
 
                 const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_RN);
@@ -123,13 +121,12 @@ class SunAvoidanceReference {
 // ---------------------------------------------------------------------------
 // Integrated regression helper: drive the sunAvoidance algorithm and the independent
 // reference through a time sequence with fixed, representative navigation/reference
-// inputs, and assert agreement at every step. The Sun geometry (r_BN_N, r_SN_N) is
-// varied by the caller.
+// inputs, and assert agreement at every step. The Sun direction sHat_B is varied by
+// the caller.
 // ---------------------------------------------------------------------------
 inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
                                  float slewRate,
-                                 const Eigen::Vector3d& r_BN_N,
-                                 const Eigen::Vector3d& r_SN_N,
+                                 const Eigen::Vector3f& sHat_B,
                                  uint64_t stepNs,
                                  int numSteps) {
     const Eigen::Vector3f sigma_BN{0.25F, -0.45F, 0.75F};
@@ -145,21 +142,21 @@ inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
     // corrected-reference offset, so the reference frame is the input reference directly (sigma_R0R == 0).
     SunAvoidanceReference ref{Eigen::Vector3f::Zero(), sensitiveHat_B, slewRate};
 
-    const SunAvoidanceAttRefInputs refIn{sigma_RN, omega_RN_N, domega_RN_N};
+    const SunAvoidanceAttRef refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
 
         // sunAvoidance produces the maneuver-adjusted reference frame ...
-        const SunAvoidanceOutput adjustedRef = alg.update(sigma_BN, refIn, r_BN_N, r_SN_N, callTime);
+        const SunAvoidanceAttRef adjustedRef = alg.update(sigma_BN, refIn, sHat_B, callTime);
         // ... and attTrackingError forms the attitude tracking error from it and the navigation attitude.
         const AttGuidOutput algOut =
             attError.update(AttNavInput{sigma_BN, omega_BN_B},
                             AttRefInput{adjustedRef.sigma_RN, adjustedRef.omega_RN_N, adjustedRef.domega_RN_N});
 
         const SunAvoidanceReferenceOutput refOut =
-            ref.update(sigma_BN, omega_BN_B, sigma_RN, omega_RN_N, domega_RN_N, r_BN_N, r_SN_N, callTime);
+            ref.update(sigma_BN, omega_BN_B, sigma_RN, omega_RN_N, domega_RN_N, sHat_B, callTime);
 
         // attTrackingError forms sigma_BR via subMrp while the reference uses dcmToMrp; at large errors
         // these can pick different (physically identical) MRP shadow-set representatives, so compare the

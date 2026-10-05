@@ -8,17 +8,11 @@
 #include <Eigen/Core>
 #include <optional>
 
-struct SunAvoidanceAttRefInputs {
+// An attitude reference frame shaped like AttRefMsgF32Payload; used for both the input and the adjusted reference.
+struct SunAvoidanceAttRef {
     Eigen::Vector3f sigma_RN{Eigen::Vector3f::Zero()};     //!< [-] reference MRP attitude of R wrt inertial N
     Eigen::Vector3f omega_RN_N{Eigen::Vector3f::Zero()};   //!< [r/s] reference rate of R wrt N in N frame
     Eigen::Vector3f domega_RN_N{Eigen::Vector3f::Zero()};  //!< [r/s^2] reference angular acceleration in N frame
-};
-
-// The maneuver-adjusted reference frame: the input reference rotated by the Sun-avoidance maneuver.
-struct SunAvoidanceOutput {
-    Eigen::Vector3f sigma_RN{Eigen::Vector3f::Zero()};     //!< [-] adjusted reference MRP wrt inertial N
-    Eigen::Vector3f omega_RN_N{Eigen::Vector3f::Zero()};   //!< [r/s] adjusted reference rate, N-frame components
-    Eigen::Vector3f domega_RN_N{Eigen::Vector3f::Zero()};  //!< [r/s^2] adjusted reference angular acceleration, N frame
 };
 
 class SunAvoidanceConfig final {
@@ -59,10 +53,9 @@ class SunAvoidanceAlgorithm final {
     void setConfig(const SunAvoidanceConfig& config);
 
     void reInitialize();
-    SunAvoidanceOutput update(const Eigen::Vector3f& sigma_BN,
-                              const SunAvoidanceAttRefInputs& ref,
-                              const Eigen::Vector3d& r_BN_N,
-                              const Eigen::Vector3d& r_SN_N,
+    SunAvoidanceAttRef update(const Eigen::Vector3f& sigma_BN,
+                              const SunAvoidanceAttRef& ref,
+                              const Eigen::Vector3f& sHat_B,
                               uint64_t callTime);
 
    private:
@@ -74,10 +67,10 @@ class SunAvoidanceAlgorithm final {
     };
 
     Maneuver initializeManeuver(const Eigen::Vector3f& sigma_BN,
-                                const SunAvoidanceAttRefInputs& ref,
+                                const SunAvoidanceAttRef& ref,
                                 const Eigen::Vector3f& sHat_N) const;
-    SunAvoidanceOutput computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
-                                                const SunAvoidanceAttRefInputs& ref,
+    SunAvoidanceAttRef computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
+                                                const SunAvoidanceAttRef& ref,
                                                 uint64_t callTime) const;
 
     SunAvoidanceConfig cfg;
