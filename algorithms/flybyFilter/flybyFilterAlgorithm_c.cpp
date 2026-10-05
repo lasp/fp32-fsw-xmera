@@ -1,6 +1,7 @@
 #include "flybyFilterAlgorithm_c.h"
 
 #include "flybyFilterAlgorithm.h"
+#include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 #include <Eigen/Core>
@@ -58,6 +59,24 @@ FlybyFilterOutput_c outputToC(const FlybyFilterOutput& out) {
 
 uint32_t FlybyFilterAlgorithm_getNumStates(void) { return FLYBY_FILTER_NUM_STATES; }
 
+bool FlybyFilterAlgorithm_validateConfig(double alpha,
+                                         double beta,
+                                         double mu,
+                                         const FlybyFilterStateMatrix_c* processNoise,
+                                         const FlybyFilterStateVector_c* initialState,
+                                         const FlybyFilterStateMatrix_c* initialCovariance,
+                                         double headingMeasurementNoiseStd) {
+    // Build the config through the same path create() uses: success means valid, a throw means
+    // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
+    try {
+        (void)configFromC(
+            alpha, beta, mu, *processNoise, *initialState, *initialCovariance, headingMeasurementNoiseStd);
+        return true;
+    } catch (const fsw::invalid_argument&) {
+        return false;
+    }
+}
+
 FlybyFilterAlgorithmHandle* FlybyFilterAlgorithm_create(double alpha,
                                                         double beta,
                                                         double mu,
@@ -70,6 +89,18 @@ FlybyFilterAlgorithmHandle* FlybyFilterAlgorithm_create(double alpha,
 }
 
 void FlybyFilterAlgorithm_destroy(FlybyFilterAlgorithmHandle* self) { fsw::deleteHandle<FlybyFilterAlgorithm>(self); }
+
+void FlybyFilterAlgorithm_setConfig(FlybyFilterAlgorithmHandle* self,
+                                    double alpha,
+                                    double beta,
+                                    double mu,
+                                    const FlybyFilterStateMatrix_c* processNoise,
+                                    const FlybyFilterStateVector_c* initialState,
+                                    const FlybyFilterStateMatrix_c* initialCovariance,
+                                    double headingMeasurementNoiseStd) {
+    fsw::fromHandle<FlybyFilterAlgorithm>(self)->setConfig(
+        configFromC(alpha, beta, mu, *processNoise, *initialState, *initialCovariance, headingMeasurementNoiseStd));
+}
 
 void FlybyFilterAlgorithm_reInitializeExceptPersistentStates(FlybyFilterAlgorithmHandle* self) {
     fsw::fromHandle<FlybyFilterAlgorithm>(self)->reInitializeExceptPersistentStates();

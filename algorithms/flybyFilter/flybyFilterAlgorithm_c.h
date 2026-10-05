@@ -3,6 +3,7 @@
 
 #include "flybyFilterTypes.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -35,6 +36,26 @@ typedef struct {
 uint32_t FlybyFilterAlgorithm_getNumStates(void);
 
 /**
+ * @brief Report whether a configuration would be accepted by create/setConfig.
+ * @param alpha                      [-] sigma-point spread, in (0, 1].
+ * @param beta                       [-] prior-knowledge tunable, in [0, 2].
+ * @param mu                         [km^3/s^2] central-body gravitational parameter; must be > 0.
+ * @param processNoise               [-] N x N process noise Q; must be positive semi-definite.
+ * @param initialState               [km, km/s] N-element initial state seed.
+ * @param initialCovariance          [-] N x N initial covariance P0; must be positive semi-definite.
+ * @param headingMeasurementNoiseStd [-] heading measurement noise std; must be >= 0.
+ * @return true when the configuration is valid. Never throws, so it can guard the throwing
+ *         create/setConfig from an invalid configuration.
+ */
+bool FlybyFilterAlgorithm_validateConfig(double alpha,
+                                         double beta,
+                                         double mu,
+                                         const FlybyFilterStateMatrix_c* processNoise,
+                                         const FlybyFilterStateVector_c* initialState,
+                                         const FlybyFilterStateMatrix_c* initialCovariance,
+                                         double headingMeasurementNoiseStd);
+
+/**
  * @brief Construct a filter from a validated configuration and seed its state/covariance.
  * @param alpha                      [-] sigma-point spread, in (0, 1].
  * @param beta                       [-] prior-knowledge tunable, in [0, 2].
@@ -59,6 +80,27 @@ FlybyFilterAlgorithmHandle* FlybyFilterAlgorithm_create(double alpha,
  * @param self [-] handle to destroy (may be NULL)
  */
 void FlybyFilterAlgorithm_destroy(FlybyFilterAlgorithmHandle* self);
+
+/**
+ * @brief Replace the algorithm's configuration and re-derive filter parameters.
+ * @param self                       [-] filter handle
+ * @param alpha                      [-] sigma-point spread, in (0, 1].
+ * @param beta                       [-] prior-knowledge tunable, in [0, 2].
+ * @param mu                         [km^3/s^2] central-body gravitational parameter; must be > 0.
+ * @param processNoise               [-] N x N process noise Q; must be positive semi-definite.
+ * @param initialState               [km, km/s] N-element initial state seed.
+ * @param initialCovariance          [-] N x N initial covariance P0; must be positive semi-definite.
+ * @param headingMeasurementNoiseStd [-] heading measurement noise std; must be >= 0.
+ * @note setConfig() validates the config and throws on invalid input; the exception propagates to Ada.
+ */
+void FlybyFilterAlgorithm_setConfig(FlybyFilterAlgorithmHandle* self,
+                                    double alpha,
+                                    double beta,
+                                    double mu,
+                                    const FlybyFilterStateMatrix_c* processNoise,
+                                    const FlybyFilterStateVector_c* initialState,
+                                    const FlybyFilterStateMatrix_c* initialCovariance,
+                                    double headingMeasurementNoiseStd);
 
 /**
  * @brief Clear the internal runtime state (pending measurements and residual snapshot); the filter
