@@ -111,10 +111,6 @@ algorithms/sunlineFilter/sunlineFilter.h
 algorithms/sunlineFilter/sunlineFilter.cpp
 algorithms/sunlineFilter/sunlineFilterAlgorithm_c.h
 algorithms/sunlineFilter/sunlineFilterAlgorithm_c.cpp
-algorithms/thrDesatDutyCycle/thrDesatDutyCycle.h
-algorithms/thrDesatDutyCycle/thrDesatDutyCycle.cpp
-algorithms/thrDesatDutyCycle/thrDesatDutyCycleAlgorithm_c.h
-algorithms/thrDesatDutyCycle/thrDesatDutyCycleAlgorithm_c.cpp
 algorithms/thrFiringRemainder/thrFiringRemainder.h
 algorithms/thrFiringRemainder/thrFiringRemainder.cpp
 algorithms/thrFiringRemainder/thrFiringRemainderAlgorithm_c.h
@@ -147,6 +143,10 @@ algorithms/triad/triad.h
 algorithms/triad/triad.cpp
 algorithms/triad/triadAlgorithm_c.h
 algorithms/triad/triadAlgorithm_c.cpp
+algorithms/vectorDutyCycle/vectorDutyCycle.h
+algorithms/vectorDutyCycle/vectorDutyCycle.cpp
+algorithms/vectorDutyCycle/vectorDutyCycleAlgorithm_c.h
+algorithms/vectorDutyCycle/vectorDutyCycleAlgorithm_c.cpp
 
 // Remove the files below this line once the actual algorithms are added
 algorithms/inertialUKF/inertialUKF.cpp

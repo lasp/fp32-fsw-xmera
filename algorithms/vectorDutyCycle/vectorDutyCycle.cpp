@@ -1,4 +1,4 @@
-#include "thrDesatDutyCycle.h"
+#include "vectorDutyCycle.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
@@ -10,32 +10,32 @@
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void ThrDesatDutyCycle::reset(const uint64_t callTime) {
+void VectorDutyCycle::reset(const uint64_t callTime) {
     // check if the required input messages are included
     if (!this->cmdTorqueInMsg.isLinked()) {
-        throw std::invalid_argument("thrDesatDutyCycle.cmdTorqueInMsg wasn't connected.");
+        throw std::invalid_argument("vectorDutyCycle.cmdTorqueInMsg wasn't connected.");
     }
 
     /*! - create the algorithm, whose constructor installs the configuration and restarts the duty cycle
      (throws on an invalid config) */
-    this->algorithm = std::make_unique<ThrDesatDutyCycleAlgorithm>(this->toConfig());
+    this->algorithm = std::make_unique<VectorDutyCycleAlgorithm>(this->toConfig());
 }
 
 /*! Build a validated algorithm configuration from the current module properties. The whole configuration is
  held in module properties, so no input message is read here.
- @return ThrDesatDutyCycleConfig validated configuration
+ @return VectorDutyCycleConfig validated configuration
  */
-ThrDesatDutyCycleConfig ThrDesatDutyCycle::toConfig() const {
-    return ThrDesatDutyCycleConfig::create(this->firingPeriods, this->settlingPeriods);
+VectorDutyCycleConfig VectorDutyCycle::toConfig() const {
+    return VectorDutyCycleConfig::create(this->firingPeriods, this->settlingPeriods);
 }
 
 /*! Re-validate the current module properties and push them onto the live algorithm without restarting the
  cadence. Rebuilds the validated config from the public members and installs it via setConfig().
  @return void
  */
-void ThrDesatDutyCycle::reconfigure() {
+void VectorDutyCycle::reconfigure() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("ThrDesatDutyCycle reset() has not been called.");
+        throw XmeraLifecycleException("VectorDutyCycle reset() has not been called.");
     }
     this->algorithm->setConfig(this->toConfig());
 }
@@ -44,21 +44,20 @@ void ThrDesatDutyCycle::reconfigure() {
  reInitialize().
  @return void
  */
-void ThrDesatDutyCycle::reInitialize() {
+void VectorDutyCycle::reInitialize() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("ThrDesatDutyCycle reset() has not been called.");
+        throw XmeraLifecycleException("VectorDutyCycle reset() has not been called.");
     }
     this->algorithm->reInitialize();
 }
 
-/*! The requested desaturation torque is gated on and off in a fixed duty cycle, so the reaction wheels get quiet
- windows in which to re-stabilize the attitude between desaturation pulses.
+/*! The commanded torque is gated on and off in a fixed duty cycle.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
-void ThrDesatDutyCycle::updateState(const uint64_t callTime) {
+void VectorDutyCycle::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("ThrDesatDutyCycle reset() has not been called.");
+        throw XmeraLifecycleException("VectorDutyCycle reset() has not been called.");
     }
 
     /*! - read in the torque command message and map to the freestanding type */

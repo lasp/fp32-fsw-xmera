@@ -1,13 +1,13 @@
-%module thrDesatDutyCycleF32
+%module vectorDutyCycleF32
 %{
-   #include "thrDesatDutyCycle.h"
+   #include "vectorDutyCycle.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
 
-%include "thrDesatDutyCycleAlgorithm.h"
-%include "thrDesatDutyCycle.h"
+%include "vectorDutyCycleAlgorithm.h"
+%include "vectorDutyCycle.h"
 
 %include "msgPayloadDef/CmdTorqueBodyMsgF32Payload.h"
