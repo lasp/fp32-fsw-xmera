@@ -179,7 +179,7 @@ TEST(VectorDutyCycleConfigTest, AcceptsValidInputs) {
     EXPECT_NO_THROW((void)VectorDutyCycleConfig::create(3U, 2U));
     EXPECT_NO_THROW((void)VectorDutyCycleConfig::create(100U, 10000U));
     // Both extremes of the representable cycle length: a single on period followed by the longest
-    // possible hold-off, and a on window that fills the whole range with no hold-off at all.
+    // possible hold-off, and an on window that fills the whole range with no hold-off at all.
     EXPECT_NO_THROW((void)VectorDutyCycleConfig::create(1U, UINT32_MAX - 1U));
     EXPECT_NO_THROW((void)VectorDutyCycleConfig::create(UINT32_MAX, 0U));
 }

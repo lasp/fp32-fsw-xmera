@@ -9,8 +9,8 @@
 /*!
  * @brief Validated configuration for the vector duty-cycle gate.
  *
- * An instance can only exist if the cycle is on for at least one control period and the full cycle length
- * remains representable in a uint32_t. Construct via VectorDutyCycleConfig::create(...).
+ * An instance has at least one on period, and its full cycle length is not more than UINT32_MAX. Use
+ * VectorDutyCycleConfig::create(...) to make an instance.
  */
 class VectorDutyCycleConfig final {
    public:
@@ -24,60 +24,61 @@ class VectorDutyCycleConfig final {
         return {onPeriods, offPeriods};
     }
 
-    /*! A cycle with no on period would hold the vector at zero forever, so at least one is required. */
+    /*! With no on period, the gate keeps the vector at zero for all time. Thus, one on period is the minimum. */
     static bool isValidOnPeriods(uint32_t onPeriods) { return onPeriods >= 1U; }
 
-    /*! Any hold-off length is admissible, including none, provided the full cycle length does not wrap around:
-     a wrapped length would come out shorter than the on window and corrupt the cadence. The sum is taken
-     in a wider type, so the check itself cannot wrap. */
+    /*! All off-period values are permitted, zero included, if the full cycle length is not more than UINT32_MAX.
+     An overflow of the cycle length gives a cycle that is shorter than the on window. The check adds the two
+     values in a uint64_t, so the check itself cannot overflow. */
     static bool isValidOffPeriods(uint32_t offPeriods, uint32_t onPeriods) {
         return static_cast<uint64_t>(onPeriods) + static_cast<uint64_t>(offPeriods) <= UINT32_MAX;
     }
 
-    /*! @return [-] control periods, at the start of each cycle, for which the input vector is passed through. */
+    /*! @return [-] number of control periods at the start of each cycle in which the output vector is equal to the
+     input vector */
     uint32_t getOnPeriods() const { return this->onPeriods; }
 
-    /*! @return [-] control periods for which the gate outputs a zero vector. */
+    /*! @return [-] number of control periods in which the gate sets the output vector to zero */
     uint32_t getOffPeriods() const { return this->offPeriods; }
 
    private:
-    // Both counts are uint32_t control periods, so they read as swappable. create() is the only caller and
-    // validates each by name before forwarding them in declaration order.
+    // Both counts are uint32_t control periods, so a caller can easily interchange them. create() is the only
+    // caller. It validates each value by name and then gives the values in declaration order.
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
     VectorDutyCycleConfig(uint32_t onPeriods, uint32_t offPeriods) : onPeriods(onPeriods), offPeriods(offPeriods) {}
 
-    uint32_t onPeriods;   //!< [-] control periods spent passing the input vector through
-    uint32_t offPeriods;  //!< [-] control periods spent outputting a zero vector
+    uint32_t onPeriods;   //!< [-] control periods in which the output vector is equal to the input vector
+    uint32_t offPeriods;  //!< [-] control periods in which the output vector is zero
 };
 
 /*!
- * @brief Gates a vector on and off in a fixed duty cycle.
+ * @brief Applies a fixed duty cycle to a vector.
  *
- * The gate passes the input vector through unchanged for the first onPeriods control periods of every cycle
- * and outputs a zero vector for the remaining offPeriods. The gate makes no assumption on what the vector
- * describes. The cadence is free-running: the counter advances on every update regardless of the input, so the
- * on windows sit at a fixed phase.
+ * In the first onPeriods control periods of each cycle, the output vector is equal to the input vector. In the
+ * remaining offPeriods control periods, the output vector is zero. The gate makes no assumption about the physical
+ * quantity of the vector. The cadence is continuous. The position in the cycle moves forward at each update,
+ * independent of the input vector. Thus, the on windows stay at a fixed phase.
  *
- * The position in the cycle is the algorithm's only runtime state; reInitialize() restarts the cycle at its
- * on window.
+ * The position in the cycle is the only runtime state of the algorithm. reInitialize() starts the cycle again at
+ * its on window.
  */
 class VectorDutyCycleAlgorithm final {
    public:
     explicit VectorDutyCycleAlgorithm(const VectorDutyCycleConfig& config);
 
-    //! Install the validated configuration and derive the cycle length; does not touch runtime state.
+    //! Stores the validated configuration and calculates the cycle length. The runtime state does not change.
     void setConfig(const VectorDutyCycleConfig& config);
 
-    //! Restart the duty cycle at the beginning of its on window.
+    //! Starts the duty cycle again at the start of its on window.
     void reInitialize();
 
-    //! The input vector during an on period, zero during an off period.
+    //! The input vector in an on period, zero in an off period.
     Eigen::Vector3f update(const Eigen::Vector3f& inputVector);
 
    private:
     VectorDutyCycleConfig cfg;           //!< [-] validated configuration (duty-cycle cadence)
     uint32_t cycleLength{};              //!< [-] control periods in one full duty cycle
-    uint32_t previousPositionInCycle{};  //!< [-] position in the duty cycle that the previous update gated
+    uint32_t previousPositionInCycle{};  //!< [-] position in the duty cycle at the previous update
 };
 
 #endif

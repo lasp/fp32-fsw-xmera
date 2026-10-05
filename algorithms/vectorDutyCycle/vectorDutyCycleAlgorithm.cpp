@@ -1,42 +1,42 @@
 #include "vectorDutyCycleAlgorithm.h"
 
-/*! @brief Construct the gate with a validated configuration. The cycle starts at its on window. */
+/*! @brief Makes the gate from a validated configuration. The cycle starts at its on window. */
 VectorDutyCycleAlgorithm::VectorDutyCycleAlgorithm(const VectorDutyCycleConfig& config) : cfg(config) {
     setConfig(config);
     reInitialize();
 }
 
-/*! @brief Replace the stored configuration at runtime. The cadence counter is preserved.
- @param config The validated configuration to install
+/*! @brief Replaces the stored configuration at runtime. The position in the cycle does not change.
+ @param config The validated configuration to store
  */
 void VectorDutyCycleAlgorithm::setConfig(const VectorDutyCycleConfig& config) {
     this->cfg = config;
-    /*! - the sum is at least one and cannot wrap, since the configuration requires at least one on period
-     and a full cycle length that fits in a uint32_t */
+    /*! - the configuration has at least one on period, and its full cycle length is not more than UINT32_MAX.
+     Thus, the sum is at least one and cannot overflow. */
     this->cycleLength = config.getOnPeriods() + config.getOffPeriods();
 }
 
-/*! Restart the duty cycle, so the next update falls at the start of a on window.
+/*! Starts the duty cycle again, so that the next update is at the start of an on window.
  @return void
  */
 void VectorDutyCycleAlgorithm::reInitialize() {
-    /*! - sit on the final position of the cycle, so the next update advances onto position zero, where the
-     on window starts */
+    /*! - set the previous position to the last position of the cycle. The next update then moves forward to
+     position zero, which is the start of the on window. */
     this->previousPositionInCycle = this->cycleLength - 1U;
 }
 
-/*! This method gates the input vector on and off in a fixed duty cycle. The vector is passed through unchanged
- during the on window and replaced by zero during the off window. The cadence is free-running, so the
- counter advances regardless of the input.
- @return the input vector while on, zero while off
- @param inputVector The vector to gate
+/*! This method applies a fixed duty cycle to the input vector. In the on window, the output vector is equal to the
+ input vector. In the off window, the output vector is zero. The cadence is continuous. Thus, the position in the
+ cycle moves forward at each update, also when the input vector is zero.
+ @return the input vector in an on period, zero in an off period
+ @param inputVector The vector to which the gate applies
  */
 Eigen::Vector3f VectorDutyCycleAlgorithm::update(const Eigen::Vector3f& inputVector) {
-    /*! - advance one position, wrapping at the end of the cycle; the wrap also puts the position back in range
-     when setConfig() has shortened the cycle below the position already reached */
+    /*! - move forward by one position. At the end of the cycle, the position goes back to zero. If setConfig() made
+     the cycle shorter than the previous position, the modulo also puts the position back in the cycle. */
     const uint32_t positionInCycle = (this->previousPositionInCycle + 1U) % this->cycleLength;
 
-    /*! - the on window occupies the leading positions of the cycle; the rest outputs a zero vector */
+    /*! - the on window is the first positions of the cycle. In the remaining positions, the output vector is zero. */
     Eigen::Vector3f outputVector = Eigen::Vector3f::Zero();
     if (positionInCycle < this->cfg.getOnPeriods()) {
         outputVector = inputVector;

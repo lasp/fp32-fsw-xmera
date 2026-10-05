@@ -5,14 +5,14 @@
 #include <memory>
 #include <stdexcept>
 
-/*! This method performs a complete reset of the module. It fixes the vectorType selection, validates that the
- selected input message is linked, and builds the algorithm, whose constructor installs the configuration and
- restarts the duty cycle.
+/*! This method does a full reset of the module. It makes sure that the input message of the selected vector type
+ is connected. It then makes the algorithm and keeps the value of vectorType until the next reset. The constructor
+ of the algorithm stores the configuration and starts the duty cycle.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void VectorDutyCycle::reset(const uint64_t callTime) {
-    // check if the input message of the selected vector type is included
+    // make sure that the input message of the selected vector type is connected
     switch (this->vectorType) {
         case VectorType::Force:
             if (!this->cmdForceInMsg.isLinked()) {
@@ -28,22 +28,22 @@ void VectorDutyCycle::reset(const uint64_t callTime) {
             throw std::invalid_argument("vectorDutyCycle.vectorType is not a valid VectorType.");
     }
 
-    /*! - create the algorithm, whose constructor installs the configuration and restarts the duty cycle
-     (throws on an invalid config) */
+    /*! - make the algorithm. Its constructor stores the configuration and starts the duty cycle. An invalid
+     configuration causes an exception. */
     this->algorithm = std::make_unique<VectorDutyCycleAlgorithm>(this->toConfig());
     this->activeVectorType = this->vectorType;
 }
 
-/*! Build a validated algorithm configuration from the current module properties. The whole configuration is
- held in module properties, so no input message is read here.
+/*! Makes a validated algorithm configuration from the current module properties. All of the configuration is in
+ the module properties. Thus, this function does not read an input message.
  @return VectorDutyCycleConfig validated configuration
  */
 VectorDutyCycleConfig VectorDutyCycle::toConfig() const {
     return VectorDutyCycleConfig::create(this->onPeriods, this->offPeriods);
 }
 
-/*! Re-validate the current module properties and push them onto the live algorithm without restarting the
- cadence. Rebuilds the validated config from the public members and installs it via setConfig().
+/*! Validates the current module properties again and gives them to the algorithm. The position in the cycle does
+ not change. This function makes a validated configuration from the public members and stores it with setConfig().
  @return void
  */
 void VectorDutyCycle::reconfigure() {
@@ -53,8 +53,8 @@ void VectorDutyCycle::reconfigure() {
     this->algorithm->setConfig(this->toConfig());
 }
 
-/*! Restart the duty cycle at the beginning of its on window; a simple pass-through to the algorithm's
- reInitialize().
+/*! Starts the duty cycle again at the start of its on window. This function calls the reInitialize() of the
+ algorithm.
  @return void
  */
 void VectorDutyCycle::reInitialize() {
@@ -64,7 +64,7 @@ void VectorDutyCycle::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! The command of the vector type selected at reset() is gated on and off in a fixed duty cycle.
+/*! This method applies a fixed duty cycle to the command of the vector type that reset() selected.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
@@ -80,7 +80,7 @@ void VectorDutyCycle::updateState(const uint64_t callTime) {
     }
 }
 
-/*! Gates the commanded force and writes the force output message.
+/*! Applies the duty cycle to the commanded force and writes the force output message.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
@@ -96,7 +96,7 @@ void VectorDutyCycle::updateForce(const uint64_t callTime) {
     this->cmdForceOutMsg.write(cmdForceOut, this->moduleID, callTime);
 }
 
-/*! Gates the commanded torque and writes the torque output message.
+/*! Applies the duty cycle to the commanded torque and writes the torque output message.
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
  */
