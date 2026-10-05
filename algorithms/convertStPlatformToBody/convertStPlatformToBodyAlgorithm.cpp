@@ -20,12 +20,12 @@ StAttitudeOutput ConvertStPlatformToBodyAlgorithm::update(const Eigen::Vector4f&
     const Eigen::Vector3f sigma_BN = addMrp(sigma_CN, sigma_BC);
 
     // Recover case-frame angular velocity from the incoming unit delta quaternion.
-    // dq_CN = [sin(θ/2)·axis, cos(θ/2)] in scalar-last form. Using atan2 in place of
+    // dq_CN = [cos(θ/2), sin(θ/2)·axis] in scalar-first form. Using atan2 in place of
     // acos avoids the derivative blow-up of acos near ±1, preserving float32 relative
     // precision in the near-identity regime (cos(θ/2) ≈ 1).
-    const float dqVecNorm = safeSqrtf((dq_CN[0] * dq_CN[0]) + (dq_CN[1] * dq_CN[1]) + (dq_CN[2] * dq_CN[2]));
-    const float omegaScale = (dqVecNorm > 0.0F) ? 2.0F * safeAtan2f(dqVecNorm, dq_CN[3]) / dqVecNorm : 0.0F;
-    const Eigen::Vector3f omega_CN_C = {dq_CN[0] * omegaScale, dq_CN[1] * omegaScale, dq_CN[2] * omegaScale};
+    const float dqVecNorm = safeSqrtf((dq_CN[1] * dq_CN[1]) + (dq_CN[2] * dq_CN[2]) + (dq_CN[3] * dq_CN[3]));
+    const float omegaScale = (dqVecNorm > 0.0F) ? 2.0F * safeAtan2f(dqVecNorm, dq_CN[0]) / dqVecNorm : 0.0F;
+    const Eigen::Vector3f omega_CN_C = {dq_CN[1] * omegaScale, dq_CN[2] * omegaScale, dq_CN[3] * omegaScale};
     const Eigen::Vector3f omega_BN_B = dcm_CB.transpose() * omega_CN_C;
 
     StAttitudeOutput stAttOut{};

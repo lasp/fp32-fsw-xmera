@@ -29,24 +29,24 @@ inline Eigen::Vector4d axisAngleToEp(const Eigen::Vector3d& axis, double angle) 
 }
 
 /*!
- * @brief Convert a case-frame angular velocity to a unit delta quaternion (scalar-last).
+ * @brief Convert a case-frame angular velocity to a unit delta quaternion (scalar-first).
  *
  * Uses a one-sample interval (Δt = 1) so θ = ‖ω‖ and axis = ω/‖ω‖. The result is
- * dq = [sin(θ/2)·axis, cos(θ/2)], matching the scalar-last convention consumed by
- * ConvertStPlatformToBodyAlgorithm. Returns [0, 0, 0, 1] (identity rotation) when
+ * dq = [cos(θ/2), sin(θ/2)·axis], matching the scalar-first convention consumed by
+ * ConvertStPlatformToBodyAlgorithm. Returns [1, 0, 0, 0] (identity rotation) when
  * ‖ω‖ is below a small threshold.
  */
 inline Eigen::Vector4f omegaToDeltaQuaternion(const Eigen::Vector3d& omega_CN_C) {
     const double angle = omega_CN_C.norm();
     if (angle < 1e-12) {
-        return {0.0F, 0.0F, 0.0F, 1.0F};
+        return {1.0F, 0.0F, 0.0F, 0.0F};
     }
     const Eigen::Vector3d axis = omega_CN_C / angle;
     const double s = std::sin(angle / 2.0);
-    return {static_cast<float>(s * axis(0)),
+    return {static_cast<float>(std::cos(angle / 2.0)),
+            static_cast<float>(s * axis(0)),
             static_cast<float>(s * axis(1)),
-            static_cast<float>(s * axis(2)),
-            static_cast<float>(std::cos(angle / 2.0))};
+            static_cast<float>(s * axis(2))};
 }
 
 /*!

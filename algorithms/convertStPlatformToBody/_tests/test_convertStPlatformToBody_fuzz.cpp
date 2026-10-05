@@ -123,17 +123,17 @@ FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyDcmEdges)
  * scalar-part values (near ±1 and near 0) stress-test the algorithm's safeSqrtf and
  * safeAcosf guards directly. Only safety properties are checked — no truth value.
  */
-void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
+void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqw,
+                                                double dqx,
                                                 double dqy,
                                                 double dqz,
-                                                double dqw,
                                                 double yaw,
                                                 double pitch,
                                                 double roll) {
-    Eigen::Vector4d dq(dqx, dqy, dqz, dqw);
+    Eigen::Vector4d dq(dqw, dqx, dqy, dqz);
     const double norm = dq.norm();
     if (norm < 1e-12) {
-        dq = Eigen::Vector4d(0.0, 0.0, 0.0, 1.0);
+        dq = Eigen::Vector4d(1.0, 0.0, 0.0, 0.0);
     } else {
         dq /= norm;
     }
@@ -154,10 +154,10 @@ void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
 }
 
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyDeltaQuaternion)
-    .WithDomains(fuzztest::InRange(-1.0, 1.0),                              // dqx
+    .WithDomains(fuzztest::InRange(-1.0, 1.0),                              // dqw (scalar part)
+                 fuzztest::InRange(-1.0, 1.0),                              // dqx
                  fuzztest::InRange(-1.0, 1.0),                              // dqy
                  fuzztest::InRange(-1.0, 1.0),                              // dqz
-                 fuzztest::InRange(-1.0, 1.0),                              // dqw (scalar part)
                  fuzztest::InRange(0.0, 2.0 * M_PI),                        // yaw
                  fuzztest::InRange(-M_PI / 2.0 + 0.01, M_PI / 2.0 - 0.01),  // pitch
                  fuzztest::InRange(0.0, 2.0 * M_PI));                       // roll

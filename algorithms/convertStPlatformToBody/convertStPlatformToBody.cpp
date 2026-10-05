@@ -41,7 +41,7 @@ void ConvertStPlatformToBody::updateState(const uint64_t callTime) {
         // When it becomes delta quaternions this will become a pass
         // through.
         //
-        // Build a unit delta quaternion dq_CN = [sin(θ/2)·axis, cos(θ/2)] with unit
+        // Build a unit delta quaternion dq_CN = [cos(θ/2), sin(θ/2)·axis] with unit
         // axis = ω/‖ω‖ and θ = ‖ω‖. The algorithm's atan2-based recovery requires a
         // unit δq on input.
         const Eigen::Vector3f omegaVec = cArrayToEigenVector(omega_CN_C);
@@ -49,8 +49,8 @@ void ConvertStPlatformToBody::updateState(const uint64_t callTime) {
         const float halfSin = std::sin(angle / 2.0F);
         const float halfCos = std::cos(angle / 2.0F);
         const Eigen::Vector3f axis = (angle > 0.0F) ? (omegaVec / angle).eval() : Eigen::Vector3f::Zero();
-        dq_CN.head<3>() = halfSin * axis;
-        dq_CN[3] = halfCos;
+        dq_CN[0] = halfCos;
+        dq_CN.tail<3>() = halfSin * axis;
     }
 
     const auto [sigma_BN, omega_BN_B] = this->algorithm->update(q_CN, dq_CN);

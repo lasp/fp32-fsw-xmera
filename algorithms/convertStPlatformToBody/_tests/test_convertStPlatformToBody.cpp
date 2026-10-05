@@ -114,13 +114,13 @@ TEST(ConvertStPlatformToBody, ZeroedInputPayload) {
 // ─── Delta Quaternion Tests ─────────────────────────────────────────────────
 
 TEST(ConvertStPlatformToBody, IdentityDeltaQuaternion_ProducesZeroOmega) {
-    // dq_CN = [0, 0, 0, 1] (scalar-last identity rotation) must map to zero angular
+    // dq_CN = [1, 0, 0, 0] (scalar-first identity rotation) must map to zero angular
     // velocity for any mounting DCM.
     Eigen::Matrix3f dcm_CB = epToDcm(axisAngleToEp(Eigen::Vector3d(0.3, -0.7, 0.5), 0.9)).cast<float>();
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(dcm_CB)};
 
     const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
-    const Eigen::Vector4f dq_CN(0.0F, 0.0F, 0.0F, 1.0F);
+    const Eigen::Vector4f dq_CN(1.0F, 0.0F, 0.0F, 0.0F);
 
     StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
     for (int i = 0; i < 3; ++i) {
@@ -131,7 +131,7 @@ TEST(ConvertStPlatformToBody, IdentityDeltaQuaternion_ProducesZeroOmega) {
 TEST(ConvertStPlatformToBody, ZeroDeltaQuaternion_ProducesZeroOmega) {
     // dq_CN = [0, 0, 0, 0] is what a default-initialized PlatformAngularVelocity carries.
     // The algorithm's ‖vec‖ > 0 guard must fire and produce ω = 0 without letting the
-    // dq[3]=0 branch (acos(0)=π/2) combine with a zero denominator to emit NaN/Inf.
+    // dq[0]=0 branch (acos(0)=π/2) combine with a zero denominator to emit NaN/Inf.
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Matrix3f::Identity())};
 
     const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
@@ -154,7 +154,7 @@ TEST(ConvertStPlatformToBody, DeltaQuaternionHalfPi_MatchesExpectedOmega) {
     const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
 
     const Eigen::Vector4f dq_CN(
-        static_cast<float>(std::sin(theta / 2.0)), 0.0F, 0.0F, static_cast<float>(std::cos(theta / 2.0)));
+        static_cast<float>(std::cos(theta / 2.0)), static_cast<float>(std::sin(theta / 2.0)), 0.0F, 0.0F);
 
     StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
     EXPECT_NEAR(result.omega_BN_B[0], static_cast<float>(theta), OMEGA_TOLERANCE);
@@ -164,7 +164,7 @@ TEST(ConvertStPlatformToBody, DeltaQuaternionHalfPi_MatchesExpectedOmega) {
 
 TEST(ConvertStPlatformToBody, DeltaQuaternionNearPi_MatchesExpectedOmega) {
     // θ ≈ π − 0.01 about (1,2,3)/‖(1,2,3)‖. Near-π is a well-conditioned regime for
-    // acos (derivative ≈ −1 near dq_CN[3] ≈ 0), so tight OMEGA_TOLERANCE is appropriate.
+    // acos (derivative ≈ −1 near dq_CN[0] ≈ 0), so tight OMEGA_TOLERANCE is appropriate.
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Matrix3f::Identity())};
 
     const double theta = M_PI - 0.01;
@@ -174,10 +174,10 @@ TEST(ConvertStPlatformToBody, DeltaQuaternionNearPi_MatchesExpectedOmega) {
     const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
 
     const double s = std::sin(theta / 2.0);
-    const Eigen::Vector4f dq_CN(static_cast<float>(s * axis(0)),
+    const Eigen::Vector4f dq_CN(static_cast<float>(std::cos(theta / 2.0)),
+                                static_cast<float>(s * axis(0)),
                                 static_cast<float>(s * axis(1)),
-                                static_cast<float>(s * axis(2)),
-                                static_cast<float>(std::cos(theta / 2.0)));
+                                static_cast<float>(s * axis(2)));
 
     StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
     for (int i = 0; i < 3; ++i) {

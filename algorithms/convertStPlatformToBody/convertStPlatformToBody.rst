@@ -106,10 +106,10 @@ Input Constraints and Assumptions
 - ``q_CN`` is a unit quaternion representing the rotation from the inertial frame
   :math:`\mathcal{N}` to the case frame :math:`\mathcal{C}`
 - ``dcm_CB`` is a proper orthogonal direction cosine matrix (det = +1)
-- ``dq_CN`` is a unit delta quaternion in scalar-last convention,
-  :math:`\delta \boldsymbol{q}_{CN} = [\sin(\theta/2)\,\hat{\boldsymbol{e}},\ \cos(\theta/2)]`,
+- ``dq_CN`` is a unit delta quaternion in scalar-first convention (the same arrangement as ``q_CN``),
+  :math:`\delta \boldsymbol{q}_{CN} = [\cos(\theta/2),\ \sin(\theta/2)\,\hat{\boldsymbol{e}}]`,
   representing a one-sample case-frame rotation about unit axis :math:`\hat{\boldsymbol{e}}` by angle :math:`\theta`
-- A zero vector part (:math:`\lVert[\delta q_0, \delta q_1, \delta q_2]\rVert = 0`) is treated as a zero rotation
+- A zero vector part (:math:`\lVert[\delta q_1, \delta q_2, \delta q_3]\rVert = 0`) is treated as a zero rotation
   and yields :math:`^{C}\boldsymbol{\omega}_{CN} = \boldsymbol{0}`
 
 
@@ -144,14 +144,14 @@ The inertial-to-body MRP is then computed by MRP addition:
 
 The case-frame angular velocity is recovered from the incoming unit delta quaternion by inverting the standard
 axis-angle-to-quaternion mapping. The four-quadrant arctangent is used in place of :math:`\arccos` so that
-near-identity rotations (where :math:`\delta q_3 \approx 1`) retain float32 precision:
+near-identity rotations (where :math:`\delta q_0 \approx 1`) retain float32 precision:
 
 .. math::
 
     {}^{C}\boldsymbol{\omega}_{CN} =
-    \dfrac{2\,\mathrm{atan2}\!\left(\lVert[\delta q_0, \delta q_1, \delta q_2]\rVert,\ \delta q_3\right)}
-          {\lVert[\delta q_0, \delta q_1, \delta q_2]\rVert}\,
-    [\delta q_0, \delta q_1, \delta q_2]^{T}
+    \dfrac{2\,\mathrm{atan2}\!\left(\lVert[\delta q_1, \delta q_2, \delta q_3]\rVert,\ \delta q_0\right)}
+          {\lVert[\delta q_1, \delta q_2, \delta q_3]\rVert}\,
+    [\delta q_1, \delta q_2, \delta q_3]^{T}
 
 When the vector part has zero norm the recovered angular velocity is taken to be
 :math:`\boldsymbol{0}`, avoiding a divide-by-zero at the identity rotation.

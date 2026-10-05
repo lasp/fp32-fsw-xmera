@@ -42,7 +42,7 @@ class ConvertStPlatformToBodyAlgorithm final {
     explicit ConvertStPlatformToBodyAlgorithm(const ConvertStPlatformToBodyConfig& config);
     void setConfig(const ConvertStPlatformToBodyConfig& config);
     //! @param q_CN  inertial-to-case attitude quaternion (scalar-first)
-    //! @param dq_CN case-frame delta quaternion (scalar-last)
+    //! @param dq_CN case-frame delta quaternion (scalar-first)
     StAttitudeOutput update(const Eigen::Vector4f& q_CN, const Eigen::Vector4f& dq_CN) const;
 
    private:
