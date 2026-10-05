@@ -3,11 +3,16 @@
 
 #include "freestandingIsFinite.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 
 /**
  * @brief Calculate Chebyshev Polynomial
+ *
+ * A Chebyshev series is only a fit on [-1, 1]. A finite evaluation point outside that domain is clamped to the
+ * nearest limit, so the result rails at the fit's endpoint value.
+ * A non-finite evaluation point is a bad input and returns 0.
  *
  * @tparam T Floating-point type (float or double).
  * @tparam N Capacity of the coefficients array.
@@ -20,16 +25,16 @@ template <typename T, std::size_t N>
 inline T calculateChebyValue(const std::array<T, N>& coefficients,
                              const unsigned int numberOfCoefficients,
                              const T evaluationPoint) {
-    // Sum of zero terms is 0.
-    if (numberOfCoefficients == 0U) {
+    // Sum of zero terms is 0. A non-finite evaluation point is a bad input; return 0 rather than propagate it.
+    if ((numberOfCoefficients == 0U) || !fsw::is_finite(evaluationPoint)) {
         return static_cast<T>(0.0);
     }
-    // Non-finite evaluationPoint: substitute 0.0 rather than propagate NaN/Inf.
-    const T safePoint = fsw::is_finite(evaluationPoint) ? evaluationPoint : static_cast<T>(0.0);
+    // The fit is only defined on [-1, 1]; outside it, rail at the nearest limit instead of extrapolating.
+    const T point = std::clamp(evaluationPoint, static_cast<T>(-1.0), static_cast<T>(1.0));
 
-    auto chebyPrev = static_cast<T>(1.0);                    // T_0(x) = 1
-    auto chebyNow = safePoint;                               // T_1(x) = x
-    const auto valueMult = static_cast<T>(2.0) * safePoint;  // 2x, reused every recurrence step
+    auto chebyPrev = static_cast<T>(1.0);                // T_0(x) = 1
+    auto chebyNow = point;                               // T_1(x) = x
+    const auto valueMult = static_cast<T>(2.0) * point;  // 2x, reused every recurrence step
 
     auto estValue = coefficients.at(0) * chebyPrev;  // c0 * T_0
     if (numberOfCoefficients > 1) {

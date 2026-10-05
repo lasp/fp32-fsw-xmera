@@ -30,6 +30,24 @@ std::array<float, kTestCoeffCount> pureTf(int n) {
     return c;
 }
 
+// Returns a coefficient array with every entry non-zero and alternating in sign, so every basis polynomial
+// contributes and an error in any term changes the result.
+std::array<double, kTestCoeffCount> mixedCd() {
+    std::array<double, kTestCoeffCount> c{};
+    for (std::size_t i = 0; i < kTestCoeffCount; ++i) {
+        c[i] = ((i % 2 == 0) ? 1.0 : -1.0) * (1.0 + 0.1 * static_cast<double>(i));
+    }
+    return c;
+}
+
+std::array<float, kTestCoeffCount> mixedCf() {
+    std::array<float, kTestCoeffCount> c{};
+    for (std::size_t i = 0; i < kTestCoeffCount; ++i) {
+        c[i] = ((i % 2 == 0) ? 1.0f : -1.0f) * (1.0f + 0.1f * static_cast<float>(i));
+    }
+    return c;
+}
+
 // ============================================================================
 // calculateChebyValue (double)
 // ============================================================================
@@ -355,24 +373,74 @@ TEST(CalculateChebyValueF32, ZeroCoefficientsReturnsZero) {
     }
 }
 
-// non-finite evaluationPoint is treated as 0.0 (double)
-TEST(CalculateChebyValue, NonFiniteEvaluationPointTreatedAsZero) {
+// A non-finite evaluationPoint is a bad input and returns 0, even when only the c0 term would be used.
+// (double)
+TEST(CalculateChebyValue, NonFiniteEvaluationPointReturnsZero) {
     const std::array<double, kTestCoeffCount> c = pureTd(2);
-    const double atZero = calculateChebyValue(c, 3, 0.0);
-
-    EXPECT_DOUBLE_EQ(calculateChebyValue(c, 3, std::numeric_limits<double>::quiet_NaN()), atZero);
-    EXPECT_DOUBLE_EQ(calculateChebyValue(c, 3, std::numeric_limits<double>::infinity()), atZero);
-    EXPECT_DOUBLE_EQ(calculateChebyValue(c, 3, -std::numeric_limits<double>::infinity()), atZero);
+    std::array<double, kTestCoeffCount> c0{};
+    c0[0] = 5.5;
+    for (const double x : {std::numeric_limits<double>::quiet_NaN(),
+                           std::numeric_limits<double>::infinity(),
+                           -std::numeric_limits<double>::infinity()}) {
+        EXPECT_EQ(calculateChebyValue(c, 3, x), 0.0) << "x=" << x;
+        EXPECT_EQ(calculateChebyValue(c0, 1, x), 0.0) << "x=" << x;
+    }
 }
 
-// non-finite evaluationPoint is treated as 0.0 (float)
-TEST(CalculateChebyValueF32, NonFiniteEvaluationPointTreatedAsZero) {
+// A non-finite evaluationPoint returns 0 (float)
+TEST(CalculateChebyValueF32, NonFiniteEvaluationPointReturnsZero) {
     const std::array<float, kTestCoeffCount> c = pureTf(2);
-    const float atZero = calculateChebyValue(c, 3, 0.0f);
+    std::array<float, kTestCoeffCount> c0{};
+    c0[0] = 5.5f;
+    for (const float x : {std::numeric_limits<float>::quiet_NaN(),
+                          std::numeric_limits<float>::infinity(),
+                          -std::numeric_limits<float>::infinity()}) {
+        EXPECT_EQ(calculateChebyValue(c, 3, x), 0.0f) << "x=" << x;
+        EXPECT_EQ(calculateChebyValue(c0, 1, x), 0.0f) << "x=" << x;
+    }
+}
 
-    EXPECT_FLOAT_EQ(calculateChebyValue(c, 3, std::numeric_limits<float>::quiet_NaN()), atZero);
-    EXPECT_FLOAT_EQ(calculateChebyValue(c, 3, std::numeric_limits<float>::infinity()), atZero);
-    EXPECT_FLOAT_EQ(calculateChebyValue(c, 3, -std::numeric_limits<float>::infinity()), atZero);
+// ============================================================================
+// Behavior outside [-1, 1]
+//
+// A Chebyshev series is only a fit on [-1, 1]. A finite evaluation point outside it is clamped to the nearest
+// limit, so the result rails at the fit's endpoint value instead of extrapolating. The clamped point is exactly
+// +/-1, so the result must equal the endpoint evaluation bit for bit.
+// ============================================================================
+
+// Points just past the limit, moderately past it, and at the far end of the double range.
+TEST(CalculateChebyValue, OutOfDomainRailsToEndpoint) {
+    const auto c = mixedCd();
+    const auto n = static_cast<unsigned int>(kTestCoeffCount);
+    const double atPlusOne = calculateChebyValue(c, n, 1.0);
+    const double atMinusOne = calculateChebyValue(c, n, -1.0);
+    for (const double x : {std::nextafter(1.0, 2.0), 1.05, 1.5, 3.0, 1e40, std::numeric_limits<double>::max()}) {
+        EXPECT_EQ(calculateChebyValue(c, n, x), atPlusOne) << "x=" << x;
+        EXPECT_EQ(calculateChebyValue(c, n, -x), atMinusOne) << "x=" << -x;
+    }
+}
+
+TEST(CalculateChebyValueF32, OutOfDomainRailsToEndpoint) {
+    const auto c = mixedCf();
+    const auto n = static_cast<unsigned int>(kTestCoeffCount);
+    const float atPlusOne = calculateChebyValue(c, n, 1.0f);
+    const float atMinusOne = calculateChebyValue(c, n, -1.0f);
+    for (const float x : {std::nextafter(1.0f, 2.0f), 1.05f, 1.5f, 3.0f, 1e30f, std::numeric_limits<float>::max()}) {
+        EXPECT_EQ(calculateChebyValue(c, n, x), atPlusOne) << "x=" << x;
+        EXPECT_EQ(calculateChebyValue(c, n, -x), atMinusOne) << "x=" << -x;
+    }
+}
+
+// Railing keeps the in-domain bound |f(c, x)| <= sum|c_i|: without it, T_10(1.1) ~ 42. With the rail it is
+// T_10(1) = 1.
+TEST(CalculateChebyValue, OutOfDomainHoldsL1Bound) {
+    EXPECT_DOUBLE_EQ(calculateChebyValue(pureTd(10), 11, 1.1), 1.0);
+    EXPECT_DOUBLE_EQ(calculateChebyValue(pureTd(10), 11, -1.1), 1.0);  // T_10(-1) = (-1)^10
+}
+
+TEST(CalculateChebyValueF32, OutOfDomainHoldsL1Bound) {
+    EXPECT_FLOAT_EQ(calculateChebyValue(pureTf(10), 11, 1.1f), 1.0f);
+    EXPECT_FLOAT_EQ(calculateChebyValue(pureTf(10), 11, -1.1f), 1.0f);
 }
 
 }  // namespace
