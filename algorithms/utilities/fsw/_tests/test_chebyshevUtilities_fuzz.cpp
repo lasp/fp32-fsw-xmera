@@ -247,3 +247,33 @@ FUZZ_TEST(ChebyPropertyF32, fuzzChebyOutOfDomainRailsF32)
                  fuzztest::InRange(1u, static_cast<unsigned int>(kTestCoeffCount)),
                  fuzztest::OneOf(fuzztest::InRange(-std::numeric_limits<float>::max(), -1.0f),
                                  fuzztest::InRange(1.0f, std::numeric_limits<float>::max())));
+
+// ---------------------------------------------------------------------------
+// Property 7 – Count above capacity returns 0
+//
+//   f(c, n, x) == 0   for n > N
+//
+// The array capacity N bounds numberOfCoefficients. A larger count is a bad
+// input and returns 0 instead of reading past the array, for any coefficients
+// and any point in the domain.
+// ---------------------------------------------------------------------------
+
+void fuzzChebyCountAboveCapacity(const std::array<double, kTestCoeffCount>& c, unsigned int n, double x) {
+    EXPECT_EQ(calculateChebyValue(c, n, x), 0.0);
+}
+
+FUZZ_TEST(ChebyProperty, fuzzChebyCountAboveCapacity)
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e6, 1e6)),
+                 fuzztest::InRange(static_cast<unsigned int>(kTestCoeffCount) + 1U,
+                                   std::numeric_limits<unsigned int>::max()),
+                 fuzztest::InRange(-1.0, 1.0));
+
+void fuzzChebyCountAboveCapacityF32(const std::array<float, kTestCoeffCount>& c, unsigned int n, float x) {
+    EXPECT_EQ(calculateChebyValue(c, n, x), 0.0f);
+}
+
+FUZZ_TEST(ChebyPropertyF32, fuzzChebyCountAboveCapacityF32)
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e3f, 1e3f)),
+                 fuzztest::InRange(static_cast<unsigned int>(kTestCoeffCount) + 1U,
+                                   std::numeric_limits<unsigned int>::max()),
+                 fuzztest::InRange(-1.0f, 1.0f));

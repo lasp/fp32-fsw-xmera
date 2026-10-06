@@ -288,7 +288,7 @@ double and narrow at the end with an explicit `static_cast<float>()`.
 ### 5.4 Recurrence Relations and Accumulated Error
 
 **Pattern:** Iterative formulas where each step's error compounds. The canonical example is the
-Chebyshev three-term recurrence in `chebyshevUtilities.h:45`:
+Chebyshev three-term recurrence in `chebyshevUtilities.h:48`:
 
 ```cpp
 chebyNow = (valueMult * chebyNow) - chebyPrev;
@@ -301,7 +301,7 @@ steps, the basis polynomial `T_n(x)` carries ~2n ULP of accumulated error.
 
 | Function | File | Steps | Float32 Error at n=20 |
 |----------|------|-------|-----------------------|
-| `calculateChebyValue` | `chebyshevUtilities.h:26` | n (number of coefficients) | ~40 * 1.19e-7 ~ 5e-6 relative |
+| `calculateChebyValue` | `chebyshevUtilities.h:25` | n (number of coefficients) | ~40 * 1.19e-7 ~ 5e-6 relative |
 
 **Mitigation:** Bound the maximum degree. Use the L1 norm analysis (Section 7.3) to verify that the
 accumulated error is acceptable for the given coefficient magnitudes. If the ratio of the largest to
@@ -453,7 +453,7 @@ A safety margin of 3-10x above the theoretical bound is appropriate. This is why
 This example walks through the tolerance derivation for the Chebyshev polynomial fuzz tests in
 `test_chebyshevUtilities_fuzz.cpp`.
 
-**The computation.** `calculateChebyValue` (`chebyshevUtilities.h:26`) evaluates a Chebyshev
+**The computation.** `calculateChebyValue` (`chebyshevUtilities.h:25`) evaluates a Chebyshev
 polynomial of degree `n-1` using the three-term recurrence:
 
 ```

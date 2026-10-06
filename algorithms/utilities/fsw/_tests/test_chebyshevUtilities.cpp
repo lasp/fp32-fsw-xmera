@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <utility>
 
 namespace {
 
@@ -441,6 +442,59 @@ TEST(CalculateChebyValue, OutOfDomainHoldsL1Bound) {
 TEST(CalculateChebyValueF32, OutOfDomainHoldsL1Bound) {
     EXPECT_FLOAT_EQ(calculateChebyValue(pureTf(10), 11, 1.1f), 1.0f);
     EXPECT_FLOAT_EQ(calculateChebyValue(pureTf(10), 11, -1.1f), 1.0f);
+}
+
+// ============================================================================
+// Coefficient count bounds
+//
+// The array capacity N bounds numberOfCoefficients. A count above N is a bad input and returns 0 instead of
+// reading past the array, so the function never throws for any count.
+// ============================================================================
+
+static_assert(noexcept(calculateChebyValue(std::declval<const std::array<double, kTestCoeffCount>&>(), 0U, 0.0)),
+              "calculateChebyValue must not throw");
+static_assert(noexcept(calculateChebyValue(std::declval<const std::array<float, kTestCoeffCount>&>(), 0U, 0.0f)),
+              "calculateChebyValue must not throw");
+
+// One past the capacity and the largest count both return 0, even at points where a valid count is non-zero.
+TEST(CalculateChebyValue, CountAboveCapacityReturnsZero) {
+    const auto c = mixedCd();
+    const auto onePast = static_cast<unsigned int>(kTestCoeffCount) + 1U;
+    for (const unsigned int n : {onePast, std::numeric_limits<unsigned int>::max()}) {
+        for (const double x : {-1.0, -0.3, 0.0, 0.7, 1.0}) {
+            EXPECT_EQ(calculateChebyValue(c, n, x), 0.0) << "n=" << n << " x=" << x;
+        }
+    }
+}
+
+TEST(CalculateChebyValueF32, CountAboveCapacityReturnsZero) {
+    const auto c = mixedCf();
+    const auto onePast = static_cast<unsigned int>(kTestCoeffCount) + 1U;
+    for (const unsigned int n : {onePast, std::numeric_limits<unsigned int>::max()}) {
+        for (const float x : {-1.0f, -0.3f, 0.0f, 0.7f, 1.0f}) {
+            EXPECT_EQ(calculateChebyValue(c, n, x), 0.0f) << "n=" << n << " x=" << x;
+        }
+    }
+}
+
+// A count equal to the capacity is valid and uses every term: at x = 1 every T_i is 1, so the result is the
+// plain sum of all N coefficients. This pins the boundary against an off-by-one (>= instead of >).
+TEST(CalculateChebyValue, CountAtCapacityEvaluatesAllTerms) {
+    const auto c = mixedCd();
+    double sum = 0.0;
+    for (const double ci : c) {
+        sum += ci;
+    }
+    EXPECT_DOUBLE_EQ(calculateChebyValue(c, static_cast<unsigned int>(kTestCoeffCount), 1.0), sum);
+}
+
+TEST(CalculateChebyValueF32, CountAtCapacityEvaluatesAllTerms) {
+    const auto c = mixedCf();
+    float sum = 0.0f;
+    for (const float ci : c) {
+        sum += ci;
+    }
+    EXPECT_FLOAT_EQ(calculateChebyValue(c, static_cast<unsigned int>(kTestCoeffCount), 1.0f), sum);
 }
 
 }  // namespace
