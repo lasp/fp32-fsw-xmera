@@ -139,10 +139,10 @@ class OEStateEphemConfig final {
     }
     static bool isValidTimeOffset(double timeOffset) { return fsw::is_finite(timeOffset) && timeOffset >= 0.0; }
     static bool isValidArc(const ChebyshevFitArc& arc) {
-        // Bounding the count is load-bearing, not cosmetic: it is what keeps the sweep below and
-        // calculateChebyValue's coefficients.at(i) inside the array. An out-of-range count would
-        // otherwise surface as a std::out_of_range thrown out of update(), which is not an
-        // fsw::invalid_argument and so would cross the FFI boundary uncaught.
+        // Bounding the count is load-bearing, not cosmetic: it keeps the sweep below inside the array,
+        // whose coefficients.at(i) would otherwise throw a std::out_of_range, which is not an
+        // fsw::invalid_argument and so would cross the FFI boundary uncaught. calculateChebyValue
+        // itself returns 0 for an over-capacity count, which would silently zero the arc's elements.
         if (arc.numberChebCoefficients < 1U || static_cast<std::size_t>(arc.numberChebCoefficients) > kMaxOeCoeff) {
             return false;
         }
