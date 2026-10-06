@@ -113,6 +113,18 @@ void InertialFilterAlgorithm_destroy(InertialFilterAlgorithmHandle* self) {
     fsw::deleteHandle<InertialFilterAlgorithm>(self);
 }
 
+void InertialFilterAlgorithm_setConfig(InertialFilterAlgorithmHandle* self,
+                                       double alpha,
+                                       double beta,
+                                       const InertialFilterStateMatrix_c* processNoise,
+                                       const InertialFilterStateVector_c* initialState,
+                                       const InertialFilterStateMatrix_c* initialCovariance,
+                                       double stMeasurementNoiseStd,
+                                       double rateMeasurementNoiseStd) {
+    fsw::fromHandle<InertialFilterAlgorithm>(self)->setConfig(configFromC(
+        alpha, beta, *processNoise, *initialState, *initialCovariance, stMeasurementNoiseStd, rateMeasurementNoiseStd));
+}
+
 void InertialFilterAlgorithm_reInitializeExceptPersistentStates(InertialFilterAlgorithmHandle* self) {
     fsw::fromHandle<InertialFilterAlgorithm>(self)->reInitializeExceptPersistentStates();
 }
@@ -123,8 +135,8 @@ void InertialFilterAlgorithm_reInitialize(InertialFilterAlgorithmHandle* self) {
 
 InertialFilterOutput_c InertialFilterAlgorithm_update(InertialFilterAlgorithmHandle* self,
                                                       double currentSeconds,
-                                                      const StAttData_c* stAtt,
-                                                      const RateData_c* rate) {
+                                                      const InertialStAttData_c* stAtt,
+                                                      const InertialRateData_c* rate) {
     StAttData stIn{};
     stIn.timeTag = stAtt->timeTag;
     stIn.sigma_BN = Eigen::Vector3d(stAtt->sigma_BN[0], stAtt->sigma_BN[1], stAtt->sigma_BN[2]);

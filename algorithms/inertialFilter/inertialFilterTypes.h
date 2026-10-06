@@ -16,7 +16,7 @@ extern "C" {
 typedef struct {
     double timeTag;     /*!< [s] measurement time tag */
     double sigma_BN[3]; /*!< MRP attitude of body w.r.t. inertial frame */
-} StAttData_c;
+} InertialStAttData_c;
 
 /**
  * @brief C mirror of a raw rate reading. timeTag > 0 flags a fresh reading.
@@ -24,7 +24,7 @@ typedef struct {
 typedef struct {
     double timeTag; /*!< [s] measurement time tag */
     double rate[3]; /*!< body angular rate (rad/s) */
-} RateData_c;
+} InertialRateData_c;
 
 /**
  * @brief C mirror of a per-cycle residual snapshot (valid only when that measurement fired).

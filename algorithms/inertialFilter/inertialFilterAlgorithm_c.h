@@ -36,7 +36,7 @@ typedef struct {
 uint32_t InertialFilterAlgorithm_getNumStates(void);
 
 /**
- * @brief Report whether a configuration would be accepted by create.
+ * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param alpha                   [-] sigma-point spread.
  * @param beta                    [-] prior-knowledge tunable.
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
@@ -45,7 +45,7 @@ uint32_t InertialFilterAlgorithm_getNumStates(void);
  * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be >= 0.
  * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be >= 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
- *         create from an invalid configuration.
+ *         create/setConfig from an invalid configuration.
  */
 bool InertialFilterAlgorithm_validateConfig(double alpha,
                                             double beta,
@@ -82,6 +82,27 @@ InertialFilterAlgorithmHandle* InertialFilterAlgorithm_create(double alpha,
 void InertialFilterAlgorithm_destroy(InertialFilterAlgorithmHandle* self);
 
 /**
+ * @brief Replace the algorithm's configuration and re-derive filter parameters.
+ * @param self                    [-] filter handle
+ * @param alpha                   [-] sigma-point spread.
+ * @param beta                    [-] prior-knowledge tunable.
+ * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
+ * @param initialState            [-] N-element initial state seed.
+ * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
+ * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be >= 0.
+ * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be >= 0.
+ * @note setConfig() validates the config and throws on invalid input; the exception propagates to Ada.
+ */
+void InertialFilterAlgorithm_setConfig(InertialFilterAlgorithmHandle* self,
+                                       double alpha,
+                                       double beta,
+                                       const InertialFilterStateMatrix_c* processNoise,
+                                       const InertialFilterStateVector_c* initialState,
+                                       const InertialFilterStateMatrix_c* initialCovariance,
+                                       double stMeasurementNoiseStd,
+                                       double rateMeasurementNoiseStd);
+
+/**
  * @brief Clear the internal runtime state (pending measurements and residual snapshots); the filter
  *        state and covariance are preserved.
  * @param self [-] filter handle
@@ -104,8 +125,8 @@ void InertialFilterAlgorithm_reInitialize(InertialFilterAlgorithmHandle* self);
  */
 InertialFilterOutput_c InertialFilterAlgorithm_update(InertialFilterAlgorithmHandle* self,
                                                       double currentSeconds,
-                                                      const StAttData_c* stAtt,
-                                                      const RateData_c* rate);
+                                                      const InertialStAttData_c* stAtt,
+                                                      const InertialRateData_c* rate);
 
 #ifdef __cplusplus
 }  // extern "C"
