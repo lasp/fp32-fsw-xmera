@@ -151,12 +151,12 @@ set(algorithms
     "sunlineFilter"
     "sunAvoidance"
     "sunSearchPoint"
-    "thrDesatDutyCycle"
     "thrFiringRemainder"
     "thrFiringSchmitt"
     "thrustVectoring"
     "timeClosestApproach"
     "triad"
+    "vectorDutyCycle"
 )
 foreach(algorithm_name IN LISTS algorithms)
   add_algorithm(${algorithm_name})
