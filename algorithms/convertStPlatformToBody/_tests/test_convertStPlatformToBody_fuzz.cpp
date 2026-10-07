@@ -141,7 +141,7 @@ void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
     ConvertStPlatformToBodyAlgorithm algorithm{
         ConvertStPlatformToBodyConfig::create(makeDcm(yaw, pitch, roll).cast<float>())};
 
-    const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);  // identity inertial attitude — isolate δq path
+    const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);  // identity inertial attitude (scalar-last) — isolate δq path
     const Eigen::Vector4f dq_CN(
         static_cast<float>(dq(0)), static_cast<float>(dq(1)), static_cast<float>(dq(2)), static_cast<float>(dq(3)));
 

@@ -79,7 +79,8 @@ The adapter (``ConvertStPlatformToBody``) provides the Xmera-facing interface an
 - Building a validated ``ConvertStPlatformToBodyConfig`` from the ``dcm_CB`` property and constructing the algorithm
   in ``reset()`` (two-phase initialization); ``updateState()`` raises ``XmeraLifecycleException`` if called first
 - Reading the input message ``stSensorInMsg``
-- Converting the inertial-to-case quaternion from ``double`` to a ``float`` ``Eigen::Vector4f``
+- Reordering the scalar-first inertial-to-case quaternion on the incoming message to the scalar-last
+  ``Eigen::Vector4f`` the algorithm takes
 - Converting the message time tag from seconds (``double``) to nanoseconds (``uint64_t``) for the output message
 - Converting the case-frame angular velocity on the incoming message to a unit delta quaternion ``dq_CN``
   (``Eigen::Vector4f``) before handing it to the algorithm
@@ -103,8 +104,10 @@ Input Constraints and Assumptions
 
 - The star tracker case is rigidly mounted to the hub so that
   :math:`^{C}\boldsymbol{\omega}_{CN} = [CB]\, {}^{B}\boldsymbol{\omega}_{BN}`
-- ``q_CN`` is a unit quaternion representing the rotation from the inertial frame
-  :math:`\mathcal{N}` to the case frame :math:`\mathcal{C}`
+- ``q_CN`` and ``dq_CN`` are both scalar-last, the order the sensor emits, so the flight
+  interface passes them through unchanged
+- ``q_CN`` is a unit quaternion :math:`[q_0, q_1, q_2, q_3]` with scalar part :math:`q_3`, representing the rotation
+  from the inertial frame :math:`\mathcal{N}` to the case frame :math:`\mathcal{C}`
 - ``dcm_CB`` is a proper orthogonal direction cosine matrix (det = +1)
 - ``dq_CN`` is a unit delta quaternion in scalar-last convention,
   :math:`\delta \boldsymbol{q}_{CN} = [\sin(\theta/2)\,\hat{\boldsymbol{e}},\ \cos(\theta/2)]`,
@@ -126,7 +129,8 @@ The module works with three reference frames:
 **1. Quaternion to MRP conversion**
 
 The inertial-to-case attitude is converted from an Euler parameter (quaternion) set to the equivalent Modified
-Rodrigues Parameter set:
+Rodrigues Parameter set. The scalar-last input is first reordered to the scalar-first Euler parameter set
+:math:`\boldsymbol{\beta}_{CN} = [q_3, q_0, q_1, q_2]` that ``epToMrp`` expects:
 
 :math:`\boldsymbol{\sigma}_{CN} = \mathrm{epToMrp}(\boldsymbol{\beta}_{CN})`
 

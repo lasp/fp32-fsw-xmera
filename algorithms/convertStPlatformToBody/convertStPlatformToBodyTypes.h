@@ -13,7 +13,7 @@ extern "C" {
  *         conversion algorithm. */
 typedef struct {
     uint64_t timeTag; /*!< [ns] time tag of the measurement, passed through to the output */
-    float q_CN[4];    /*!< [-] quaternion from inertial to case frame (scalar-first) */
+    float q_CN[4];    /*!< [-] quaternion from inertial to case frame (scalar-last) */
     float dq_CN[4];   /*!< [-] case-frame delta quaternion w.r.t. inertial (scalar-last) */
 } StPlatformMeasurement_c;
 

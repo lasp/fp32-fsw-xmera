@@ -111,6 +111,24 @@ TEST(ConvertStPlatformToBody, ZeroedInputPayload) {
     }
 }
 
+// ─── Quaternion Ordering Tests ──────────────────────────────────────────────
+
+TEST(ConvertStPlatformToBody, ScalarLastAttitude_MatchesKnownMrp) {
+    // q_CN = [0, 0, sin(45°), cos(45°)] is a 90° rotation about z in scalar-last order.
+    // With identity mounting, σ_BN = tan(90°/4)·ẑ. A scalar-first read would see a
+    // different rotation, so this pins the input ordering.
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Matrix3f::Identity())};
+
+    const float halfAngle = static_cast<float>(M_PI / 4.0);
+    const Eigen::Vector4f q_CN(0.0F, 0.0F, std::sin(halfAngle), std::cos(halfAngle));
+    const Eigen::Vector4f dq_CN(0.0F, 0.0F, 0.0F, 1.0F);
+
+    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
+    EXPECT_NEAR(result.sigma_BN[0], 0.0F, ATTITUDE_TOLERANCE);
+    EXPECT_NEAR(result.sigma_BN[1], 0.0F, ATTITUDE_TOLERANCE);
+    EXPECT_NEAR(result.sigma_BN[2], static_cast<float>(std::tan(M_PI / 8.0)), ATTITUDE_TOLERANCE);
+}
+
 // ─── Delta Quaternion Tests ─────────────────────────────────────────────────
 
 TEST(ConvertStPlatformToBody, IdentityDeltaQuaternion_ProducesZeroOmega) {
@@ -119,7 +137,7 @@ TEST(ConvertStPlatformToBody, IdentityDeltaQuaternion_ProducesZeroOmega) {
     Eigen::Matrix3f dcm_CB = epToDcm(axisAngleToEp(Eigen::Vector3d(0.3, -0.7, 0.5), 0.9)).cast<float>();
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(dcm_CB)};
 
-    const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
+    const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
     const Eigen::Vector4f dq_CN(0.0F, 0.0F, 0.0F, 1.0F);
 
     StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
@@ -134,7 +152,7 @@ TEST(ConvertStPlatformToBody, ZeroDeltaQuaternion_ProducesZeroOmega) {
     // dq[3]=0 branch (acos(0)=π/2) combine with a zero denominator to emit NaN/Inf.
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Matrix3f::Identity())};
 
-    const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
+    const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
     const Eigen::Vector4f dq_CN = Eigen::Vector4f::Zero();  // all four dq_CN components = 0
 
     StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
@@ -151,7 +169,7 @@ TEST(ConvertStPlatformToBody, DeltaQuaternionHalfPi_MatchesExpectedOmega) {
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Matrix3f::Identity())};
 
     const double theta = M_PI / 2.0;
-    const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
+    const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
 
     const Eigen::Vector4f dq_CN(
         static_cast<float>(std::sin(theta / 2.0)), 0.0F, 0.0F, static_cast<float>(std::cos(theta / 2.0)));
@@ -171,7 +189,7 @@ TEST(ConvertStPlatformToBody, DeltaQuaternionNearPi_MatchesExpectedOmega) {
     const Eigen::Vector3d axis = Eigen::Vector3d(1.0, 2.0, 3.0).normalized();
     const Eigen::Vector3d omegaExpected = theta * axis;
 
-    const Eigen::Vector4f q_CN(1.0F, 0.0F, 0.0F, 0.0F);
+    const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
 
     const double s = std::sin(theta / 2.0);
     const Eigen::Vector4f dq_CN(static_cast<float>(s * axis(0)),
