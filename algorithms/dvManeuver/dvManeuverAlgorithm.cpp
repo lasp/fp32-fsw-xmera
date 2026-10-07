@@ -32,7 +32,7 @@ DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime, const Eige
     }
 
     // Complete is terminal: only reInitialize() leaves it, so reconfigure() can never reopen a finished burn
-    DvManeuverOutput out;
+    DvManeuverOutput out{};
     out.state = this->state;
     if (this->state == DvManeuverBurnState::Executing) {
         out.cmdForce_B = this->cfg.getCmdForce();
