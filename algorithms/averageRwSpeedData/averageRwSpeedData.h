@@ -15,7 +15,7 @@ class AverageRwSpeedData final : public SysModel {
     void reInitialize();       //!< Re-seed the algorithm's runtime state from the configured values
 
     // Phase 1: public configuration properties -- set before reset().
-    double rwSpeedAveragingWindow = 0.0;                      //!< [s] RW speed averaging window
+    double rwSpeedAveragingWindow = 0.0;  //!< [s] RW speed averaging window
 
     Message<RWSpeedMsgF32Payload> rwSpeedOutMsg;
     ReadFunctor<RWSpeedMsgF32Payload> rwSpeedInMsg;

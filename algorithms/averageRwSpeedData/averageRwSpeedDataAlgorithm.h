@@ -16,7 +16,6 @@ struct RwSpeedSample {
     std::array<float, kMaxNumRw> wheelSpeeds{};
 };
 
-
 namespace average_rw_speed_detail {
 // RW speed sample rate (compile-time fixed). Period in nanoseconds is
 // precomputed so the per-sample staleness check stays in integer math.
@@ -29,7 +28,7 @@ constexpr float kMaxAveragingWindowSec = 2.0F;
 // Ring capacity based on the sample rate and the window size
 // @todo Do we need to make sure this product is a size_t?
 constexpr std::size_t kRingCapacity = kRwSpeedSampleRateHz * kMaxAveragingWindowSec;
-} // namespace average_rw_speed_detail
+}  // namespace average_rw_speed_detail
 
 /*! @brief Validated configuration for AverageRwSpeedDataAlgorithm. Constructed via create(), which
  *         enforces the averaging-window bounds before freezing the values. */
@@ -62,7 +61,7 @@ class AverageRwSpeedDataAlgorithm final {
 
     explicit AverageRwSpeedDataAlgorithm(const AverageRwSpeedDataConfig& config);
     void setConfig(const AverageRwSpeedDataConfig& config);  //!< Replace the configuration; runtime state is untouched
-    void reInitialize();                                  //!< Clear the ring and new-packet tracking
+    void reInitialize();                                     //!< Clear the ring and new-packet tracking
 
     // Ingests the new, instantaneous RW speed values into the internal ring.
     // Returns the rolling average of fresh samples in the ring rwSpeedAveragingWindow of the newest stored sample.
@@ -72,11 +71,11 @@ class AverageRwSpeedDataAlgorithm final {
     AverageRwSpeedDataConfig cfg;
     // Config-derived: window seconds converted to nanoseconds once in setConfig()
     // so the per-sample staleness comparison in update() stays in integer math.
-    std::uint64_t rwSpeedAveragingWindowNs{0U};       //!< [ns] RW speed: allowable time difference from "latest"
+    std::uint64_t rwSpeedAveragingWindowNs{0U};  //!< [ns] RW speed: allowable time difference from "latest"
     // Internal states: ring containing all the RW speed samples within the time window
     // and the next index to insert a sample into
     std::array<RwSpeedSample, kRingCapacity> ring{};  //!< Internal ring of recent samples
-    std::size_t insertIdx{0U};                     //!< Next ring slot to overwrite
+    std::size_t insertIdx{0U};                        //!< Next ring slot to overwrite
 };
 
 #endif
