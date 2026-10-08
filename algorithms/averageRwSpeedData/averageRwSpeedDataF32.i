@@ -12,3 +12,5 @@
 %include "averageRwSpeedData.h"
 
 STRUCTASLIST(RWSpeedMsgF32Payload)
+
+%include "msgPayloadDef/RWSpeedMsgF32Payload.h"
