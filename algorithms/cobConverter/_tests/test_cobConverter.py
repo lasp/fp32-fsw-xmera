@@ -8,11 +8,14 @@ from xmera.fp32 import cobConverterF32 as cobConverter
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.utilities import SimulationBaseClass, macros
 
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 path = os.path.dirname(os.path.abspath(filename))
 
-noCorr = cobConverter.PhaseAngleCorrectionMethod_NoCorrection
-binary = cobConverter.PhaseAngleCorrectionMethod_Binary
 
 
 def mapState(state, input_camera):
@@ -27,39 +30,36 @@ def mapState(state, input_camera):
     return rHat_BN_C, norm_COB_vector
 
 
-def mapCovar(pixels, input_camera, norm_COB_vector):
-    """Secondary method to map the cob covariance in pixel space to position"""
+def skew(v):
+    """Cross-product matrix [v]x"""
+    return np.array([[0., -v[2], v[1]], [v[2], 0., -v[0]], [-v[1], v[0], 0.]])
+
+
+def unit_vector_jacobian(rhat_C):
+    """Jacobian of rhat = -h/|h| with respect to (x, y), h = [x, y, 1]"""
+    h = rhat_C / rhat_C[2]
+    x = h[0]
+    y = h[1]
+    J = np.array([[y * y + 1., -x * y], [-x * y, x * x + 1.], [-x, -y]])
+    return -J / np.linalg.norm(h) ** 3
+
+
+def pixel_covar_xy(pixels, input_camera):
+    """Pixel-noise covariance in the normalized image plane"""
     K = compute_camera_calibration_matrix(input_camera)
-    d_x = K[0, 0]
-    d_y = K[1, 1]
-    X = 1 / d_x
-    Y = 1 / d_y
+    S = np.diag([1. / K[0, 0], 1. / K[1, 1]])
+    return S @ ((pixels / (4 * np.pi)) * np.eye(2)) @ S.T
 
-    scale_factor = np.sqrt(pixels / (4 * np.pi))
 
-    covar = np.zeros([3, 3])
-    covar[0, 0] = X ** 2
-    covar[1, 1] = Y ** 2
-    covar[2, 2] = 1
+def mapCovar(pixels, input_camera, rhat_C):
+    """Pixel-noise-only unit-vector covariance in the camera frame"""
+    J = unit_vector_jacobian(rhat_C)
+    return J @ pixel_covar_xy(pixels, input_camera) @ J.T
 
-    return scale_factor * covar
 
-def mapComCovar(pixels, input_camera,norm_COB_vector, r_BdyZero_N, R_object, alpha,vehSunPntN, R_object_uncer, phi, position_covar):
-    """Secondary method to map the com covariance in pixel space to position"""
-
-    resX = input_camera.resolution[0]
-    resY = input_camera.resolution[1]
-    pX = 2. * np.tan(input_camera.fieldOfView[0] / 2.0)
-    pY = 2. * np.tan(input_camera.fieldOfView[1] / 2.0)
-    dX = resX / pX
-    dY = resY / pY
-    X = 1 / dX
-    Y = 1 / dY
-    ifov_x = input_camera.fieldOfView[0]/ (dX * pX)
-    ifov_y = input_camera.fieldOfView[1]/ (dY * pY)
-
-    scale_factor = np.sqrt(pixels / (4 * np.pi))
-
+def mapComCovar(pixels, input_camera, rhat_COM_C, r_BdyZero_N, R_object, alpha, vehSunPntN, R_object_uncer, phi,
+                position_covar, tanBeta):
+    """COM unit-vector covariance in the camera frame: pixel noise plus the phase-angle offset"""
     position = r_BdyZero_N
     constants_deltaR = (4*R_object/
                                 (3*np.pi*np.linalg.norm(position))*(1 - np.cos(alpha))
@@ -89,35 +89,13 @@ def mapComCovar(pixels, input_camera,norm_COB_vector, r_BdyZero_N, R_object, alp
     total_deltaBinary_partials = np.dot(np.dot(deltaBinary_r, position_covar), deltaBinary_r.T)
     sigma_beta_squared  = total_deltaBinary_partials + np.dot(deltaBinary_delta_R **2, R_object_uncer ** 2)
 
-    # Mirrors CobConverterAlgorithm::computeCameraFrameUncertainty: sigma_beta_squared is the
-    # variance of a 1-D scalar magnitude along the sun-direction (cos(phi), sin(phi)) in the
-    # image plane. Rotating that 1-D angular variance into image x/y axes via the similarity
-    # transform R(phi) @ diag(sigma_beta_squared, 0) @ R(phi).T gives cos(phi)**2/sin(phi)**2 on
-    # the diagonal plus a cos(phi)*sin(phi) off-diagonal cross term. Converting angular units
-    # (rad**2) to normalized image-plane units takes two separate conversions: angle -> pixels
-    # via ifov_x/ifov_y (rad/px, an average-scale approximation), then pixels -> normalized
-    # image-plane coordinates via X/Y (the exact, tan-based per-axis pixel scale used for the
-    # baseline term below) -- these are not interchangeable (X/ifov_x deviates from 1 by ~26% at
-    # the wide end of the supported FOV range), so both steps are applied via the diagonal
-    # congruence transform D @ (...) @ D with D = diag(X/ifov_x, Y/ifov_y). Both a similarity
-    # transform of a non-negative diagonal and a congruence transform preserve PSD-ness, and
-    # adding the baseline COB pixel-noise diagonal (X**2, Y**2) keeps the sum PSD.
-    cos_phi = np.cos(phi)
-    sin_phi = np.sin(phi)
-    direction_x = X / ifov_x
-    direction_y = Y / ifov_y
-    correction_xx = sigma_beta_squared * direction_x ** 2 * cos_phi ** 2
-    correction_yy = sigma_beta_squared * direction_y ** 2 * sin_phi ** 2
-    correction_xy = sigma_beta_squared * direction_x * direction_y * cos_phi * sin_phi
+    # Variance of tan(beta) along the sun direction, added to the pixel noise
+    phase_var = sigma_beta_squared * (1. + tanBeta ** 2) ** 2
+    a = np.array([np.cos(phi), np.sin(phi)])
+    covar_xy = pixel_covar_xy(pixels, input_camera) + phase_var * np.outer(a, a)
 
-    covar_com = np.zeros([3, 3])
-    covar_com[0, 0] = X ** 2 + correction_xx
-    covar_com[1, 1] = Y ** 2 + correction_yy
-    covar_com[0, 1] = correction_xy
-    covar_com[1, 0] = correction_xy
-    covar_com[2, 2] = 1
-
-    return scale_factor * covar_com
+    J = unit_vector_jacobian(rhat_COM_C)
+    return J @ covar_xy @ J.T
 
 
 def compute_camera_calibration_matrix(input_camera):
@@ -138,17 +116,11 @@ def compute_camera_calibration_matrix(input_camera):
     return K
 
 
-def phase_angle_correction(alpha, method):
+def phase_angle_correction(alpha):
     """Secondary method to compute the phase angle correction for COB/COM offset"""
-    if method == binary:
-        gamma = 4 / (3 * np.pi) * (1 - np.cos(alpha))
-    else:
-        gamma = 0.0
-
-    return gamma
+    return 4 / (3 * np.pi) * (1 - np.cos(alpha))
 
 
-@pytest.mark.parametrize("method", [noCorr, binary])
 @pytest.mark.parametrize("distance", [500e3, 5000e3, 50000e3])
 @pytest.mark.parametrize("cameraResolution, centerOfBrightness, numberOfPixels, sunDirection",
                          [([512, 512], [152, 251], 75, [-1., -1., 0.]),
@@ -159,13 +131,13 @@ def phase_angle_correction(alpha, method):
                           ([875, 987], [321, 191], 375, [1., 0.5, 0.3])
                           ])
 def test_cob_converter(show_plots, cameraResolution, centerOfBrightness, numberOfPixels,
-                       sunDirection, distance,  method):
+                       sunDirection, distance):
     cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness, numberOfPixels,
-                                sunDirection, distance, method)
+                                sunDirection, distance)
 
 
 def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness, numberOfPixels,
-                                sunDirection, distance, method):
+                                sunDirection, distance):
     unitTaskName = "unitTask"
     unitProcessName = "TestProcess"
     unitTestSim = SimulationBaseClass.SimBaseClass()
@@ -178,7 +150,6 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     att_sigma = 0.001
     covar_att_B = np.diag([att_sigma**2, (0.9*att_sigma)**2, (0.95*att_sigma)**2])
     module = cobConverter.CobConverter()
-    module.phaseAngleCorrectionMethod = method
     module.radius = R_object
     module.radiusUncertainty = R_object_uncer
     module.attitudeCovariance = covar_att_B
@@ -221,7 +192,6 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
-    inputSun = messaging.NavAttMsgF32Payload()
 
     inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
@@ -245,18 +215,16 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.opnavFilterInMsg.subscribeTo(filterInMsg)
     vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))  # unit vector from SC to Sun
 
-    # Set body attitude relative to inertial
+    # Set body attitude relative to inertial and the Sun direction in the body frame; both travel in
+    # the same nav message, as navAggregate publishes them.
     inputAtt.sigma_BN = sigma_BN
+    inputAtt.vehSunPntBdy = dcm_BN @ vehSunPntN
     attInMsg = messaging.NavAttMsgF32().write(inputAtt)
     module.navAttInMsg.subscribeTo(attInMsg)
 
-    inputSun.vehSunPntBdy = dcm_BN @ vehSunPntN
-    sunInMsg = messaging.NavAttMsgF32().write(inputSun)
-    module.sunInMsg.subscribeTo(sunInMsg)
-
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLogUnitVec)
-    dataLogCOM = module.comCorrectionOutMsg.recorder()
+    dataLogCOM = module.cobConverterDiagnosticOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLogCOM)
 
     unitTestSim.InitializeSimulation()
@@ -283,64 +251,58 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
 
     # Center of Mass Message and Unit Vector
     alpha = np.arccos(np.dot(r_BdyZero_N.T / np.linalg.norm(r_BdyZero_N), vehSunPntN))  # phase angle
-    gamma = phase_angle_correction(alpha, method)  # COB/COM offset factor
+    gamma = phase_angle_correction(alpha)  # COB/COM offset factor
     shat_C = dcm_NC.T @ vehSunPntN
     phi = np.arctan2(shat_C[1], shat_C[0])  # sun direction in image plane
     K = compute_camera_calibration_matrix(inputCamera)
     dX = K[0, 0]
-    Rc = R_object * dX / np.linalg.norm(r_BdyZero_N)  # object radius in pixels
+    dY = K[1, 1]
+    tanBeta = R_object * gamma / np.linalg.norm(r_BdyZero_N)  # COB/COM angular offset
     com_true = [None] * 2  # COM location in image
-    com_true[0] = cob_true[0] - gamma * Rc * np.cos(phi) * goodPixels
-    com_true[1] = cob_true[1] - gamma * Rc * np.sin(phi) * goodPixels
+    com_true[0] = cob_true[0] - tanBeta * dX * np.cos(phi) * goodPixels
+    com_true[1] = cob_true[1] - tanBeta * dY * np.sin(phi) * goodPixels
     [rhat_COM_C_true, norm_COM_vector] = mapState(com_true, inputCamera)
 
 # Center of Brightness Unit Vector
     [rhat_COB_C_true, norm_COB_vector] = mapState(cob_true, inputCamera)
-    covar_COB_C_true = mapCovar(num_pixels, inputCamera, norm_COB_vector)
-    covar_COM_C_true = mapComCovar(num_pixels, inputCamera,norm_COB_vector,r_BdyZero_N, R_object, alpha,vehSunPntN, R_object_uncer, phi,position_covar)
+    covar_pixel_C_true = mapCovar(num_pixels, inputCamera, rhat_COM_C_true)
+    covar_COM_C_true = mapComCovar(num_pixels, inputCamera, rhat_COM_C_true, r_BdyZero_N, R_object, alpha, vehSunPntN,
+                                   R_object_uncer, phi, position_covar, tanBeta)
     rhat_COB_N_true = np.dot(dcm_NC, rhat_COB_C_true) * goodPixels  # multiple by validity to get zero vector if bad
     timeTag_true_ns = inputCob.timeTag * goodPixels
     timeTag_true = timeTag_true_ns * macros.NANO2SEC
 
-    covar_COB_B_true = np.dot(dcm_CB.T, np.dot(covar_COB_C_true, dcm_CB))
-    covar_COM_B_true = np.dot(dcm_CB.T, np.dot(covar_COM_C_true, dcm_CB))
+    # Attitude error-MRP covariance mapped onto the COM unit vector
+    rhat_COM_B_true = dcm_CB.T @ rhat_COM_C_true
+    covar_att_N = 16. * dcm_BN.T @ skew(rhat_COM_B_true) @ covar_att_B @ skew(rhat_COM_B_true).T @ dcm_BN
 
-    if method == binary:
-        covar_B_true = covar_att_B + covar_COM_B_true
-    else:
-        covar_B_true = covar_att_B + covar_COB_B_true
-
-    covar_N_true = np.dot(dcm_BN.T, np.dot(covar_B_true, dcm_BN)).flatten() * goodPixels
+    covar_N_true = (dcm_NC @ covar_COM_C_true @ dcm_NC.T + covar_att_N).flatten() * goodPixels
 
     # Center of Mass Message and Unit Vector. comValid mirrors
-    # CobConverterAlgorithm::updateState: valid whenever the resulting COM pixel location is
-    # finite, regardless of phaseAngleCorrectionMethod (NoCorrection just means COM == COB).
+    # CobConverterAlgorithm::updateState: valid whenever the resulting COM pixel location is finite.
     valid_COM_true = bool(goodPixels)
-    if goodPixels and method == binary:
+    if goodPixels:
         rhat_COM_N_true = np.dot(dcm_NC, rhat_COM_C_true)
     else:
         rhat_COM_N_true = rhat_COB_N_true
 
     # module output
     com = dataLogCOM.centerOfMass[0]
-    time_COM = dataLogCOM.timeTag[0]
-    valid_COM = dataLogCOM.valid[0]
+    time_COM = dataLogCOM.comTimeTag[0]
+    valid_COM = dataLogCOM.comValid[0]
     rhat_COM_N = dataLogUnitVec.rhat_BN_N[0]
     covar_N = dataLogUnitVec.covar_N[0]
 
     # make sure module output data is correct
     tolerance = 1e-6  #atol=1e-9 due to floating point precision limits
-    np.testing.assert_((np.linalg.norm(covar_COM_C_true) + tolerance >= np.linalg.norm(covar_COB_C_true)), "Some elements in A are less than in B")
+    np.testing.assert_((np.linalg.norm(covar_COM_C_true) + tolerance >= np.linalg.norm(covar_pixel_C_true)), "Some elements in A are less than in B")
 
 
-    # covar_N spans ~16 orders of magnitude (dominated by filterVehPositionCovariance),
-    # and sigma_BN/vehSunPntBdy are now float32, so large entries carry ~1e-7 relative
-    # float error that a pure atol check can't absorb. Add rtol for the large entries;
-    # atol still covers the near-zero ones.
+    # covar_N entries are ~1e-6 and up [rad^2]; rtol covers fp32 error on large entries, atol the near-zero ones.
     np.testing.assert_allclose(covar_N,
                                covar_N_true,
                                rtol=1e-5,
-                               atol=tolerance,
+                               atol=1e-9,
                                err_msg='Variable: covar_N',
                                verbose=True)
     np.testing.assert_allclose(com,
@@ -372,8 +334,7 @@ def test_coberror_outlier(
         centerOfBrightness=[152, 251],
         numberOfPixels=75,
         sunDirection=[-1.0, -1.0, 0.0],
-        distance=36e6,
-        method=binary):
+        distance=36e6):
     unitTaskName = "unitTask"
     unitProcessName = "TestProcess"
     unitTestSim = SimulationBaseClass.SimBaseClass()
@@ -386,7 +347,6 @@ def test_coberror_outlier(
     att_sigma = 0.001
     covar_att_B = np.diag([att_sigma**2, (0.9*att_sigma)**2, (0.95*att_sigma)**2])
     module = cobConverter.CobConverter()
-    module.phaseAngleCorrectionMethod = method
     module.radius = R_object
     module.radiusUncertainty = R_object_uncer
     module.attitudeCovariance = covar_att_B
@@ -426,7 +386,6 @@ def test_coberror_outlier(
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
-    inputSun = messaging.NavAttMsgF32Payload()
 
     inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
@@ -449,19 +408,15 @@ def test_coberror_outlier(
     module.opnavFilterInMsg.subscribeTo(filterInMsg)
     vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))  # unit vector from SC to Sun
 
-    # Set body attitude relative to inertial
+    # Set body attitude relative to inertial and the Sun direction in the body frame; both travel in
+    # the same nav message, as navAggregate publishes them.
     inputAtt.sigma_BN = sigma_BN
+    inputAtt.vehSunPntBdy = dcm_BN @ vehSunPntN
     attInMsg = messaging.NavAttMsgF32().write(inputAtt)
     module.navAttInMsg.subscribeTo(attInMsg)
 
-    inputSun.vehSunPntBdy = dcm_BN @ vehSunPntN
-    sunInMsg = messaging.NavAttMsgF32().write(inputSun)
-    module.sunInMsg.subscribeTo(sunInMsg)
-
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLogUnitVec)
-    dataLogCOM = module.comCorrectionOutMsg.recorder()
-    unitTestSim.AddModelToTask(unitTaskName, dataLogCOM)
     dataDiagnostic = module.cobConverterDiagnosticOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataDiagnostic)
 
@@ -469,13 +424,13 @@ def test_coberror_outlier(
     unitTestSim.InitializeSimulation()
     unitTestSim.ConfigureStopTime(testProcessRate)
     unitTestSim.ExecuteSimulation()
-    np.testing.assert_equal(dataDiagnostic.coberrorOutlierTrigger, False, err_msg='coberrorOutlierTrigger should be False')
+    np.testing.assert_equal(dataDiagnostic.comErrorOutlierTrigger, False, err_msg='comErrorOutlierTrigger should be False')
 
     module.numStandardDeviations = 0.01
     unitTestSim.InitializeSimulation()
     unitTestSim.ConfigureStopTime(testProcessRate)
     unitTestSim.ExecuteSimulation()
-    np.testing.assert_equal(dataDiagnostic.coberrorOutlierTrigger, True, err_msg='coberrorOutlierTrigger should be True')
+    np.testing.assert_equal(dataDiagnostic.comErrorOutlierTrigger, True, err_msg='comErrorOutlierTrigger should be True')
 
 
 def apply_brown_conrady(uncalibrated, k1, k2, k3, p1, p2):
@@ -493,12 +448,22 @@ def apply_brown_conrady(uncalibrated, k1, k2, k3, p1, p2):
     return out
 
 
+def opencv_undistort_normalized(x_distorted, y_distorted, k1, k2, k3, p1, p2):
+    """Undistort a normalized image-plane coordinate with cv2.undistortPointsIter (identity K)."""
+    # OpenCV coefficient order is (k1, k2, p1, p2, k3); tight criteria makes the result effectively exact.
+    dist_coeffs = np.array([k1, k2, p1, p2, k3])
+    criteria = (cv2.TERM_CRITERIA_COUNT | cv2.TERM_CRITERIA_EPS, 100, 1e-12)
+    src = np.array([[[x_distorted, y_distorted]]], dtype=np.float64)
+    return cv2.undistortPointsIter(src, np.eye(3), dist_coeffs, None, None, criteria).reshape(2)
+
+
 def map_state_with_calibration(state, input_camera, k1, k2, k3, p1, p2):
-    """Mirror of mapState that also applies Brown-Conrady distortion."""
+    """Mirror of mapState that also removes Brown-Conrady distortion (OpenCV reference)."""
     K = compute_camera_calibration_matrix(input_camera)
     Kinv = np.linalg.inv(K)
     raw = Kinv @ np.array([state[0], state[1], 1])
-    cal = apply_brown_conrady(raw, k1, k2, k3, p1, p2)
+    xu, yu = opencv_undistort_normalized(raw[0], raw[1], k1, k2, k3, p1, p2)
+    cal = np.array([xu, yu, 1.0])
     rhat_BN_C = -cal / np.linalg.norm(cal)
     return rhat_BN_C
 
@@ -532,10 +497,10 @@ def test_brown_conrady_polynomial_monotonicity(k1, k2, k3, label):
     (-0.5, -1.0, -2.0, 0.2, -0.1, "combined"),
 ])
 @pytest.mark.parametrize("centerOfBrightness", [[152, 251], [400, 350], [256, 256]])
+@pytest.mark.skipif(cv2 is None, reason="OpenCV not installed")
 def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness):
     """Verify that the Brown-Conrady coefficients are wired into the COB unit-vector pipeline.
-    Uses the no-correction phase-angle method so COM == COB and the unit-vector output is
-    purely the distortion-corrected, normalized image-plane vector."""
+    Asserts on the diagnostic COB heading, which is unaffected by the phase-angle correction."""
     cameraResolution = [512, 512]
     numberOfPixels = 75
     sunDirection = [-1.0, -1.0, 0.0]
@@ -551,7 +516,6 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
 
     R_object = 25.0 * 1e3
     module = cobConverter.CobConverter()
-    module.phaseAngleCorrectionMethod = noCorr
     module.radius = R_object
     module.attitudeCovariance = np.zeros((3, 3))
     module.fieldOfViewX = np.deg2rad(20.0)
@@ -593,7 +557,6 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     inputCob = messaging.OpNavCOBMsgF32Payload()
     inputFilter = messaging.FilterMsgF32Payload()
     inputAtt = messaging.NavAttMsgF32Payload()
-    inputSun = messaging.NavAttMsgF32Payload()
 
     inputCamera.fieldOfView = [module.fieldOfViewX, module.fieldOfViewY]
     inputCamera.resolution = cameraResolution
@@ -615,15 +578,14 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
 
     vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))
     inputAtt.sigma_BN = sigma_BN
+    inputAtt.vehSunPntBdy = dcm_BN @ vehSunPntN
     attInMsg = messaging.NavAttMsgF32().write(inputAtt)
     module.navAttInMsg.subscribeTo(attInMsg)
 
-    inputSun.vehSunPntBdy = dcm_BN @ vehSunPntN
-    sunInMsg = messaging.NavAttMsgF32().write(inputSun)
-    module.sunInMsg.subscribeTo(sunInMsg)
-
     dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLogUnitVec)
+    dataDiagnostic = module.cobConverterDiagnosticOutMsg.recorder()
+    unitTestSim.AddModelToTask(unitTaskName, dataDiagnostic)
 
     unitTestSim.InitializeSimulation()
     unitTestSim.ConfigureStopTime(testProcessRate)
@@ -632,34 +594,73 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     rhat_COB_C_true = map_state_with_calibration(centerOfBrightness, inputCamera, k1, k2, k3, p1, p2)
     dcm_NC = dcm_BN.T @ dcm_CB.T
     rhat_COB_N_true = dcm_NC @ rhat_COB_C_true
+    rhat_COB_B_true = dcm_CB.T @ rhat_COB_C_true
 
-    rhat_COM_C_out = dataLogUnitVec.rhat_BN_C[0]
-    rhat_COM_N_out = dataLogUnitVec.rhat_BN_N[0]
+    # The output message carries the phase-angle-corrected COM, which is offset from the COB.
+    rhat_COB_C_out = dataDiagnostic.rhat_COB_C[0]
+    rhat_COB_N_out = dataDiagnostic.rhat_COB_N[0]
+    rhat_COB_B_out = dataDiagnostic.rhat_COB_B[0]
 
     tolerance = 1e-6
-    np.testing.assert_allclose(rhat_COM_C_out, rhat_COB_C_true, rtol=0, atol=tolerance,
-                               err_msg=f"rhat_BN_C ({label})")
-    np.testing.assert_allclose(rhat_COM_N_out, rhat_COB_N_true, rtol=0, atol=tolerance,
-                               err_msg=f"rhat_BN_N ({label})")
+    np.testing.assert_allclose(rhat_COB_C_out, rhat_COB_C_true, rtol=0, atol=tolerance,
+                               err_msg=f"rhat_COB_C ({label})")
+    np.testing.assert_allclose(rhat_COB_N_out, rhat_COB_N_true, rtol=0, atol=tolerance,
+                               err_msg=f"rhat_COB_N ({label})")
+    np.testing.assert_allclose(rhat_COB_B_out, rhat_COB_B_true, rtol=0, atol=tolerance,
+                               err_msg=f"rhat_COB_B ({label})")
 
-    # For a non-centered COB, barrel and pincushion should push the calibrated radius in opposite
-    # directions relative to the identity case. Skip this check when the COB happens to land at
-    # the principal point (no radial term).
+    # These in-image points converge for every coefficient set, so both solver flags reach the message as True.
+    np.testing.assert_equal(dataDiagnostic.brownConradyCOMValid[0], True, err_msg=f"brownConradyCOMValid ({label})")
+    np.testing.assert_equal(dataDiagnostic.brownConradyCOBValid[0], True, err_msg=f"brownConradyCOBValid ({label})")
+
+    # For a non-centered COB, removing barrel and pincushion distortion should push the undistorted
+    # radius in opposite directions relative to the identity case. Skip this check when the COB
+    # happens to land at the principal point (no radial term).
     radius_pixels = np.linalg.norm(np.array(centerOfBrightness) - np.array(cameraResolution) / 2.0)
     if label in ("barrel", "pincushion") and radius_pixels > 0.0:
         rhat_identity = map_state_with_calibration(centerOfBrightness, inputCamera, 0, 0, 0, 0, 0)
-        # In the camera frame, +z is the boresight; bigger radial distortion -> larger |x|, |y|.
+        # In the camera frame, +z is the boresight. Barrel compresses the image, so undoing it
+        # increases |x|, |y|; undoing pincushion decreases them.
         radial_identity = np.hypot(rhat_identity[0], rhat_identity[1])
-        radial_distorted = np.hypot(rhat_COM_C_out[0], rhat_COM_C_out[1])
+        radial_distorted = np.hypot(rhat_COB_C_out[0], rhat_COB_C_out[1])
         if label == "barrel":
-            assert radial_distorted < radial_identity, (
-                f"Barrel distortion should reduce the off-axis component "
-                f"({radial_distorted} >= {radial_identity})")
-        else:
             assert radial_distorted > radial_identity, (
-                f"Pincushion distortion should increase the off-axis component "
+                f"Removing barrel distortion should increase the off-axis component "
                 f"({radial_distorted} <= {radial_identity})")
+        else:
+            assert radial_distorted < radial_identity, (
+                f"Removing pincushion distortion should reduce the off-axis component "
+                f"({radial_distorted} >= {radial_identity})")
+
+
+@pytest.mark.skipif(cv2 is None, reason="OpenCV not installed")
+@pytest.mark.parametrize("k1, k2, k3, p1, p2, label", [
+    (0.0, 0.0, 0.0, 0.0, 0.0, "identity"),
+    (-1.0, -2.0, -5.0, 0.0, 0.0, "barrel"),
+    (1.0, 2.0, 5.0, 0.0, 0.0, "pincushion"),
+    (0.0, 0.0, 0.0, 0.5, 0.3, "tangential"),
+    (-0.5, -1.0, -2.0, 0.2, -0.1, "combined"),
+    (-0.3, 0.1, -0.02, 1e-3, -5e-4, "realistic"),
+])
+@pytest.mark.parametrize("xDistorted, yDistorted", [
+    (0.0, 0.0), (0.05, -0.08), (0.12, 0.12), (-0.17, 0.05), (0.2, -0.15),
+])
+def test_undistort_normalized_coordinate_vs_opencv(k1, k2, k3, p1, p2, label, xDistorted, yDistorted):
+    """Compare the fixed-point Brown-Conrady inverse against cv2.undistortPointsIter."""
+    coefficients = cobConverter.CalibrationCoefficients()
+    coefficients.k1 = k1
+    coefficients.k2 = k2
+    coefficients.k3 = k3
+    coefficients.p1 = p1
+    coefficients.p2 = p2
+    result = cobConverter.CobConverterAlgorithm.undistortNormalizedCoordinate(xDistorted, yDistorted, coefficients)
+
+    expected = opencv_undistort_normalized(xDistorted, yDistorted, k1, k2, k3, p1, p2)
+
+    assert result.valid, f"{label}: solver did not converge"
+    np.testing.assert_allclose([result.xUndistorted, result.yUndistorted], expected, rtol=0, atol=1e-5,
+                               err_msg=f"{label}: undistortNormalizedCoordinate vs OpenCV")
 
 
 if __name__ == '__main__':
-    test_cob_converter(False, [512, 512], [152, 251], 75, [-1.0, -1.0, 0.0], 36e6, binary)
+    test_cob_converter(False, [512, 512], [152, 251], 75, [-1.0, -1.0, 0.0], 36e6)
