@@ -21,13 +21,20 @@ namespace average_rw_speed_detail {
 // precomputed so the per-sample staleness check stays in integer math.
 constexpr double kRwSpeedSampleRateHz = 5.0;
 
-// Compile-time cap on the configured averaging window. Ring capacity is
-// sized to hold exactly this many seconds of samples at the RW speed rate.
+// Compile-time cap on the configured averaging window. The ring holds every
+// sample of a window this long at the RW speed rate.
 constexpr float kMaxAveragingWindowSec = 2.0F;
 
-// Ring capacity based on the sample rate and the window size
-// @todo Do we need to make sure this product is a size_t?
-constexpr std::size_t kRingCapacity = kRwSpeedSampleRateHz * kMaxAveragingWindowSec;
+// Number of samples a window of windowSec spans at rateHz. The product is rounded up, and one
+// sample is added because the window includes both of its ends.
+constexpr std::size_t ringCapacityFor(double rateHz, float windowSec) {
+    const double samples = rateHz * static_cast<double>(windowSec);
+    const auto wholeSamples = static_cast<std::size_t>(samples);
+    const std::size_t roundedUp = (static_cast<double>(wholeSamples) < samples) ? wholeSamples + 1U : wholeSamples;
+    return roundedUp + 1U;
+}
+
+constexpr std::size_t kRingCapacity = ringCapacityFor(kRwSpeedSampleRateHz, kMaxAveragingWindowSec);
 }  // namespace average_rw_speed_detail
 
 /*! @brief Validated configuration for AverageRwSpeedDataAlgorithm. Constructed via create(), which

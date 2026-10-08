@@ -167,3 +167,41 @@ TEST(averageRwSpeedDataTest, WindowGrowMidStream) {
     alg.setConfig(AverageRwSpeedDataConfig::create(/* rwSpeedAveragingWindow = */ 1.0F));
     EXPECT_EQ(alg.update(RwSpeedSample{}), meanOf({/* base = */ 1.0F, /* base = */ 3.0F}));
 }
+
+TEST(averageRwSpeedDataTest, RingCapacity) {
+    using average_rw_speed_detail::ringCapacityFor;
+
+    // 5 Hz over 2 s: samples at 0, 0.2, ..., 2.0 s.
+    EXPECT_EQ(ringCapacityFor(/* rateHz = */ 5.0, /* windowSec = */ 2.0F), 11U);
+    // 5 Hz over 2.1 s is 10.5 sample periods, which rounds up to 11.
+    EXPECT_EQ(ringCapacityFor(/* rateHz = */ 5.0, /* windowSec = */ 2.1F), 12U);
+    EXPECT_EQ(ringCapacityFor(/* rateHz = */ 5.0, /* windowSec = */ 2.01F), 12U);
+
+    EXPECT_EQ(AverageRwSpeedDataAlgorithm::kRingCapacity,
+              ringCapacityFor(average_rw_speed_detail::kRwSpeedSampleRateHz,
+                              AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec));
+}
+
+TEST(averageRwSpeedDataTest, MaxWindowAtSampleRateFitsInRing) {
+    // A maximum window at the nominal sample rate keeps every sample, including the one at the window edge.
+    AverageRwSpeedDataAlgorithm alg(
+        AverageRwSpeedDataConfig::create(AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec));
+    const auto periodNs = static_cast<std::uint64_t>(1.0e9 / average_rw_speed_detail::kRwSpeedSampleRateHz);
+    const auto samplesInWindow = static_cast<std::size_t>(
+        (AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec * average_rw_speed_detail::kRwSpeedSampleRateHz) + 1.0);
+
+    std::array<float, kMaxNumRw> sum{};
+    std::array<float, kMaxNumRw> out{};
+    for (std::size_t i = 0; i < samplesInWindow; ++i) {
+        const auto base = 10.0F * static_cast<float>(i);
+        out = alg.update(makeSample(kT0 + (i * periodNs), base));
+        const auto speeds = speedsFor(base);
+        for (std::size_t w = 0; w < kMaxNumRw; ++w) {
+            sum[w] += speeds[w];
+        }
+    }
+    for (auto& value : sum) {
+        value /= static_cast<float>(samplesInWindow);
+    }
+    EXPECT_EQ(out, sum);
+}
