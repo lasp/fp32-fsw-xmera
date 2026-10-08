@@ -44,13 +44,13 @@ class AverageRwSpeedDataConfig final {
     static AverageRwSpeedDataConfig create(float rwSpeedAveragingWindow) {
         if (!isValidRwSpeedAveragingWindow(rwSpeedAveragingWindow)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "averageRwSpeedData: rwSpeedAveragingWindow must be in [0, kMaxAveragingWindowSec] seconds");
+                "averageRwSpeedData: rwSpeedAveragingWindow must be in (0, kMaxAveragingWindowSec] seconds");
         }
         return {rwSpeedAveragingWindow};
     }
 
     static bool isValidRwSpeedAveragingWindow(const float window) {
-        return window >= 0.0F && window <= average_rw_speed_detail::kMaxAveragingWindowSec;
+        return window > 0.0F && window <= average_rw_speed_detail::kMaxAveragingWindowSec;
     }
 
     float getRwSpeedAveragingWindow() const { return this->rwSpeedAveragingWindow; }

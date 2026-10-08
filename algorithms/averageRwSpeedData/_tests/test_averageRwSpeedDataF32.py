@@ -83,7 +83,7 @@ def test_average_rw_speed_data_requires_input_message():
         unit_test_sim.InitializeSimulation()
 
 
-@pytest.mark.parametrize("window_sec", [-0.1, _MAX_AVERAGING_WINDOW_SEC + 0.01])
+@pytest.mark.parametrize("window_sec", [-0.1, 0.0, _MAX_AVERAGING_WINDOW_SEC + 0.01])
 def test_average_rw_speed_data_rejects_invalid_window(window_sec):
     """reset() rejects an averaging window outside the accepted range."""
     with pytest.raises(RuntimeError, match="rwSpeedAveragingWindow"):

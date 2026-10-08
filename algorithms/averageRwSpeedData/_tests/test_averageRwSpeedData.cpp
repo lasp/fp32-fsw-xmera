@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <initializer_list>
+#include <limits>
 
 namespace {
 constexpr std::uint64_t kMsToNs = 1'000'000U;
@@ -29,6 +30,10 @@ TEST(averageRwSpeedDataTest, SetupTest) {
     constexpr float kMax = AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec;
 
     EXPECT_THROW((void)AverageRwSpeedDataConfig::create(/* rwSpeedAveragingWindow = */ -0.1F), fsw::invalid_argument);
+    EXPECT_THROW((void)AverageRwSpeedDataConfig::create(/* rwSpeedAveragingWindow = */ 0.0F), fsw::invalid_argument);
+    EXPECT_NO_THROW((void)AverageRwSpeedDataConfig::create(std::numeric_limits<float>::denorm_min()));
+    EXPECT_THROW((void)AverageRwSpeedDataConfig::create(std::numeric_limits<float>::quiet_NaN()),
+                 fsw::invalid_argument);
     EXPECT_NO_THROW((void)AverageRwSpeedDataConfig::create(/* rwSpeedAveragingWindow = */ 0.5F));
     EXPECT_NO_THROW((void)AverageRwSpeedDataConfig::create(kMax));
     EXPECT_THROW((void)AverageRwSpeedDataConfig::create(kMax + 0.001F), fsw::invalid_argument);
