@@ -34,7 +34,7 @@ class ReferenceAverager {
         std::array<float, kMaxNumRw> sum{};
         std::uint64_t count = 0U;
         for (auto const& slot : this->ring) {
-            if (maxTimeTag - slot.measTime <= windowNs) {
+            if (slot.measTime != 0U && maxTimeTag - slot.measTime <= windowNs) {
                 for (std::size_t w = 0; w < kMaxNumRw; ++w) {
                     sum[w] += slot.wheelSpeeds[w];
                 }

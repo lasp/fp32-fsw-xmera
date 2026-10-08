@@ -64,6 +64,15 @@ TEST(averageRwSpeedDataTest, NewSampleIngested) {
               meanOf({/* base = */ 1.0F, /* base = */ 3.0F}));
 }
 
+TEST(averageRwSpeedDataTest, UnwrittenSlotsNotAveraged) {
+    // The newest sample is closer to t = 0 than the window, so an empty slot would fall inside the window.
+    AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(/* rwSpeedAveragingWindow = */ 1.0F));
+
+    EXPECT_EQ(alg.update(makeSample(200U * kMsToNs, /* base = */ 1.0F)), speedsFor(/* base = */ 1.0F));
+    EXPECT_EQ(alg.update(makeSample(400U * kMsToNs, /* base = */ 3.0F)),
+              meanOf({/* base = */ 1.0F, /* base = */ 3.0F}));
+}
+
 TEST(averageRwSpeedDataTest, SampleOutsideWindowNotAveraged) {
     AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(/* rwSpeedAveragingWindow = */ 0.5F));
 

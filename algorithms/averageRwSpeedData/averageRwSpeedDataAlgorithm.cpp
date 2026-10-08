@@ -50,6 +50,10 @@ std::array<float, kMaxNumRw> AverageRwSpeedDataAlgorithm::update(RwSpeedSample c
     std::array<float, kMaxNumRw> rwSpeedSum{};
     uint64_t rwSpeedSampleCount = 0U;
     for (const auto& [measTime, wheelSpeeds] : this->ring) {
+        // A sample with measTime 0 is never ingested, so measTime 0 marks a slot not written yet.
+        if (measTime == 0U) {
+            continue;
+        }
         const uint64_t age = maxTimeTag - measTime;
         if (age <= this->rwSpeedAveragingWindowNs) {
             for (size_t wheelIdx = 0; const auto& wheelSpeed : wheelSpeeds) {
