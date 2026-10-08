@@ -15,10 +15,10 @@
 #include <memory>
 
 /*! @brief Top level structure for the sub-module routines. */
-class RwMotorTorque : public SysModel {
+class RwMotorTorque final : public SysModel {
    public:
     RwMotorTorque() = default;
-    ~RwMotorTorque() final = default;
+    ~RwMotorTorque() override = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;

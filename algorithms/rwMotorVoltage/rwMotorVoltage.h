@@ -14,10 +14,10 @@
 
 #include <Eigen/Core>
 
-class RwMotorVoltage : public SysModel {
+class RwMotorVoltage final : public SysModel {
    public:
     RwMotorVoltage(float minVoltageMagnitude, float maxVoltageMagnitude);
-    ~RwMotorVoltage() final = default;
+    ~RwMotorVoltage() override = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
