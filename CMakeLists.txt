@@ -118,6 +118,7 @@ set(algorithms
     "attTrackingError"
     "axisToGimbalAngles"
     "averageMimuData"
+    "averageRwSpeedData"
     "bodyRateMiscompare"
     "celestialTwoBodyPoint"
     "convertStPlatformToBody"
