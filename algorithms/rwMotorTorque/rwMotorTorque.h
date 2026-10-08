@@ -15,7 +15,7 @@
 #include <memory>
 
 /*! @brief Top level structure for the sub-module routines. */
-class RwMotorTorque : public SysModel {
+class RwMotorTorque final : public SysModel {
    public:
     RwMotorTorque() = default;
 

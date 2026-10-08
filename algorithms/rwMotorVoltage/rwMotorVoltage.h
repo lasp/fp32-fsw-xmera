@@ -14,7 +14,7 @@
 
 #include <Eigen/Core>
 
-class RwMotorVoltage : public SysModel {
+class RwMotorVoltage final : public SysModel {
    public:
     RwMotorVoltage(float minVoltageMagnitude, float maxVoltageMagnitude);
 
