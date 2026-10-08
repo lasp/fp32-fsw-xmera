@@ -3,7 +3,9 @@
 #include <fuzztest/fuzztest.h>
 #include <gtest/gtest.h>
 #include <array>
+#include <cmath>
 #include <cstddef>
+#include <limits>
 
 constexpr std::size_t kTestCoeffCount = 20;
 constexpr double doubleTolerance = 1e-15;
@@ -97,6 +99,9 @@ FUZZ_TEST(ChebyPropertyF32, fuzzChebyEvalAtMinusOneF32)
 //
 // Because every Chebyshev basis polynomial is bounded by 1 on [-1, 1], the
 // linear combination is bounded by the L1-norm of the coefficient vector.
+// A finite x outside [-1, 1] is clamped to the nearest limit, so the bound holds
+// there too; Property 6 checks the clamp. This property keeps x in [-1, 1] so
+// the in-domain points get dense coverage.
 // ---------------------------------------------------------------------------
 
 void fuzzChebyBoundedness(const std::array<double, kTestCoeffCount>& c, unsigned int n, double x) {
@@ -208,3 +213,67 @@ void fuzzChebyRecurrenceF32(unsigned int n, float x) {
 
 FUZZ_TEST(ChebyPropertyF32, fuzzChebyRecurrenceF32)
     .WithDomains(fuzztest::InRange(2u, static_cast<unsigned int>(kTestCoeffCount) - 1), fuzztest::InRange(-1.0f, 1.0f));
+
+// ---------------------------------------------------------------------------
+// Property 6 – Rail outside [-1, 1]
+//
+//   f(c, n, x) == f(c, n, sign(x))   for finite |x| ≥ 1
+//
+// A Chebyshev series is only a fit on [-1, 1]. A finite x outside it is clamped
+// to the nearest limit, so the result rails at the fit's endpoint value instead
+// of extrapolating. The clamped point is exactly ±1, so the two evaluations run
+// the same arithmetic and must agree bit for bit, for any coefficients and any
+// |x| up to the largest finite value.
+// ---------------------------------------------------------------------------
+
+void fuzzChebyOutOfDomainRails(const std::array<double, kTestCoeffCount>& c, unsigned int n, double x) {
+    const double endpoint = (x > 0.0) ? 1.0 : -1.0;
+    EXPECT_EQ(calculateChebyValue(c, n, x), calculateChebyValue(c, n, endpoint));
+}
+
+FUZZ_TEST(ChebyProperty, fuzzChebyOutOfDomainRails)
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e6, 1e6)),
+                 fuzztest::InRange(1u, static_cast<unsigned int>(kTestCoeffCount)),
+                 fuzztest::OneOf(fuzztest::InRange(-std::numeric_limits<double>::max(), -1.0),
+                                 fuzztest::InRange(1.0, std::numeric_limits<double>::max())));
+
+void fuzzChebyOutOfDomainRailsF32(const std::array<float, kTestCoeffCount>& c, unsigned int n, float x) {
+    const float endpoint = (x > 0.0f) ? 1.0f : -1.0f;
+    EXPECT_EQ(calculateChebyValue(c, n, x), calculateChebyValue(c, n, endpoint));
+}
+
+FUZZ_TEST(ChebyPropertyF32, fuzzChebyOutOfDomainRailsF32)
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e3f, 1e3f)),
+                 fuzztest::InRange(1u, static_cast<unsigned int>(kTestCoeffCount)),
+                 fuzztest::OneOf(fuzztest::InRange(-std::numeric_limits<float>::max(), -1.0f),
+                                 fuzztest::InRange(1.0f, std::numeric_limits<float>::max())));
+
+// ---------------------------------------------------------------------------
+// Property 7 – Count above capacity returns 0
+//
+//   f(c, n, x) == 0   for n > N
+//
+// The array capacity N bounds numberOfCoefficients. A larger count is a bad
+// input and returns 0 instead of reading past the array, for any coefficients
+// and any point in the domain.
+// ---------------------------------------------------------------------------
+
+void fuzzChebyCountAboveCapacity(const std::array<double, kTestCoeffCount>& c, unsigned int n, double x) {
+    EXPECT_EQ(calculateChebyValue(c, n, x), 0.0);
+}
+
+FUZZ_TEST(ChebyProperty, fuzzChebyCountAboveCapacity)
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e6, 1e6)),
+                 fuzztest::InRange(static_cast<unsigned int>(kTestCoeffCount) + 1U,
+                                   std::numeric_limits<unsigned int>::max()),
+                 fuzztest::InRange(-1.0, 1.0));
+
+void fuzzChebyCountAboveCapacityF32(const std::array<float, kTestCoeffCount>& c, unsigned int n, float x) {
+    EXPECT_EQ(calculateChebyValue(c, n, x), 0.0f);
+}
+
+FUZZ_TEST(ChebyPropertyF32, fuzzChebyCountAboveCapacityF32)
+    .WithDomains(fuzztest::ArrayOf<kTestCoeffCount>(fuzztest::InRange(-1e3f, 1e3f)),
+                 fuzztest::InRange(static_cast<unsigned int>(kTestCoeffCount) + 1U,
+                                   std::numeric_limits<unsigned int>::max()),
+                 fuzztest::InRange(-1.0f, 1.0f));

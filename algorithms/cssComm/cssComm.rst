@@ -65,6 +65,8 @@ Module Assumptions and Limitations
 - The module assumes each ``maxSensorValues`` entry is representative of that sensor's actual peak output. If a
   value is incorrect, the normalization and subsequent correction for that sensor will be inaccurate.
 - The Chebyshev correction is applied independently to each sensor. No cross-sensor coupling is modeled.
+- The Chebyshev coefficients must come from a fit over the normalized measurement in [-1, 1]. A reading above
+  that sensor's ``maxSensorValues`` entry (or below its negative) uses the correction at x = 1 (or x = -1).
 
 Initialization
 --------------
@@ -95,11 +97,12 @@ At every update cycle, the ``cssComm`` module performs the following steps for e
 
       x_{\text{meas}} = \frac{\text{raw}_i}{\text{maxSensorValues}_i}
 
-2. **Compute the Chebyshev correction** :math:`\delta x` using the pre-calibrated coefficients:
+2. **Compute the Chebyshev correction** :math:`\delta x` using the pre-calibrated coefficients. The Chebyshev
+   fit is only defined on [-1, 1], so the measurement is clamped to that domain before the series is evaluated:
 
    .. math::
 
-      \delta x = \sum_{j=0}^{N} C_j \, T_j(x_{\text{meas}})
+      \delta x = \sum_{j=0}^{N} C_j \, T_j\big(\text{clamp}(x_{\text{meas}},\; -1,\; 1)\big)
 
 3. **Apply the correction** to the normalized measurement:
 
@@ -134,10 +137,12 @@ form:
 
 .. math::
 
-   \delta x = \sum_{i=0}^{N} C_i \, T_i(x_{\text{meas}})
+   \delta x = \sum_{i=0}^{N} C_i \, T_i\big(\text{clamp}(x_{\text{meas}},\; -1,\; 1)\big)
 
 where :math:`T_i(x)` represents the Chebyshev polynomials, and
-:math:`C_i` are the pre-determined scaling factors.
+:math:`C_i` are the pre-determined scaling factors. Outside [-1, 1] the correction holds the fit's value at the
+nearest limit instead of extrapolating the polynomial, which grows rapidly there. Only the argument of the series
+is clamped; the correction is still added to the unclamped :math:`x_{\text{meas}}`.
 
 This correction to the raw measurement is then applied using:
 
