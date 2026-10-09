@@ -12,11 +12,7 @@ extern "C" {
  *
  * Numeric values must stay in lockstep with the C++ enum class in dvManeuverAlgorithm.h.
  */
-typedef enum {
-    DV_MANEUVER_BURN_STATE_PENDING_C = 0,
-    DV_MANEUVER_BURN_STATE_EXECUTING_C = 1,
-    DV_MANEUVER_BURN_STATE_COMPLETE_C = 2
-} DvManeuverBurnState_c;
+typedef enum { DV_MANEUVER_BURN_STATE_EXECUTING_C = 0, DV_MANEUVER_BURN_STATE_COMPLETE_C = 1 } DvManeuverBurnState_c;
 
 /**
  * @brief Plain-old-data mirror of the C++ DvManeuverOutput fields.

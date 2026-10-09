@@ -12,16 +12,15 @@ from xmera.utilities import macros
 dv_magnitude = [4.3, 5.0, 10.0]
 min_time = [0.0, 4.0]
 max_time = [3.0, 5.0]
-start_time = [0.0, 1.0]
 
-param_array = [dv_magnitude, min_time, max_time, start_time]
+param_array = [dv_magnitude, min_time, max_time]
 # exclude invalid min/max time configurations (maxTime must always be greater than minTime)
 param_list = [p for p in itertools.product(*param_array) if p[2] > p[1]]
 
 
 
-@pytest.mark.parametrize("p1_dv, p2_tmin, p3_tmax, p4_tstart", param_list)
-def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
+@pytest.mark.parametrize("p1_dv, p2_tmin, p3_tmax", param_list)
+def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax):
     r"""
     **Validation Test Description**
 
@@ -35,7 +34,6 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
         :param p1_dv: Delta-V magnitude
         :param p2_tmin: minimum time
         :param p3_tmax: maximum time
-        :param p4_tstart: burn start time
 
     **Description of Variables Being Tested**
 
@@ -67,7 +65,6 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     module.cmdForce_B = cmd_force_B
     cmd_dv_N = np.array([0.0, 0.0, p1_dv])  # [m/s] commanded Delta-V
     module.cmdDv_N = cmd_dv_N
-    module.burnStartTime = macros.sec2nano(p4_tstart)
 
     acceleration_N = np.array([0.0, 0.0, 2.0])  # acceleration of spacecraft due to thrusters
 
@@ -93,18 +90,14 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     burn_executing_true = np.zeros([num_time_steps], dtype=bool)
     burn_complete_true = np.zeros([num_time_steps], dtype=bool)
     for i in range(0, num_time_steps):
-        if update_rate * i > p4_tstart:
-            nav_trans_msg_data.vehAccumDV = acceleration_N * (update_rate * i - p4_tstart)
+        nav_trans_msg_data.vehAccumDV = acceleration_N * (update_rate * i)
         nav_trans_msg.write(nav_trans_msg_data, sim.TotalSim.getCurrentNanos())
 
         sim.ConfigureStopTime(i * test_process_rate)
         sim.ExecuteSimulation()
 
-        burn_time = update_rate * i - p4_tstart  # time since burn start at this update
-        if burn_time < 0.0:
-            burn_executing_true[i] = False
-            burn_complete_true[i] = False
-        elif (np.linalg.norm(nav_trans_msg_data.vehAccumDV) >= np.linalg.norm(cmd_dv_N)) and \
+        burn_time = update_rate * i  # the burn starts at the first update
+        if (np.linalg.norm(nav_trans_msg_data.vehAccumDV) >= np.linalg.norm(cmd_dv_N)) and \
                 (burn_time >= p2_tmin) or \
                 (burn_time >= p3_tmax):
             burn_executing_true[i] = False
@@ -120,11 +113,10 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
     burn_complete = burn_exec_data_log.burnComplete
 
     # compare the module results to the truth values
-    params_string = ' for DV={}, min time={}, max time={}, start time={}'.format(
+    params_string = ' for DV={}, min time={}, max time={}'.format(
         str(p1_dv),
         str(p2_tmin),
-        str(p3_tmax),
-        str(p4_tstart))
+        str(p3_tmax))
 
     np.testing.assert_allclose(cmd_force,
                                cmd_force_true,
@@ -149,4 +141,4 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax, p4_tstart):
 # stand-along python script
 #
 if __name__ == "__main__":
-    test_dv_maneuver(False, dv_magnitude[0], min_time[0], max_time[0], start_time[1])
+    test_dv_maneuver(False, dv_magnitude[0], min_time[0], max_time[0])
