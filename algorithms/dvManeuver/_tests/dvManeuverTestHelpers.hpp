@@ -13,7 +13,6 @@
 // the expected DvManeuverAlgorithm::update() semantics so any change to the production state
 // machine is caught by the regression comparison below.
 struct DvManeuverReferenceState {
-    Eigen::Vector3f dvInitial = Eigen::Vector3f::Zero();
     bool burnExecuting = false;
     bool burnComplete = false;
     uint64_t burnStartCallTime = 0U;
@@ -39,16 +38,14 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
 
     if ((!state.burnExecuting && callTime >= burnStartTime)) {
         state.burnExecuting = true;
-        state.dvInitial = dvAccumulated;
         state.burnStartCallTime = callTime;
         state.burnComplete = false;
     }
 
     if (state.burnExecuting) {
         const uint64_t burnTime = callTime - state.burnStartCallTime;
-        const Eigen::Vector3f burnAccum = dvAccumulated - state.dvInitial;
         const float dvMag = cmdDv_N.norm();
-        const float dvExecuteMag = burnAccum.norm();
+        const float dvExecuteMag = dvAccumulated.norm();
 
         state.burnComplete = state.burnComplete || dvExecuteMag >= dvMag;
         state.burnComplete = state.burnComplete && burnTime >= minTime;
@@ -62,8 +59,8 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
 
 // ---------------------------------------------------------------------------
 // Regression test helper: drive the algorithm through a burn scenario and compare to the reference
-// implementation at every step. The spacecraft accumulates delta-V under a constant acceleration
-// starting at burnStartTime, exactly as the Python validation test models it.
+// implementation at every step. The spacecraft accumulates delta-V under a constant acceleration from the update
+// at which the burn starts, as it would after the flight software resets dvAccumulation at burn start.
 // ---------------------------------------------------------------------------
 inline void regressionTestDvManeuver(uint64_t minTime,
                                      uint64_t maxTime,
@@ -76,14 +73,19 @@ inline void regressionTestDvManeuver(uint64_t minTime,
     const auto config = DvManeuverConfig::create(minTime, maxTime, cmdForce_B, cmdDv_N, burnStartTime);
     DvManeuverAlgorithm alg{config};
     DvManeuverReferenceState refState{};
+    bool started = false;
+    uint64_t startCallTime = 0U;
 
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
+        if (!started && callTime >= burnStartTime) {
+            started = true;
+            startCallTime = callTime;
+        }
 
         Eigen::Vector3f dvAccumulated = Eigen::Vector3f::Zero();
-        if (callTime > burnStartTime) {
-            const float elapsed = static_cast<float>(callTime - burnStartTime) * 1e-9F;
-            dvAccumulated = acceleration * elapsed;
+        if (started) {
+            dvAccumulated = acceleration * (static_cast<float>(callTime - startCallTime) * 1e-9F);
         }
 
         DvManeuverOutput algOut{};
@@ -146,8 +148,8 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
         }
 
         Eigen::Vector3f dvAccumulated = Eigen::Vector3f::Zero();
-        if (callTime > burnStartTime) {
-            dvAccumulated = acceleration * (static_cast<float>(callTime - burnStartTime) * 1e-9F);
+        if (started) {
+            dvAccumulated = acceleration * (static_cast<float>(callTime - startCallTime) * 1e-9F);
         }
 
         DvManeuverOutput out{};

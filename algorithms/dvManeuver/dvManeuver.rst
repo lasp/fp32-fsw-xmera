@@ -2,10 +2,10 @@ Executive Summary
 -----------------
 
 The ``dvManeuver`` module controls a Delta-V maneuver. It monitors the Delta-V that the spacecraft accumulates
-during the current burn, and it writes a body force command. At burn start, the module latches the accumulated
-Delta-V from the :ref:`NavTransMsgF32Payload` message. It then compares the magnitude of the Delta-V that accumulates
-after that point with the magnitude of the configured ``cmdDv_N``. The burn starts at the configured
-``burnStartTime``. The minimum and maximum burn-time gates also control when the burn completes.
+during the current burn, and it writes a body force command. The module compares the magnitude of the
+accumulated Delta-V from the :ref:`NavTransMsgF32Payload` message with the magnitude of the configured ``cmdDv_N``.
+The burn starts at the configured ``burnStartTime``. The minimum and maximum burn-time gates also control when the
+burn completes.
 
 The module writes the body force command at each update. While the burn executes, the command is equal to the
 configured ``cmdForce_B``. Before the burn starts and after the burn completes, the command is zero. A downstream
@@ -115,13 +115,11 @@ The state machine has three states: pending, executing, and complete. The burn s
 ``reInitialize()`` moves the burn out of the complete state.
 
 **Burn start.** The burn moves from pending to executing on the first call at or after the start time. At that
-instant the module latches the accumulated Delta-V as the burn's initial value :math:`\boldsymbol{v}_{\text{init}}`,
-and the call time as :math:`t_0`:
+instant the module latches the call time as :math:`t_0`:
 
 .. math::
 
-   \text{if } t \ge t_{\text{start}}: \quad \boldsymbol{v}_{\text{init}} \leftarrow \boldsymbol{v}_{\text{accum}},
-   \quad t_0 \leftarrow t.
+   \text{if } t \ge t_{\text{start}}: \quad t_0 \leftarrow t.
 
 **Burn time.** While the burn is executing, the burn time is the call time since burn start:
 
@@ -131,15 +129,14 @@ and the call time as :math:`t_0`:
 
 All times are integer nanoseconds, so the burn time and the time gates have no rounding error.
 
-**Completion.** While the burn is executing, the Delta-V accumulated since burn start is
-:math:`\Delta\boldsymbol{v}_{\text{burn}} = \boldsymbol{v}_{\text{accum}} - \boldsymbol{v}_{\text{init}}`. The burn is
-complete when the accumulated magnitude reaches the command and the burn time reaches the minimum time, or when the
+**Completion.** While the burn is executing, the burn is complete when the magnitude of the accumulated Delta-V
+reaches the command and the burn time reaches the minimum time, or when the
 burn time reaches the maximum time:
 
 .. math::
 
    \text{complete} =
-   \Big( \| \Delta\boldsymbol{v}_{\text{burn}} \| \ge \| \Delta\boldsymbol{v}_{\text{cmd}} \|
+   \Big( \| \boldsymbol{v}_{\text{accum}} \| \ge \| \Delta\boldsymbol{v}_{\text{cmd}} \|
    \;\wedge\; t_{\text{burn}} \ge t_{\min} \Big)
    \;\vee\;
    \big( t_{\text{burn}} \ge t_{\max} \big).
@@ -160,6 +157,10 @@ Assumptions and Limitations
 
 - Burn sequencing is assumed to be handled externally. Before the burn state is reinitialized for a new burn, the
 operator is assumed to set ``cmdDv_N`` and ``burnStartTime`` for that burn and to call ``reconfigure()``.
+
+- The flight software is assumed to reset the accumulated Delta-V in ``navDataInMsg`` to zero when the burn starts.
+The module compares the accumulated Delta-V with the command directly. If the flight software does not reset it,
+Delta-V from before the burn counts toward the command.
 
 - The accumulated Delta-V provided by ``navDataInMsg`` is assumed to remain continuous and consistently
 referenced throughout the burn.

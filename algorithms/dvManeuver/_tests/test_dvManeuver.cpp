@@ -111,7 +111,8 @@ TEST(DvManeuverTest, ReInitializeStartsNewBurn) {
               DvManeuverBurnState::Executing);
     EXPECT_EQ(alg.update(/* callTime = */ 1000000000U, dvCmd).state, DvManeuverBurnState::Complete);
 
-    // Sequence the next burn: set its start time, then reinitialize.
+    // Sequence the next burn: set its start time, then reinitialize. The flight software also resets the
+    // accumulated delta-V at the start of the new burn.
     alg.setConfig(DvManeuverConfig::create(/* minTime = */ 1000000000U,
                                            /* maxTime = */ 10000000000U,
                                            kCmdForce_B,
@@ -119,20 +120,19 @@ TEST(DvManeuverTest, ReInitializeStartsNewBurn) {
                                            /* burnStartTime = */ 5000000000U));
     alg.reInitialize();
 
-    DvManeuverOutput out = alg.update(/* callTime = */ 2000000000U, dvCmd);
+    DvManeuverOutput out = alg.update(/* callTime = */ 2000000000U, /* dvAccumulated = */ Eigen::Vector3f::Zero());
     EXPECT_EQ(out.state, DvManeuverBurnState::Pending);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
 
-    // The new burn latches the accumulated delta-V of 1 m/s at its own start.
-    out = alg.update(/* callTime = */ 5000000000U, dvCmd);
+    out = alg.update(/* callTime = */ 5000000000U, /* dvAccumulated = */ Eigen::Vector3f::Zero());
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, kCmdForce_B);
 
-    // 1.5 m/s since the new start meets the command, but only 0.5 s of the new burn has elapsed.
-    out = alg.update(/* callTime = */ 5500000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 2.5F});
+    // 1.5 m/s meets the command, but only 0.5 s of the new burn has elapsed.
+    out = alg.update(/* callTime = */ 5500000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.5F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
 
-    out = alg.update(/* callTime = */ 6000000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 3.0F});
+    out = alg.update(/* callTime = */ 6000000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
 }
 
@@ -161,7 +161,7 @@ TEST(DvManeuverTest, SetConfigDuringBurnAppliesNextUpdate) {
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, secondForce_B);
 
-    // A smaller delta-V command counts from the delta-V latched at the original start.
+    // A smaller delta-V command applies on the next update.
     alg.setConfig(DvManeuverConfig::create(
         /* minTime = */ 0U,
         /* maxTime = */ 10000000000U,
@@ -245,33 +245,6 @@ TEST(DvManeuverTest, EdgeZeroCommandedDvCompletesImmediately) {
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
 }
 
-TEST(DvManeuverTest, EdgeCountsOnlyDeltaVFromThisBurn) {
-    // The spacecraft already carries 5 m/s of delta-V accumulated before this burn even starts.
-    // dvInitial must latch onto that value at burn start, so only the delta-V accumulated during THIS
-    // burn counts toward completion -- not the pre-existing total.
-    const Eigen::Vector3f priorAccumDV{0.0F, 0.0F, 5.0F};
-    const Eigen::Vector3f dvCmd{0.0F, 0.0F, 1.0F};
-    DvManeuverAlgorithm alg{DvManeuverConfig::create(
-        /* minTime = */ 0U, /* maxTime = */ 10000000000U, kCmdForce_B, dvCmd, /* burnStartTime = */ 0U)};
-
-    // Burn starts immediately; dvAccumulated already carries the prior 5 m/s offset.
-    DvManeuverOutput out = alg.update(/* callTime = */ 0U, priorAccumDV);
-
-    EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
-
-    // Halfway through this burn's own delta-V: 5.5 - 5.0 = 0.5 m/s.
-    out =
-        alg.update(/* callTime = */ 500000000U, /* dvAccumulated = */ priorAccumDV + Eigen::Vector3f{0.0F, 0.0F, 0.5F});
-
-    EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
-
-    // This burn's own delta-V reaches the commanded 1.0 m/s: 6.0 - 5.0 = 1.0 m/s.
-    out = alg.update(/* callTime = */ 1000000000U,
-                     /* dvAccumulated = */ priorAccumDV + Eigen::Vector3f{0.0F, 0.0F, 1.0F});
-
-    EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
-}
-
 TEST(DvManeuverTest, EdgeBurnStartsAtStartTime) {
     DvManeuverAlgorithm alg{DvManeuverConfig::create(
         /* minTime = */ 0U, /* maxTime = */ 10000000000U, kCmdForce_B, kCmdDv_N, /* burnStartTime = */ 1000000000U)};
@@ -303,6 +276,20 @@ TEST(DvManeuverTest, EdgeCompletionUsesDeltaVMagnitudeOnly) {
               DvManeuverBurnState::Executing);
     EXPECT_EQ(alg.update(/* callTime = */ 1000000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F}).state,
               DvManeuverBurnState::Complete);
+}
+
+TEST(DvManeuverTest, EdgeAccumulatedDvCountsFromFirstUpdate) {
+    // The module compares the accumulated delta-V with the command directly. Delta-V that is already present at
+    // the first executing update counts, so a command it already meets completes the burn at once.
+    DvManeuverAlgorithm alg{DvManeuverConfig::create(/* minTime = */ 0U,
+                                                     /* maxTime = */ 10000000000U,
+                                                     kCmdForce_B,
+                                                     /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                                                     /* burnStartTime = */ 0U)};
+    const DvManeuverOutput out =
+        alg.update(/* callTime = */ 0U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+    EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
+    EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
 }
 
 TEST(DvManeuverTest, EdgeMinTimeGatePassesAtLimit) {

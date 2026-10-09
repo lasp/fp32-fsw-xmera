@@ -92,7 +92,6 @@ class DvManeuverAlgorithm final {
    private:
     DvManeuverConfig cfg;
     float cmdDvMagnitude{};  ///< [m/s] magnitude of the configured cmdDv_N, cached by setConfig()
-    Eigen::Vector3f dvInitial = Eigen::Vector3f::Zero();       ///< [m/s] accumulated delta-V latched at burn start
     DvManeuverBurnState state = DvManeuverBurnState::Pending;  ///< [-] burn state machine state
     uint64_t burnStartCallTime{};                              ///< [ns] call time at which the burn started executing
 };
