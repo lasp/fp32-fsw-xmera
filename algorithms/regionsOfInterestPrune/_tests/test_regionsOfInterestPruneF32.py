@@ -366,11 +366,11 @@ def test_pruning(test_image_path, row_col_span, threshold=None):
     regionsIdentifiedOutMsg contains valid center-coordinate regions.
 
     Also writes a diagnostic PNG ("<row_col_span>_<image>_pruning_output.png") to this
-    same directory via diagnostics/diagnostics.py: all published regions
-    drawn in thin cyan from center coordinates, rank-1 in red with filled center dot
-    and label "R1 (<numberOfPixels>)", rank-2 in blue (if present). The background is
-    the same source image used to drive this test, since there is no fpgaImagePipeline
-    threshold-image message to draw over in this repo.
+    same directory via diagnostics/diagnostics.py: every published region drawn from center
+    coordinates and labeled "R<rank> (<numberOfPixels>)" with a filled center dot, rank-1 in
+    red, rank-2 in blue, all others in thin yellow. The background is the same source image used
+    to drive this test, since there is no fpgaImagePipeline threshold-image message to draw
+    over in this repo.
 
     TODO: this whole test is currently skipped (importErr=True) because
     xmera.fp32.fpgaImagePipelineF32 does not exist in this repo. Until that module is ported here,

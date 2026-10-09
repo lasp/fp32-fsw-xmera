@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <utility>
 
 static constexpr uint32_t ROI_CANDIDATES_MAX = 16;    //!< Maximum number of candidates retained/published
@@ -27,7 +28,9 @@ struct RoiCandidateEntry {
 
 struct RoiCandidates {
     uint32_t numCandidates{};                                        //!< [-] Number of valid entries
-    std::array<RoiCandidateEntry, ROI_CANDIDATES_MAX> candidates{};  //!< [-] Sorted by count descending
+    std::array<RoiCandidateEntry, ROI_CANDIDATES_MAX> candidates{};  //!< [-] Sorted by count descending,
+                                                                     //!< then distance to image center
+                                                                     //!< ascending, then area ascending
 };
 
 /*! @brief Validated configuration for the regions-of-interest pruning algorithm.
@@ -68,7 +71,8 @@ class RegionsOfInterestPruneConfig final {
  *    1. Find contiguous non-zero spans in rowSums / colSums; accumulate per-span sums.
  *    2. Pre-filter to top maxRowSpans / maxColSpans spans by accumulator value.
  *    3. Cross-product of filtered spans → bounding boxes with count = min(R[k], C[l]).
- *    4. Sort by count descending, return top ROI_CANDIDATES_MAX entries.
+ *    4. Sort by count descending (ties broken by distance to image center, ascending, then by
+ *       window area, ascending), return top ROI_CANDIDATES_MAX entries.
  */
 class RegionsOfInterestPruneAlgorithm final {
    public:
@@ -100,7 +104,7 @@ class RegionsOfInterestPruneAlgorithm final {
     };
 
     // Step 1: find contiguous non-zero spans and accumulate per-span sums.
-    static std::pair<SpanArray, AccumArray> findSpans(const uint16_t* s, uint32_t n);
+    static std::pair<SpanArray, AccumArray> findSpans(std::span<const uint16_t> s);
 
     // Step 2: return indices of the top-keep entries in vals (by descending value).
     static AccumArray topIndices(const AccumArray& vals, uint32_t keep);
@@ -113,8 +117,9 @@ class RegionsOfInterestPruneAlgorithm final {
                                           const AccumArray& C,
                                           const AccumArray& colIdx);
 
-    // Step 4: sort candidates by count descending, truncate, and pack the result.
-    static RoiCandidates packOutput(CandidateArray candidates);
+    // Step 4: sort candidates by count descending (ties broken by distance to image center, then
+    // window area), truncate, and pack the result.
+    static RoiCandidates packOutput(CandidateArray candidates, uint32_t numRows, uint32_t numCols);
 };
 
 #endif

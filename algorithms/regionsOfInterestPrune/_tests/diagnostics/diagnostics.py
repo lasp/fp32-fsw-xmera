@@ -2,8 +2,9 @@
 Offline diagnostic visualizer for regionsOfInterestPrune.
 
 Renders published RegionsIdentifiedMsgF32Payload candidates as an annotated PNG
-over a background image: all published regions in thin cyan, rank-1 in red
-(filled center dot + pixel-count label), rank-2 in blue.
+over a background image, every region labeled with its rank and pixel count
+("R<rank> (<numberOfPixels>)") plus a filled center dot: rank-1 in red, rank-2
+in blue, all others in thin yellow.
 """
 
 import os
@@ -19,7 +20,7 @@ LABEL_TEXT_THICKNESS_PX = 1
 ALL_REGIONS_THICKNESS_PX = 1
 RANKED_THICKNESS_PX = 2
 
-CYAN = (0, 255, 255)
+YELLOW = (0, 255, 255)  # OpenCV colors are BGR: B=0, G=255, R=255.
 RED = (0, 0, 255)
 BLUE = (255, 0, 0)
 
@@ -67,14 +68,14 @@ def save_visualization(regions, source_image, time_tag, save_dir):
 
     vis = build_background(source_image)
 
-    for reg in regions:
-        draw_region(vis, reg, CYAN, ALL_REGIONS_THICKNESS_PX)
-
-    r1 = regions[0]
-    draw_region(vis, r1, RED, RANKED_THICKNESS_PX, label=f"R1 ({r1.numberOfPixels})")
-    if len(regions) >= 2:
-        r2 = regions[1]
-        draw_region(vis, r2, BLUE, RANKED_THICKNESS_PX, label=f"R2 ({r2.numberOfPixels})")
+    for rank, reg in enumerate(regions, start=1):
+        if rank == 1:
+            color, thickness = RED, RANKED_THICKNESS_PX
+        elif rank == 2:
+            color, thickness = BLUE, RANKED_THICKNESS_PX
+        else:
+            color, thickness = YELLOW, ALL_REGIONS_THICKNESS_PX
+        draw_region(vis, reg, color, thickness, label=f"R{rank} ({reg.numberOfPixels})")
 
     out_path = os.path.join(save_dir, f"{time_tag}_pruning_output.png")
     cv2.imwrite(out_path, vis)

@@ -14,7 +14,8 @@ void RegionsOfInterestPruneAlgorithm::setConfig(const RegionsOfInterestPruneConf
 
 /*! Update method for the regions-of-interest pruning algorithm.  Orchestrates
  *  the four pipeline steps and returns a fully populated RoiCandidates.
- @return RoiCandidates  Candidates sorted by estimated pixel count (descending).
+ @return RoiCandidates  Candidates sorted by estimated pixel count (descending), ties broken by
+                        distance to image center (ascending) then window area (ascending).
  @param rowSums   Pointer to the per-row above-threshold pixel sums.
  @param numRows   Number of rows in the sum array.
  @param colSums   Pointer to the per-column above-threshold pixel sums.
@@ -25,50 +26,68 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
                                                       const uint16_t* colSums,
                                                       uint32_t numCols) const {
     // Step 1: locate contiguous non-zero spans and accumulate per-span pixel sums.
-    const auto [rowSpans, rowAccum] = findSpans(rowSums, numRows);
-    const auto [colSpans, colAccum] = findSpans(colSums, numCols);
+    const auto [rowSpans, rowAccum] = findSpans(std::span<const uint16_t>(rowSums, numRows));
+    const auto [colSpans, colAccum] = findSpans(std::span<const uint16_t>(colSums, numCols));
 
     // Step 2: keep only the highest-sum spans to bound the cross-product size.
     const auto topRows = topIndices(rowAccum, this->cfg.getMaxRowSpans());
     const auto topCols = topIndices(colAccum, this->cfg.getMaxColSpans());
 
     // Steps 3–4: form bounding boxes, sort by estimated pixel count, truncate.
-    return packOutput(buildCandidates(rowSpans, rowAccum, topRows, colSpans, colAccum, topCols));
+    return packOutput(buildCandidates(rowSpans, rowAccum, topRows, colSpans, colAccum, topCols), numRows, numCols);
 }
+
+namespace {
+/*! Squared Euclidean distance from a candidate box's center to a reference center point;
+ *  only the ordering matters here, so the sqrt is skipped.
+ @return Squared distance from the candidate's box center to (centerRow, centerCol).
+ @param candidate Candidate box.
+ @param centerRow Reference point row coordinate.
+ @param centerCol Reference point column coordinate.
+*/
+float squaredDistanceToCenter(const RoiCandidateEntry& candidate, float centerRow, float centerCol) {
+    const float candidateCenterRow = static_cast<float>(candidate.row) + (static_cast<float>(candidate.height) / 2.0F);
+    const float candidateCenterCol = static_cast<float>(candidate.col) + (static_cast<float>(candidate.width) / 2.0F);
+    const float dRow = candidateCenterRow - centerRow;
+    const float dCol = candidateCenterCol - centerCol;
+    return (dRow * dRow) + (dCol * dCol);
+}
+}  // namespace
 
 /*! Scans a 1-D sum array and returns all contiguous non-zero spans together
  *  with the accumulated sum for each span.  A single forward pass produces both.
  @return Pair of (spans, accum) where spans[i] = (start, length) and accum[i] = sum over that span.
- @param s  Pointer to the 1-D sum array.
- @param n  Length of the array.
+ @param s  Span over the 1-D sum array.
 */
-// NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic) -- s is a raw C array mirroring the
-// message payload's void* pointer field; indexing it directly is the natural, minimal representation.
 std::pair<RegionsOfInterestPruneAlgorithm::SpanArray, RegionsOfInterestPruneAlgorithm::AccumArray>
-RegionsOfInterestPruneAlgorithm::findSpans(const uint16_t* s, uint32_t n) {
+RegionsOfInterestPruneAlgorithm::findSpans(std::span<const uint16_t> s) {
     SpanArray spans;
     AccumArray accum;
-    for (uint32_t i = 0; i < n;) {
-        if (s[i] != 0) {
-            uint32_t j = i;
-            uint32_t sum = 0;
-            while (j < n && s[j] != 0) {
-                sum += s[j++];
-            }
-            if (spans.count < MAX_SPANS) {
-                spans.data[spans.count] = {i, j - i};
-                accum.data[accum.count] = sum;
-                ++spans.count;
-                ++accum.count;
-            }
-            i = j;
-        } else {
-            ++i;
+    const uint32_t n = static_cast<uint32_t>(s.size());
+    uint32_t pos = 0;
+    while (pos < n) {
+        if (s[pos] == 0) {
+            ++pos;
+            continue;
+        }
+
+        const uint32_t spanStart = pos;
+        uint32_t sum = 0;
+        while (pos < n && s[pos] != 0) {
+            sum += s[pos];
+            ++pos;
+        }
+        const uint32_t spanLength = pos - spanStart;
+
+        if (spans.count < MAX_SPANS) {
+            spans.data[spans.count] = {spanStart, spanLength};
+            accum.data[accum.count] = sum;
+            ++spans.count;
+            ++accum.count;
         }
     }
     return {spans, accum};
 }
-// NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
 /*! Returns the indices of the top-keep entries of vals ordered by descending value.
  *  Uses std::ranges::partial_sort so only the retained portion is fully sorted (O(N log keep)).
@@ -100,7 +119,7 @@ RegionsOfInterestPruneAlgorithm::AccumArray RegionsOfInterestPruneAlgorithm::top
 /*! Forms bounding-box candidates from the cross-product of the filtered row and col spans.
  *  The estimated pixel count for each box is min(R[k], C[l]) — the tightest upper bound
  *  obtainable from 1-D projections alone.
- @return Vector of RoiCandidateEntry, one per (rowIdx × colIdx) pair.
+ @return CandidateArray of RoiCandidateEntry, one per (rowIdx × colIdx) pair.
  @param rowSpans  All detected row spans.
  @param R         Per-row-span accumulator sums.
  @param rowIdx    Indices into rowSpans / R selected by the pre-filter (Step 2).
@@ -132,17 +151,31 @@ RegionsOfInterestPruneAlgorithm::CandidateArray RegionsOfInterestPruneAlgorithm:
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
-/*! Sorts candidates by estimated pixel count (descending), uses window area for tie break, truncates
- *  to ROI_CANDIDATES_MAX, and packs the result into a RoiCandidates ready for publication.
+/*! Sorts candidates by estimated pixel count (descending); ties are broken first by squared distance
+ *  from the candidate's box center to the image center (ascending — closer wins), then by window area
+ *  (ascending — smaller wins). Truncates to ROI_CANDIDATES_MAX and packs the result into a
+ *  RoiCandidates ready for publication.
  @return RoiCandidates with numCandidates set and candidates[0] = rank-1.
  @param candidates  Unsorted candidate list (taken by value; sorted in-place).
+ @param numRows     Number of rows in the image (defines the image center's row coordinate).
+ @param numCols     Number of columns in the image (defines the image center's column coordinate).
 */
-RoiCandidates RegionsOfInterestPruneAlgorithm::packOutput(CandidateArray candidates) {
+RoiCandidates RegionsOfInterestPruneAlgorithm::packOutput(CandidateArray candidates,
+                                                          uint32_t numRows,
+                                                          uint32_t numCols) {
+    const float centerRow = static_cast<float>(numRows) / 2.0F;
+    const float centerCol = static_cast<float>(numCols) / 2.0F;
+
     std::ranges::sort(candidates.data.begin(),
                       std::next(candidates.data.begin(), candidates.count),
-                      [](const RoiCandidateEntry& a, const RoiCandidateEntry& b) {
+                      [centerRow, centerCol](const RoiCandidateEntry& a, const RoiCandidateEntry& b) {
                           if (a.count != b.count) {
                               return a.count > b.count;
+                          }
+                          const float distA = squaredDistanceToCenter(a, centerRow, centerCol);
+                          const float distB = squaredDistanceToCenter(b, centerRow, centerCol);
+                          if (distA != distB) {
+                              return distA < distB;
                           }
                           return a.height * a.width < b.height * b.width;
                       });
