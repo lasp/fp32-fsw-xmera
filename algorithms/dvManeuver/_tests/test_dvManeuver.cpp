@@ -18,16 +18,14 @@ TEST(DvManeuverTest, Setup) { testDvManeuverSetup(); }
 // ---------------------------------------------------------------------------
 
 TEST(DvManeuverTest, RegressionNominalBurn) {
-    // Burn starts at t = 0.5 s; 2 m/s^2 along +z accumulates 5 m/s of delta-V over the run, meeting
-    // the 5 m/s command. No minTime gate; maxTime is set well beyond the burn's completion time so it
-    // never triggers.
+    // The burn starts at the first update; 2 m/s^2 along +z accumulates 5 m/s of delta-V after 2.5 s, meeting
+    // the 5 m/s command. No minTime gate; maxTime is set beyond the burn's completion time so it never triggers.
     regressionTestDvManeuver(/* minTime = */ 0U,
                              /* maxTime = */ 3000000000U,
                              /* stepNs = */ 500000000U,
                              kCmdForce_B,
                              /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 5.0F},
                              /* acceleration = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
-                             /* burnStartTime = */ 500000000U,
                              /* numSteps = */ 10);
 }
 
@@ -40,7 +38,6 @@ TEST(DvManeuverTest, RegressionMinTimeGate) {
                              kCmdForce_B,
                              /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 4.3F},
                              /* acceleration = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
-                             /* burnStartTime = */ 0U,
                              /* numSteps = */ 12);
 }
 
@@ -52,19 +49,6 @@ TEST(DvManeuverTest, RegressionMaxTimeCutoff) {
                              kCmdForce_B,
                              /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 100.0F},
                              /* acceleration = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
-                             /* burnStartTime = */ 0U,
-                             /* numSteps = */ 10);
-}
-
-TEST(DvManeuverTest, RegressionDelayedStart) {
-    // Burn commanded to start at t = 1 s; the force command stays zero until then.
-    regressionTestDvManeuver(/* minTime = */ 0U,
-                             /* maxTime = */ 100000000000U,
-                             /* stepNs = */ 500000000U,
-                             kCmdForce_B,
-                             /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 10.0F},
-                             /* acceleration = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
-                             /* burnStartTime = */ 1000000000U,
                              /* numSteps = */ 10);
 }
 
@@ -75,17 +59,16 @@ TEST(DvManeuverTest, ReconfigureCannotReExecuteCompletedBurn) {
         /* maxTime = */ 10000000000U,
         kControlPeriod,
         kCmdForce_B,
-        dvCmd,
-        /* burnStartTime = */ 0U)};
+        dvCmd)};
 
     // Start the burn.
-    DvManeuverOutput out = alg.update(/* callTime = */ 0U, /* dvAccumulated = */ Eigen::Vector3f::Zero());
+    DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero());
 
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, kCmdForce_B);
 
     // Reach the commanded delta-V and complete the burn.
-    out = alg.update(/* callTime = */ 500000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
@@ -96,17 +79,16 @@ TEST(DvManeuverTest, ReconfigureCannotReExecuteCompletedBurn) {
         /* maxTime = */ 10000000000U,
         kControlPeriod,
         kCmdForce_B,
-        dvCmd,
-        /* burnStartTime = */ 0U));
+        dvCmd));
 
     // Completion must remain latched.
-    out = alg.update(/* callTime = */ 1000000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
 
     // A second update verifies the old burn cannot restart.
-    out = alg.update(/* callTime = */ 1500000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
@@ -120,37 +102,24 @@ TEST(DvManeuverTest, ReInitializeStartsNewBurn) {
         /* maxTime = */ 10000000000U,
         kControlPeriod,
         kCmdForce_B,
-        dvCmd,
-        /* burnStartTime = */ 0U)};
+        dvCmd)};
 
-    EXPECT_EQ(alg.update(/* callTime = */ 0U, /* dvAccumulated = */ Eigen::Vector3f::Zero()).state,
-              DvManeuverBurnState::Executing);
-    EXPECT_EQ(alg.update(/* callTime = */ 500000000U, dvCmd).state, DvManeuverBurnState::Executing);
-    EXPECT_EQ(alg.update(/* callTime = */ 1000000000U, dvCmd).state, DvManeuverBurnState::Complete);
+    EXPECT_EQ(alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(alg.update(dvCmd).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(alg.update(dvCmd).state, DvManeuverBurnState::Complete);
 
-    // Sequence the next burn: set its start time, then reinitialize. The flight software also resets the
-    // accumulated delta-V at the start of the new burn.
-    alg.setConfig(DvManeuverConfig::create(/* minTime = */ 1000000000U,
-                                           /* maxTime = */ 10000000000U,
-                                           kControlPeriod,
-                                           kCmdForce_B,
-                                           dvCmd,
-                                           /* burnStartTime = */ 5000000000U));
+    // Start the next burn. The flight software also resets the accumulated delta-V at the start of the new burn.
     alg.reInitialize();
 
-    DvManeuverOutput out = alg.update(/* callTime = */ 2000000000U, /* dvAccumulated = */ Eigen::Vector3f::Zero());
-    EXPECT_EQ(out.state, DvManeuverBurnState::Pending);
-    EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
-
-    out = alg.update(/* callTime = */ 5000000000U, /* dvAccumulated = */ Eigen::Vector3f::Zero());
+    DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero());
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, kCmdForce_B);
 
     // 1.5 m/s meets the command, but only 0.5 s of the new burn has elapsed.
-    out = alg.update(/* callTime = */ 5500000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.5F});
+    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.5F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
 
-    out = alg.update(/* callTime = */ 6000000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F});
+    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
 }
 
@@ -162,22 +131,20 @@ TEST(DvManeuverTest, SetConfigDuringBurnAppliesNextUpdate) {
         /* maxTime = */ 10000000000U,
         kControlPeriod,
         firstForce_B,
-        /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
-        /* burnStartTime = */ 0U)};
+        /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F})};
 
-    DvManeuverOutput out = alg.update(/* callTime = */ 0U, /* dvAccumulated = */ Eigen::Vector3f::Zero());
+    DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero());
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, firstForce_B);
 
-    // A new force applies on the next update, and a later start time does not stop a burn that already executes.
+    // A new force applies on the next update.
     alg.setConfig(DvManeuverConfig::create(
         /* minTime = */ 0U,
         /* maxTime = */ 10000000000U,
         kControlPeriod,
         secondForce_B,
-        /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
-        /* burnStartTime = */ 5000000000U));
-    out = alg.update(/* callTime = */ 500000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 0.5F});
+        /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F}));
+    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 0.5F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, secondForce_B);
 
@@ -187,9 +154,8 @@ TEST(DvManeuverTest, SetConfigDuringBurnAppliesNextUpdate) {
         /* maxTime = */ 10000000000U,
         kControlPeriod,
         secondForce_B,
-        /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F},
-        /* burnStartTime = */ 5000000000U));
-    out = alg.update(/* callTime = */ 1000000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+        /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F}));
+    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
 }
@@ -204,7 +170,6 @@ TEST(DvManeuverTest, PropertyOutputWellFormed) {
                              /* acceleration = */ {0.0F, 0.0F, 2.0F},
                              /* minTime = */ 0U,
                              /* maxTimeAboveMinTime = */ 100000000000U,
-                             /* burnStartTime = */ 500000000U,
                              /* stepNs = */ 500000000U);
     propertyOutputWellFormed(
         /* cmdForce_B = */ {1.0F, -2.0F, 3.0F},
@@ -212,7 +177,6 @@ TEST(DvManeuverTest, PropertyOutputWellFormed) {
         /* acceleration = */ {-0.5F, 1.0F, 0.25F},
         /* minTime = */ 0U,
         /* maxTimeAboveMinTime = */ 100000000000U,
-        /* burnStartTime = */ 500000000U,
         /* stepNs = */ 500000000U);
     propertyOutputWellFormed(
         /* cmdForce_B = */ {0.0F, 0.0F, 0.0F},
@@ -220,7 +184,6 @@ TEST(DvManeuverTest, PropertyOutputWellFormed) {
         /* acceleration = */ {0.0F, 0.0F, 0.0F},
         /* minTime = */ 0U,
         /* maxTimeAboveMinTime = */ 100000000000U,
-        /* burnStartTime = */ 500000000U,
         /* stepNs = */ 500000000U);
     // Both time gates active: the delta-V is reached early, so minTime decides; a large command leaves maxTime.
     propertyOutputWellFormed(kCmdForce_B,
@@ -228,35 +191,18 @@ TEST(DvManeuverTest, PropertyOutputWellFormed) {
                              /* acceleration = */ {0.0F, 0.0F, 2.0F},
                              /* minTime = */ 2000000000U,
                              /* maxTimeAboveMinTime = */ 3000000000U,
-                             /* burnStartTime = */ 1000000000U,
                              /* stepNs = */ 100000000U);
     propertyOutputWellFormed(kCmdForce_B,
                              /* cmdDv_N = */ {0.0F, 0.0F, 100.0F},
                              /* acceleration = */ {0.0F, 0.0F, 2.0F},
                              /* minTime = */ 2000000000U,
                              /* maxTimeAboveMinTime = */ 3000000000U,
-                             /* burnStartTime = */ 1000000000U,
                              /* stepNs = */ 100000000U);
 }
 
 // ---------------------------------------------------------------------------
 // Edge case tests.
 // ---------------------------------------------------------------------------
-
-TEST(DvManeuverTest, EdgeZeroForceBeforeBurnStart) {
-    // callTime is well before the commanded burn start: the burn never begins, so the module commands
-    // a zero force and stays in the pending state.
-    DvManeuverAlgorithm alg{DvManeuverConfig::create(
-        /* minTime = */ 0U,
-        /* maxTime = */ 1000000000U,
-        kControlPeriod,
-        kCmdForce_B,
-        kCmdDv_N,
-        /* burnStartTime = */ 1000000000U)};
-    const DvManeuverOutput out = alg.update(/* callTime = */ 100000000U, /* dvAccumulated = */ Eigen::Vector3f::Zero());
-    EXPECT_EQ(out.state, DvManeuverBurnState::Pending);
-    EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
-}
 
 TEST(DvManeuverTest, EdgeZeroCommandedDvCompletesImmediately) {
     // A zero commanded delta-V is satisfied on the first executing step (0 >= 0), so with no minimum
@@ -265,29 +211,17 @@ TEST(DvManeuverTest, EdgeZeroCommandedDvCompletesImmediately) {
                                                      /* maxTime = */ 1000000000U,
                                                      kControlPeriod,
                                                      kCmdForce_B,
-                                                     /* cmdDv_N = */ Eigen::Vector3f::Zero(),
-                                                     /* burnStartTime = */ 0U)};
-    const DvManeuverOutput out = alg.update(/* callTime = */ 0U, /* dvAccumulated = */ Eigen::Vector3f::Zero());
+                                                     /* cmdDv_N = */ Eigen::Vector3f::Zero())};
+    const DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero());
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
 }
 
-TEST(DvManeuverTest, EdgeBurnStartsAtStartTime) {
+TEST(DvManeuverTest, EdgeExecutesFromFirstUpdate) {
+    // The burn has no start time: it executes and commands the force from the first update.
     DvManeuverAlgorithm alg{DvManeuverConfig::create(
-        /* minTime = */ 0U,
-        /* maxTime = */ 10000000000U,
-        kControlPeriod,
-        kCmdForce_B,
-        kCmdDv_N,
-        /* burnStartTime = */ 1000000000U)};
-
-    // 1 ns before the start time: still pending.
-    DvManeuverOutput out = alg.update(/* callTime = */ 999999999U, /* dvAccumulated = */ Eigen::Vector3f::Zero());
-    EXPECT_EQ(out.state, DvManeuverBurnState::Pending);
-    EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
-
-    // Exactly the start time: executing.
-    out = alg.update(/* callTime = */ 1000000000U, /* dvAccumulated = */ Eigen::Vector3f::Zero());
+        /* minTime = */ 0U, /* maxTime = */ 10000000000U, kControlPeriod, kCmdForce_B, kCmdDv_N)};
+    const DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero());
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, kCmdForce_B);
 }
@@ -300,15 +234,12 @@ TEST(DvManeuverTest, EdgeCompletionUsesDeltaVMagnitudeOnly) {
         /* maxTime = */ 10000000000U,
         kControlPeriod,
         kCmdForce_B,
-        /* cmdDv_N = */ Eigen::Vector3f{1.0F, 0.0F, 0.0F},
-        /* burnStartTime = */ 0U)};
+        /* cmdDv_N = */ Eigen::Vector3f{1.0F, 0.0F, 0.0F})};
 
-    EXPECT_EQ(alg.update(/* callTime = */ 0U, /* dvAccumulated = */ Eigen::Vector3f::Zero()).state,
+    EXPECT_EQ(alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 0.5F}).state,
               DvManeuverBurnState::Executing);
-    EXPECT_EQ(alg.update(/* callTime = */ 500000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 0.5F}).state,
-              DvManeuverBurnState::Executing);
-    EXPECT_EQ(alg.update(/* callTime = */ 1000000000U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F}).state,
-              DvManeuverBurnState::Complete);
+    EXPECT_EQ(alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F}).state, DvManeuverBurnState::Complete);
 }
 
 TEST(DvManeuverTest, EdgeAccumulatedDvCountsFromFirstUpdate) {
@@ -318,10 +249,8 @@ TEST(DvManeuverTest, EdgeAccumulatedDvCountsFromFirstUpdate) {
                                                      /* maxTime = */ 10000000000U,
                                                      kControlPeriod,
                                                      kCmdForce_B,
-                                                     /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F},
-                                                     /* burnStartTime = */ 0U)};
-    const DvManeuverOutput out =
-        alg.update(/* callTime = */ 0U, /* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+                                                     /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F})};
+    const DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
 }
@@ -334,27 +263,25 @@ TEST(DvManeuverTest, EdgeMinTimeGatePassesAtLimit) {
                                                      /* maxTime = */ 100000000000U,
                                                      kControlPeriod,
                                                      kCmdForce_B,
-                                                     /* cmdDv_N = */ Eigen::Vector3f::Zero(),
-                                                     /* burnStartTime = */ 0U)};
+                                                     /* cmdDv_N = */ Eigen::Vector3f::Zero())};
 
     // Burn times 0 s and 0.5 s: not yet complete.
-    EXPECT_EQ(alg.update(/* callTime = */ 0U, zero).state, DvManeuverBurnState::Executing);
-    EXPECT_EQ(alg.update(/* callTime = */ 500000000U, zero).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(alg.update(zero).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(alg.update(zero).state, DvManeuverBurnState::Executing);
 
     // Burn time 1 s, exactly minTime: complete.
-    EXPECT_EQ(alg.update(/* callTime = */ 1000000000U, zero).state, DvManeuverBurnState::Complete);
+    EXPECT_EQ(alg.update(zero).state, DvManeuverBurnState::Complete);
 
     // With a minTime 1 ns longer, the same burn time of 1 s does not complete the burn yet.
     DvManeuverAlgorithm longerAlg{DvManeuverConfig::create(/* minTime = */ 1000000001U,
                                                            /* maxTime = */ 100000000000U,
                                                            kControlPeriod,
                                                            kCmdForce_B,
-                                                           /* cmdDv_N = */ Eigen::Vector3f::Zero(),
-                                                           /* burnStartTime = */ 0U)};
-    EXPECT_EQ(longerAlg.update(/* callTime = */ 0U, zero).state, DvManeuverBurnState::Executing);
-    EXPECT_EQ(longerAlg.update(/* callTime = */ 500000000U, zero).state, DvManeuverBurnState::Executing);
-    EXPECT_EQ(longerAlg.update(/* callTime = */ 1000000000U, zero).state, DvManeuverBurnState::Executing);
-    EXPECT_EQ(longerAlg.update(/* callTime = */ 1500000000U, zero).state, DvManeuverBurnState::Complete);
+                                                           /* cmdDv_N = */ Eigen::Vector3f::Zero())};
+    EXPECT_EQ(longerAlg.update(zero).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(longerAlg.update(zero).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(longerAlg.update(zero).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(longerAlg.update(zero).state, DvManeuverBurnState::Complete);
 }
 
 TEST(DvManeuverTest, EdgeMaxTimeGatePassesAtLimit) {
@@ -365,27 +292,25 @@ TEST(DvManeuverTest, EdgeMaxTimeGatePassesAtLimit) {
                                                      /* maxTime = */ 1000000000U,
                                                      kControlPeriod,
                                                      kCmdForce_B,
-                                                     /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 100.0F},
-                                                     /* burnStartTime = */ 0U)};
+                                                     /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 100.0F})};
 
     // Burn times 0 s and 0.5 s: not yet complete.
-    EXPECT_EQ(alg.update(/* callTime = */ 0U, zero).state, DvManeuverBurnState::Executing);
-    EXPECT_EQ(alg.update(/* callTime = */ 500000000U, zero).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(alg.update(zero).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(alg.update(zero).state, DvManeuverBurnState::Executing);
 
     // Burn time 1 s, exactly maxTime: complete.
-    EXPECT_EQ(alg.update(/* callTime = */ 1000000000U, zero).state, DvManeuverBurnState::Complete);
+    EXPECT_EQ(alg.update(zero).state, DvManeuverBurnState::Complete);
 
     // With a maxTime 1 ns longer, the same burn time of 1 s does not complete the burn yet.
     DvManeuverAlgorithm longerAlg{DvManeuverConfig::create(/* minTime = */ 0U,
                                                            /* maxTime = */ 1000000001U,
                                                            kControlPeriod,
                                                            kCmdForce_B,
-                                                           /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 100.0F},
-                                                           /* burnStartTime = */ 0U)};
-    EXPECT_EQ(longerAlg.update(/* callTime = */ 0U, zero).state, DvManeuverBurnState::Executing);
-    EXPECT_EQ(longerAlg.update(/* callTime = */ 500000000U, zero).state, DvManeuverBurnState::Executing);
-    EXPECT_EQ(longerAlg.update(/* callTime = */ 1000000000U, zero).state, DvManeuverBurnState::Executing);
-    EXPECT_EQ(longerAlg.update(/* callTime = */ 1500000000U, zero).state, DvManeuverBurnState::Complete);
+                                                           /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 100.0F})};
+    EXPECT_EQ(longerAlg.update(zero).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(longerAlg.update(zero).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(longerAlg.update(zero).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(longerAlg.update(zero).state, DvManeuverBurnState::Complete);
 }
 
 TEST(DvManeuverTest, EdgeTimeGatesExactAtTenAndHundredHz) {
@@ -396,15 +321,12 @@ TEST(DvManeuverTest, EdgeTimeGatesExactAtTenAndHundredHz) {
                                                         /* maxTime = */ 10000000000U,
                                                         kTenHzStepNs,
                                                         kCmdForce_B,
-                                                        /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 100.0F},
-                                                        /* burnStartTime = */ 0U)};
+                                                        /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 100.0F})};
     for (uint64_t k = 0U; k < 100U; ++k) {
-        ASSERT_EQ(maxAlg.update(/* callTime = */ k * kTenHzStepNs, /* dvAccumulated = */ Eigen::Vector3f::Zero()).state,
-                  DvManeuverBurnState::Executing)
+        ASSERT_EQ(maxAlg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing)
             << k;
     }
-    EXPECT_EQ(maxAlg.update(/* callTime = */ 100U * kTenHzStepNs, /* dvAccumulated = */ Eigen::Vector3f::Zero()).state,
-              DvManeuverBurnState::Complete);
+    EXPECT_EQ(maxAlg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Complete);
 
     // A zero delta-V command leaves only the minTime gate, which must pass at exactly 1 s at 100 Hz.
     constexpr uint64_t kHundredHzStepNs = 10000000U;
@@ -412,17 +334,12 @@ TEST(DvManeuverTest, EdgeTimeGatesExactAtTenAndHundredHz) {
                                                         /* maxTime = */ 100000000000U,
                                                         kHundredHzStepNs,
                                                         kCmdForce_B,
-                                                        /* cmdDv_N = */ Eigen::Vector3f::Zero(),
-                                                        /* burnStartTime = */ 0U)};
+                                                        /* cmdDv_N = */ Eigen::Vector3f::Zero())};
     for (uint64_t k = 0U; k < 100U; ++k) {
-        ASSERT_EQ(
-            minAlg.update(/* callTime = */ k * kHundredHzStepNs, /* dvAccumulated = */ Eigen::Vector3f::Zero()).state,
-            DvManeuverBurnState::Executing)
+        ASSERT_EQ(minAlg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing)
             << k;
     }
-    EXPECT_EQ(
-        minAlg.update(/* callTime = */ 100U * kHundredHzStepNs, /* dvAccumulated = */ Eigen::Vector3f::Zero()).state,
-        DvManeuverBurnState::Complete);
+    EXPECT_EQ(minAlg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Complete);
 }
 
 // ---------------------------------------------------------------------------
@@ -435,34 +352,29 @@ TEST(DvManeuverConfigTest, AcceptsValidConfigurations) {
         /* maxTime = */ 10000000000U,
         kControlPeriod,
         kCmdForce_B,
-        kCmdDv_N,
-        /* burnStartTime = */ 0U));
+        kCmdDv_N));
     EXPECT_NO_THROW(DvManeuverConfig::create(
         /* minTime = */ 2000000000U,
         /* maxTime = */ 10000000000U,
         kControlPeriod,
         kCmdForce_B,
-        kCmdDv_N,
-        /* burnStartTime = */ 0U));
+        kCmdDv_N));
     EXPECT_NO_THROW(DvManeuverConfig::create(/* minTime = */ 0U,
                                              /* maxTime = */ 10000000000U,
                                              kControlPeriod,
                                              /* cmdForce_B = */ Eigen::Vector3f::Zero(),
-                                             kCmdDv_N,
-                                             /* burnStartTime = */ 0U));
+                                             kCmdDv_N));
     EXPECT_NO_THROW(DvManeuverConfig::create(/* minTime = */ 0U,
                                              /* maxTime = */ 10000000000U,
                                              kControlPeriod,
                                              kCmdForce_B,
-                                             /* cmdDv_N = */ Eigen::Vector3f::Zero(),
-                                             /* burnStartTime = */ 0U));
+                                             /* cmdDv_N = */ Eigen::Vector3f::Zero()));
 }
 
 TEST(DvManeuverConfigTest, RejectsMaxTimeZero) {
-    EXPECT_THROW(
-        DvManeuverConfig::create(
-            /* minTime = */ 0U, /* maxTime = */ 0U, kControlPeriod, kCmdForce_B, kCmdDv_N, /* burnStartTime = */ 0U),
-        fsw::invalid_argument);
+    EXPECT_THROW(DvManeuverConfig::create(
+                     /* minTime = */ 0U, /* maxTime = */ 0U, kControlPeriod, kCmdForce_B, kCmdDv_N),
+                 fsw::invalid_argument);
 }
 
 TEST(DvManeuverConfigTest, RejectsMaxTimeEqualToMinTime) {
@@ -471,8 +383,7 @@ TEST(DvManeuverConfigTest, RejectsMaxTimeEqualToMinTime) {
                      /* maxTime = */ 1000000000U,
                      kControlPeriod,
                      kCmdForce_B,
-                     kCmdDv_N,
-                     /* burnStartTime = */ 0U),
+                     kCmdDv_N),
                  fsw::invalid_argument);
 }
 
@@ -483,29 +394,25 @@ TEST(DvManeuverConfigTest, RejectsNonFiniteInputs) {
                                           /* maxTime = */ 1000000000U,
                                           kControlPeriod,
                                           /* cmdForce_B = */ Eigen::Vector3f{nan, 0.0F, 0.0F},
-                                          kCmdDv_N,
-                                          /* burnStartTime = */ 0U),
+                                          kCmdDv_N),
                  fsw::invalid_argument);
     EXPECT_THROW(DvManeuverConfig::create(/* minTime = */ 0U,
                                           /* maxTime = */ 1000000000U,
                                           kControlPeriod,
                                           /* cmdForce_B = */ Eigen::Vector3f{0.0F, -inf, 0.0F},
-                                          kCmdDv_N,
-                                          /* burnStartTime = */ 0U),
+                                          kCmdDv_N),
                  fsw::invalid_argument);
     EXPECT_THROW(DvManeuverConfig::create(/* minTime = */ 0U,
                                           /* maxTime = */ 1000000000U,
                                           kControlPeriod,
                                           kCmdForce_B,
-                                          /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, nan},
-                                          /* burnStartTime = */ 0U),
+                                          /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, nan}),
                  fsw::invalid_argument);
     EXPECT_THROW(DvManeuverConfig::create(/* minTime = */ 0U,
                                           /* maxTime = */ 1000000000U,
                                           kControlPeriod,
                                           kCmdForce_B,
-                                          /* cmdDv_N = */ Eigen::Vector3f{inf, 0.0F, 0.0F},
-                                          /* burnStartTime = */ 0U),
+                                          /* cmdDv_N = */ Eigen::Vector3f{inf, 0.0F, 0.0F}),
                  fsw::invalid_argument);
 }
 
@@ -514,8 +421,7 @@ TEST(DvManeuverConfigTest, RejectsZeroControlPeriod) {
                                           /* maxTime = */ 1000000000U,
                                           /* controlPeriod = */ 0U,
                                           kCmdForce_B,
-                                          kCmdDv_N,
-                                          /* burnStartTime = */ 0U),
+                                          kCmdDv_N),
                  fsw::invalid_argument);
 }
 
@@ -524,12 +430,10 @@ TEST(DvManeuverConfigTest, GettersRoundTrip) {
                                               /* maxTime = */ 10000000000U,
                                               kControlPeriod,
                                               kCmdForce_B,
-                                              kCmdDv_N,
-                                              /* burnStartTime = */ 1500000000U);
+                                              kCmdDv_N);
     EXPECT_EQ(cfg.getMinTime(), 2000000000U);
     EXPECT_EQ(cfg.getMaxTime(), 10000000000U);
     EXPECT_EQ(cfg.getControlPeriod(), kControlPeriod);
     EXPECT_EQ(cfg.getCmdForce(), kCmdForce_B);
     EXPECT_EQ(cfg.getCmdDv(), kCmdDv_N);
-    EXPECT_EQ(cfg.getBurnStartTime(), 1500000000U);
 }

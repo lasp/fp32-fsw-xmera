@@ -4,11 +4,11 @@ Executive Summary
 The ``dvManeuver`` module controls a Delta-V maneuver. It monitors the Delta-V that the spacecraft accumulates
 during the current burn, and it writes a body force command. The module compares the magnitude of the
 accumulated Delta-V from the :ref:`NavTransMsgF32Payload` message with the magnitude of the configured ``cmdDv_N``.
-The burn starts at the configured ``burnStartTime``. The minimum and maximum burn-time gates also control when the
-burn completes.
+The burn starts at the first update after ``reset()`` or ``reInitialize()``. The minimum and maximum burn-time gates
+also control when the burn completes.
 
 The module writes the body force command at each update. While the burn executes, the command is equal to the
-configured ``cmdForce_B``. Before the burn starts and after the burn completes, the command is zero. A downstream
+configured ``cmdForce_B``. After the burn completes, the command is zero. A downstream
 module, for example :ref:`forceTorqueThrForceMapping`, converts the force command into thruster commands.
 
 The floating-point inputs and outputs are single precision. All times are integer nanoseconds.
@@ -40,8 +40,8 @@ of the :ref:`DvExecutionDataMsgF32Payload` from the burn state.
       - Navigation message providing the total accumulated Delta-V of the spacecraft.
     * - ``cmdForceOutMsg``
       - :ref:`CmdForceBodyMsgF32Payload`
-      - Body force command. It is equal to ``cmdForce_B`` while the burn executes. It is zero before the burn
-        starts and after the burn completes.
+      - Body force command. It is equal to ``cmdForce_B`` while the burn executes. It is zero after the burn
+        completes.
     * - ``burnExecOutMsg``
       - :ref:`DvExecutionDataMsgF32Payload`
       - Burn execution status: whether the burn is executing and whether it has completed.
@@ -76,9 +76,6 @@ The configuration is set through public properties on the adapter before ``reset
       - finite
       - [m/s] Commanded Delta-V in inertial frame components. The module compares only its magnitude with the
         accumulated Delta-V. A zero Delta-V is permitted.
-    * - ``burnStartTime``
-      - any
-      - [ns] The burn starts on the first update at or after this time.
 
 Two-Phase Initialization
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -92,7 +89,6 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
     module.controlPeriod = macros.sec2nano(0.5)
     module.cmdForce_B = [0.0, 0.0, 10.0]
     module.cmdDv_N = [0.0, 0.0, 5.0]
-    module.burnStartTime = macros.sec2nano(1.0)
 
     module.navDataInMsg.subscribeTo(nav_trans_msg)
 
@@ -111,15 +107,12 @@ Mathematical Formulation
 Algorithm Layer
 ~~~~~~~~~~~~~~~
 
-The algorithm is a burn state machine advanced one step per ``update()`` call. Let :math:`t` be the current call
-time, :math:`t_{\text{start}}` the configured burn start time, :math:`\Delta t` the configured control period,
-:math:`\boldsymbol{v}_{\text{accum}}` the accumulated Delta-V from navigation, and
+The algorithm is a burn state machine advanced one step per ``update()`` call. Let :math:`\Delta t` be the configured
+control period, :math:`\boldsymbol{v}_{\text{accum}}` the accumulated Delta-V from navigation, and
 :math:`\Delta\boldsymbol{v}_{\text{cmd}}` the configured ``cmdDv_N``.
 
-The state machine has three states: pending, executing, and complete. The burn starts in the pending state. Only
-``reInitialize()`` moves the burn out of the complete state.
-
-**Burn start.** The burn moves from pending to executing on the first call at or after the start time.
+The state machine has two states: executing and complete. The burn executes from the first update after ``reset()``
+or ``reInitialize()``. Only ``reInitialize()`` moves the burn out of the complete state.
 
 **Burn time.** The burn time is zero at the first executing update. After each executing update, it increases by the
 control period:
@@ -150,14 +143,15 @@ Let :math:`\boldsymbol{F}_{\text{cfg}}` be the configured ``cmdForce_B``:
    \boldsymbol{F}_{\text{cmd}} =
    \begin{cases}
    \boldsymbol{F}_{\text{cfg}} & \text{if the burn executes,} \\
-   \boldsymbol{0} & \text{before the burn starts and after the burn completes.}
+   \boldsymbol{0} & \text{after the burn completes.}
    \end{cases}
 
 Assumptions and Limitations
 ---------------------------
 
-- Burn sequencing is assumed to be handled externally. Before the burn state is reinitialized for a new burn, the
-operator is assumed to set ``cmdDv_N`` and ``burnStartTime`` for that burn and to call ``reconfigure()``.
+- Burn sequencing is assumed to be handled externally. The flight software starts each burn with ``reset()`` or
+``reInitialize()`` at the burn start time. Before a new burn, it is assumed to set ``cmdDv_N`` for that burn and to
+call ``reconfigure()``.
 
 - The flight software is assumed to reset the accumulated Delta-V in ``navDataInMsg`` to zero when the burn starts.
 The module compares the accumulated Delta-V with the command directly. If the flight software does not reset it,

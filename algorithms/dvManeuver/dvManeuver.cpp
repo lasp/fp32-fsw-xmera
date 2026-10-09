@@ -14,8 +14,7 @@ void DvManeuver::reset(const uint64_t callTime) {
 }
 
 DvManeuverConfig DvManeuver::toConfig() const {
-    return DvManeuverConfig::create(
-        this->minTime, this->maxTime, this->controlPeriod, this->cmdForce_B, this->cmdDv_N, this->burnStartTime);
+    return DvManeuverConfig::create(this->minTime, this->maxTime, this->controlPeriod, this->cmdForce_B, this->cmdDv_N);
 }
 
 void DvManeuver::reconfigure() {
@@ -44,7 +43,7 @@ void DvManeuver::updateState(const uint64_t callTime) {
 
     const Eigen::Vector3f dvAccumulated = cArrayToEigenVector3<float>(navData.vehAccumDV);
 
-    const DvManeuverOutput out = this->algorithm->update(callTime, dvAccumulated);
+    const DvManeuverOutput out = this->algorithm->update(dvAccumulated);
 
     CmdForceBodyMsgF32Payload forceMsgOut{};
     eigenVectorToCArray(out.cmdForce_B, forceMsgOut.forceRequestBody);

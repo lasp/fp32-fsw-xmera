@@ -6,8 +6,6 @@
 
 #include <Eigen/Core>
 
-static_assert(DV_MANEUVER_BURN_STATE_PENDING_C == static_cast<int>(DvManeuverBurnState::Pending),
-              "DvManeuverBurnState_c must match DvManeuverBurnState");
 static_assert(DV_MANEUVER_BURN_STATE_EXECUTING_C == static_cast<int>(DvManeuverBurnState::Executing),
               "DvManeuverBurnState_c must match DvManeuverBurnState");
 static_assert(DV_MANEUVER_BURN_STATE_COMPLETE_C == static_cast<int>(DvManeuverBurnState::Complete),
@@ -25,14 +23,12 @@ DvManeuverConfig configFromC(uint64_t minTime,
                              uint64_t maxTime,
                              uint64_t controlPeriod,
                              const Vector3f_c* cmdForce_B,
-                             const Vector3f_c* cmdDv_N,
-                             uint64_t burnStartTime) {
+                             const Vector3f_c* cmdDv_N) {
     return DvManeuverConfig::create(minTime,
                                     maxTime,
                                     controlPeriod,
                                     cArrayToEigenVector3<float>(cmdForce_B->data),
-                                    cArrayToEigenVector3<float>(cmdDv_N->data),
-                                    burnStartTime);
+                                    cArrayToEigenVector3<float>(cmdDv_N->data));
 }
 }  // namespace
 
@@ -40,10 +36,9 @@ bool DvManeuverAlgorithm_validateConfig(uint64_t minTime,
                                         uint64_t maxTime,
                                         uint64_t controlPeriod,
                                         const Vector3f_c* cmdForce_B,
-                                        const Vector3f_c* cmdDv_N,
-                                        uint64_t burnStartTime) {
+                                        const Vector3f_c* cmdDv_N) {
     try {
-        (void)configFromC(minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N, burnStartTime);
+        (void)configFromC(minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -54,10 +49,9 @@ DvManeuverAlgorithmHandle* DvManeuverAlgorithm_create(uint64_t minTime,
                                                       uint64_t maxTime,
                                                       uint64_t controlPeriod,
                                                       const Vector3f_c* cmdForce_B,
-                                                      const Vector3f_c* cmdDv_N,
-                                                      uint64_t burnStartTime) {
+                                                      const Vector3f_c* cmdDv_N) {
     return reinterpret_cast<DvManeuverAlgorithmHandle*>(
-        new ::DvManeuverAlgorithm(configFromC(minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N, burnStartTime)));
+        new ::DvManeuverAlgorithm(configFromC(minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N)));
 }
 
 void DvManeuverAlgorithm_destroy(DvManeuverAlgorithmHandle* self) { fsw::deleteHandle<::DvManeuverAlgorithm>(self); }
@@ -67,20 +61,17 @@ void DvManeuverAlgorithm_setConfig(DvManeuverAlgorithmHandle* self,
                                    uint64_t maxTime,
                                    uint64_t controlPeriod,
                                    const Vector3f_c* cmdForce_B,
-                                   const Vector3f_c* cmdDv_N,
-                                   uint64_t burnStartTime) {
+                                   const Vector3f_c* cmdDv_N) {
     fsw::fromHandle<::DvManeuverAlgorithm>(self)->setConfig(
-        configFromC(minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N, burnStartTime));
+        configFromC(minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N));
 }
 
 void DvManeuverAlgorithm_reInitialize(DvManeuverAlgorithmHandle* self) {
     fsw::fromHandle<::DvManeuverAlgorithm>(self)->reInitialize();
 }
 
-DvManeuverOutput_c DvManeuverAlgorithm_update(DvManeuverAlgorithmHandle* self,
-                                              uint64_t callTime,
-                                              const Vector3f_c* dvAccumulated) {
-    const DvManeuverOutput out = fsw::fromHandle<::DvManeuverAlgorithm>(self)->update(
-        callTime, cArrayToEigenVector3<float>(dvAccumulated->data));
+DvManeuverOutput_c DvManeuverAlgorithm_update(DvManeuverAlgorithmHandle* self, const Vector3f_c* dvAccumulated) {
+    const DvManeuverOutput out =
+        fsw::fromHandle<::DvManeuverAlgorithm>(self)->update(cArrayToEigenVector3<float>(dvAccumulated->data));
     return outputToC(out);
 }
