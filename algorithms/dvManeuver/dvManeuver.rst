@@ -11,7 +11,8 @@ The module writes the body force command at each update. While the burn executes
 configured ``cmdForce_B``. After the burn completes, the command is zero. A downstream
 module, for example :ref:`forceTorqueThrForceMapping`, converts the force command into thruster commands.
 
-The floating-point inputs and outputs are single precision. All times are integer nanoseconds.
+The Delta-V and force inputs and outputs are single precision. The time parameters are double-precision seconds,
+and the module converts them to integer nanoseconds.
 
 Module Architecture
 -------------------
@@ -50,7 +51,8 @@ Configuration
 ~~~~~~~~~~~~~
 
 The configuration is set through public properties on the adapter before ``reset()`` and validated (via
-``DvManeuverConfig``) when the algorithm is constructed.
+``DvManeuverConfig``) when the algorithm is constructed. The configuration rounds each time parameter to the nearest
+nanosecond.
 
 .. list-table:: Configuration parameters
     :widths: 25 25 50
@@ -60,14 +62,14 @@ The configuration is set through public properties on the adapter before ``reset
       - Valid range
       - Description
     * - ``minTime``
-      - :math:`\ge 0`
-      - [ns] Minimum burn time that must elapse before the burn can complete on the Delta-V criterion.
+      - :math:`\ge 0`, finite, :math:`\le 10^9`
+      - [s] Minimum burn time that must elapse before the burn can complete on the Delta-V criterion.
     * - ``maxTime``
-      - > 0 and > minTime
-      - [ns] Maximum burn time. The burn completes when the burn time reaches maxTime.
+      - > 0, finite, :math:`\le 10^9`, and > minTime
+      - [s] Maximum burn time. The burn completes when the burn time reaches maxTime.
     * - ``controlPeriod``
-      - > 0
-      - [ns] Update period of the module. The burn time increases by this value at each update while the burn
+      - :math:`\ge` 1 ns, finite, :math:`\le 10^9`
+      - [s] Update period of the module. The burn time increases by this value at each update while the burn
         executes.
     * - ``cmdForce_B``
       - finite
@@ -84,9 +86,9 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
 ``reset()`` once, then drive ``updateState()`` each cycle. ::
 
     module = dvManeuverF32.DvManeuver()
-    module.minTime = macros.sec2nano(2.0)
-    module.maxTime = macros.sec2nano(10.0)
-    module.controlPeriod = macros.sec2nano(0.5)
+    module.minTime = 2.0
+    module.maxTime = 10.0
+    module.controlPeriod = 0.5
     module.cmdForce_B = [0.0, 0.0, 10.0]
     module.cmdDv_N = [0.0, 0.0, 5.0]
 
@@ -97,9 +99,10 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
     sim.ExecuteSimulation()
 
 If ``navDataInMsg`` has not been connected when ``reset()`` runs, an ``std::invalid_argument`` is thrown.
-Invalid configuration values cause the configuration validator to throw fsw::invalid_argument. maxTime
-must be positive and greater than minTime, controlPeriod must be positive, and cmdForce_B and cmdDv_N must be
-finite. If ``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
+Invalid configuration values cause the configuration validator to throw fsw::invalid_argument. Each time must be
+finite and at most :math:`10^9` s. minTime must be non-negative, maxTime must be greater than minTime after rounding,
+controlPeriod must be at least 1 ns after rounding, and cmdForce_B and cmdDv_N must be finite. If
+``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
 
 Mathematical Formulation
 ------------------------
@@ -121,7 +124,8 @@ control period:
 
    t_{\text{burn}} \leftarrow t_{\text{burn}} + \Delta t.
 
-All times are integer nanoseconds, so the burn time and the time gates have no rounding error.
+The burn time and the time limits are integer nanoseconds, so the burn time and the time gates have no rounding
+error.
 
 **Completion.** While the burn is executing, the burn is complete when the magnitude of the accumulated Delta-V
 reaches the command and the burn time reaches the minimum time, or when the

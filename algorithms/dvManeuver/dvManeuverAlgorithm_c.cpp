@@ -19,9 +19,9 @@ DvManeuverOutput_c outputToC(const DvManeuverOutput& out) {
     return result;
 }
 
-DvManeuverConfig configFromC(uint64_t minTime,
-                             uint64_t maxTime,
-                             uint64_t controlPeriod,
+DvManeuverConfig configFromC(double minTime,
+                             double maxTime,
+                             double controlPeriod,
                              const Vector3f_c* cmdForce_B,
                              const Vector3f_c* cmdDv_N) {
     return DvManeuverConfig::create(minTime,
@@ -32,9 +32,9 @@ DvManeuverConfig configFromC(uint64_t minTime,
 }
 }  // namespace
 
-bool DvManeuverAlgorithm_validateConfig(uint64_t minTime,
-                                        uint64_t maxTime,
-                                        uint64_t controlPeriod,
+bool DvManeuverAlgorithm_validateConfig(double minTime,
+                                        double maxTime,
+                                        double controlPeriod,
                                         const Vector3f_c* cmdForce_B,
                                         const Vector3f_c* cmdDv_N) {
     try {
@@ -45,9 +45,9 @@ bool DvManeuverAlgorithm_validateConfig(uint64_t minTime,
     }
 }
 
-DvManeuverAlgorithmHandle* DvManeuverAlgorithm_create(uint64_t minTime,
-                                                      uint64_t maxTime,
-                                                      uint64_t controlPeriod,
+DvManeuverAlgorithmHandle* DvManeuverAlgorithm_create(double minTime,
+                                                      double maxTime,
+                                                      double controlPeriod,
                                                       const Vector3f_c* cmdForce_B,
                                                       const Vector3f_c* cmdDv_N) {
     return reinterpret_cast<DvManeuverAlgorithmHandle*>(
@@ -57,9 +57,9 @@ DvManeuverAlgorithmHandle* DvManeuverAlgorithm_create(uint64_t minTime,
 void DvManeuverAlgorithm_destroy(DvManeuverAlgorithmHandle* self) { fsw::deleteHandle<::DvManeuverAlgorithm>(self); }
 
 void DvManeuverAlgorithm_setConfig(DvManeuverAlgorithmHandle* self,
-                                   uint64_t minTime,
-                                   uint64_t maxTime,
-                                   uint64_t controlPeriod,
+                                   double minTime,
+                                   double maxTime,
+                                   double controlPeriod,
                                    const Vector3f_c* cmdForce_B,
                                    const Vector3f_c* cmdDv_N) {
     fsw::fromHandle<::DvManeuverAlgorithm>(self)->setConfig(

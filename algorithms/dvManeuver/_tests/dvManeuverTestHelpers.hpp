@@ -8,6 +8,10 @@
 #include <Eigen/Core>
 #include <cstdint>
 
+// The helpers work in nanoseconds; the configuration takes seconds. The round trip back to nanoseconds in the
+// configuration is exact for the magnitudes the tests use.
+inline double toSeconds(uint64_t nanoseconds) { return static_cast<double>(nanoseconds) / 1e9; }
+
 // Independent reference re-implementation of the burn state machine, kept in the same FP32
 // precision as the algorithm so the burn flags and the force command must match exactly. It encodes
 // the expected DvManeuverAlgorithm::update() semantics so any change to the production state
@@ -66,7 +70,8 @@ inline void regressionTestDvManeuver(uint64_t minTime,
                                      const Eigen::Vector3f& cmdDv_N,
                                      const Eigen::Vector3f& acceleration,
                                      int numSteps) {
-    const auto config = DvManeuverConfig::create(minTime, maxTime, stepNs, cmdForce_B, cmdDv_N);
+    const auto config =
+        DvManeuverConfig::create(toSeconds(minTime), toSeconds(maxTime), toSeconds(stepNs), cmdForce_B, cmdDv_N);
     DvManeuverAlgorithm alg{config};
     DvManeuverReferenceState refState{};
 
@@ -114,7 +119,8 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
                                      uint64_t maxTimeAboveMinTime,
                                      uint64_t stepNs) {
     const uint64_t maxTime = minTime + maxTimeAboveMinTime;
-    const auto config = DvManeuverConfig::create(minTime, maxTime, stepNs, cmdForce_B, cmdDv_N);
+    const auto config =
+        DvManeuverConfig::create(toSeconds(minTime), toSeconds(maxTime), toSeconds(stepNs), cmdForce_B, cmdDv_N);
     DvManeuverAlgorithm alg{config};
 
     const uint64_t numSteps = maxTime / stepNs + 2U;
@@ -146,9 +152,9 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
 inline void testDvManeuverSetup() {
     EXPECT_NO_THROW({
         const DvManeuverAlgorithm alg{DvManeuverConfig::create(
-            /* minTime = */ 0U,
-            /* maxTime = */ 1000000000U,
-            /* controlPeriod = */ 500000000U,
+            /* minTime = */ 0.0,
+            /* maxTime = */ 1.0,
+            /* controlPeriod = */ 0.5,
             /* cmdForce_B = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F},
             /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F})};
         (void)alg;

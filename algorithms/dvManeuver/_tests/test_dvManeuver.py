@@ -58,9 +58,9 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax):
     sim.AddModelToTask(task_name, module)
 
     # Initialize the test module configuration data
-    module.controlPeriod = test_process_rate
-    module.minTime = macros.sec2nano(p2_tmin)
-    module.maxTime = macros.sec2nano(p3_tmax)
+    module.controlPeriod = update_rate
+    module.minTime = p2_tmin
+    module.maxTime = p3_tmax
     cmd_force_B = np.array([1.0, -2.0, 5.0])  # [N] body force commanded while the burn executes
     module.cmdForce_B = cmd_force_B
     cmd_dv_N = np.array([0.0, 0.0, p1_dv])  # [m/s] commanded Delta-V
