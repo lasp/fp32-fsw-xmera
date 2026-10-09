@@ -13,19 +13,17 @@ void DvManeuverAlgorithm::setConfig(const DvManeuverConfig& config) {
 void DvManeuverAlgorithm::reInitialize() {
     this->state = DvManeuverBurnState::Pending;
     this->burnStartCallTime = 0U;
-    this->dvInitial = Eigen::Vector3f::Zero();
 }
 
 DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime, const Eigen::Vector3f& dvAccumulated) {
     if (this->state == DvManeuverBurnState::Pending && callTime >= this->cfg.getBurnStartTime()) {
         this->state = DvManeuverBurnState::Executing;
-        this->dvInitial = dvAccumulated;
         this->burnStartCallTime = callTime;
     }
 
     if (this->state == DvManeuverBurnState::Executing) {
         const uint64_t burnTime = callTime - this->burnStartCallTime;  // [ns]
-        const bool dvReached = (dvAccumulated - this->dvInitial).stableNorm() >= this->cmdDvMagnitude;
+        const bool dvReached = dvAccumulated.stableNorm() >= this->cmdDvMagnitude;
         if ((dvReached && burnTime >= this->cfg.getMinTime()) || burnTime >= this->cfg.getMaxTime()) {
             this->state = DvManeuverBurnState::Complete;
         }
