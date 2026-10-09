@@ -645,6 +645,32 @@ TEST(FlybyFilterAlgorithmMeasurements, WithoutMeasurementsGrowsCovarianceMonoton
     EXPECT_TRUE(finiteSymmetricPsd(algo.getCovariance()));
 }
 
+TEST(FlybyFilterAlgorithmMeasurements, NearlySingularPropagatedCovarianceStaysPsd) {
+    // Fuzz counterexample (FlybyFilterFuzz.fuzzReInitializeRestoresTheConfiguredSeed): a 1e-6 position
+    // variance, a 1e4 velocity variance and zero process noise propagate to a covariance with
+    // eigenvalues from ~0 to 3e7. The near-zero ones come back as -1e-10, which is roundoff and must
+    // pass the PSD check.
+    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig({500.0, 0.0, 1.0},
+                                                               {-0.93489308376760782, 0.0, 1.0},
+                                                               1000.0,
+                                                               (Vector6() << 0.0, 0.0, 0.0, -1.0, 1.0, 1E4).finished(),
+                                                               0.0,
+                                                               kHeadingStd);
+    ASSERT_TRUE(cfg);
+    double const dt = 54.035677089711527;
+    FlybyFilterAlgorithm algo(*cfg);
+
+    HeadingData heading;
+    heading.timeTag = dt;
+    heading.rhat_BN_N = Eigen::Vector3d(0.43308985833708125, -0.092944800406123296, 0.0).normalized();
+    algo.update(dt, heading);
+    algo.reInitialize();
+    algo.update(dt + 1.0, HeadingData{});
+
+    EXPECT_TRUE(algo.getState().raw().allFinite());
+    EXPECT_TRUE(finiteSymmetricPsd(algo.getCovariance()));
+}
+
 // ============================================================================
 // Degenerate geometry: both the dynamics and the heading model divide by |r|.
 // ============================================================================
