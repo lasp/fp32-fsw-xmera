@@ -4,14 +4,14 @@
 
 #include <array>
 #include <cstdint>
-#include <initializer_list>
 #include <limits>
+#include <vector>
 
 namespace {
 constexpr std::uint64_t kMsToNs = 1'000'000U;
 constexpr std::uint64_t kT0 = 10U * 1'000U * kMsToNs;
 
-std::array<float, kMaxNumRw> meanOf(std::initializer_list<float> bases) {
+std::array<float, kMaxNumRw> meanOf(std::vector<float> const& bases) {
     std::array<float, kMaxNumRw> sum{};
     for (const float base : bases) {
         const auto speeds = speedsFor(base);
@@ -23,6 +23,15 @@ std::array<float, kMaxNumRw> meanOf(std::initializer_list<float> bases) {
         value /= static_cast<float>(bases.size());
     }
     return sum;
+}
+
+/*! @brief The mean of the wheel speeds of samples first..last (inclusive), where sample i has base 10 * i. */
+std::array<float, kMaxNumRw> meanOfRange(std::size_t first, std::size_t last) {
+    std::vector<float> bases;
+    for (std::size_t i = first; i <= last; ++i) {
+        bases.push_back(10.0F * static_cast<float>(i));
+    }
+    return meanOf(bases);
 }
 }  // namespace
 
@@ -115,19 +124,6 @@ TEST(averageRwSpeedDataTest, FullRingOverwritesOldestSample) {
     const auto sampleAt = [](std::size_t i) {
         return makeSample(kT0 + (i * kMsToNs), /* base = */ 10.0F * static_cast<float>(i));
     };
-    const auto meanOfRange = [](std::size_t first, std::size_t last) {
-        std::array<float, kMaxNumRw> sum{};
-        for (std::size_t i = first; i <= last; ++i) {
-            const auto speeds = speedsFor(10.0F * static_cast<float>(i));
-            for (std::size_t w = 0; w < kMaxNumRw; ++w) {
-                sum[w] += speeds[w];
-            }
-        }
-        for (auto& value : sum) {
-            value /= static_cast<float>(last - first + 1U);
-        }
-        return sum;
-    };
 
     std::array<float, kMaxNumRw> out{};
     for (std::size_t i = 0; i < kCapacity; ++i) {
@@ -189,57 +185,37 @@ TEST(averageRwSpeedDataTest, RingCapacity) {
 
 TEST(averageRwSpeedDataTest, MaxWindowAtSampleRateFitsInRing) {
     // A maximum window at the nominal sample rate keeps every sample, including the one at the window edge.
-    AverageRwSpeedDataAlgorithm alg(
-        AverageRwSpeedDataConfig::create(AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec));
-    const auto periodNs = static_cast<std::uint64_t>(1.0e9 / average_rw_speed_detail::kRwSpeedSampleRateHz);
-    const auto samplesInWindow = static_cast<std::size_t>(
-        (AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec * average_rw_speed_detail::kRwSpeedSampleRateHz) + 1.0);
+    constexpr std::size_t kRwSpeedSampleRateHz = average_rw_speed_detail::kRwSpeedSampleRateHz;
+    constexpr std::size_t kAveragingWindowSec = AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec;
 
-    std::array<float, kMaxNumRw> sum{};
+    AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(kAveragingWindowSec));
+    const auto periodNs = static_cast<std::uint64_t>(1.0e9 / kRwSpeedSampleRateHz);
+    const auto samplesInWindow = static_cast<std::size_t>(kAveragingWindowSec * kRwSpeedSampleRateHz+ 1.0);
+
     std::array<float, kMaxNumRw> out{};
     for (std::size_t i = 0; i < samplesInWindow; ++i) {
-        const auto base = 10.0F * static_cast<float>(i);
-        out = alg.update(makeSample(kT0 + (i * periodNs), base));
-        const auto speeds = speedsFor(base);
-        for (std::size_t w = 0; w < kMaxNumRw; ++w) {
-            sum[w] += speeds[w];
-        }
+        out = alg.update(makeSample(kT0 + (i * periodNs), /* base = */ 10.0F * static_cast<float>(i)));
     }
-    for (auto& value : sum) {
-        value /= static_cast<float>(samplesInWindow);
-    }
-    EXPECT_EQ(out, sum);
+    EXPECT_EQ(out, meanOfRange(/* first = */ 0U, samplesInWindow - 1U));
 }
 
 TEST(averageRwSpeedDataTest, SampleOlderThanMaxWindowNotIngested) {
     constexpr std::size_t kCapacity = AverageRwSpeedDataAlgorithm::kRingCapacity;
-    constexpr auto kMaxWindowNs =
-        static_cast<std::uint64_t>(AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec * 1.0e9);
-    AverageRwSpeedDataAlgorithm alg(
-        AverageRwSpeedDataConfig::create(AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec));
+    constexpr std::size_t kAveragingWindowSec = AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec;
+    constexpr auto kMaxWindowNs = static_cast<std::uint64_t>(kAveragingWindowSec * 1.0e9);
+    AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(kAveragingWindowSec));
 
     // Fill the ring with samples 1 ms apart, so an ingested sample must evict one of them.
-    std::array<float, kMaxNumRw> sumAll{};
-    std::array<float, kMaxNumRw> out{};
     for (std::size_t i = 0; i < kCapacity; ++i) {
-        const auto base = 10.0F * static_cast<float>(i);
-        out = alg.update(makeSample(kT0 + (i * kMsToNs), base));
-        const auto speeds = speedsFor(base);
-        for (std::size_t w = 0; w < kMaxNumRw; ++w) {
-            sumAll[w] += speeds[w];
-        }
+        (void)alg.update(makeSample(kT0 + (i * kMsToNs), /* base = */ 10.0F * static_cast<float>(i)));
     }
-    const std::uint64_t newest = kT0 + ((kCapacity - 1U) * kMsToNs);
+    const std::uint64_t newest = kT0 + (kCapacity - 1U) * kMsToNs;
+    const float nextBase = 10.0F * static_cast<float>(kCapacity);
 
     // One nanosecond older than any window can reach: not ingested, so no sample is evicted.
-    EXPECT_EQ(alg.update(makeSample(newest - kMaxWindowNs - 1U, /* base = */ 500.0F)), out);
+    EXPECT_EQ(alg.update(makeSample(newest - kMaxWindowNs - 1U, nextBase)),
+              meanOfRange(/* first = */ 0U, kCapacity - 1U));
 
     // At the edge of the maximum window: ingested in place of sample 0, and averaged.
-    std::array<float, kMaxNumRw> expected = sumAll;
-    const auto evicted = speedsFor(/* base = */ 0.0F);
-    const auto edge = speedsFor(/* base = */ 500.0F);
-    for (std::size_t w = 0; w < kMaxNumRw; ++w) {
-        expected[w] = (expected[w] - evicted[w] + edge[w]) / static_cast<float>(kCapacity);
-    }
-    EXPECT_EQ(alg.update(makeSample(newest - kMaxWindowNs, /* base = */ 500.0F)), expected);
+    EXPECT_EQ(alg.update(makeSample(newest - kMaxWindowNs, nextBase)), meanOfRange(/* first = */ 1U, kCapacity));
 }
