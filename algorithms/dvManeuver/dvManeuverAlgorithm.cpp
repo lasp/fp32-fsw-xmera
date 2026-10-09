@@ -12,21 +12,20 @@ void DvManeuverAlgorithm::setConfig(const DvManeuverConfig& config) {
 
 void DvManeuverAlgorithm::reInitialize() {
     this->state = DvManeuverBurnState::Pending;
-    this->burnStartCallTime = 0U;
+    this->burnTime = 0U;
 }
 
 DvManeuverOutput DvManeuverAlgorithm::update(const uint64_t callTime, const Eigen::Vector3f& dvAccumulated) {
     if (this->state == DvManeuverBurnState::Pending && callTime >= this->cfg.getBurnStartTime()) {
         this->state = DvManeuverBurnState::Executing;
-        this->burnStartCallTime = callTime;
     }
 
     if (this->state == DvManeuverBurnState::Executing) {
-        const uint64_t burnTime = callTime - this->burnStartCallTime;  // [ns]
         const bool dvReached = dvAccumulated.stableNorm() >= this->cmdDvMagnitude;
-        if ((dvReached && burnTime >= this->cfg.getMinTime()) || burnTime >= this->cfg.getMaxTime()) {
+        if ((dvReached && this->burnTime >= this->cfg.getMinTime()) || this->burnTime >= this->cfg.getMaxTime()) {
             this->state = DvManeuverBurnState::Complete;
         }
+        this->burnTime += this->cfg.getControlPeriod();
     }
 
     // Complete is terminal: only reInitialize() leaves it, so reconfigure() can never reopen a finished burn

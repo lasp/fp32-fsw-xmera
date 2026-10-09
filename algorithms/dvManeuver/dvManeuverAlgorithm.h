@@ -18,12 +18,13 @@ struct DvManeuverOutput {
 /// enforces the parameter constraints and throws fsw::invalid_argument on a violation.
 class DvManeuverConfig final {
    public:
-    // minTime, maxTime, and burnStartTime share the uint64_t type, and cmdForce_B and cmdDv_N share the
+    // minTime, maxTime, controlPeriod, and burnStartTime share the uint64_t type, and cmdForce_B and cmdDv_N share the
     // Eigen::Vector3f type, but each has a distinct role; construction is funneled through the named create()
     // factory, which makes the argument roles explicit at every call site.
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     static DvManeuverConfig create(uint64_t minTime,
                                    uint64_t maxTime,
+                                   uint64_t controlPeriod,
                                    const Eigen::Vector3f& cmdForce_B,
                                    const Eigen::Vector3f& cmdDv_N,
                                    uint64_t burnStartTime) {
@@ -33,22 +34,27 @@ class DvManeuverConfig final {
         if (!isValidMaxTimeRelativeToMinTime(minTime, maxTime)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime must be greater than minTime.");
         }
+        if (!isValidControlPeriod(controlPeriod)) {
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: controlPeriod must be positive.");
+        }
         if (!isValidCmdForce(cmdForce_B)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: cmdForce_B must be finite.");
         }
         if (!isValidCmdDv(cmdDv_N)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: cmdDv_N must be finite.");
         }
-        return {minTime, maxTime, cmdForce_B, cmdDv_N, burnStartTime};
+        return {minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N, burnStartTime};
     }
 
     static bool isValidMaxTime(uint64_t maxTime) { return maxTime > 0U; }
     static bool isValidMaxTimeRelativeToMinTime(uint64_t minTime, uint64_t maxTime) { return maxTime > minTime; }
+    static bool isValidControlPeriod(uint64_t controlPeriod) { return controlPeriod > 0U; }
     static bool isValidCmdForce(const Eigen::Vector3f& cmdForce_B) { return cmdForce_B.allFinite(); }
     static bool isValidCmdDv(const Eigen::Vector3f& cmdDv_N) { return cmdDv_N.allFinite(); }
 
     uint64_t getMinTime() const { return minTime; }
     uint64_t getMaxTime() const { return maxTime; }
+    uint64_t getControlPeriod() const { return controlPeriod; }
     const Eigen::Vector3f& getCmdForce() const { return cmdForce_B; }
     const Eigen::Vector3f& getCmdDv() const { return cmdDv_N; }
     uint64_t getBurnStartTime() const { return burnStartTime; }
@@ -56,14 +62,21 @@ class DvManeuverConfig final {
    private:
     DvManeuverConfig(uint64_t minTime,
                      uint64_t maxTime,
+                     uint64_t controlPeriod,
                      const Eigen::Vector3f& cmdForce_B,
                      const Eigen::Vector3f& cmdDv_N,
                      uint64_t burnStartTime)
-        : minTime(minTime), maxTime(maxTime), cmdForce_B(cmdForce_B), cmdDv_N(cmdDv_N), burnStartTime(burnStartTime) {}
+        : minTime(minTime),
+          maxTime(maxTime),
+          controlPeriod(controlPeriod),
+          cmdForce_B(cmdForce_B),
+          cmdDv_N(cmdDv_N),
+          burnStartTime(burnStartTime) {}
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
     uint64_t minTime;
     uint64_t maxTime;
+    uint64_t controlPeriod;
     Eigen::Vector3f cmdForce_B;
     Eigen::Vector3f cmdDv_N;
     uint64_t burnStartTime;
@@ -93,7 +106,7 @@ class DvManeuverAlgorithm final {
     DvManeuverConfig cfg;
     float cmdDvMagnitude{};  ///< [m/s] magnitude of the configured cmdDv_N, cached by setConfig()
     DvManeuverBurnState state = DvManeuverBurnState::Pending;  ///< [-] burn state machine state
-    uint64_t burnStartCallTime{};                              ///< [ns] call time at which the burn started executing
+    uint64_t burnTime{};  ///< [ns] burn time at this update: controlPeriod per executing update so far
 };
 
 #endif
