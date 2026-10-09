@@ -65,6 +65,10 @@ The configuration is set through public properties on the adapter before ``reset
     * - ``maxTime``
       - > 0 and > minTime
       - [ns] Maximum burn time. The burn completes when the burn time reaches maxTime.
+    * - ``controlPeriod``
+      - > 0
+      - [ns] Update period of the module. The burn time increases by this value at each update while the burn
+        executes.
     * - ``cmdForce_B``
       - finite
       - [N] Body force that the module commands while the burn executes. A zero force is permitted.
@@ -85,6 +89,7 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
     module = dvManeuverF32.DvManeuver()
     module.minTime = macros.sec2nano(2.0)
     module.maxTime = macros.sec2nano(10.0)
+    module.controlPeriod = macros.sec2nano(0.5)
     module.cmdForce_B = [0.0, 0.0, 10.0]
     module.cmdDv_N = [0.0, 0.0, 5.0]
     module.burnStartTime = macros.sec2nano(1.0)
@@ -97,8 +102,8 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
 
 If ``navDataInMsg`` has not been connected when ``reset()`` runs, an ``std::invalid_argument`` is thrown.
 Invalid configuration values cause the configuration validator to throw fsw::invalid_argument. maxTime
-must be positive and greater than minTime, and cmdForce_B and cmdDv_N must be finite. If ``updateState()`` is
-called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
+must be positive and greater than minTime, controlPeriod must be positive, and cmdForce_B and cmdDv_N must be
+finite. If ``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
 
 Mathematical Formulation
 ------------------------
@@ -107,25 +112,21 @@ Algorithm Layer
 ~~~~~~~~~~~~~~~
 
 The algorithm is a burn state machine advanced one step per ``update()`` call. Let :math:`t` be the current call
-time, :math:`t_{\text{start}}` the configured burn start time,
+time, :math:`t_{\text{start}}` the configured burn start time, :math:`\Delta t` the configured control period,
 :math:`\boldsymbol{v}_{\text{accum}}` the accumulated Delta-V from navigation, and
 :math:`\Delta\boldsymbol{v}_{\text{cmd}}` the configured ``cmdDv_N``.
 
 The state machine has three states: pending, executing, and complete. The burn starts in the pending state. Only
 ``reInitialize()`` moves the burn out of the complete state.
 
-**Burn start.** The burn moves from pending to executing on the first call at or after the start time. At that
-instant the module latches the call time as :math:`t_0`:
+**Burn start.** The burn moves from pending to executing on the first call at or after the start time.
+
+**Burn time.** The burn time is zero at the first executing update. After each executing update, it increases by the
+control period:
 
 .. math::
 
-   \text{if } t \ge t_{\text{start}}: \quad t_0 \leftarrow t.
-
-**Burn time.** While the burn is executing, the burn time is the call time since burn start:
-
-.. math::
-
-   t_{\text{burn}} = t - t_0.
+   t_{\text{burn}} \leftarrow t_{\text{burn}} + \Delta t.
 
 All times are integer nanoseconds, so the burn time and the time gates have no rounding error.
 
@@ -165,8 +166,8 @@ Delta-V from before the burn counts toward the command.
 - The accumulated Delta-V provided by ``navDataInMsg`` is assumed to remain continuous and consistently
 referenced throughout the burn.
 
-- The call time is assumed to increase from one update to the next. If it decreases during a burn, the burn time
-decreases too. If it drops below the call time at burn start, the burn completes at that update.
+- The configured ``controlPeriod`` is assumed to match the actual update period of the module. If it does not, the
+burn time differs from the real elapsed time, and the time gates pass early or late.
 
 - The attitude guidance is assumed to align ``cmdForce_B`` with the commanded Delta-V direction during the burn.
 The module does not compare the two directions.

@@ -26,6 +26,8 @@ class DvManeuver final : public SysModel {
     // Phase 1: Public config properties — set before reset()
     uint64_t minTime = 0U; /*!< [ns] Minimum burn time allowed to elapse */
     uint64_t maxTime = 0U; /*!< [ns] Maximum burn time; must be set to a positive value before reset() */
+    uint64_t controlPeriod =
+        0U; /*!< [ns] Update period of the module; must be set to a positive value before reset() */
     Eigen::Vector3f cmdForce_B = Eigen::Vector3f::Zero(); /*!< [N] Body force commanded while the burn executes */
     Eigen::Vector3f cmdDv_N = Eigen::Vector3f::Zero();    /*!< [m/s] Commanded delta-V in inertial frame components */
     uint64_t burnStartTime = 0U;                          /*!< [ns] Time at which the burn starts */

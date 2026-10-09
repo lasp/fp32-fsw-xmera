@@ -70,7 +70,7 @@ inline void regressionTestDvManeuver(uint64_t minTime,
                                      const Eigen::Vector3f& acceleration,
                                      uint64_t burnStartTime,
                                      int numSteps) {
-    const auto config = DvManeuverConfig::create(minTime, maxTime, cmdForce_B, cmdDv_N, burnStartTime);
+    const auto config = DvManeuverConfig::create(minTime, maxTime, stepNs, cmdForce_B, cmdDv_N, burnStartTime);
     DvManeuverAlgorithm alg{config};
     DvManeuverReferenceState refState{};
     bool started = false;
@@ -132,7 +132,7 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
                                      uint64_t burnStartTime,
                                      uint64_t stepNs) {
     const uint64_t maxTime = minTime + maxTimeAboveMinTime;
-    const auto config = DvManeuverConfig::create(minTime, maxTime, cmdForce_B, cmdDv_N, burnStartTime);
+    const auto config = DvManeuverConfig::create(minTime, maxTime, stepNs, cmdForce_B, cmdDv_N, burnStartTime);
     DvManeuverAlgorithm alg{config};
 
     const uint64_t numSteps = (burnStartTime + maxTime) / stepNs + 2U;
@@ -180,6 +180,7 @@ inline void testDvManeuverSetup() {
         const DvManeuverAlgorithm alg{DvManeuverConfig::create(
             /* minTime = */ 0U,
             /* maxTime = */ 1000000000U,
+            /* controlPeriod = */ 500000000U,
             /* cmdForce_B = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F},
             /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F},
             /* burnStartTime = */ 0U)};
