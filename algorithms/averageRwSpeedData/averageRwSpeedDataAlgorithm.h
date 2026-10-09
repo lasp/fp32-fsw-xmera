@@ -35,6 +35,8 @@ constexpr std::size_t ringCapacityFor(double rateHz, float windowSec) {
 }
 
 constexpr std::size_t kRingCapacity = ringCapacityFor(kRwSpeedSampleRateHz, kMaxAveragingWindowSec);
+
+constexpr std::uint64_t kMaxAveragingWindowNs = static_cast<std::uint64_t>(kMaxAveragingWindowSec * kSec2Nano);
 }  // namespace average_rw_speed_detail
 
 /*! @brief Validated configuration for AverageRwSpeedDataAlgorithm. Constructed via create(), which

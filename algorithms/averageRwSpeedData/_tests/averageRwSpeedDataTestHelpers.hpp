@@ -17,7 +17,16 @@ class ReferenceAverager {
     explicit ReferenceAverager(AverageRwSpeedDataConfig const& cfg) : cfg(cfg) {}
 
     std::array<float, kMaxNumRw> update(RwSpeedSample const& sample) {
-        if (sample.measTime != 0U) {
+        constexpr auto kMaxWindowNs =
+            static_cast<std::uint64_t>(AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec * 1.0e9);
+        std::uint64_t newestStored = 0U;
+        for (auto const& slot : this->ring) {
+            if (slot.measTime > newestStored) {
+                newestStored = slot.measTime;
+            }
+        }
+
+        if (sample.measTime != 0U && newestStored <= sample.measTime + kMaxWindowNs) {
             this->ring[this->insertIdx] = sample;
             this->insertIdx = (this->insertIdx + 1U) % AverageRwSpeedDataAlgorithm::kRingCapacity;
         }

@@ -210,3 +210,36 @@ TEST(averageRwSpeedDataTest, MaxWindowAtSampleRateFitsInRing) {
     }
     EXPECT_EQ(out, sum);
 }
+
+TEST(averageRwSpeedDataTest, SampleOlderThanMaxWindowNotIngested) {
+    constexpr std::size_t kCapacity = AverageRwSpeedDataAlgorithm::kRingCapacity;
+    constexpr auto kMaxWindowNs =
+        static_cast<std::uint64_t>(AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec * 1.0e9);
+    AverageRwSpeedDataAlgorithm alg(
+        AverageRwSpeedDataConfig::create(AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec));
+
+    // Fill the ring with samples 1 ms apart, so an ingested sample must evict one of them.
+    std::array<float, kMaxNumRw> sumAll{};
+    std::array<float, kMaxNumRw> out{};
+    for (std::size_t i = 0; i < kCapacity; ++i) {
+        const auto base = 10.0F * static_cast<float>(i);
+        out = alg.update(makeSample(kT0 + (i * kMsToNs), base));
+        const auto speeds = speedsFor(base);
+        for (std::size_t w = 0; w < kMaxNumRw; ++w) {
+            sumAll[w] += speeds[w];
+        }
+    }
+    const std::uint64_t newest = kT0 + ((kCapacity - 1U) * kMsToNs);
+
+    // One nanosecond older than any window can reach: not ingested, so no sample is evicted.
+    EXPECT_EQ(alg.update(makeSample(newest - kMaxWindowNs - 1U, /* base = */ 500.0F)), out);
+
+    // At the edge of the maximum window: ingested in place of sample 0, and averaged.
+    std::array<float, kMaxNumRw> expected = sumAll;
+    const auto evicted = speedsFor(/* base = */ 0.0F);
+    const auto edge = speedsFor(/* base = */ 500.0F);
+    for (std::size_t w = 0; w < kMaxNumRw; ++w) {
+        expected[w] = (expected[w] - evicted[w] + edge[w]) / static_cast<float>(kCapacity);
+    }
+    EXPECT_EQ(alg.update(makeSample(newest - kMaxWindowNs, /* base = */ 500.0F)), expected);
+}
