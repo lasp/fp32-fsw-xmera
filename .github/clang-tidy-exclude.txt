@@ -9,6 +9,10 @@ algorithms/axisToGimbalAngles/axisToGimbalAnglesAlgorithm_c.h
 algorithms/axisToGimbalAngles/axisToGimbalAnglesAlgorithm_c.cpp
 algorithms/averageMimuData/averageMimuData.h
 algorithms/averageMimuData/averageMimuData.cpp
+algorithms/averageRwSpeedData/averageRwSpeedData.h
+algorithms/averageRwSpeedData/averageRwSpeedData.cpp
+algorithms/averageRwSpeedData/averageRwSpeedDataAlgorithm_c.h
+algorithms/averageRwSpeedData/averageRwSpeedDataAlgorithm_c.cpp
 algorithms/bodyRateMiscompare/bodyRateMiscompare.h
 algorithms/bodyRateMiscompare/bodyRateMiscompare.cpp
 algorithms/bodyRateMiscompare/bodyRateMiscompareAlgorithm_c.h
