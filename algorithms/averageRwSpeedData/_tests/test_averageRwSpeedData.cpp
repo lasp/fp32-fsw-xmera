@@ -110,8 +110,8 @@ TEST(averageRwSpeedDataTest, OutOfOrderSampleIngested) {
     EXPECT_EQ(alg.update(makeSample(kT0, /* base = */ 3.0F)), meanOf({/* base = */ 1.0F, /* base = */ 3.0F}));
 
     // The window is measured from the newest stored sample, not from the latest ingested one.
-    EXPECT_EQ(alg.update(makeSample(kT0 - (200U * kMsToNs), /* base = */ 5.0F)),
-              meanOf({/* base = */ 1.0F, /* base = */ 3.0F}));
+    EXPECT_EQ(alg.update(makeSample(kT0 + (200U * kMsToNs), /* base = */ 5.0F)),
+              meanOf({/* base = */ 1.0F, /* base = */ 3.0F, /* base = */ 5.0F}));
 }
 
 TEST(averageRwSpeedDataTest, FullRingOverwritesOldestSample) {
