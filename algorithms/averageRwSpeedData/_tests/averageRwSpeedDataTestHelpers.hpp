@@ -18,19 +18,7 @@ class ReferenceAverager {
 
     std::array<float, kMaxNumRw> update(RwSpeedSample const& sample) {
         constexpr auto kMaxWindowNs =
-            static_cast<std::uint64_t>(AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec * 1.0e9);
-        std::uint64_t newestStored = 0U;
-        for (auto const& slot : this->ring) {
-            if (slot.measTime > newestStored) {
-                newestStored = slot.measTime;
-            }
-        }
-
-        if (sample.measTime != 0U && newestStored <= sample.measTime + kMaxWindowNs) {
-            this->ring.at(this->insertIdx) = sample;
-            this->insertIdx = (this->insertIdx + 1U) % AverageRwSpeedDataAlgorithm::kRingCapacity;
-        }
-
+    static_cast<std::uint64_t>(AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec * 1.0e9);
         const auto windowNs = static_cast<std::uint64_t>(this->cfg.getRwSpeedAveragingWindow() * 1.0e9);
 
         std::uint64_t maxTimeTag = 0U;
@@ -40,10 +28,15 @@ class ReferenceAverager {
             }
         }
 
+        if (sample.measTime != 0U && maxTimeTag <= sample.measTime + kMaxWindowNs) {
+            this->ring.at(this->insertIdx) = sample;
+            this->insertIdx = (this->insertIdx + 1U) % AverageRwSpeedDataAlgorithm::kRingCapacity;
+        }
+
         std::array<float, kMaxNumRw> sum{};
         std::uint64_t count = 0U;
         for (auto const& slot : this->ring) {
-            if (slot.measTime != 0U && maxTimeTag - slot.measTime <= windowNs) {
+            if (slot.measTime != 0U && maxTimeTag <= slot.measTime + windowNs) {
                 for (std::size_t w = 0; w < kMaxNumRw; ++w) {
                     sum.at(w) += slot.wheelSpeeds.at(w);
                 }
