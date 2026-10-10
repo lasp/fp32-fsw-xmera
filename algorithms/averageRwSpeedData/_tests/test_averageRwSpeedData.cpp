@@ -16,7 +16,7 @@ std::array<float, kMaxNumRw> meanOf(std::vector<float> const& bases) {
     for (const float base : bases) {
         const auto speeds = speedsFor(base);
         for (std::size_t w = 0; w < kMaxNumRw; ++w) {
-            sum[w] += speeds[w];
+            sum.at(w) += speeds.at(w);
         }
     }
     for (auto& value : sum) {

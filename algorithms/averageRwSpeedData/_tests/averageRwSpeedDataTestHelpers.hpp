@@ -27,7 +27,7 @@ class ReferenceAverager {
         }
 
         if (sample.measTime != 0U && newestStored <= sample.measTime + kMaxWindowNs) {
-            this->ring[this->insertIdx] = sample;
+            this->ring.at(this->insertIdx) = sample;
             this->insertIdx = (this->insertIdx + 1U) % AverageRwSpeedDataAlgorithm::kRingCapacity;
         }
 
@@ -45,7 +45,7 @@ class ReferenceAverager {
         for (auto const& slot : this->ring) {
             if (slot.measTime != 0U && maxTimeTag - slot.measTime <= windowNs) {
                 for (std::size_t w = 0; w < kMaxNumRw; ++w) {
-                    sum[w] += slot.wheelSpeeds[w];
+                    sum.at(w) += slot.wheelSpeeds.at(w);
                 }
                 ++count;
             }
@@ -54,7 +54,7 @@ class ReferenceAverager {
         std::array<float, kMaxNumRw> out{};
         if (count > 0U) {
             for (std::size_t w = 0; w < kMaxNumRw; ++w) {
-                out[w] = sum[w] / static_cast<float>(count);
+                out.at(w) = sum.at(w) / static_cast<float>(count);
             }
         }
         return out;
@@ -71,7 +71,7 @@ inline RwSpeedSample makeSample(std::uint64_t measTime, float base) {
     RwSpeedSample sample{};
     sample.measTime = measTime;
     for (std::size_t w = 0; w < kMaxNumRw; ++w) {
-        sample.wheelSpeeds[w] = base + static_cast<float>(w);
+        sample.wheelSpeeds.at(w) = base + static_cast<float>(w);
     }
     return sample;
 }
