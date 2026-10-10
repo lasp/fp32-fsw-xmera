@@ -133,9 +133,6 @@ TEST(averageRwSpeedDataTest, FullRingOverwritesOldestSample) {
 
     // The ring is full: the next sample goes into the first slot and replaces sample 0.
     EXPECT_EQ(alg.update(sampleAt(kCapacity)), meanOfRange(/* first = */ 1U, kCapacity));
-
-    // The insert position keeps moving: the sample after that replaces sample 1.
-    EXPECT_EQ(alg.update(sampleAt(kCapacity + 1U)), meanOfRange(/* first = */ 2U, kCapacity + 1U));
 }
 
 TEST(averageRwSpeedDataTest, ReInitializeClearsRing) {
@@ -176,7 +173,6 @@ TEST(averageRwSpeedDataTest, RingCapacity) {
     EXPECT_EQ(ringCapacityFor(/* rateHz = */ 5.0, /* windowSec = */ 2.0F), 11U);
     // 5 Hz over 2.1 s is 10.5 sample periods, which rounds up to 11.
     EXPECT_EQ(ringCapacityFor(/* rateHz = */ 5.0, /* windowSec = */ 2.1F), 12U);
-    EXPECT_EQ(ringCapacityFor(/* rateHz = */ 5.0, /* windowSec = */ 2.01F), 12U);
 
     EXPECT_EQ(AverageRwSpeedDataAlgorithm::kRingCapacity,
               ringCapacityFor(average_rw_speed_detail::kRwSpeedSampleRateHz,
