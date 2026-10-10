@@ -43,7 +43,11 @@ std::array<float, kMaxNumRw> AverageRwSpeedDataAlgorithm::update(RwSpeedSample c
     }
 
     // Phase 1: Ingest the sample. A sample that no window can reach would only evict a useful slot.
-    if (wheelData.measTime != 0U && maxTimeTag <= wheelData.measTime + average_rw_speed_detail::kMaxAveragingWindowNs) {
+    // The maximum window size is used in case the current window size changes with a reconfig call
+    // Compared by subtraction from the larger timestamp so it cannot wrap near the top of the uint64 range.
+    if (wheelData.measTime != 0U &&
+        (wheelData.measTime >= maxTimeTag ||
+         maxTimeTag - wheelData.measTime <= average_rw_speed_detail::kMaxAveragingWindowNs)) {
         this->ring.at(this->insertIdx) = wheelData;
         this->insertIdx = (this->insertIdx + 1U) % kRingCapacity;
         maxTimeTag = std::max(maxTimeTag, wheelData.measTime);
@@ -56,11 +60,8 @@ std::array<float, kMaxNumRw> AverageRwSpeedDataAlgorithm::update(RwSpeedSample c
     uint64_t rwSpeedSampleCount = 0U;
     for (const auto& [measTime, wheelSpeeds] : this->ring) {
         // A sample with measTime 0 is never ingested, so measTime 0 marks a slot not written yet.
-        if (measTime == 0U) {
-            continue;
-        }
-        const uint64_t age = maxTimeTag - measTime;
-        if (age <= this->rwSpeedAveragingWindowNs) {
+        // Every stored measTime is at most maxTimeTag here, so the subtraction cannot wrap.
+        if (measTime != 0U && maxTimeTag - measTime <= this->rwSpeedAveragingWindowNs) {
             for (size_t wheelIdx = 0; const auto& wheelSpeed : wheelSpeeds) {
                 rwSpeedSum.at(wheelIdx) += wheelSpeed;
                 ++wheelIdx;
