@@ -227,3 +227,19 @@ TEST(averageRwSpeedDataTest, SampleOlderThanMaxWindowNotIngested) {
     // At the edge of the maximum window: ingested in place of sample 0, and averaged.
     EXPECT_EQ(alg.update(makeSample(newest - kMaxWindowNs, nextBase)), meanOfRange(/* first = */ 1U, kCapacity));
 }
+
+// ---------------------------------------------------------------------------
+// Property tests
+// ---------------------------------------------------------------------------
+
+// Every averaged wheel speed lies between the smallest and the largest input speed of that wheel.
+TEST(averageRwSpeedDataTest, AverageWithinInputBounds) {
+    // In-order, out-of-order, zero-measTime and out-of-window samples at typical wheel speeds.
+    propertyAverageWithinInputBounds(/* window = */ 0.5F,
+                                     {makeSample(kT0, /* base = */ 100.0F),
+                                      makeSample(kT0 + (200U * kMsToNs), /* base = */ -250.0F),
+                                      makeSample(kT0 + (400U * kMsToNs), /* base = */ 400.0F),
+                                      makeSample(/* measTime = */ 0U, /* base = */ 900.0F),
+                                      makeSample(kT0 + (300U * kMsToNs), /* base = */ -50.0F),
+                                      makeSample(kT0 + (1200U * kMsToNs), /* base = */ 20.0F)});
+}
