@@ -19,3 +19,11 @@ FUZZ_TEST(averageRwSpeedDataFuzz, regressionTestAverageRwSpeedData).WithDomains(
 
 FUZZ_TEST(averageRwSpeedDataFuzz, sequencedRegressionTestAverageRwSpeedData)
     .WithDomains(windowDomain(), fuzztest::VectorOf(sampleDomain()).WithMaxSize(40));
+
+// ---------------------------------------------------------------------------
+// Property fuzz tests
+// ---------------------------------------------------------------------------
+
+// Full finite float range, so the running sum can overflow.
+FUZZ_TEST(averageRwSpeedDataFuzz, propertyAverageWithinInputBounds)
+    .WithDomains(windowDomain(), fuzztest::VectorOf(sampleDomain()).WithMaxSize(40));

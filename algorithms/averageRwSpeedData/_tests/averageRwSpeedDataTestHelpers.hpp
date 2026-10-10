@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -85,6 +86,39 @@ inline void sequencedRegressionTestAverageRwSpeedData(float window, std::vector<
 
 inline void regressionTestAverageRwSpeedData(float window, RwSpeedSample const& sample) {
     sequencedRegressionTestAverageRwSpeedData(window, {sample});
+}
+
+// ---------------------------------------------------------------------------
+// Property test helper functions
+// ---------------------------------------------------------------------------
+
+/*! @brief Every averaged wheel speed lies between the smallest and the largest speed that wheel
+ *  received in an ingestible sample (nonzero measTime). The averaged samples are a subset of those, so a
+ *  correct mean can never leave that range; an overflowing sum does. Until a sample is ingestible the output
+ *  is zero. */
+inline void propertyAverageWithinInputBounds(float window, std::vector<RwSpeedSample> const& samples) {
+    AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(window));
+
+    std::array<float, kMaxNumRw> minSpeed{};
+    std::array<float, kMaxNumRw> maxSpeed{};
+    bool anyIngestible = false;
+
+    for (auto const& sample : samples) {
+        if (sample.measTime != 0U) {
+            for (std::size_t w = 0; w < kMaxNumRw; ++w) {
+                const float speed = sample.wheelSpeeds.at(w);
+                minSpeed.at(w) = anyIngestible ? std::min(minSpeed.at(w), speed) : speed;
+                maxSpeed.at(w) = anyIngestible ? std::max(maxSpeed.at(w), speed) : speed;
+            }
+            anyIngestible = true;
+        }
+
+        const auto out = alg.update(sample);
+        for (std::size_t w = 0; w < kMaxNumRw; ++w) {
+            EXPECT_GE(out.at(w), minSpeed.at(w)) << "wheel " << w;
+            EXPECT_LE(out.at(w), maxSpeed.at(w)) << "wheel " << w;
+        }
+    }
 }
 
 #endif
