@@ -114,6 +114,19 @@ TEST(averageRwSpeedDataTest, OutOfOrderSampleIngested) {
               meanOf({/* base = */ 1.0F, /* base = */ 3.0F, /* base = */ 5.0F}));
 }
 
+TEST(averageRwSpeedDataTest, OutOfOrderOutOfWindowSampleNotIngested) {
+    AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(/* rwSpeedAveragingWindow = */ 0.5F));
+
+    (void)alg.update(makeSample(kT0 + (300U * kMsToNs), /* base = */ 1.0F));
+
+    // Older than the newest stored sample, but inside the window: averaged.
+    EXPECT_EQ(alg.update(makeSample(kT0, /* base = */ 3.0F)), meanOf({/* base = */ 1.0F, /* base = */ 3.0F}));
+
+    // The window is measured from the newest stored sample, not from the latest ingested one: not averaged.
+    EXPECT_EQ(alg.update(makeSample(kT0 - (300U * kMsToNs), /* base = */ 5.0F)),
+              meanOf({/* base = */ 1.0F, /* base = */ 3.0F}));
+}
+
 TEST(averageRwSpeedDataTest, FullRingOverwritesOldestSample) {
     constexpr std::size_t kCapacity = AverageRwSpeedDataAlgorithm::kRingCapacity;
     AverageRwSpeedDataAlgorithm alg(
