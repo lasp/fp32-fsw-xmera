@@ -3,7 +3,6 @@
 #include <utilities/fsw/freestandingInvalidArgument.h>
 
 #include <array>
-#include <cstdint>
 #include <limits>
 #include <vector>
 
@@ -181,12 +180,12 @@ TEST(averageRwSpeedDataTest, RingCapacity) {
 
 TEST(averageRwSpeedDataTest, MaxWindowAtSampleRateFitsInRing) {
     // A maximum window at the nominal sample rate keeps every sample, including the one at the window edge.
-    constexpr std::size_t kRwSpeedSampleRateHz = average_rw_speed_detail::kRwSpeedSampleRateHz;
-    constexpr std::size_t kAveragingWindowSec = AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec;
+    constexpr auto kRwSpeedSampleRateHz = average_rw_speed_detail::kRwSpeedSampleRateHz;
+    constexpr auto kAveragingWindowSec = AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec;
 
     AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(kAveragingWindowSec));
-    const auto periodNs = static_cast<std::uint64_t>(1.0e9 / kRwSpeedSampleRateHz);
-    const auto samplesInWindow = static_cast<std::size_t>(kAveragingWindowSec * kRwSpeedSampleRateHz+ 1.0);
+    constexpr auto periodNs = static_cast<std::uint64_t>(1.0e9 / kRwSpeedSampleRateHz);
+    constexpr auto samplesInWindow = static_cast<std::size_t>(kAveragingWindowSec * kRwSpeedSampleRateHz + 1.0);
 
     std::array<float, kMaxNumRw> out{};
     for (std::size_t i = 0; i < samplesInWindow; ++i) {
@@ -196,8 +195,8 @@ TEST(averageRwSpeedDataTest, MaxWindowAtSampleRateFitsInRing) {
 }
 
 TEST(averageRwSpeedDataTest, SampleOlderThanMaxWindowNotIngested) {
-    constexpr std::size_t kCapacity = AverageRwSpeedDataAlgorithm::kRingCapacity;
-    constexpr std::size_t kAveragingWindowSec = AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec;
+    constexpr auto kCapacity = AverageRwSpeedDataAlgorithm::kRingCapacity;
+    constexpr auto kAveragingWindowSec = AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec;
     constexpr auto kMaxWindowNs = static_cast<std::uint64_t>(kAveragingWindowSec * 1.0e9);
     AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(kAveragingWindowSec));
 
@@ -205,8 +204,8 @@ TEST(averageRwSpeedDataTest, SampleOlderThanMaxWindowNotIngested) {
     for (std::size_t i = 0; i < kCapacity; ++i) {
         (void)alg.update(makeSample(kT0 + (i * kMsToNs), /* base = */ 10.0F * static_cast<float>(i)));
     }
-    const std::uint64_t newest = kT0 + (kCapacity - 1U) * kMsToNs;
-    const float nextBase = 10.0F * static_cast<float>(kCapacity);
+    constexpr std::uint64_t newest = kT0 + ((kCapacity - 1U) * kMsToNs);
+    constexpr float nextBase = 10.0F * static_cast<float>(kCapacity);
 
     // One nanosecond older than any window can reach: not ingested, so no sample is evicted.
     EXPECT_EQ(alg.update(makeSample(newest - kMaxWindowNs - 1U, nextBase)),
