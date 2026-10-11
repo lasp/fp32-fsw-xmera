@@ -47,11 +47,11 @@ inline void referenceReset(ReferenceFlybyState& s) {
 inline void referenceComputeFlybyParameters(ReferenceFlybyState& s,
                                             const Eigen::Vector3d& r,
                                             const Eigen::Vector3d& v) {
-    const Eigen::Vector3d ur = r.normalized();
-    const Eigen::Vector3d uv = v.normalized();
-    const Eigen::Vector3d uh = ur.cross(uv).normalized();
-    const Eigen::Vector3d ut = uh.cross(ur).normalized();
     s.f0 = v.stableNorm() / r.stableNorm();
+    const Eigen::Vector3d ur = r.stableNormalized();
+    const Eigen::Vector3d uv = v.stableNormalized();
+    const Eigen::Vector3d uh = ur.cross(uv).stableNormalized();
+    const Eigen::Vector3d ut = uh.cross(ur).stableNormalized();
     s.gamma0 = safeAtan2(v.dot(ur), v.dot(ut));
 }
 
@@ -62,10 +62,10 @@ inline void referenceComputeFlybyParameters(ReferenceFlybyState& s,
  @param v The relative velocity state [m/s]
  */
 inline void referenceComputeRN(ReferenceFlybyState& s, const Eigen::Vector3d& r, const Eigen::Vector3d& v) {
-    const Eigen::Vector3d ur = r.normalized();
-    const Eigen::Vector3d uv = v.normalized();
-    const Eigen::Vector3d uh = ur.cross(uv).normalized();
-    const Eigen::Vector3d ut = uh.cross(ur).normalized();
+    const Eigen::Vector3d ur = r.stableNormalized();
+    const Eigen::Vector3d uv = v.stableNormalized();
+    const Eigen::Vector3d uh = ur.cross(uv).stableNormalized();
+    const Eigen::Vector3d ut = uh.cross(ur).stableNormalized();
     s.R0N.row(0) = ur;
     s.R0N.row(1) = ut;
     s.R0N.row(2) = uh;
@@ -88,8 +88,8 @@ inline bool referenceCheckValidity(const ReferenceFlybyState& s,
     static constexpr double kRad2Deg = 180.0 / std::numbers::pi;
     static constexpr double kMaxAccelCoeff = 3.0 * std::numbers::sqrt3 / 8.0;
 
-    const Eigen::Vector3d ur = r.normalized();
-    const Eigen::Vector3d uv = v.normalized();
+    const Eigen::Vector3d ur = r.stableNormalized();
+    const Eigen::Vector3d uv = v.stableNormalized();
     if (1.0 - std::fabs(ur.dot(uv)) < config.getToleranceForCollinearity()) return false;
 
     const double dca = -r.stableNorm() * safeSin(s.gamma0);

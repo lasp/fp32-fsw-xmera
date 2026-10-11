@@ -691,7 +691,7 @@ TEST(FlybyFilterAlgorithmDegenerate, GravityFloorIsContinuousAtTheBoundary) {
     // The clamp only engages strictly below the floor: exactly at |r| = MinGravityRange the guarded
     // derivative still equals the unguarded -mu/|r|^3 r, so nothing at or above the floor is
     // perturbed and the acceleration has no jump there.
-    Eigen::Vector3d const rAtFloor = Eigen::Vector3d(1.0, -2.0, 0.5).normalized() * MinGravityRange;
+    Eigen::Vector3d const rAtFloor = Eigen::Vector3d(1.0, -2.0, 0.5).stableNormalized() * MinGravityRange;
     TestState const dot = FlybyDynamics{kMu}(0.0, makeState(rAtFloor, Eigen::Vector3d::Zero()));
 
     Eigen::Vector3d const expected = -kMu / std::pow(rAtFloor.stableNorm(), 3) * rAtFloor;
@@ -702,7 +702,7 @@ TEST(FlybyFilterAlgorithmDegenerate, GravityStaysBoundedBelowTheFloor) {
     // Below the floor the acceleration decays linearly to zero instead of diverging, so its
     // magnitude can never exceed the value reached at the floor itself.
     double const maxAccel = kMu / (MinGravityRange * MinGravityRange);
-    Eigen::Vector3d const direction = Eigen::Vector3d(1.0, -2.0, 0.5).normalized();
+    Eigen::Vector3d const direction = Eigen::Vector3d(1.0, -2.0, 0.5).stableNormalized();
 
     for (double scale : {1.0, 1E-1, 1E-3, 1E-9, 0.0}) {
         TestState const dot =
@@ -860,7 +860,7 @@ TEST(FlybyFilterAlgorithmConvergence, TracksHeadingUnderNoisyMeasurements) {
     for (int i = 1; i <= 80; ++i) {
         truth = filtering::propagate(FlybyDynamics{kMu}, truth, {0.0, dt});
         Eigen::Vector3d rhat = headingOf(truth) + kHeadingStd * Eigen::Vector3d(noise(gen), noise(gen), noise(gen));
-        rhat.normalize();
+        rhat.stableNormalize();
         HeadingData heading;
         heading.timeTag = i * dt;
         heading.rhat_BN_N = rhat;

@@ -172,7 +172,7 @@ inline std::optional<SunlineFilterConfig> tryFuzzConfig(Eigen::Vector3d const& s
     }
     // A strictly positive diagonal is symmetric positive definite, so the covariance always validates.
     Vector7 const covDiag = covDiagRaw.cwiseAbs() + Vector7::Constant(1E-6);
-    return threeCssConfig(makeState(sHatRaw.normalized(), omega, bias), covDiag.asDiagonal(), 0.0);
+    return threeCssConfig(makeState(sHatRaw.stableNormalized(), omega, bias), covDiag.asDiagonal(), 0.0);
 }
 
 // Drives one update() with the given (possibly non-finite) CSS cos-values and rate at a shared

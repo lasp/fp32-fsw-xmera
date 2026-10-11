@@ -32,9 +32,9 @@ inline ReferenceCelestialTwoBodyPointOutput referenceRateAndAccelCalc(const Eige
     const Eigen::Vector3d normalVecDDot_N = 2.0 * v_PB_N.cross(v_SB_N);
 
     /* Reference frame computation */
-    const Eigen::Vector3d r1Hat_N = r_PB_N.normalized();
-    const Eigen::Vector3d r3Hat_N = normalVec_N.normalized();
-    const Eigen::Vector3d r2Hat_N = (r3Hat_N.cross(r1Hat_N)).normalized();
+    const Eigen::Vector3d r1Hat_N = r_PB_N.stableNormalized();
+    const Eigen::Vector3d r3Hat_N = normalVec_N.stableNormalized();
+    const Eigen::Vector3d r2Hat_N = (r3Hat_N.cross(r1Hat_N)).stableNormalized();
     Eigen::Matrix3d dcm_RN;
     dcm_RN.row(0) = r1Hat_N;
     dcm_RN.row(1) = r2Hat_N;
@@ -99,13 +99,13 @@ inline ReferenceCelestialTwoBodyPointOutput referenceCelestialTwoBodyPoint(
     }
 
     /*! Compute angle between celestial bodies */
-    const auto dotProduct1 = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
+    const auto dotProduct1 = static_cast<float>(r_SB_N.stableNormalized().dot(r_PB_N.stableNormalized()));
     const float celestialBodySeparationAngle = safeAcosf(fabsf(dotProduct1)); /* Angle between r_PB_N and r_SB_N */
 
     /*! Update r_SB_N and v_SB_N if celestial bodies are aligned */
     if (celestialBodySeparationAngle < celestialBodyAlignmentThreshold) {
         /*! Return identity reference attitude and zero reference rates if r_PB_N and v_PB_N are aligned */
-        const auto dotProduct2 = static_cast<float>(r_PB_N.normalized().dot(v_PB_N.normalized()));
+        const auto dotProduct2 = static_cast<float>(r_PB_N.stableNormalized().dot(v_PB_N.stableNormalized()));
         const float posVelSeparationAngle = safeAcosf(fabsf(dotProduct2)); /* Angle between r_PB_N and v_PB_N */
         if (v_PB_N.squaredNorm() < CelestialTwoBodyPointAlgorithm::kMinNormSq ||
             posVelSeparationAngle < CelestialTwoBodyPointAlgorithm::kSmallAngle) {

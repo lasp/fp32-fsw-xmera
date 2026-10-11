@@ -36,7 +36,7 @@ inline Eigen::Matrix<double, kMaxNumRw, kMaxNumRw> referenceTau(
     uint32_t numAvailRW = 0U;
     for (uint32_t i = 0U; i < numRW; ++i) {
         if (wheelsAvailability[i] == fsw::DeviceAvailability::Available) {
-            G_s_B.col(i) = GsMatrix_B.col(i).normalized();
+            G_s_B.col(i) = GsMatrix_B.col(i).stableNormalized();
             numAvailRW += 1U;
         }
     }
@@ -88,7 +88,7 @@ inline Eigen::Vector<double, kMaxNumRw> referenceUpdate(
     Eigen::Matrix<double, 3, kMaxNumRw> G_s_B{Eigen::Matrix<double, 3, kMaxNumRw>::Zero()};
     for (uint32_t i = 0U; i < numRW; ++i) {
         if (wheelsAvailability[i] == fsw::DeviceAvailability::Available) {
-            G_s_B.col(i) = GsMatrix_B.col(i).normalized();
+            G_s_B.col(i) = GsMatrix_B.col(i).stableNormalized();
         }
     }
 

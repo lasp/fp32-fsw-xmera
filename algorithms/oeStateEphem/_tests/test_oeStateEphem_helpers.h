@@ -222,7 +222,8 @@ inline void testOEStateEphemUpdate(double mu,
         EXPECT_NEAR(computed_state.position[idx], expected_state.position[idx], posTol);
         EXPECT_NEAR(computed_state.velocity[idx], expected_state.velocity[idx], velTol);
     }
-    EXPECT_LT(safeAcos(computed_state.position.normalized().dot(expected_state.position.normalized())), angleTol);
+    EXPECT_LT(safeAcos(computed_state.position.stableNormalized().dot(expected_state.position.stableNormalized())),
+              angleTol);
 }
 
 #endif  // TEST_OE_STATE_EPHEM_HELPERS_H

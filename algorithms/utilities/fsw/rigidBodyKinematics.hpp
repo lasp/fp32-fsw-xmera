@@ -643,8 +643,8 @@ Eigen::Vector4<ScalarT> prvToEp(const Eigen::Vector3<ScalarT>& prv) {
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> prvToMrp(const Eigen::Vector3<ScalarT>& prv) {
     constexpr ScalarT localEps = ScalarT(1e-12);
-    if (ScalarT norm = prv.norm(); norm > localEps) {
-        return prv.normalized() * std::tan(norm / ScalarT(4));
+    if (ScalarT norm = prv.stableNorm(); norm > localEps) {
+        return prv.stableNormalized() * std::tan(norm / ScalarT(4));
     }
     return Eigen::Vector3<ScalarT>::Zero();
 }

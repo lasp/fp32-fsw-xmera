@@ -105,7 +105,7 @@ inline void expectFitIsOptimal(const ActiveSystem& system,
         return;
     }
 
-    const Eigen::Vector3d heading = sunHeading_B.cast<double>().normalized();
+    const Eigen::Vector3d heading = sunHeading_B.cast<double>().stableNormalized();
     const Eigen::Vector3d htWy = system.H.transpose() * (system.weights.asDiagonal() * system.y);
     const Eigen::Matrix3d htWh = system.H.transpose() * system.weights.asDiagonal() * system.H;
 
@@ -138,7 +138,7 @@ inline void expectFitIsOptimal(const ActiveSystem& system,
     for (size_t k = 0U; k < system.sensors.size(); ++k) {
         const auto observation = static_cast<Eigen::Index>(k);
         const uint32_t sensor = system.sensors[k];
-        const Eigen::Vector3d boresight = system.H.row(observation).transpose().normalized();
+        const Eigen::Vector3d boresight = system.H.row(observation).transpose().stableNormalized();
         const double prediction = std::max(0.0, fit.dot(boresight));
         const double expected = system.y(observation) - prediction;
         const double residualScale = std::max(1.0, std::abs(expected));

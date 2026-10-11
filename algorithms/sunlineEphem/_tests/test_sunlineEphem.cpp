@@ -34,7 +34,7 @@ TEST(SunlineEphemTest, TinyRelativePosition) {
     const Eigen::Vector3d r_SN_N_base(1.0, 2.0, 3.0);
     const Eigen::Vector3d r_BN_N_base(4.0, 5.0, 6.0);
     const Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();
-    const Eigen::Vector3f expected = (r_SN_N_base - r_BN_N_base).normalized().cast<float>();
+    const Eigen::Vector3f expected = (r_SN_N_base - r_BN_N_base).stableNormalized().cast<float>();
 
     const double scale = 1.0e-200;
     Eigen::Vector3f out;
@@ -54,7 +54,7 @@ TEST(SunlineEphemTest, HugeRelativePosition) {
     const Eigen::Vector3d r_SN_N_base(1.0, 2.0, 3.0);
     const Eigen::Vector3d r_BN_N_base(4.0, 5.0, 6.0);
     const Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();
-    const Eigen::Vector3f expected = (r_SN_N_base - r_BN_N_base).normalized().cast<float>();
+    const Eigen::Vector3f expected = (r_SN_N_base - r_BN_N_base).stableNormalized().cast<float>();
 
     const double scale = 1.0e200;
     Eigen::Vector3f out;
@@ -78,7 +78,7 @@ TEST(SunlineEphemTest, IdentityAttitude) {
     EXPECT_NO_THROW(out = alg.update(r_SN_N, r_BN_N, sigma_BN));
 
     // Expected: normalized (r_SN_N - r_BN_N) cast to float
-    Eigen::Vector3f expected = (r_SN_N - r_BN_N).normalized().cast<float>();
+    Eigen::Vector3f expected = (r_SN_N - r_BN_N).stableNormalized().cast<float>();
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(out[i], expected[i], 1e-6);

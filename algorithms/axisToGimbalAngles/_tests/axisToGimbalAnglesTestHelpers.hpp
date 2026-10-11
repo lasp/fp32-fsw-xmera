@@ -33,7 +33,7 @@ inline AxisToGimbalAnglesConfig makeConfig(const Eigen::Vector3f& sigma_MB, cons
 inline Eigen::Vector3f gimbalAxis_M(const float angle1, const float angle2) {
     return Eigen::Vector3f{
         std::sin(angle2) * std::cos(angle1), -std::cos(angle2) * std::sin(angle1), std::cos(angle2) * std::cos(angle1)}
-        .normalized();
+        .stableNormalized();
 }
 
 // The DCM from the body frame to the mount frame, in double precision.

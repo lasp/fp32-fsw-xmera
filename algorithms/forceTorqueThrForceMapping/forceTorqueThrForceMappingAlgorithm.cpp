@@ -80,7 +80,7 @@ Eigen::Matrix<float, 6, kMaxThrusterCount> buildControlMappingMatrix(const Thrus
     for (uint32_t i = 0; i < thrusters.numThrusters; ++i) {
         if (ForceTorqueThrForceMappingConfig::isAvailable(thrusters, i)) {
             const Eigen::Vector3f r_TB_B(thrusters.thrusters.at(i).r_TB_B.data());
-            tHat_B.col(i) = Eigen::Vector3f(thrusters.thrusters.at(i).tHat_B.data()).normalized();
+            tHat_B.col(i) = Eigen::Vector3f(thrusters.thrusters.at(i).tHat_B.data()).stableNormalized();
             torquePntC_B.col(i) = (r_TB_B - centerOfMass_B).cross(tHat_B.col(i));
         }
     }

@@ -76,7 +76,7 @@ class SunSearchPointConfig final {
             FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: controlPeriod must be finite and > 0");
         }
         return SunSearchPointConfig{
-            rotations, sHatBdyCmd.normalized(), sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod};
+            rotations, sHatBdyCmd.stableNormalized(), sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod};
     }
 
     static bool isValidRotationDuration(float time) { return fsw::is_finite(time) && time > 0.0F; }

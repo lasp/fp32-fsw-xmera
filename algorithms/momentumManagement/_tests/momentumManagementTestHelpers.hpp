@@ -19,7 +19,7 @@ inline MomentumManagementRwArrayConfiguration makeRwArrayConfig(const std::vecto
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         const bool named = i < spinAxes.size();
-        rwArrayConfig.GsMatrix_B.col(i) = named ? spinAxes[i].normalized() : Eigen::Vector3f::UnitX();
+        rwArrayConfig.GsMatrix_B.col(i) = named ? spinAxes[i].stableNormalized() : Eigen::Vector3f::UnitX();
         rwArrayConfig.JsList[i] = named ? js : 0.0F;
     }
     return rwArrayConfig;
@@ -103,7 +103,7 @@ inline void testMomentumManagementSetup(const MomentumManagementControlParameter
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         EXPECT_NEAR(cfg.getRwArrayConfiguration().JsList[i], rwArrayConfig.JsList[i], accuracy) << "wheel " << i;
         // Spin axes are normalized on construction, so the stored axis is the unit direction of the input.
-        const Eigen::Vector3f expectedAxis = rwArrayConfig.GsMatrix_B.col(i).normalized();
+        const Eigen::Vector3f expectedAxis = rwArrayConfig.GsMatrix_B.col(i).stableNormalized();
         for (Eigen::Index k = 0; k < 3; ++k) {
             EXPECT_NEAR(cfg.getRwArrayConfiguration().GsMatrix_B(k, i), expectedAxis[k], accuracy)
                 << "wheel " << i << " component " << k;
@@ -157,7 +157,7 @@ inline void testProportionalTorqueOpposesStoredMomentum(const MomentumManagement
     if (hsDumpableNorm > params.hsMin + deadbandMargin) {
         EXPECT_NEAR(Lr_B.stableNorm(), params.K * hsDumpableNorm, tol);
         if (params.K > 0.0F) {
-            EXPECT_LT(Lr_B.normalized().dot(hsDumpable_B.normalized()), 0.0F);
+            EXPECT_LT(Lr_B.stableNormalized().dot(hsDumpable_B.stableNormalized()), 0.0F);
         }
     } else if (hsDumpableNorm < params.hsMin - deadbandMargin) {
         EXPECT_TRUE(Lr_B.isZero(tol));

@@ -99,7 +99,7 @@ TEST(SunlineFilterAlgorithmProperty, RateMeasurementDoesNotIncreaseCovariance) {
 // must be zero. No integrator involved — this isolates the dynamics from any
 // numerical concerns in propagate().
 TEST(SunlineFilterAlgorithmDynamics, DerivativeIsOrthogonalToHeading) {
-    Eigen::Vector3d const sHat = Eigen::Vector3d(0.4, -0.7, 0.6).normalized();
+    Eigen::Vector3d const sHat = Eigen::Vector3d(0.4, -0.7, 0.6).stableNormalized();
     Eigen::Vector3d const omega = Eigen::Vector3d(0.02, -0.005, 0.01);
     State s = makeState(sHat, omega, 0.6);
 
@@ -130,7 +130,7 @@ TEST(SunlineFilterAlgorithmDynamics, HeadingMagnitudePreservedOverSmallTimeUpdat
 
 // With omega = 0 the heading must not move.
 TEST(SunlineFilterAlgorithmTimeUpdate, ZeroRateLeavesHeadingFixed) {
-    Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 1.0, 0.0).normalized();
+    Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 1.0, 0.0).stableNormalized();
     SunlineFilterAlgorithm algo(
         rateOnlyConfig(makeState(sHat0, Eigen::Vector3d::Zero(), 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
 
@@ -513,10 +513,10 @@ TEST(SunlineFilterAlgorithmReInit, SetConfigReDerivesProcessNoise) {
 
 TEST(SunlineFilterAlgorithmRegression, ConvergesToConstantSunDirection) {
     Eigen::Matrix<double, MaxCss, 3> const nHat = threeCssNHat();
-    Eigen::Vector3d const sTrue = Eigen::Vector3d(0.2, -0.1, 1.0).normalized();
+    Eigen::Vector3d const sTrue = Eigen::Vector3d(0.2, -0.1, 1.0).stableNormalized();
 
     // Start the estimate away from the truth.
-    Eigen::Vector3d const sGuess = Eigen::Vector3d(-0.3, 0.4, 0.85).normalized();
+    Eigen::Vector3d const sGuess = Eigen::Vector3d(-0.3, 0.4, 0.85).stableNormalized();
     SunlineFilterAlgorithm algo(
         threeCssConfig(makeState(sGuess, Eigen::Vector3d::Zero(), 1.0), diagCovariance(3E-1, 1E-3, 1E-2), 0.0));
 

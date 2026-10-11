@@ -228,7 +228,7 @@ TEST(InvalidGravitationalParameterTest, CartesianToElements_NonPositiveMu_Return
 // Rectilinear orbit  (h = 0, purely radial velocity)
 //
 // r x v = 0 when v is parallel to r.  cartesianStateToElements divides
-// by h to compute inclination and uses hVec.normalized() for omega and f.
+// by h to compute inclination and uses hVec.stableNormalized() for omega and f.
 // Both produce NaN when h = 0.  The tests document these singularities and
 // verify the code does not crash or invoke undefined behaviour.
 // ============================================================================
@@ -262,7 +262,7 @@ TEST(RectilinearOrbitTest, RectilinearDefaults) {
 // This gives hVec along -y (a polar orbit), so:
 //   inclination = acos(0)   = pi/2  (finite)
 //   nVec = UnitZ x hVec     along +x (finite)
-//   hVec.normalized()       = (0, -1, 0) (finite for v_t > 0)
+//   hVec.stableNormalized() = (0, -1, 0) (finite for v_t > 0)
 // All elements remain finite even as v_transverse -> 0+.
 // ============================================================================
 

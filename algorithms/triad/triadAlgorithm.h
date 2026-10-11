@@ -24,7 +24,7 @@ class TriadConfig final {
         if (!isValidN3Axis(n3Axis)) {
             FSW_THROW_INVALID_ARGUMENT("triad: n3Axis must be plusZHat_N or minusZHat_N");
         }
-        return {sadaHat_B.normalized(), thrustReqHat_N.normalized(), n3Axis};
+        return {sadaHat_B.stableNormalized(), thrustReqHat_N.stableNormalized(), n3Axis};
     }
 
     static bool isValidSadaHat_B(const Eigen::Vector3f& sadaHat_B) {

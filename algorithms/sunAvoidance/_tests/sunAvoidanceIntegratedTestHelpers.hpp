@@ -36,7 +36,7 @@ struct SunAvoidanceReferenceOutput {
 class SunAvoidanceReference {
    public:
     SunAvoidanceReference(const Eigen::Vector3f& sigma_R0R, const Eigen::Vector3f& sensitiveHat_B, float slewRate)
-        : sigma_R0R(sigma_R0R), sensitiveHat_B(sensitiveHat_B.normalized()), slewRate(slewRate) {}
+        : sigma_R0R(sigma_R0R), sensitiveHat_B(sensitiveHat_B.stableNormalized()), slewRate(slewRate) {}
 
     SunAvoidanceReferenceOutput update(const Eigen::Vector3f& sigma_BN,
                                        const Eigen::Vector3f& omega_BN_B,
@@ -50,7 +50,7 @@ class SunAvoidanceReference {
             // no maneuver to perform.
             if (sHat_B.stableNorm() > 0.0F) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-                const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.normalized();
+                const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.stableNormalized();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
 
                 const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_RN);
@@ -58,18 +58,18 @@ class SunAvoidanceReference {
                 const Eigen::Matrix3f dcm_BNFinal = (dcm_R0N.transpose() * dcm_R0R).transpose();
                 const Eigen::Vector3f sensFinal_N = dcm_BNFinal.transpose() * this->sensitiveHat_B;
 
-                const Eigen::Vector3f sensAxis_N = sensInitial_N.cross(sensFinal_N).normalized();
-                const Eigen::Vector3f pHat_N = (sHat_N - (sensAxis_N.dot(sHat_N)) * sensAxis_N).normalized();
+                const Eigen::Vector3f sensAxis_N = sensInitial_N.cross(sensFinal_N).stableNormalized();
+                const Eigen::Vector3f pHat_N = (sHat_N - (sensAxis_N.dot(sHat_N)) * sensAxis_N).stableNormalized();
 
                 const float initMnvrAngle = safeAcosf(sensInitial_N.dot(sensFinal_N));
                 const float initCelAngle = safeAcosf(pHat_N.dot(sensInitial_N));
 
                 const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_BNFinal.transpose();
                 const Eigen::Vector3f prv_BR = dcmToPrv(dcm_BR);
-                this->mnvrAxis_B = prv_BR.normalized();
                 this->angleStart = prv_BR.stableNorm();
+                this->mnvrAxis_B = prv_BR.stableNormalized();
 
-                const Eigen::Vector3f sensToSunAxis_N = sensInitial_N.cross(sHat_N).normalized();
+                const Eigen::Vector3f sensToSunAxis_N = sensInitial_N.cross(sHat_N).stableNormalized();
                 const Eigen::Vector3f mnvrAxis_N = dcm_BN.transpose() * this->mnvrAxis_B;
                 const float finalCelAngle = sensToSunAxis_N.dot(mnvrAxis_N);
 

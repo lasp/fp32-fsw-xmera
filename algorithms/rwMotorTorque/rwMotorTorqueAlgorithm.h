@@ -57,7 +57,7 @@ class RwMotorTorqueConfig final {
         // (near-)unit, so this only removes rounding.
         RwMotorTorqueArrayConfiguration normalizedRwConfiguration = rwConfiguration;
         for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-            normalizedRwConfiguration.GsMatrix_B.col(i).normalize();
+            normalizedRwConfiguration.GsMatrix_B.col(i).stableNormalize();
         }
 
         // Reject configurations whose control mapping cannot be realized: a selected control axis is unreachable

@@ -69,11 +69,11 @@ void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, 
     this->f0 = v_BN_N.stableNorm() / r_BN_N.stableNorm();
 
     /*! compute radial (ur_N), velocity (uv_N), along-track (ut_N), and out-of-plane (uh_N) unit direction vectors */
-    const Eigen::Vector3d ur_N = r_BN_N.normalized();
-    const Eigen::Vector3d uv_N = v_BN_N.normalized();
+    const Eigen::Vector3d ur_N = r_BN_N.stableNormalized();
+    const Eigen::Vector3d uv_N = v_BN_N.stableNormalized();
 
-    const Eigen::Vector3d uh_N = ur_N.cross(uv_N).normalized();
-    const Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
+    const Eigen::Vector3d uh_N = ur_N.cross(uv_N).stableNormalized();
+    const Eigen::Vector3d ut_N = uh_N.cross(ur_N).stableNormalized();
 
     // compute flight path angle at the time of read
     this->gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));
@@ -84,8 +84,8 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
                                         const Eigen::Vector3d& v_BN_N,
                                         AttGuideOutput& output) const {
     bool valid = true;
-    const Eigen::Vector3d ur_N = r_BN_N.normalized();
-    const Eigen::Vector3d uv_N = v_BN_N.normalized();
+    const Eigen::Vector3d ur_N = r_BN_N.stableNormalized();
+    const Eigen::Vector3d uv_N = v_BN_N.stableNormalized();
 
     /*! assert r and v are not collinear, parallel or anti-parallel (collision trajectory) */
     if (1.0 - fabs(ur_N.dot(uv_N)) < this->cfg.getToleranceForCollinearity()) {
@@ -131,11 +131,11 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
 
 void FlybyPointAlgorithm::computeRN(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
     /*! compute radial (ur_N), velocity (uv_N), along-track (ut_N), and out-of-plane (uh_N) unit direction vectors */
-    const Eigen::Vector3d ur_N = r_BN_N.normalized();
-    const Eigen::Vector3d uv_N = v_BN_N.normalized();
+    const Eigen::Vector3d ur_N = r_BN_N.stableNormalized();
+    const Eigen::Vector3d uv_N = v_BN_N.stableNormalized();
 
-    const Eigen::Vector3d uh_N = ur_N.cross(uv_N).normalized();
-    const Eigen::Vector3d ut_N = uh_N.cross(ur_N).normalized();
+    const Eigen::Vector3d uh_N = ur_N.cross(uv_N).stableNormalized();
+    const Eigen::Vector3d ut_N = uh_N.cross(ur_N).stableNormalized();
 
     /*! compute inertial-to-reference DCM at time of read */
     this->R0N.row(0) = ur_N.cast<float>();

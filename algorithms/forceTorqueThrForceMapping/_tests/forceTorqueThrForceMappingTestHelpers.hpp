@@ -169,7 +169,7 @@ inline Eigen::Vector<float, kMaxThrusterCount> referenceUpdate(std::uint32_t num
 
     Eigen::Matrix<float, 6, kMaxThrusterCount> DG = Eigen::Matrix<float, 6, kMaxThrusterCount>::Zero();
     for (std::uint32_t i = 0; i < numThrusters; ++i) {
-        const Eigen::Vector3f g = directions[i].normalized();
+        const Eigen::Vector3f g = directions[i].stableNormalized();
         const Eigen::Vector3f arm = positions[i] - CoM_B;
         DG.col(static_cast<int>(i)).head<3>() = arm.cross(g);
         DG.col(static_cast<int>(i)).tail<3>() = g;

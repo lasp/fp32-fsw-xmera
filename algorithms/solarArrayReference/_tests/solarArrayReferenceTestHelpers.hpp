@@ -85,7 +85,7 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
     if (fabsf(a1Hat_B_f.stableNorm() - 1.0F) > normTolerance || fabsf(a2Hat_B_f.stableNorm() - 1.0F) > normTolerance) {
         return;
     }
-    if (fabsf(a1Hat_B_f.normalized().dot(a2Hat_B_f.normalized())) > maxDot) {
+    if (fabsf(a1Hat_B_f.stableNormalized().dot(a2Hat_B_f.stableNormalized())) > maxDot) {
         return;  // skip: not orthogonal
     }
 
@@ -208,7 +208,7 @@ inline void propertyAlignedSunReturnsPriorThetaRef(std::vector<float> a1Hat_B_Ve
     if (std::abs(a1.dot(candidate)) > 0.9F) {
         candidate = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     }
-    Eigen::Vector3f a2 = (a1.cross(candidate)).normalized();
+    Eigen::Vector3f a2 = (a1.cross(candidate)).stableNormalized();
 
     const SolarArrayReferenceConfig cfg = SolarArrayReferenceConfig::create(
         SolarArrayAxes{a1Hat_B_f, a2}, alignmentThreshold, TrackingMode::AUTO_TRACK, 0.0F, 0.0F);

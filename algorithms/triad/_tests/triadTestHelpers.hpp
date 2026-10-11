@@ -26,9 +26,9 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& rHat_SB_N,
     }
 
     /*! Triad (D frame) basis vectors in hub reference frame */
-    const Eigen::Vector3f d2Hat_B = thrustHat_B.normalized();
-    const Eigen::Vector3f d3Hat_B = sadaHat_B.cross(d2Hat_B).normalized();
-    const Eigen::Vector3f d1Hat_B = d2Hat_B.cross(d3Hat_B).normalized();
+    const Eigen::Vector3f d2Hat_B = thrustHat_B.stableNormalized();
+    const Eigen::Vector3f d3Hat_B = sadaHat_B.cross(d2Hat_B).stableNormalized();
+    const Eigen::Vector3f d1Hat_B = d2Hat_B.cross(d3Hat_B).stableNormalized();
     Eigen::Matrix3f dcm_BD;
     dcm_BD.col(0) = d1Hat_B;
     dcm_BD.col(1) = d2Hat_B;
@@ -46,7 +46,7 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& rHat_SB_N,
      * configured inertial z-axis */
     if (fabsf(sunToThrustRefAngle) < kParallelThresholdRad) {
         const float n3HatSign = (n3Axis == N3Axis::plusZHat_N) ? 1.0F : -1.0F;
-        const Eigen::Vector3f n3Hat_N = (n3HatSign * Eigen::Vector3f::UnitZ()).normalized();
+        const Eigen::Vector3f n3Hat_N = (n3HatSign * Eigen::Vector3f::UnitZ()).stableNormalized();
 
         /*! Return zero MRP attitude if the fallback inertial z-axis is nearly parallel to the thrust reference
          * direction, since the fallback cross product would be degenerate */
@@ -55,12 +55,12 @@ inline Eigen::Vector3f referenceTriad(const Eigen::Vector3f& rHat_SB_N,
             return Eigen::Vector3f::Zero();
         }
 
-        d3Hat_N = n3Hat_N.cross(d2Hat_N).normalized();
-        d1Hat_N = d2Hat_N.cross(d3Hat_N).normalized();
+        d3Hat_N = n3Hat_N.cross(d2Hat_N).stableNormalized();
+        d1Hat_N = d2Hat_N.cross(d3Hat_N).stableNormalized();
     } else {
         // Normal triad otherwise
-        d1Hat_N = rHat_SB_N.cross(d2Hat_N).normalized();
-        d3Hat_N = d1Hat_N.cross(d2Hat_N).normalized();
+        d1Hat_N = rHat_SB_N.cross(d2Hat_N).stableNormalized();
+        d3Hat_N = d1Hat_N.cross(d2Hat_N).stableNormalized();
     }
 
     Eigen::Matrix3f dcm_ND;

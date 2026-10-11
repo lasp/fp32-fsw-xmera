@@ -89,9 +89,9 @@ TEST(SunSearchPointTest, SigmaBrOrthogonalToBothVectors) {
     auto output = pointUpdate(alg, sunVec, omega_BN_B);
 
     Eigen::Vector3f sHat = cfg.getSHatBdyCmd();
-    Eigen::Vector3f sigmaDir = output.sigma_BR.normalized();
+    Eigen::Vector3f sigmaDir = output.sigma_BR.stableNormalized();
 
-    EXPECT_NEAR(sigmaDir.dot(sunVec.normalized()), 0.0F, 1e-5F);
+    EXPECT_NEAR(sigmaDir.dot(sunVec.stableNormalized()), 0.0F, 1e-5F);
     EXPECT_NEAR(sigmaDir.dot(sHat), 0.0F, 1e-5F);
 }
 

@@ -116,7 +116,7 @@ TEST(CssWeightedLeastSquaresTest, ConfigRejectsControlPeriodThatIsNotPositive) {
 // ---------------------------------------------------------------------------
 
 TEST(CssWeightedLeastSquaresTest, PropertyOutputIsFinite) {
-    propertyOutputIsFinite(referenceInputs(), readingsFor(Eigen::Vector3d{0.3, -0.5, 0.8}.normalized()));
+    propertyOutputIsFinite(referenceInputs(), readingsFor(Eigen::Vector3d{0.3, -0.5, 0.8}.stableNormalized()));
 }
 
 TEST(CssWeightedLeastSquaresTest, PropertyHeadingIsUnitOrZero) {
@@ -193,7 +193,7 @@ TEST(CssWeightedLeastSquaresTest, TwoSensorsGiveTheMinimumNormSolution) {
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
     ASSERT_EQ(out.numCssViewingSun, 2U);
-    const Eigen::Vector3d bisector = (referenceConstellation()[0] + referenceConstellation()[3]).normalized();
+    const Eigen::Vector3d bisector = (referenceConstellation()[0] + referenceConstellation()[3]).stableNormalized();
     EXPECT_LT((out.sunHeading_B.cast<double>() - bisector).stableNorm(), 1e-5);
 }
 

@@ -169,7 +169,7 @@ void fuzzReInitializeRestoresTheConfiguredSeed(Eigen::Vector3d rOffset,
     // Drive the filter away from its seed with a propagation and a measurement.
     HeadingData heading;
     heading.timeTag = dt;
-    heading.rhat_BN_N = rhatRaw.normalized();
+    heading.rhat_BN_N = rhatRaw.stableNormalized();
     algo.update(dt, heading);
 
     algo.reInitialize();

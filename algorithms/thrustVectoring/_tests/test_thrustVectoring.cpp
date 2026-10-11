@@ -148,7 +148,7 @@ TEST(ThrustVectoringTest, AchievesRequestedTorqueInOneCall) {
 
     const Eigen::Vector3f tHat_B = alg.update(Lreq_B);
 
-    const Eigen::Vector3f rHat_CM_B = (r_CB_B - r_MB_B).normalized();
+    const Eigen::Vector3f rHat_CM_B = (r_CB_B - r_MB_B).stableNormalized();
     const Eigen::Vector3f LreqReachable_B = Lreq_B - (rHat_CM_B * rHat_CM_B.dot(Lreq_B));
     EXPECT_LT((achievedTorque_B(tHat_B, 10.0F, r_MB_B, r_CB_B) - LreqReachable_B).stableNorm(), kAccuracy);
 }
@@ -177,8 +177,8 @@ TEST(ThrustVectoringTest, SaturatesAtTheMaximumAchievableTorque) {
 
     const Eigen::Vector3f achieved = achievedTorque_B(alg.update({1e3F, 0.0F, 0.0F}), thrust, r_MB_B, r_CB_B);
 
-    EXPECT_GT(achieved.normalized().dot(Eigen::Vector3f::UnitX()), 1.0F - kAccuracy);  // still along the request
     EXPECT_NEAR(achieved.stableNorm(), maxTorque, 1e-3F);
+    EXPECT_GT(achieved.stableNormalized().dot(Eigen::Vector3f::UnitX()), 1.0F - kAccuracy);  // still along the request
 }
 
 // Both signs of the free parameter in the solve give the same torque. The reference takes the one that fires the
@@ -202,7 +202,7 @@ TEST(ThrustVectoringTest, PicksTheSolutionFiringTowardsTheCenterOfMassForAnObliq
 
     ASSERT_LT(achievedTorque_B(tHat_B, 10.0F, r_MB_B, Eigen::Vector3f::Zero()).stableNorm(), kAccuracy)
         << "Test setup: torque must vanish";
-    EXPECT_GT(tHat_B.dot(-r_MB_B.normalized()), 1.0F - kAccuracy);
+    EXPECT_GT(tHat_B.dot(-r_MB_B.stableNormalized()), 1.0F - kAccuracy);
 }
 
 // setConfig() swaps the configuration on a running instance: a new center of mass changes the pointing.

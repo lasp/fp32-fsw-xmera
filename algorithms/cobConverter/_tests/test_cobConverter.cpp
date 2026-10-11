@@ -26,17 +26,17 @@ TEST(CobConverterTest, RegressionTest) {
     // create an input
     const Eigen::Vector3d r_BdyZero_N{-500.0e3, -300.0e3, 0.0};
     const Eigen::Vector3d v_BdyZero_N{8.0e3, 0.0, 0.0};
-    const Eigen::Vector3d h1 = r_BdyZero_N.normalized();
-    Eigen::Vector3d h3 = h1.cross(v_BdyZero_N.normalized());
-    h3.normalize();
-    const Eigen::Vector3d h2 = h3.cross(h1).normalized();
+    const Eigen::Vector3d h1 = r_BdyZero_N.stableNormalized();
+    Eigen::Vector3d h3 = h1.cross(v_BdyZero_N.stableNormalized());
+    h3.stableNormalize();
+    const Eigen::Vector3d h2 = h3.cross(h1).stableNormalized();
     Eigen::Matrix3d dcm_BN;
     dcm_BN.row(0) = h1.transpose();
     dcm_BN.row(1) = h2.transpose();
     dcm_BN.row(2) = h3.transpose();
     const Eigen::Vector3f sigma_BN = dcmToMrp(dcm_BN).cast<float>();
 
-    const Eigen::Vector3d sunUnit_N = Eigen::Vector3d{-1.0, -1.0, 0.0}.normalized();
+    const Eigen::Vector3d sunUnit_N = Eigen::Vector3d{-1.0, -1.0, 0.0}.stableNormalized();
     const Eigen::Vector3f vehSunPntBdy = (dcm_BN * sunUnit_N).cast<float>();
 
     // run the regression test testCobConverter(...) defined in cobConverterTestHelpers
@@ -159,17 +159,17 @@ TEST(CobConverterTest, OutlierDetectionDerivedSigmaTest) {
 
     const Eigen::Vector3d r_BdyZero_N{-500.0e3, -300.0e3, 0.0};
     const Eigen::Vector3d v_BdyZero_N{8.0e3, 0.0, 0.0};
-    const Eigen::Vector3d h1 = r_BdyZero_N.normalized();
-    Eigen::Vector3d h3 = h1.cross(v_BdyZero_N.normalized());
-    h3.normalize();
-    const Eigen::Vector3d h2 = h3.cross(h1).normalized();
+    const Eigen::Vector3d h1 = r_BdyZero_N.stableNormalized();
+    Eigen::Vector3d h3 = h1.cross(v_BdyZero_N.stableNormalized());
+    h3.stableNormalize();
+    const Eigen::Vector3d h2 = h3.cross(h1).stableNormalized();
     Eigen::Matrix3d dcm_BN;
     dcm_BN.row(0) = h1.transpose();
     dcm_BN.row(1) = h2.transpose();
     dcm_BN.row(2) = h3.transpose();
     const Eigen::Vector3f sigma_BN = dcmToMrp(dcm_BN).cast<float>();
 
-    const Eigen::Vector3d sunUnit_N = Eigen::Vector3d{-1.0, -1.0, 0.0}.normalized();
+    const Eigen::Vector3d sunUnit_N = Eigen::Vector3d{-1.0, -1.0, 0.0}.stableNormalized();
     const Eigen::Vector3f vehSunPntBdy = (dcm_BN * sunUnit_N).cast<float>();
 
     testCobConverter(/*radius=*/25.0e3F,

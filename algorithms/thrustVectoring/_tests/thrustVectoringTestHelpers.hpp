@@ -61,7 +61,7 @@ inline void regressionTestThrustVectoring(const Eigen::Vector3f& r_MB_B,
     // The delivered torque is the request projected onto the reachable disk: perpendicular to r_MC, and no larger
     // than thrust * |r_MC|.
     const Eigen::Vector3f r_MC_B = r_MB_B - r_CB_B;
-    const Eigen::Vector3f rHat_MC_B = r_MC_B.normalized();
+    const Eigen::Vector3f rHat_MC_B = r_MC_B.stableNormalized();
 
     // The perpendicular part of the heading comes from Lreq x rHat_MC. A request nearly parallel to the moment
     // arm makes that cross product small next to the operands it is built from, so normalizing it amplifies the

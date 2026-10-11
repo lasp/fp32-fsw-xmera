@@ -143,7 +143,7 @@ inline void regressionTestSunSearchPoint(std::vector<float> sunVector,
     if (sHatBdyCmd.stableNorm() < 1e-3f) {
         return;
     }
-    Eigen::Vector3f normalizedSHat = sHatBdyCmd.normalized();
+    Eigen::Vector3f normalizedSHat = sHatBdyCmd.stableNormalized();
 
     Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
     Eigen::Vector3f omega_BN_B(omega_BN_B_Vec[0], omega_BN_B_Vec[1], omega_BN_B_Vec[2]);

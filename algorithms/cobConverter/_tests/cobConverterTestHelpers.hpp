@@ -108,7 +108,7 @@ inline Eigen::Vector3d mapState(const Eigen::Vector2d& pixel,
     if (converged != nullptr) {
         *converged = undistorted.valid;
     }
-    return -undistorted.vector.normalized();
+    return -undistorted.vector.stableNormalized();
 }
 
 // Double-precision mirror of CobConverterAlgorithm::computeBetaVar.
@@ -173,8 +173,8 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 
     // The Binary correction is unconditional, so alpha/phi/Rc/gamma always compute.
     const Eigen::Vector3d position = filter.filterVehPosition;
-    const Eigen::Vector3d rHat_N = position.normalized();
-    const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().normalized();
+    const Eigen::Vector3d rHat_N = position.stableNormalized();
+    const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().stableNormalized();
     const Eigen::Vector3d shat_N = dcm_BN.transpose() * shat_B;
     const Eigen::Vector3d shat_C = dcm_CB * shat_B;
 
@@ -246,7 +246,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     bool comErrorOutlierTrigger = false;
     if (cfg.isOutlierDetectionEnabled()) {
         // Mirrors comOutlierDetection: COM heading vs filter heading, both COM->SC in N.
-        const Eigen::Vector3d rhatNav_N = filter.filterVehPosition.normalized();
+        const Eigen::Vector3d rhatNav_N = filter.filterVehPosition.stableNormalized();
         const double error = ((dcm_NC * rhatCOM_C) - rhatNav_N).stableNorm();
         double sigma = 0.0;
         if (cfg.isStandardDeviationSpecified()) {

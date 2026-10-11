@@ -95,7 +95,7 @@ inline ReferenceOutput referenceUpdate(const MrpSteeringControlParameters& param
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
     for (Eigen::Index i = 0; i < kMaxNumRw; ++i) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) { /* check if wheel is available */
-            const Eigen::Vector3f G_s_B_i = G_s_B.col(i).normalized();
+            const Eigen::Vector3f G_s_B_i = G_s_B.col(i).stableNormalized();
             const Eigen::Vector3f h_s_i =
                 rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
             H_B += h_s_i;

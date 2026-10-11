@@ -71,7 +71,7 @@ TEST(FlybyPointTest, CollinearityRejectsReseed) {
     alg.updateState(0U, r_BN_N, v_BN_N);
 
     // Radial-only velocity at the same position: r and v become exactly collinear.
-    const Eigen::Vector3d collinearV = r_BN_N.normalized() * v_BN_N.norm();
+    const Eigen::Vector3d collinearV = r_BN_N.stableNormalized() * v_BN_N.stableNorm();
     const AttGuideOutput out = alg.updateState(600'000'000ULL, r_BN_N, collinearV);
 
     EXPECT_TRUE(out.collinearityTrigger);
@@ -95,7 +95,7 @@ TEST(FlybyPointTest, CollinearityRejectsAntiParallelReseed) {
     alg.updateState(0U, r_BN_N, v_BN_N);
 
     // Radial-only velocity toward the body (head-on collision course): r and v become exactly anti-parallel.
-    const Eigen::Vector3d antiParallelV = -r_BN_N.normalized() * v_BN_N.norm();
+    const Eigen::Vector3d antiParallelV = -r_BN_N.stableNormalized() * v_BN_N.stableNorm();
     const AttGuideOutput out = alg.updateState(600'000'000ULL, r_BN_N, antiParallelV);
 
     EXPECT_TRUE(out.collinearityTrigger);

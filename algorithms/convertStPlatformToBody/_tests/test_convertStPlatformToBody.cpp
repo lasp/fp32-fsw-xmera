@@ -186,7 +186,7 @@ TEST(ConvertStPlatformToBody, DeltaQuaternionNearPi_MatchesExpectedOmega) {
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Matrix3f::Identity())};
 
     const double theta = M_PI - 0.01;
-    const Eigen::Vector3d axis = Eigen::Vector3d(1.0, 2.0, 3.0).normalized();
+    const Eigen::Vector3d axis = Eigen::Vector3d(1.0, 2.0, 3.0).stableNormalized();
     const Eigen::Vector3d omegaExpected = theta * axis;
 
     const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);

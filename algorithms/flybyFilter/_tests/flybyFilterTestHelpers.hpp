@@ -143,7 +143,7 @@ inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3d const& rOffs
 
     HeadingData heading;
     heading.timeTag = dt;
-    heading.rhat_BN_N = rhatRaw.normalized();
+    heading.rhat_BN_N = rhatRaw.stableNormalized();
     FlybyFilterOutput const out = algo.update(dt, heading);
 
     EXPECT_TRUE(algo.getState().raw().allFinite());
@@ -194,7 +194,7 @@ inline void propertyMeasurementDoesNotIncreaseCovariance(Eigen::Vector3d const& 
     if (!algo.timeUpdate(0.0)) {
         return;
     }
-    if (!algo.measurementUpdate(makeHeadingMeasurement(0.0, rhatRaw.normalized(), kHeadingStd))) {
+    if (!algo.measurementUpdate(makeHeadingMeasurement(0.0, rhatRaw.stableNormalized(), kHeadingStd))) {
         return;
     }
     double const traceAfter = algo.getCovariance().trace();

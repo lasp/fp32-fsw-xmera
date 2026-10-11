@@ -121,8 +121,8 @@ TEST(MomentumManagement, TorqueMagnitudeIsGainTimesStoredMomentum) {
 
     const Eigen::Vector3f hs_B = clusterMomentum(rwArrayConfig, wheelSpeeds);
 
-    EXPECT_LT(Lr_B.normalized().dot(hs_B.normalized()), -1.0F + kAccuracy);
     EXPECT_NEAR(Lr_B.stableNorm(), kNominalK * hs_B.stableNorm(), kAccuracy);
+    EXPECT_LT(Lr_B.stableNormalized().dot(hs_B.stableNormalized()), -1.0F + kAccuracy);
 }
 
 // The torque scales linearly with the gain: doubling K doubles the request.

@@ -64,8 +64,9 @@ TEST(SolarArrayReferenceTest, SetupTest) {
                  fsw::invalid_argument);
     EXPECT_THROW(makeConfig(SolarArrayAxes{xAxis, Eigen::Vector3f{0.0F, 3.0F, 0.0F}}, 1e-3F, 0.0F, 0.0F),
                  fsw::invalid_argument);
-    EXPECT_THROW(makeConfig(SolarArrayAxes{xAxis, Eigen::Vector3f{1.0F, 1.0F, 0.0F}.normalized()}, 1e-3F, 0.0F, 0.0F),
-                 fsw::invalid_argument);
+    EXPECT_THROW(
+        makeConfig(SolarArrayAxes{xAxis, Eigen::Vector3f{1.0F, 1.0F, 0.0F}.stableNormalized()}, 1e-3F, 0.0F, 0.0F),
+        fsw::invalid_argument);
 
     // Alignment threshold must lie in [1e-3, pi/2].
     EXPECT_THROW(makeConfig(SolarArrayAxes{xAxis, yAxis}, -0.01F, 0.0F, 0.0F), fsw::invalid_argument);

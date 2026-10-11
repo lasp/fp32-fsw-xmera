@@ -72,7 +72,7 @@ class MomentumManagementConfig final {
         // validated (near-)unit, so this only removes rounding.
         MomentumManagementRwArrayConfiguration normalizedRwArrayConfig = rwArrayConfig;
         for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-            normalizedRwArrayConfig.GsMatrix_B.col(i).normalize();
+            normalizedRwArrayConfig.GsMatrix_B.col(i).stableNormalize();
         }
 
         return {controlParameters, std::move(normalizedRwArrayConfig)};
