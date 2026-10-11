@@ -108,7 +108,7 @@ void fuzzTimeAndMeasurementUpdates(double alpha,
 
     // ---- star-tracker attitude update ----
     Eigen::Vector3d const attPrior = algo.getState().get<filtering::MrpAttitude<3>>();
-    double const attErrorPrior = subMrp(stObservation, attPrior).norm();
+    double const attErrorPrior = subMrp(stObservation, attPrior).stableNorm();
     double const attTracePrior = attitudeTrace(algo.getCovariance());
 
     StAttMeasurement st;
@@ -120,7 +120,7 @@ void fuzzTimeAndMeasurementUpdates(double alpha,
 
     Matrix6 const afterSt = algo.getCovariance();
     EXPECT_TRUE(finiteSymmetricPsd(afterSt)) << "covariance after ST update";
-    EXPECT_LE(subMrp(stObservation, algo.getState().get<filtering::MrpAttitude<3>>()).norm(),
+    EXPECT_LE(subMrp(stObservation, algo.getState().get<filtering::MrpAttitude<3>>()).stableNorm(),
               attErrorPrior + kMoveTowardRelTol * std::sqrt(attTracePrior) + kTol)
         << "attitude should move toward the ST measurement (within the UKF MRP sigma-point bias)";
     EXPECT_LE(attitudeTrace(afterSt), attTracePrior + kTol) << "attitude covariance should shrink";
@@ -128,7 +128,7 @@ void fuzzTimeAndMeasurementUpdates(double alpha,
     // ---- rate update (re-populate sigma points around the ST posterior first) ----
     ASSERT_TRUE(algo.timeUpdate(0.0)) << "zero-dt timeUpdate should be valid";
     Eigen::Vector3d const ratePrior = algo.getState().get<filtering::AngularRate<3>>();
-    double const rateErrorPrior = (rateObservation - ratePrior).norm();
+    double const rateErrorPrior = (rateObservation - ratePrior).stableNorm();
     double const rateTracePrior = rateTrace(algo.getCovariance());
 
     RateMeasurement r;
@@ -140,7 +140,7 @@ void fuzzTimeAndMeasurementUpdates(double alpha,
 
     Matrix6 const afterRate = algo.getCovariance();
     EXPECT_TRUE(finiteSymmetricPsd(afterRate)) << "covariance after rate update";
-    EXPECT_LE((rateObservation - algo.getState().get<filtering::AngularRate<3>>()).norm(),
+    EXPECT_LE((rateObservation - algo.getState().get<filtering::AngularRate<3>>()).stableNorm(),
               rateErrorPrior + kMoveTowardRelTol * std::sqrt(rateTracePrior) + kTol)
         << "rate should move toward the rate measurement (within the UKF sigma-point bias)";
     EXPECT_LE(rateTrace(afterRate), rateTracePrior + kTol) << "rate covariance should shrink";

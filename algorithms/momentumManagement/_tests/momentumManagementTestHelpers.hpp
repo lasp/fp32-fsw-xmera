@@ -76,7 +76,7 @@ inline Eigen::Vector3f referenceTorque(const MomentumManagementRwArrayConfigurat
         hs_B += rwArrayConfig.JsList[i] * wheelSpeeds[i] * rwArrayConfig.GsMatrix_B.col(i);
     }
     const Eigen::Vector3f hsDumpable_B = params.dumpableProjection_B * hs_B;
-    const float hsDumpableNorm = hsDumpable_B.norm();
+    const float hsDumpableNorm = hsDumpable_B.stableNorm();
 
     const Eigen::Vector3f hsToDump_B = (hsDumpableNorm >= params.hsMin) ? hsDumpable_B : Eigen::Vector3f::Zero();
 
@@ -138,7 +138,7 @@ inline void testProportionalTorqueOpposesStoredMomentum(const MomentumManagement
     ASSERT_TRUE(Lr_B.allFinite());
 
     const Eigen::Vector3f hsDumpable_B = params.dumpableProjection_B * clusterMomentum(rwArrayConfig, wheelSpeeds);
-    const float hsDumpableNorm = hsDumpable_B.norm();
+    const float hsDumpableNorm = hsDumpable_B.stableNorm();
 
     // The zero-momentum carve-out is pinned by the edge-case unit tests instead.
     constexpr float kZeroMomentumTol = 1e-4F;  // [Nms]
@@ -150,12 +150,12 @@ inline void testProportionalTorqueOpposesStoredMomentum(const MomentumManagement
     const float tol = 1e-4F * params.K * std::max(1.0F, hsDumpableNorm);
     const float deadbandMargin = 1e-3F * std::max(1.0F, hsDumpableNorm);
 
-    EXPECT_LE(Lr_B.norm(), (params.K * hsDumpableNorm) + tol);
+    EXPECT_LE(Lr_B.stableNorm(), (params.K * hsDumpableNorm) + tol);
 
     // Clear of the threshold either way the request is unambiguous: the whole stored momentum or nothing.
     // Within the margin the reference norm here and the algorithm's own can land on opposite sides of it.
     if (hsDumpableNorm > params.hsMin + deadbandMargin) {
-        EXPECT_NEAR(Lr_B.norm(), params.K * hsDumpableNorm, tol);
+        EXPECT_NEAR(Lr_B.stableNorm(), params.K * hsDumpableNorm, tol);
         if (params.K > 0.0F) {
             EXPECT_LT(Lr_B.normalized().dot(hsDumpable_B.normalized()), 0.0F);
         }
@@ -211,7 +211,7 @@ inline void testIntegralTermStaysBounded(const MomentumManagementRwArrayConfigur
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(params, rwArrayConfig)};
 
     const Eigen::Vector3f hsDumpable_B = params.dumpableProjection_B * clusterMomentum(rwArrayConfig, wheelSpeeds);
-    const float hsDumpableNorm = hsDumpable_B.norm();
+    const float hsDumpableNorm = hsDumpable_B.stableNorm();
     const Eigen::Vector3f hsToDump_B = (hsDumpableNorm >= params.hsMin) ? hsDumpable_B : Eigen::Vector3f::Zero();
 
     for (uint32_t cycle = 0U; cycle < numCycles; ++cycle) {
@@ -261,7 +261,8 @@ inline bool makeFuzzCase(const Eigen::Vector3f& axis0,
                          MomentumManagementRwArrayConfiguration& rwArrayConfig,
                          Eigen::Vector<float, kMaxNumRw>& wheelSpeeds) {
     constexpr float degenerateTol = 1e-3F;  // an axis this short has no defined direction
-    if (axis0.norm() < degenerateTol || axis1.norm() < degenerateTol || axis2.norm() < degenerateTol) {
+    if (axis0.stableNorm() < degenerateTol || axis1.stableNorm() < degenerateTol ||
+        axis2.stableNorm() < degenerateTol) {
         return false;
     }
     if (params.Ki > 0.0F && (params.controlPeriod <= 0.0F || params.integralLimit <= 0.0F)) {
@@ -398,7 +399,8 @@ inline void regressionFuzzMomentumManagement(const Eigen::Vector3f& axis0,
         return;
     }
     // The integral accumulates rounding once per cycle, so allow the error to grow with the cycle count.
-    const float hsDumpableNorm = (params.dumpableProjection_B * clusterMomentum(rwArrayConfig, wheelSpeeds)).norm();
+    const float hsDumpableNorm =
+        (params.dumpableProjection_B * clusterMomentum(rwArrayConfig, wheelSpeeds)).eval().stableNorm();
     const float scale = K * std::max(1.0F, hsDumpableNorm) + Ki * integralLimit;
     const float tol = 1e-4F * static_cast<float>(numCycles) * std::max(1.0F, scale);
 

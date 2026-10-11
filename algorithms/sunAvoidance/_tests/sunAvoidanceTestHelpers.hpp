@@ -31,7 +31,7 @@ class SunAvoidanceReference {
         if (!this->maneuverInitialized) {
             // Sun avoidance always runs, but it needs a usable Sun direction: a zero Sun direction leaves
             // no maneuver to perform.
-            if (sHat_B.norm() > 0.0F) {
+            if (sHat_B.stableNorm() > 0.0F) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
                 const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.normalized();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
@@ -46,8 +46,8 @@ class SunAvoidanceReference {
 
                 const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_RN.transpose();
                 const Eigen::Vector3f prv_BR = dcmToPrv(dcm_BR);
-                this->angleStart = prv_BR.norm();
                 this->mnvrAxis_B = prv_BR.normalized();
+                this->angleStart = prv_BR.stableNorm();
 
                 const Eigen::Vector3f sensToSunAxis_N = sensInitial_N.cross(sHat_N).normalized();
                 const Eigen::Vector3f mnvrAxis_N = dcm_BN.transpose() * this->mnvrAxis_B;
@@ -132,16 +132,16 @@ inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
 
     // Degeneracies: each raw magnitude is a sin(angle) that stableNormalized() would collapse to zero.
     const Eigen::Vector3f sweepAxisRaw = sensitiveInitial_N.cross(sensitiveFinal_N);
-    if (sweepAxisRaw.norm() < kMargin) {
+    if (sweepAxisRaw.stableNorm() < kMargin) {
         return true;  // initial and final sensitive axes near parallel / anti-parallel
     }
     const Eigen::Vector3f sweepAxis_N = sweepAxisRaw.normalized();
     const Eigen::Vector3f sunInPlaneRaw = sHat_N - (sweepAxis_N.dot(sHat_N)) * sweepAxis_N;
-    if (sunInPlaneRaw.norm() < kMargin) {
+    if (sunInPlaneRaw.stableNorm() < kMargin) {
         return true;  // Sun near parallel to the sweep axis
     }
     const Eigen::Vector3f initialToSunAxisRaw = sensitiveInitial_N.cross(sHat_N);
-    if (initialToSunAxisRaw.norm() < kMargin) {
+    if (initialToSunAxisRaw.stableNorm() < kMargin) {
         return true;  // Sun near parallel to the initial sensitive axis
     }
 
@@ -278,7 +278,7 @@ inline void propertyManeuverOutputBoundedAndFinite(const Eigen::Vector3f& sigma_
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
         EXPECT_TRUE(out.domega_RN_N.allFinite());
-        EXPECT_LE(out.sigma_RN.norm(), normBound);
+        EXPECT_LE(out.sigma_RN.stableNorm(), normBound);
     }
 }
 

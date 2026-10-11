@@ -48,7 +48,7 @@ class SunAvoidanceReference {
         if (!this->maneuverInitialized) {
             // Sun avoidance always runs, but it needs a usable Sun direction: a zero Sun direction leaves
             // no maneuver to perform.
-            if (sHat_B.norm() > 0.0F) {
+            if (sHat_B.stableNorm() > 0.0F) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
                 const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.normalized();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
@@ -66,8 +66,8 @@ class SunAvoidanceReference {
 
                 const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_BNFinal.transpose();
                 const Eigen::Vector3f prv_BR = dcmToPrv(dcm_BR);
-                this->angleStart = prv_BR.norm();
                 this->mnvrAxis_B = prv_BR.normalized();
+                this->angleStart = prv_BR.stableNorm();
 
                 const Eigen::Vector3f sensToSunAxis_N = sensInitial_N.cross(sHat_N).normalized();
                 const Eigen::Vector3f mnvrAxis_N = dcm_BN.transpose() * this->mnvrAxis_B;

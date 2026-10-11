@@ -90,7 +90,7 @@ TEST_F(NearParabolicEllipticTest, VisViva_AtPeriapsis) {
     el.trueAnomaly = 0.0;  // periapsis: most stable
 
     const CartesianState state = orbitalMotion::elementsToCartesianState(kMuEarth, el);
-    const double r = state.position.norm();
+    const double r = state.position.stableNorm();
     const double v2 = state.velocity.squaredNorm();
     const double v2_expected = kMuEarth * (2.0 / r - 1.0 / el.semiMajorAxis);
 

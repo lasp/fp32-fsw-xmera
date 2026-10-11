@@ -23,7 +23,7 @@ class HeadingMeasurementModel {
     Eigen::Vector3d observation() const { return this->observed; }
     static Eigen::Vector3d model(State const& state) {
         Eigen::Vector3d const r = state.get<filtering::Position<3>>();
-        return r / r.norm();
+        return r / r.stableNorm();
     }
     Eigen::Matrix3d noise() const { return this->measNoise; }
     static Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) { return a - b; }

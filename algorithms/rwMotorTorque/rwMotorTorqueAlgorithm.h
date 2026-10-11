@@ -87,7 +87,7 @@ class RwMotorTorqueConfig final {
         // slot is marked Unavailable rather than left out of a count.
         constexpr float kUnitNormTol = 1e-3F;
         for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-            if (fabsf(rwConfiguration.GsMatrix_B.col(i).norm() - 1.0F) > kUnitNormTol) {
+            if (fabsf(rwConfiguration.GsMatrix_B.col(i).stableNorm() - 1.0F) > kUnitNormTol) {
                 return false;
             }
         }

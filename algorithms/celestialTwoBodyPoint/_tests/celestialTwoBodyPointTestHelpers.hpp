@@ -42,9 +42,9 @@ inline ReferenceCelestialTwoBodyPointOutput referenceRateAndAccelCalc(const Eige
 
     /* Compute inertial time derivative of reference frame basis vectors */
     const Eigen::Matrix3d identity = Eigen::Matrix3d::Identity();
-    const Eigen::Vector3d r1HatDot_N = (identity - r1Hat_N * r1Hat_N.transpose()) * (v_PB_N / r_PB_N.norm());
+    const Eigen::Vector3d r1HatDot_N = (identity - r1Hat_N * r1Hat_N.transpose()) * (v_PB_N / r_PB_N.stableNorm());
     const Eigen::Vector3d r3HatDot_N =
-        (identity - r3Hat_N * r3Hat_N.transpose()) * (normalVecDot_N / normalVec_N.norm());
+        (identity - r3Hat_N * r3Hat_N.transpose()) * (normalVecDot_N / normalVec_N.stableNorm());
     const Eigen::Vector3d r2HatDot_N = r3HatDot_N.cross(r1Hat_N) + r3Hat_N.cross(r1HatDot_N);
 
     /* Reference angular velocity computation */
@@ -54,11 +54,11 @@ inline ReferenceCelestialTwoBodyPointOutput referenceRateAndAccelCalc(const Eige
     omega_RN_R[2] = r2Hat_N.dot(r1HatDot_N);
 
     const Eigen::Vector3d r1HatDDot_N =
-        -(2.0 * r1HatDot_N * r1Hat_N.transpose() + r1Hat_N * r1HatDot_N.transpose()) * (v_PB_N / r_PB_N.norm());
+        -(2.0 * r1HatDot_N * r1Hat_N.transpose() + r1Hat_N * r1HatDot_N.transpose()) * (v_PB_N / r_PB_N.stableNorm());
     const Eigen::Vector3d r3HatDDot_N =
         ((identity - r3Hat_N * r3Hat_N.transpose()) * normalVecDDot_N -
          (2.0 * r3HatDot_N * r3Hat_N.transpose() + r3Hat_N * r3HatDot_N.transpose()) * normalVecDot_N) /
-        normalVec_N.norm();
+        normalVec_N.stableNorm();
     const Eigen::Vector3d r2HatDDot_N =
         r3HatDDot_N.cross(r1Hat_N) + r3Hat_N.cross(r1HatDDot_N) + 2.0 * r3HatDot_N.cross(r1HatDot_N);
 
@@ -210,7 +210,7 @@ inline void propertySigmaNormBounded(const Eigen::Vector3d& r_PN_N,
     const CelestialTwoBodyPointAlgorithm alg(config);
 
     CelestialTwoBodyPointOutput result = alg.update({r_PN_N, v_PN_N}, {r_SN_N, v_SN_N}, {r_BN_N, v_BN_N});
-    EXPECT_LE(result.sigma_RN.norm(), 1.0F + 1e-6F);
+    EXPECT_LE(result.sigma_RN.stableNorm(), 1.0F + 1e-6F);
 }
 
 #endif  // TEST_CELESTIAL_TWO_BODY_POINT_HELPERS_H

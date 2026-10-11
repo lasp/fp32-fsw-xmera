@@ -222,7 +222,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
         // The config requires (near-)unit spin axes; normalize the active columns before constructing it. Skip
         // inputs with a degenerate (near-zero) spin axis that cannot be normalized.
         for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-            const float colNorm = rwInputData.GsMatrix_B.col(static_cast<int>(i)).norm();
+            const float colNorm = rwInputData.GsMatrix_B.col(static_cast<int>(i)).stableNorm();
             if (colNorm < 1e-6F) {
                 return;
             }

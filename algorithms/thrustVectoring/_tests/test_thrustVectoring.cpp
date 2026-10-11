@@ -120,7 +120,7 @@ TEST(ThrustVectoringTest, PropertyHeadingIsUnit) {
     const ThrustVectoringAlgorithm alg{makeConfig({0.0F, 0.1F, 1.4F}, {0.1F, 0.2F, -0.1F}, 7.5F)};
     const Eigen::Vector3f tHat_B = alg.update({0.05F, -0.02F, 0.03F});
 
-    EXPECT_NEAR(tHat_B.norm(), 1.0F, 1e-6F);
+    EXPECT_NEAR(tHat_B.stableNorm(), 1.0F, 1e-6F);
 }
 
 // The solve is closed form, so a repeated call returns exactly the same reference: there is no state and no
@@ -135,7 +135,7 @@ TEST(ThrustVectoringTest, PropertyRepeatedUpdateIsIdentical) {
     EXPECT_TRUE(second.isApprox(first));
 
     // A different request moves the reference, so the previous check is not vacuous.
-    EXPECT_GT((alg.update(-Lreq_B) - first).norm(), kAccuracy);
+    EXPECT_GT((alg.update(-Lreq_B) - first).stableNorm(), kAccuracy);
 }
 
 // The solve delivers the requested torque in a single call -- no iteration -- up to the component the geometry
@@ -150,7 +150,7 @@ TEST(ThrustVectoringTest, AchievesRequestedTorqueInOneCall) {
 
     const Eigen::Vector3f rHat_CM_B = (r_CB_B - r_MB_B).normalized();
     const Eigen::Vector3f LreqReachable_B = Lreq_B - (rHat_CM_B * rHat_CM_B.dot(Lreq_B));
-    EXPECT_LT((achievedTorque_B(tHat_B, 10.0F, r_MB_B, r_CB_B) - LreqReachable_B).norm(), kAccuracy);
+    EXPECT_LT((achievedTorque_B(tHat_B, 10.0F, r_MB_B, r_CB_B) - LreqReachable_B).stableNorm(), kAccuracy);
 }
 
 // The component of the request along the center-of-mass offset can never be produced: the torque of a force whose
@@ -163,7 +163,7 @@ TEST(ThrustVectoringTest, TorqueAlongTheMomentArmIsUnreachable) {
     const Eigen::Vector3f tHat_B = alg.update({0.0F, 0.0F, 0.5F});
 
     // The request is entirely unreachable, so the module falls back to the zero-torque alignment.
-    EXPECT_LT(achievedTorque_B(tHat_B, 10.0F, r_MB_B, r_CB_B).norm(), kAccuracy);
+    EXPECT_LT(achievedTorque_B(tHat_B, 10.0F, r_MB_B, r_CB_B).stableNorm(), kAccuracy);
 }
 
 // A request beyond thrust * |r_MC| saturates on the largest torque the geometry can deliver, in the requested
@@ -172,13 +172,13 @@ TEST(ThrustVectoringTest, SaturatesAtTheMaximumAchievableTorque) {
     const Eigen::Vector3f r_MB_B{0.0F, 0.0F, 1.0F};
     const Eigen::Vector3f r_CB_B = Eigen::Vector3f::Zero();
     constexpr float thrust = 10.0F;
-    const float maxTorque = thrust * (r_MB_B - r_CB_B).norm();  // thrust * |r_MC|
+    const float maxTorque = thrust * (r_MB_B - r_CB_B).stableNorm();  // thrust * |r_MC|
     const ThrustVectoringAlgorithm alg{makeConfig(r_MB_B, r_CB_B, thrust)};
 
     const Eigen::Vector3f achieved = achievedTorque_B(alg.update({1e3F, 0.0F, 0.0F}), thrust, r_MB_B, r_CB_B);
 
-    EXPECT_NEAR(achieved.norm(), maxTorque, 1e-3F);
     EXPECT_GT(achieved.normalized().dot(Eigen::Vector3f::UnitX()), 1.0F - kAccuracy);  // still along the request
+    EXPECT_NEAR(achieved.stableNorm(), maxTorque, 1e-3F);
 }
 
 // Both signs of the free parameter in the solve give the same torque. The reference takes the one that fires the
@@ -189,7 +189,7 @@ TEST(ThrustVectoringTest, PicksTheSolutionFiringTowardsTheCenterOfMass) {
     const ThrustVectoringAlgorithm alg{makeConfig({0.0F, 0.0F, 1.0F}, Eigen::Vector3f::Zero(), 10.0F)};
     const Eigen::Vector3f tHat_B = alg.update(Eigen::Vector3f::Zero());
 
-    ASSERT_LT(achievedTorque_B(tHat_B, 10.0F, {0.0F, 0.0F, 1.0F}, Eigen::Vector3f::Zero()).norm(), kAccuracy)
+    ASSERT_LT(achievedTorque_B(tHat_B, 10.0F, {0.0F, 0.0F, 1.0F}, Eigen::Vector3f::Zero()).stableNorm(), kAccuracy)
         << "Test setup: torque must vanish";
     EXPECT_GT(tHat_B.dot(-Eigen::Vector3f::UnitZ()), 1.0F - kAccuracy);
 }
@@ -200,7 +200,7 @@ TEST(ThrustVectoringTest, PicksTheSolutionFiringTowardsTheCenterOfMassForAnObliq
     const ThrustVectoringAlgorithm alg{makeConfig(r_MB_B, Eigen::Vector3f::Zero(), 10.0F)};
     const Eigen::Vector3f tHat_B = alg.update(Eigen::Vector3f::Zero());
 
-    ASSERT_LT(achievedTorque_B(tHat_B, 10.0F, r_MB_B, Eigen::Vector3f::Zero()).norm(), kAccuracy)
+    ASSERT_LT(achievedTorque_B(tHat_B, 10.0F, r_MB_B, Eigen::Vector3f::Zero()).stableNorm(), kAccuracy)
         << "Test setup: torque must vanish";
     EXPECT_GT(tHat_B.dot(-r_MB_B.normalized()), 1.0F - kAccuracy);
 }
@@ -215,5 +215,5 @@ TEST(ThrustVectoringTest, SetConfigAppliesNewCenterOfMass) {
     alg.setConfig(makeConfig(r_MB_B, {-0.05F, 0.15F, 0.1F}, 10.0F));
     const Eigen::Vector3f after = alg.update(zero);
 
-    EXPECT_GT((after - before).norm(), kAccuracy);
+    EXPECT_GT((after - before).stableNorm(), kAccuracy);
 }

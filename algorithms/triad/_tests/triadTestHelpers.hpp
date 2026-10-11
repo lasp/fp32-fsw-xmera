@@ -152,7 +152,7 @@ inline void propertySigmaNormBounded(const Eigen::Vector3f& rHat_SB_N,
     TriadAlgorithm alg(config);
 
     auto result = alg.update(rHat_SB_N, thrustHat_B);
-    EXPECT_LE(result.norm(), 1.0F + 1e-6F);
+    EXPECT_LE(result.stableNorm(), 1.0F + 1e-6F);
 }
 
 // The solar array offset angle from the Sun is bounded by the body thrust vector offset angle from the plane normal

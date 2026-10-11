@@ -47,11 +47,11 @@ inline void referenceReset(ReferenceFlybyState& s) {
 inline void referenceComputeFlybyParameters(ReferenceFlybyState& s,
                                             const Eigen::Vector3d& r,
                                             const Eigen::Vector3d& v) {
-    s.f0 = v.norm() / r.norm();
     const Eigen::Vector3d ur = r.normalized();
     const Eigen::Vector3d uv = v.normalized();
     const Eigen::Vector3d uh = ur.cross(uv).normalized();
     const Eigen::Vector3d ut = uh.cross(ur).normalized();
+    s.f0 = v.stableNorm() / r.stableNorm();
     s.gamma0 = safeAtan2(v.dot(ur), v.dot(ut));
 }
 
@@ -92,16 +92,16 @@ inline bool referenceCheckValidity(const ReferenceFlybyState& s,
     const Eigen::Vector3d uv = v.normalized();
     if (1.0 - std::fabs(ur.dot(uv)) < config.getToleranceForCollinearity()) return false;
 
-    const double dca = -r.norm() * safeSin(s.gamma0);
-    const double maxRate = v.norm() / dca * kRad2Deg;
+    const double dca = -r.stableNorm() * safeSin(s.gamma0);
+    const double maxRate = v.stableNorm() / dca * kRad2Deg;
     if (maxRate > config.getMaximumRateThreshold() && config.getMaximumRateThreshold() > 0) return false;
 
-    const double maxAccel = kMaxAccelCoeff * std::pow(v.norm() / dca, 2) * kRad2Deg;
+    const double maxAccel = kMaxAccelCoeff * std::pow(v.stableNorm() / dca, 2) * kRad2Deg;
     if (maxAccel > config.getMaximumAccelerationThreshold() && config.getMaximumAccelerationThreshold() > 0)
         return false;
 
     const double deltaT = static_cast<double>(currentSimNanos) * kNano2Sec - s.timeOfFirstRead;
-    const double deltaPosNorm = (r - (s.firstNavPosition + deltaT * s.firstNavVelocity)).norm();
+    const double deltaPosNorm = (r - (s.firstNavPosition + deltaT * s.firstNavVelocity)).stableNorm();
     if (deltaPosNorm > config.getPositionKnowledgeSigma() && config.getPositionKnowledgeSigma() > 0) return false;
 
     return true;
@@ -225,8 +225,8 @@ inline void regressionTestFlybyPoint(const FlybyPointConfig& config,
                 sigma_ref_shadow = -sigma_ref / sigma_ref.squaredNorm();
             }
 
-            double error_norm = (sigma_out - sigma_ref).norm();
-            double error_shadow = (sigma_out - sigma_ref_shadow).norm();
+            double error_norm = (sigma_out - sigma_ref).stableNorm();
+            double error_shadow = (sigma_out - sigma_ref_shadow).stableNorm();
 
             EXPECT_TRUE(error_norm < 1e-6 || error_shadow < 1e-6);
 
@@ -273,8 +273,8 @@ inline void expectMatchesExtrapolation(const AttGuideOutput& out, const Referenc
     if (ref.sigma_RN.squaredNorm() > 1e-12) {
         sigmaRefShadow = -ref.sigma_RN / ref.sigma_RN.squaredNorm();
     }
-    const double errorNorm = (sigmaOut - ref.sigma_RN).norm();
-    const double errorShadow = (sigmaOut - sigmaRefShadow).norm();
+    const double errorNorm = (sigmaOut - ref.sigma_RN).stableNorm();
+    const double errorShadow = (sigmaOut - sigmaRefShadow).stableNorm();
     ASSERT_TRUE(errorNorm < 1e-6 || errorShadow < 1e-6);
     const Eigen::Vector3d& sigmaCompared = (errorShadow < errorNorm) ? sigmaRefShadow : ref.sigma_RN;
 

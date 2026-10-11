@@ -14,7 +14,7 @@
  */
 static Eigen::Vector4d makeUnitQuaternion(double q0, double q1, double q2, double q3) {
     Eigen::Vector4d ep(q0, q1, q2, q3);
-    double norm = ep.norm();
+    double norm = ep.stableNorm();
     if (norm < 1e-12) {
         return {1.0, 0.0, 0.0, 0.0};
     }
@@ -77,7 +77,7 @@ void fuzzConvertStPlatformToBodyEdgeCases(double angle,
                                           double wy,
                                           double wz) {
     Eigen::Vector3d axis(ax, ay, az);
-    if (axis.norm() < 1e-12) {
+    if (axis.stableNorm() < 1e-12) {
         axis = Eigen::Vector3d::UnitZ();
     }
     Eigen::Vector4d ep_CN = axisAngleToEp(axis, angle);
@@ -131,7 +131,7 @@ void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
                                                 double pitch,
                                                 double roll) {
     Eigen::Vector4d dq(dqx, dqy, dqz, dqw);
-    const double norm = dq.norm();
+    const double norm = dq.stableNorm();
     if (norm < 1e-12) {
         dq = Eigen::Vector4d(0.0, 0.0, 0.0, 1.0);
     } else {

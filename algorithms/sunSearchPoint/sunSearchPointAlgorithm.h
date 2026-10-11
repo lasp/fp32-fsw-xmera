@@ -86,7 +86,7 @@ class SunSearchPointConfig final {
     }
     static bool isValidSHatBdyCmd(const Eigen::Vector3f& sHatBdyCmd) {
         constexpr float kUnitNormTol = 1e-3F;
-        return fabsf(sHatBdyCmd.norm() - 1.0F) <= kUnitNormTol;
+        return fabsf(sHatBdyCmd.stableNorm() - 1.0F) <= kUnitNormTol;
     }
     static bool isValidSunAxisSpinRate(float sunAxisSpinRate) { return fsw::is_finite(sunAxisSpinRate); }
     static bool isValidOmega_RN_B(const Eigen::Vector3f& omega_RN_B) { return omega_RN_B.allFinite(); }

@@ -45,7 +45,7 @@ inline Eigen::Vector4f toScalarLast(const Eigen::Vector4d& ep) {
  * ‖ω‖ is below a small threshold.
  */
 inline Eigen::Vector4f omegaToDeltaQuaternion(const Eigen::Vector3d& omega_CN_C) {
-    const double angle = omega_CN_C.norm();
+    const double angle = omega_CN_C.stableNorm();
     if (angle < 1e-12) {
         return {0.0F, 0.0F, 0.0F, 1.0F};
     }

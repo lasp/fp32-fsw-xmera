@@ -29,7 +29,7 @@ BodyRateMiscompareOutput BodyRateMiscompareAlgorithm::update(const Eigen::Vector
                                                              const Eigen::Vector3f& stOmega_BN_B) {
     if (!this->useImuRatesInternal) {
         if (const Eigen::Vector3f bodyRateDifference = stOmega_BN_B - imuOmega_BN_B;
-            bodyRateDifference.norm() > this->cfg.getBodyRateThreshold()) {
+            bodyRateDifference.stableNorm() > this->cfg.getBodyRateThreshold()) {
             this->faultPersistenceCount += 1U;
         } else {
             this->faultPersistenceCount = 0U;

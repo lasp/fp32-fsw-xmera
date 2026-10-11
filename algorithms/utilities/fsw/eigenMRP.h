@@ -112,7 +112,7 @@ class MRPBase : public RotationBase<Derived, 3> {
     /** \returns the norm of the MRP's coefficients
      * \sa MRPBase::squaredNorm(), MatrixBase::norm()
      */
-    inline Scalar norm() const { return coeffs().norm(); }
+    inline Scalar norm() const { return coeffs().stableNorm(); }
 
     /** Normalizes the MRP \c *this
      * \sa normalized(), MatrixBase::normalize() */

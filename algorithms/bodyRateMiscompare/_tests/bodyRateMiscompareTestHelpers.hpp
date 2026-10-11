@@ -13,7 +13,7 @@ inline BodyRateMiscompareOutput referenceUpdate(const float threshold,
                                                 const Eigen::Vector3f& imuOmega_BN_B,
                                                 const Eigen::Vector3f& stOmega_BN_B) {
     if (!faultDetected) {
-        if (const Eigen::Vector3f diff = stOmega_BN_B - imuOmega_BN_B; diff.norm() > threshold) {
+        if (const Eigen::Vector3f diff = stOmega_BN_B - imuOmega_BN_B; diff.stableNorm() > threshold) {
             faultPersistenceCount += 1U;
         } else {
             faultPersistenceCount = 0U;
@@ -115,7 +115,7 @@ inline void propertyFaultIsSticky(const Eigen::Vector3f& imu, const Eigen::Vecto
     constexpr float threshold = 0.1F;
 
     // Skip if the difference is not above threshold (can't trigger fault)
-    if ((st - imu).norm() <= threshold) {
+    if ((st - imu).stableNorm() <= threshold) {
         return;
     }
 

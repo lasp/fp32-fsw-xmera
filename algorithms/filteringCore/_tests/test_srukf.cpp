@@ -269,7 +269,8 @@ TEST(SrukfMeasurementUpdate, InformativeMeasurementUpdatesStateAndShrinksCovaria
         << "preFit should equal observation when prior state is zero";
 
     // Post-fit less than pre-fit
-    EXPECT_LT(result->postFit.norm(), result->preFit.norm()) << "informative measurement should reduce residual";
+    EXPECT_LT(result->postFit.stableNorm(), result->preFit.stableNorm())
+        << "informative measurement should reduce residual";
 
     // Covariance shrunk (initial trace was 3.0).
     Eigen::Matrix3d const P = filter.getCovariance();
@@ -302,7 +303,7 @@ TEST(SrukfMeasurementUpdate, HighMeasurementNoiseLeavesStateNearlyUnchanged) {
     auto const result = filter.measurementUpdate(m);
     ASSERT_TRUE(result.has_value()) << "measurement update should be valid";
 
-    EXPECT_LT((filter.getState().raw() - stateBefore.raw()).norm(), 1e-5)
+    EXPECT_LT((filter.getState().raw() - stateBefore.raw()).stableNorm(), 1e-5)
         << "state should barely move when R much greater than P";
     EXPECT_TRUE(result->postFit.isApprox(result->preFit, 1e-5)) << "postFit ≈ preFit when R very large";
 }
@@ -354,7 +355,7 @@ TEST(SrukfMeasurementUpdate, MrpMeasurementConvergesAtLargeAttitude) {
             ASSERT_TRUE(filter.measurementUpdate(m).has_value()) << "update should be valid at |sigma| = " << magnitude;
         }
 
-        double const residual = subMrp(Eigen::Vector3d(filter.getState().raw()), truth).norm();
+        double const residual = subMrp(Eigen::Vector3d(filter.getState().raw()), truth).stableNorm();
         EXPECT_LT(residual, 1e-4) << "filter failed to converge onto the observation at |sigma| = " << magnitude;
     }
 }

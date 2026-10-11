@@ -66,7 +66,7 @@ AttGuideOutput FlybyPointAlgorithm::updateState(uint64_t currentSimNanos,
 }
 
 void FlybyPointAlgorithm::computeFlybyParameters(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
-    this->f0 = v_BN_N.norm() / r_BN_N.norm();
+    this->f0 = v_BN_N.stableNorm() / r_BN_N.stableNorm();
 
     /*! compute radial (ur_N), velocity (uv_N), along-track (ut_N), and out-of-plane (uh_N) unit direction vectors */
     const Eigen::Vector3d ur_N = r_BN_N.normalized();
@@ -96,8 +96,8 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the predicted rate exceeds the maximum rate of the spacecraft */
-    const double distanceClosestApproach = -r_BN_N.norm() * safeSin(this->gamma0);
-    const double maxPredictedRate = v_BN_N.norm() / distanceClosestApproach * kRad2Deg;
+    const double distanceClosestApproach = -r_BN_N.stableNorm() * safeSin(this->gamma0);
+    const double maxPredictedRate = v_BN_N.stableNorm() / distanceClosestApproach * kRad2Deg;
     if (maxPredictedRate > this->cfg.getMaximumRateThreshold() && this->cfg.getMaximumRateThreshold() > 0) {
         valid = false;
         output.maxRateTrigger = true;
@@ -106,7 +106,8 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
     }
 
     /*! check if the predicted acceleration exceeds the maximum acceleration of the spacecraft */
-    const double maxPredictedAcceleration = kMaxAccelCoeff * pow(v_BN_N.norm() / distanceClosestApproach, 2) * kRad2Deg;
+    const double maxPredictedAcceleration =
+        kMaxAccelCoeff * pow(v_BN_N.stableNorm() / distanceClosestApproach, 2) * kRad2Deg;
     if (maxPredictedAcceleration > this->cfg.getMaximumAccelerationThreshold() &&
         this->cfg.getMaximumAccelerationThreshold() > 0) {
         valid = false;
@@ -117,7 +118,7 @@ bool FlybyPointAlgorithm::checkValidity(uint64_t currentSimNanos,
 
     /*! check if the position error exceeds a-priori sigma bound */
     const double deltaT = (static_cast<double>(currentSimNanos) * kNano2Sec) - this->timeOfFirstRead;
-    const double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).norm();
+    const double deltaPositionNorm = (r_BN_N - (this->firstNavPosition + deltaT * this->firstNavVelocity)).stableNorm();
     if (deltaPositionNorm > this->cfg.getPositionKnowledgeSigma() && this->cfg.getPositionKnowledgeSigma() > 0) {
         valid = false;
         output.positionKnowledgeExceedTrigger = true;

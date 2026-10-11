@@ -159,7 +159,7 @@ void fuzzReInitializeRestoresTheConfiguredSeed(Eigen::Vector3d rOffset,
                                                Eigen::Vector3d rhatRaw,
                                                double dt) {
     std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiag, q, kHeadingStd);
-    if (!cfg || !rhatRaw.allFinite() || rhatRaw.norm() < 1E-3 || !std::isfinite(dt) || dt < 0.0) {
+    if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3 || !std::isfinite(dt) || dt < 0.0) {
         return;
     }
     TestState const seed = cfg->getInitialState();

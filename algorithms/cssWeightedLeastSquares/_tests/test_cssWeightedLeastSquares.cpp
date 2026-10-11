@@ -40,7 +40,7 @@ TEST(CssWeightedLeastSquaresTest, ConfigAcceptsTheReferenceSetup) {
 
     // The factory normalizes the boresights so the estimator can rely on exact unit vectors.
     for (int i = 0; i < kMaxNumCssSensors; ++i) {
-        EXPECT_NEAR(config.getCssNHat_B().row(i).norm(), 1.0F, 1e-6F) << "boresight " << i;
+        EXPECT_NEAR(config.getCssNHat_B().row(i).stableNorm(), 1.0F, 1e-6F) << "boresight " << i;
     }
 }
 
@@ -180,7 +180,7 @@ TEST(CssWeightedLeastSquaresTest, SingleSensorReturnsItsBoresight) {
 
     ASSERT_EQ(out.numCssViewingSun, 1U);
     const Eigen::Vector3d boresight = referenceConstellation()[3];
-    EXPECT_LT((out.sunHeading_B.cast<double>() - boresight).norm(), 1e-5);
+    EXPECT_LT((out.sunHeading_B.cast<double>() - boresight).stableNorm(), 1e-5);
 }
 
 // Two readings leave the system underdetermined, so the minimum norm solution bisects the two boresights
@@ -194,7 +194,7 @@ TEST(CssWeightedLeastSquaresTest, TwoSensorsGiveTheMinimumNormSolution) {
 
     ASSERT_EQ(out.numCssViewingSun, 2U);
     const Eigen::Vector3d bisector = (referenceConstellation()[0] + referenceConstellation()[3]).normalized();
-    EXPECT_LT((out.sunHeading_B.cast<double>() - bisector).norm(), 1e-5);
+    EXPECT_LT((out.sunHeading_B.cast<double>() - bisector).stableNorm(), 1e-5);
 }
 
 // Two boresights that point the same way fix no plane for the minimum norm solution to lie in, so there is
@@ -300,7 +300,7 @@ TEST(CssWeightedLeastSquaresTest, SlowSlewRateKeepsItsPrecision) {
         algorithm.update(makeReadings(readingsFor({std::cos(slewAngle), std::sin(slewAngle), 0.0})));
 
     const Eigen::Vector3d expected{0.0, 0.0, -slewAngle / static_cast<double>(kControlPeriod)};
-    EXPECT_LT((out.omega_BN_B.cast<double>() - expected).norm(), 1e-3 * expected.norm());
+    EXPECT_LT((out.omega_BN_B.cast<double>() - expected).stableNorm(), 1e-3 * expected.stableNorm());
 }
 
 // Two opposed headings lie on infinitely many great circles, so they fix a rotation angle but no axis to
@@ -328,7 +328,7 @@ TEST(CssWeightedLeastSquaresTest, NearReversalStillReportsARate) {
 
     EXPECT_FALSE(out.omega_BN_B.isZero());
     const double expectedMagnitude = (M_PI - residualAngle) / static_cast<double>(kControlPeriod);
-    EXPECT_NEAR(out.omega_BN_B.norm(), expectedMagnitude, 1e-2);
+    EXPECT_NEAR(out.omega_BN_B.stableNorm(), expectedMagnitude, 1e-2);
 }
 
 TEST(CssWeightedLeastSquaresTest, ReInitializeDropsThePriorHeading) {

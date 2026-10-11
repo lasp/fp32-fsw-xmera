@@ -213,8 +213,8 @@ inline void testOEStateEphemUpdate(double mu,
     constexpr double absFloor = 1e-14;
     constexpr double angleTol = 1e-6;
 
-    double posTol = std::max(absFloor, expected_state.position.norm() * relTol);
-    double velTol = std::max(absFloor, expected_state.velocity.norm() * relTol);
+    double posTol = std::max(absFloor, expected_state.position.stableNorm() * relTol);
+    double velTol = std::max(absFloor, expected_state.velocity.stableNorm() * relTol);
     for (int idx = 0; idx < 3; ++idx) {
         EXPECT_TRUE(std::isfinite(computed_state.position[idx]));
         EXPECT_TRUE(std::isfinite(computed_state.velocity[idx]));

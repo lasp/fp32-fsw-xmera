@@ -51,8 +51,8 @@ inline DvExecuteGuidanceReferenceOutput referenceUpdate(DvExecuteGuidanceReferen
     }
 
     const Eigen::Vector3f burnAccum = vehAccumDV - state.dvInit;
-    const float dvMag = dvInrtlCmd.norm();
-    const float dvExecuteMag = burnAccum.norm();
+    const float dvMag = dvInrtlCmd.stableNorm();
+    const float dvExecuteMag = burnAccum.stableNorm();
 
     state.burnComplete = state.burnComplete == 1 || dvExecuteMag >= dvMag;
     state.burnComplete &= state.burnTime > minTime;
