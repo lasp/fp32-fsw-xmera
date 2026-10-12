@@ -74,7 +74,7 @@ class AverageRwSpeedDataAlgorithm final {
 
     // Ingests the new, instantaneous RW speed values into the internal ring.
     // Returns the rolling average of fresh samples in the ring rwSpeedAveragingWindow of the newest stored sample.
-    std::array<float, kMaxNumRw> update(RwSpeedSample const& wheelSpeedData);
+    std::array<float, kMaxNumRw> update(RwSpeedSample const& wheelData);
 
    private:
     AverageRwSpeedDataConfig cfg;

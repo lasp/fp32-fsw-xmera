@@ -37,9 +37,7 @@ void AverageRwSpeedDataAlgorithm::reInitialize() {
 std::array<float, kMaxNumRw> AverageRwSpeedDataAlgorithm::update(RwSpeedSample const& wheelData) {
     uint64_t maxTimeTag = 0U;
     for (auto const& slot : this->ring) {
-        if (slot.measTime > maxTimeTag) {
-            maxTimeTag = slot.measTime;
-        }
+        maxTimeTag = std::max(maxTimeTag, slot.measTime);
     }
 
     // Phase 1: Ingest the sample. A sample that no window can reach would only evict a useful slot.
