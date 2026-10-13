@@ -304,6 +304,49 @@ def emit(tables, rhombus, intervals, out_dir, num_reference, seed):
           f"max fit error vs table={np.max(np.abs(err)):.5f} deg")
 
 
+def figures(tables, full, rhombus, intervals, out_dir):
+    """Write the documentation figures (PDF): the domain and motor 1 surface, and the fit error map."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fit = SplineFit(tables, rhombus, intervals)
+
+    def outline(r):
+        tip = r.psi0 + np.array([r.a, 0.0, -r.a, 0.0, r.a])
+        tilt = r.phi0 + np.array([0.0, r.b, 0.0, -r.b, 0.0])
+        return tip, tilt
+
+    fig, ax = plt.subplots(figsize=(6.0, 6.5))
+    points = ax.scatter(tables.tip, tables.tilt, c=tables.motor1, s=4, cmap="viridis")
+    ax.plot(*outline(full), "k--", linewidth=1.0, label="Largest inscribed rhombus")
+    ax.plot(*outline(rhombus), "r-", linewidth=1.5, label="Addressable rhombus (+tip band removed)")
+    ax.set_xlabel("Gimbal tip angle [deg]")
+    ax.set_ylabel("Gimbal tilt angle [deg]")
+    ax.set_aspect("equal")
+    ax.legend(loc="lower left", fontsize=8)
+    fig.colorbar(points, ax=ax, label="Measured motor 1 angle [deg]")
+    fig.tight_layout()
+    fig.savefig(os.path.join(out_dir, "gimbalDomain.pdf"))
+    plt.close(fig)
+
+    sel = fit.in_domain
+    theta1, _ = fit.motor_angles(tables.tip[sel], tables.tilt[sel])
+    fig, ax = plt.subplots(figsize=(6.0, 6.5))
+    points = ax.scatter(tables.tip[sel], tables.tilt[sel], c=theta1 - tables.motor1[sel], s=6, cmap="RdBu_r",
+                        vmin=-0.045, vmax=0.045)
+    ax.plot(*outline(rhombus), "k-", linewidth=1.0)
+    ax.set_xlabel("Gimbal tip angle [deg]")
+    ax.set_ylabel("Gimbal tilt angle [deg]")
+    ax.set_aspect("equal")
+    fig.colorbar(points, ax=ax, label="Motor 1 fit error (spline - table) [deg]")
+    fig.tight_layout()
+    fig.savefig(os.path.join(out_dir, "fitError.pdf"))
+    plt.close(fig)
+    print(f"Wrote figures to {out_dir}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--table1", default=os.path.join(DEFAULT_TABLE_DIR, "gimbal_to_motor1_angle.csv"))
@@ -319,6 +362,7 @@ def main():
     parser.add_argument("--sweep", action="store_true", help="print the band x N x mode study")
     parser.add_argument("--report", action="store_true", help="print the metrics for --band and --intervals")
     parser.add_argument("--emit", metavar="DIR", help="write the test fixtures for --band and --intervals")
+    parser.add_argument("--figures", metavar="DIR", help="write the documentation figures for --band and --intervals")
     parser.add_argument("--num-reference", type=int, default=200, help="number of random reference points")
     parser.add_argument("--seed", type=int, default=2026)
     args = parser.parse_args()
@@ -337,6 +381,8 @@ def main():
         sweep(tables, full, [args.band], [args.intervals], [args.band_mode])
     if args.emit:
         emit(tables, rhombus, args.intervals, args.emit, args.num_reference, args.seed)
+    if args.figures:
+        figures(tables, full, rhombus, args.intervals, args.figures)
 
 
 if __name__ == "__main__":
