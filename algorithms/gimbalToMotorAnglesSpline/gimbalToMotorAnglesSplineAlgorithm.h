@@ -4,7 +4,6 @@
 #include <math.h>
 #include <algorithm>
 #include <array>
-#include <cstddef>
 #include <numbers>
 
 #include "gimbalToMotorAnglesSplineTypes.h"
@@ -33,7 +32,12 @@ struct GimbalRhombusDomain {
 
 /*! @brief Type alias for the uniform bicubic B-spline control coefficients [rad]. Coefficient c[i][j] is stored at
  * index i * NUM_SPLINE_COEFFS_PER_AXIS + j, where i is along u and j is along v. */
-using SplineCoefficients = std::array<float, static_cast<std::size_t>(NUM_SPLINE_COEFFS)>;
+using SplineCoefficients = std::array<float, NUM_SPLINE_COEFFS>;
+
+static_assert(NUM_SPLINE_COEFFS_PER_AXIS == NUM_SPLINE_INTERVALS + 3,
+              "A uniform cubic B-spline has NUM_SPLINE_INTERVALS + 3 coefficients per axis");
+static_assert(NUM_SPLINE_COEFFS == NUM_SPLINE_COEFFS_PER_AXIS * NUM_SPLINE_COEFFS_PER_AXIS,
+              "The coefficient grid is square");
 
 /*! @brief Validated configuration for the gimbal to motor angles spline algorithm.
  * Holds the addressable gimbal rhombus and the control coefficients of the shared motor angle surface. */
