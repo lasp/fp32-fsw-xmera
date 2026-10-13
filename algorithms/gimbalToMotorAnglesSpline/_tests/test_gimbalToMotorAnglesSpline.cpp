@@ -6,52 +6,6 @@
 #include <limits>
 #include <numbers>
 
-namespace {
-
-constexpr float kEps = std::numeric_limits<float>::epsilon();
-constexpr float kIntervalWidth = 2.0F / static_cast<float>(NUM_SPLINE_INTERVALS);  // [-] knot spacing in u and v
-
-/*! This method returns an upper bound on |dS/du| and |dS/dv|. The derivative of a cubic B-spline is a quadratic
- B-spline whose coefficients are the coefficient differences divided by the knot spacing.
- @return float [rad] Slope bound per unit of u or v
- @param coefficients [rad] Spline control coefficients
-*/
-float surfaceSlopeBound(const SplineCoefficients& coefficients) {
-    float maxDifference = 0.0F;
-    for (int i = 0; i < NUM_SPLINE_COEFFS_PER_AXIS; ++i) {
-        for (int j = 0; j < NUM_SPLINE_COEFFS_PER_AXIS; ++j) {
-            const float c = coefficients[(i * NUM_SPLINE_COEFFS_PER_AXIS) + j];
-            if (i + 1 < NUM_SPLINE_COEFFS_PER_AXIS) {
-                maxDifference =
-                    std::max(maxDifference, std::fabs(coefficients[((i + 1) * NUM_SPLINE_COEFFS_PER_AXIS) + j] - c));
-            }
-            if (j + 1 < NUM_SPLINE_COEFFS_PER_AXIS) {
-                maxDifference =
-                    std::max(maxDifference, std::fabs(coefficients[(i * NUM_SPLINE_COEFFS_PER_AXIS) + j + 1] - c));
-            }
-        }
-    }
-    return maxDifference / kIntervalWidth;
-}
-
-/*! This method returns the fp32 evaluation tolerance against a float64 reference evaluation of the same surface.
- - Coefficient rounding to float: <= eps/2 * max|c| (the weights are non-negative and sum to one).
- - Weights (~10 operations) and the 4 x 4 weighted sum (~8 operations deep): ~20 eps * max|c|.
- - u and v: ~5 operations on once-rounded inputs, ~9 eps each, times the slope bound, for both u and v.
- The sum is multiplied by 3 for margin.
- @return float [rad]
- @param coefficients [rad] Spline control coefficients
-*/
-float evaluationTolerance(const SplineCoefficients& coefficients) {
-    const auto [minCoeff, maxCoeff] = coefficientBounds(coefficients);
-    const float maxAbsCoeff = std::max(std::fabs(minCoeff), std::fabs(maxCoeff));
-    const float valueError = 20.5F * kEps * maxAbsCoeff;
-    const float coordinateError = 2.0F * 9.0F * kEps * surfaceSlopeBound(coefficients);
-    return 3.0F * (valueError + coordinateError);
-}
-
-}  // namespace
-
 // ---------------------------------------------------------------------------
 // Regression tests against the offline fit
 // ---------------------------------------------------------------------------
