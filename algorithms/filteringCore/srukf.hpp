@@ -151,11 +151,10 @@ class SRuKF {
         this->eta = safeSqrtf(Nfloat + this->lambda);
 
         this->wM(0) = this->lambda / (Nfloat + this->lambda);
-        this->wC(0) = this->lambda / (Nfloat + this->lambda) + (1.0F - this->alpha * this->alpha + this->beta);
         for (int i = 1; i < numSigmaPoints; ++i) {
             this->wM(i) = 1.0F / (2.0F * (Nfloat + this->lambda));
-            this->wC(i) = this->wM(i);
         }
+        this->wMeanOffset = this->beta - this->alpha * this->alpha;
     }
 
     /*! Seed the estimate from initial conditions and re-derive the filter parameters
@@ -219,25 +218,24 @@ class SRuKF {
                 this->sigmaPoints[i + N] = filtering::propagate(this->dynamics, minus, interval);
             }
 
-            //! > xBar is the weighted sum of the sigma points (eq 19)
-            this->xBar = this->sigmaPoints[0].scale(this->wM(0));
+            //! > xBar is the weighted sum of the sigma points (eq 19), accumulated as deviations from the central
+            //! > point (see "Statistics about the central sigma point" in filteringCore.rst)
+            typename State::Storage xDeviation = State::Storage::Zero();
             for (int i = 1; i < numSigmaPoints; ++i) {
-                this->xBar = this->xBar.add(this->sigmaPoints[i].scale(this->wM(i)));
+                xDeviation += this->wM(i) * (this->sigmaPoints[i].raw() - this->sigmaPoints[0].raw());
             }
+            this->xBar = State(this->sigmaPoints[0].raw() + xDeviation);
 
-            //! > Construct the A matrix (to be QR'ed) which contains the sigma points - xbar and process noise (eq 20)
+            //! > Construct the A matrix (to be QR'ed) from the sigma point deviations and the process noise (eq 20),
+            //! > then fold in the mean offset with a rank-1 update (eq 21)
             Eigen::Matrix<float, N, 3 * N> A;
             for (int i = 1; i < numSigmaPoints; ++i) {
-                A.col(i - 1) = sqrtf(this->wC(i)) * (this->sigmaPoints[i].raw() - this->xBar.raw());
+                A.col(i - 1) = sqrtf(this->wM(i)) * (this->sigmaPoints[i].raw() - this->sigmaPoints[0].raw());
             }
             A.template block<N, N>(0, numSigmaPoints - 1) = this->cholProcessNoise;
-
-            //! > QR decompose it to get the updated covariance(eq 20)
             Eigen::Matrix<float, N, N> const sBar = qrDecompositionJustR<N, 3 * N>(A);
 
-            //! > Cholesky-downDate the covariance and the state error, update the states with results
-            Eigen::Vector<float, N> const xError = this->sigmaPoints[0].raw() - this->xBar.raw();
-            this->sqrtCovar = choleskyUpDownDate<N>(sBar, xError, this->wC(0));
+            this->sqrtCovar = choleskyUpDownDate<N>(sBar, xDeviation, this->wMeanOffset);
             this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
             this->state = this->sigmaPoints[0];
 
@@ -272,11 +270,22 @@ class SRuKF {
             for (int j = 0; j < numSigma; ++j) {
                 yMeasPre.col(j) = measurement.model(this->sigmaPoints[j]);
             }
-            //! > Like eq 19, the measurement expected is the weighted sum of the Sigma points transformed (eq 23)
-            Eigen::Vector<float, MSize> yBarPre = Eigen::Vector<float, MSize>::Zero();
-            for (int i = 0; i < numSigma; ++i) {
-                yBarPre += this->wM(i) * yMeasPre.col(i);
+            //! > Like eq 19, the measurement expected is the weighted sum of the Sigma points transformed (eq 23),
+            //! > accumulated as deviations from the central point
+            Eigen::Vector<float, MSize> yBarPre = yMeasPre.col(0);
+            for (int i = 1; i < numSigma; ++i) {
+                yBarPre += this->wM(i) * (yMeasPre.col(i) - yMeasPre.col(0));
             }
+
+            //! > Sigma point deviations and mean offsets from the central point, as in the time update
+            Eigen::Matrix<float, N, numSigma - 1> xDev;
+            Eigen::Matrix<float, MSize, numSigma - 1> yDev;
+            for (int i = 1; i < numSigma; ++i) {
+                xDev.col(i - 1) = this->sigmaPoints[i].raw() - this->sigmaPoints[0].raw();
+                yDev.col(i - 1) = measurement.subtract(yMeasPre.col(i), yMeasPre.col(0));
+            }
+            Eigen::Vector<float, N> const xMeanOffset = this->xBar.raw() - this->sigmaPoints[0].raw();
+            Eigen::Vector<float, MSize> const yMeanOffset = measurement.subtract(yBarPre, yMeasPre.col(0));
 
             //! > Before moving to the update, computed the prefits
             Eigen::Vector<float, MSize> const preFit = measurement.subtract(observation, yBarPre);
@@ -284,27 +293,16 @@ class SRuKF {
             //! > Sqrt the measurement noise, this could theoretically be different at every time step
             Eigen::Matrix<float, MSize, MSize> const cholMeasNoise = choleskyDecomposition<MSize>(measurement.noise());
 
-            //! > Symmetrically to the time update, populate the A matrix for a qr decomposition (eq 24)
+            //! > Symmetrically to the time update, populate the A matrix for a qr decomposition (eq 24-25)
             Eigen::Matrix<float, MSize, 2 * N + MSize> A;
-            for (int i = 1; i < numSigma; ++i) {
-                A.col(i - 1) = sqrtf(this->wC(1)) * measurement.subtract(yMeasPre.col(i), yBarPre);
-            }
+            A.template leftCols<numSigma - 1>() = sqrtf(this->wM(1)) * yDev;
             A.template block<MSize, MSize>(0, numSigma - 1) = cholMeasNoise;
-
-            //! > Qr decomposition of A (eq 24)
             Eigen::Matrix<float, MSize, MSize> sy = qrDecompositionJustR<MSize, 2 * N + MSize>(A);
-
-            //! > Cholesky-downDate the covariance and the measurement error
-            Eigen::Vector<float, MSize> const yError0 = measurement.subtract(yMeasPre.col(0), yBarPre);
-            sy = choleskyUpDownDate<MSize>(sy, yError0, this->wC(0));
+            sy = choleskyUpDownDate<MSize>(sy, yMeanOffset, this->wMeanOffset);
 
             //! > Covariance of prior prediction computation eq 26
-            Eigen::Matrix<float, N, MSize> pXY = Eigen::Matrix<float, N, MSize>::Zero();
-            for (int i = 0; i < numSigma; ++i) {
-                Eigen::Vector<float, N> const xError = this->sigmaPoints[i].raw() - this->xBar.raw();
-                Eigen::Vector<float, MSize> const yError = measurement.subtract(yMeasPre.col(i), yBarPre);
-                pXY += this->wC(i) * xError * yError.transpose();
-            }
+            Eigen::Matrix<float, N, MSize> const pXY = this->wM(1) * (xDev * yDev.transpose()) +
+                                                       this->wMeanOffset * (xMeanOffset * yMeanOffset.transpose());
 
             //! > Calculate Kalman gain eq 27
             Eigen::Matrix<float, MSize, N> const pXYT = pXY.transpose();
@@ -381,7 +379,8 @@ class SRuKF {
 
     /*!  Sigma weights, latest propagated sigma points, and weighted mean. */
     SigmaWeights wM = SigmaWeights::Zero();
-    SigmaWeights wC = SigmaWeights::Zero();
+    /*!  Covariance weight of the mean offset, beta - alpha^2 (see filteringCore.rst). */
+    float wMeanOffset = 0.0F;
     std::array<State, 2 * State::size + 1> sigmaPoints = {};
     State xBar;
 };
