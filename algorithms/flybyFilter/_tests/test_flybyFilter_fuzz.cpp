@@ -31,8 +31,8 @@ using filtering::flybyFilter::Vector6;
 inline auto boundedOrNonFinite() {
     return fuzztest::OneOf(fuzztest::InRange(-2.0F, 2.0F),
                            fuzztest::ElementOf<float>({std::numeric_limits<float>::quiet_NaN(),
-                                                        std::numeric_limits<float>::infinity(),
-                                                        -std::numeric_limits<float>::infinity()}));
+                                                       std::numeric_limits<float>::infinity(),
+                                                       -std::numeric_limits<float>::infinity()}));
 }
 
 // Thin free-function wrappers so FUZZ_TEST references an unqualified name (the property helpers
@@ -71,13 +71,13 @@ inline void fuzzMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f rOffset,
 // finite inputs leaves the estimate finite, the covariance symmetric-PSD, and the returned snapshot
 // consistent with the accessors.
 FUZZ_TEST(FlybyFilterPropertyFuzz, fuzzUpdateKeepsStateValidAndBounded)
-    .WithDomains(xmera::fuzz::Vector3fInRange(-500.0F, 500.0F),                          // initial r offset [km]
-                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),                              // initial v offset [km/s]
-                 fuzztest::InRange(1E3F, 1E5F),                                          // mu [km^3/s^2]
+    .WithDomains(xmera::fuzz::Vector3fInRange(-500.0F, 500.0F),                         // initial r offset [km]
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),                             // initial v offset [km/s]
+                 fuzztest::InRange(1E3F, 1E5F),                                         // mu [km^3/s^2]
                  xmera::fuzz::EigenVectorOf<float, 6>(fuzztest::InRange(-1E4F, 1E4F)),  // covariance diagonal
-                 fuzztest::InRange(0.0F, 1E-4F),                                         // process noise
-                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),                              // heading observation
-                 fuzztest::InRange(0.0F, 60.0F));                                        // dt [s]
+                 fuzztest::InRange(0.0F, 1E-4F),                                        // process noise
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),                             // heading observation
+                 fuzztest::InRange(0.0F, 60.0F));                                       // dt [s]
 
 // Same finite config inputs, but the heading is fully arbitrary (including NaN / Inf). A non-finite
 // measurement must be skipped, leaving the estimate finite and the covariance PSD.

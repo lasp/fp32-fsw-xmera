@@ -56,14 +56,13 @@ TEST(SunlineFilterAlgorithmSetup, ConstructionSeedsStateAndCovarianceFromConfig)
 // ============================================================================
 
 TEST(SunlineFilterAlgorithmProperty, UpdateKeepsStateValidAndBounded) {
-    propertyUpdateKeepsStateValidAndBounded(
-        Eigen::Vector3f(0.2, -0.3, 0.9),
-        Eigen::Vector3f(0.01, 0.0, -0.02),
-        1.2,
-        (Vector7() << 1E-2, 1E-2, 1E-2, 1E-3, 1E-3, 1E-3, 1E-2).finished(),
-        (Eigen::Vector<float, MaxCss>() << 0.6, 0.5, 0.7, 0, 0, 0, 0, 0).finished(),
-        Eigen::Vector3f(0.01, 0.0, -0.02),
-        0.5);
+    propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3f(0.2, -0.3, 0.9),
+                                            Eigen::Vector3f(0.01, 0.0, -0.02),
+                                            1.2,
+                                            (Vector7() << 1E-2, 1E-2, 1E-2, 1E-3, 1E-3, 1E-3, 1E-2).finished(),
+                                            (Eigen::Vector<float, MaxCss>() << 0.6, 0.5, 0.7, 0, 0, 0, 0, 0).finished(),
+                                            Eigen::Vector3f(0.01, 0.0, -0.02),
+                                            0.5);
 }
 
 TEST(SunlineFilterAlgorithmProperty, ArbitraryMeasurementsPreserveState) {

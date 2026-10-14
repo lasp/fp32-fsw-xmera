@@ -191,7 +191,7 @@ class SunlineFilterConfig final {
           gyroMeasNoiseStd(gyroMeasurementNoiseStd) {}
 
     static Eigen::Matrix<float, MaxCss, 3> normalizeCssNHat(Eigen::Matrix<float, MaxCss, 3> const& cssNHat,
-                                                             uint32_t numberOfCss) {
+                                                            uint32_t numberOfCss) {
         Eigen::Matrix<float, MaxCss, 3> normalized = Eigen::Matrix<float, MaxCss, 3>::Zero();
         for (uint32_t i = 0; i < numberOfCss; ++i) {
             Eigen::Vector3f const row = cssNHat.row(i).transpose();

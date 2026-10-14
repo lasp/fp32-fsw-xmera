@@ -22,8 +22,8 @@ using filtering::sunlineFilter::Vector7;
 inline auto boundedOrNonFinite() {
     return fuzztest::OneOf(fuzztest::InRange(-2.0F, 2.0F),
                            fuzztest::ElementOf<float>({std::numeric_limits<float>::quiet_NaN(),
-                                                        std::numeric_limits<float>::infinity(),
-                                                        -std::numeric_limits<float>::infinity()}));
+                                                       std::numeric_limits<float>::infinity(),
+                                                       -std::numeric_limits<float>::infinity()}));
 }
 
 // Thin free-function wrappers so FUZZ_TEST references an unqualified name (the property
