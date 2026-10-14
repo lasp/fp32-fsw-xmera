@@ -93,6 +93,56 @@ constexpr State propagate(D const& dynamics,
     return state;
 }
 
+/*! Propagate a small deviation from a reference state. The deviation obeys d' = f(c + d) - f(c) and
+ *  is integrated on its own scale, alongside the reference c, rather than as the difference of two
+ *  propagated states: in float that difference keeps only the few bits of d that survive next to |c|,
+ *  which collapses the spread of the sigma points (and so the covariance) for a large state.
+ *  @return deviation at interval[1]
+ *  @param dynamics  [-]   callable (t, x) -> dx/dt
+ *  @param reference [-]   reference state at interval[0]
+ *  @param deviation [-]   deviation from the reference at interval[0]
+ *  @param interval  [s,s] {start, end} time pair
+ *  @param integrationStep [s] integration time step (optional, defaults to kIntegrationStep) */
+template <LinearlyCombinable State, Dynamics<State> D>
+constexpr State propagateDeviation(D const& dynamics,
+                                   State reference,
+                                   State deviation,
+                                   std::array<float, 2> interval,
+                                   float integrationStep = kIntegrationStep) {
+    float t = interval[0];
+    float const tFinal = interval[1];
+    auto const [numberOfSteps, step] = integrationSteps(interval, integrationStep);
+
+    auto const deviationRate = [&dynamics](float tau, State const& ref, State const& dev, State const& refRate) {
+        return dynamics(tau, ref.add(dev)).add(refRate.scale(-1.0F));
+    };
+
+    for (unsigned int i = 0; i < numberOfSteps; ++i) {
+        float const h = std::min(step, tFinal - t);
+        float const tMid = t + h / 2.0F;
+
+        auto const k1 = dynamics(t, reference);
+        auto const j1 = deviationRate(t, reference, deviation, k1);
+        auto const ref2 = reference.add(k1.scale(h / 2.0F));
+        auto const k2 = dynamics(tMid, ref2);
+        auto const j2 = deviationRate(tMid, ref2, deviation.add(j1.scale(h / 2.0F)), k2);
+        auto const ref3 = reference.add(k2.scale(h / 2.0F));
+        auto const k3 = dynamics(tMid, ref3);
+        auto const j3 = deviationRate(tMid, ref3, deviation.add(j2.scale(h / 2.0F)), k3);
+        auto const ref4 = reference.add(k3.scale(h));
+        auto const k4 = dynamics(t + h, ref4);
+        auto const j4 = deviationRate(t + h, ref4, deviation.add(j3.scale(h)), k4);
+
+        reference =
+            reference.add(k1.scale(h / 6.0F).add(k2.scale(h / 3.0F)).add(k3.scale(h / 3.0F)).add(k4.scale(h / 6.0F)));
+        deviation =
+            deviation.add(j1.scale(h / 6.0F).add(j2.scale(h / 3.0F)).add(j3.scale(h / 3.0F)).add(j4.scale(h / 6.0F)));
+        t += h;
+    }
+
+    return deviation;
+}
+
 }  // namespace filtering
 
 #endif
