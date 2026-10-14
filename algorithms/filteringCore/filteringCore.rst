@@ -106,9 +106,10 @@ long runs; only their differences are narrowed to ``float`` before
    - ``Dynamics<D, State>`` — invocable ``(float, State) -> State``.
 
 ``dynamicsModel.hpp``
-   ``DynamicsModel<State>`` (a ``std::function`` alias) plus ``rk4()`` and
-   ``propagate()`` — RK4 integration usable on any
-   ``LinearlyCombinable`` state.
+   ``DynamicsModel<State>`` (a ``std::function`` alias) plus ``rk4Increment()``,
+   ``rk4()`` and ``propagate()`` — RK4 integration usable on any
+   ``LinearlyCombinable`` state. ``propagate()`` accumulates the sub-steps
+   with Kahan compensation (see "Accumulating the RK4 sub-steps").
 
 ``measurementQueue.h``
    ``measurement_queue<Measurement, CAPACITY>`` — a bounded, time-ordered
@@ -249,6 +250,50 @@ that almost cancels it. So the choice is:
     \boldsymbol{Y}_0)` in any case. For MRPs, that weighted average is itself an approximation, so the "textbook"
     linearization at :math:`\bar{\boldsymbol{y}}` is not more correct in any strict sense. It linearizes at an
     equally approximate point.
+
+Accumulating the RK4 sub-steps
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``propagate()`` integrates an interval in RK4 sub-steps of ``kIntegrationStep`` (at most ``kMaxNumberOfSteps`` of
+them). In float, the sub-step increment can be only a few ulps of the state. For example, at a range of
+:math:`5 \times 10^5` km one ulp of position is about 0.03 km, and a sub-step moves the position by a few km. The
+rounding of a nearly constant increment is also nearly constant, so the error does not average out: it grows
+linearly with the number of sub-steps. When the measurements do not observe that direction (for example, the range
+of a heading-only filter), they never remove the bias.
+
+``rk4Increment()`` therefore returns the increment of each sub-step separately from the state, and
+``propagate()`` adds it with Kahan compensation. For sub-step :math:`k`, :math:`\boldsymbol{x}_k` is the state
+before the sub-step, :math:`\Delta\boldsymbol{x}_k` is the RK4 increment, and :math:`\boldsymbol{c}_k` is the
+compensation: the part of the earlier increments that the additions rounded away, with the opposite sign. No
+increment has been added before the first sub-step, so the compensation starts at zero:
+
+.. math::
+
+   \boldsymbol{c}_0 = \boldsymbol{0}
+
+Each sub-step then corrects its increment with the compensation, adds the corrected increment to the state, and
+computes the compensation for the next sub-step:
+
+.. math::
+
+   \boldsymbol{y}_k = \Delta\boldsymbol{x}_k - \boldsymbol{c}_k, \qquad
+   \boldsymbol{s}_k = \boldsymbol{x}_k + \boldsymbol{y}_k, \qquad
+   \boldsymbol{c}_{k+1} = (\boldsymbol{s}_k - \boldsymbol{x}_k) - \boldsymbol{y}_k, \qquad
+   \boldsymbol{x}_{k+1} = \boldsymbol{s}_k
+
+:math:`\boldsymbol{y}_k` is the corrected increment (``correctedIncrement`` in the code) and :math:`\boldsymbol{s}_k`
+is the rounded sum (``next``), which becomes the new state. Because :math:`\boldsymbol{s}_k` and
+:math:`\boldsymbol{x}_k` are close, :math:`\boldsymbol{s}_k - \boldsymbol{x}_k` is exact in float: it is the
+increment that the addition actually applied. :math:`\boldsymbol{c}_{k+1}` is therefore the rounding error of the
+addition, and the next sub-step subtracts it from its increment.
+
+In a heading-only planetary flyby, plain addition makes the float filter overconfident (NEES of 17 to 32 instead of
+about 3 at closest approach and after it). With the compensation, the filter matches the double-precision filter.
+
+.. warning::
+
+   Kahan compensation requires that the target is not compiled with ``-ffast-math`` (or another flag that allows
+   reassociation). With reassociation, the compiler can simplify :math:`\boldsymbol{c}_{k+1}` to zero.
 
 
 host adapter
