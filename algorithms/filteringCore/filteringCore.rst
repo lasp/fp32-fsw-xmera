@@ -380,6 +380,61 @@ For usual measurement noise the two forms give the same results. In a heading-on
 :math:`10^{-6}`, the textbook update rejects 3,000 to 20,000 updates in 50 runs and the filter diverges. The Joseph
 form rejects none.
 
+Rank-1 update by rotations
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The time update, :math:`S_y` and the Joseph form each finish with a rank-1 update of a lower-triangular factor
+:math:`S`, by the mean offset with the coefficient :math:`c = \beta - \alpha^2`: the new factor :math:`L` satisfies
+
+.. math::
+
+   L L^T = S S^T + c \, \boldsymbol{v} \boldsymbol{v}^T
+
+The simple way is to form :math:`P = S S^T + c \, \boldsymbol{v} \boldsymbol{v}^T` and factor it again. The
+condition number of :math:`P` is the square of the condition number of :math:`S`, and float keeps only about 7
+significant digits. In a covariance with a variance of :math:`10^{-6}` next to one of :math:`10^{4}`, the small
+direction is rounded away when :math:`P` is formed, and the factor of :math:`P` is wrong in that direction.
+
+``choleskyUpDownDate()`` therefore never forms :math:`P`. It rotates :math:`\boldsymbol{x} = \sqrt{|c|} \,
+\boldsymbol{v}` into the columns of :math:`L`, starting from :math:`L = S`. For each column :math:`k` with
+:math:`\ell = L_{kk}` and :math:`x_k \neq 0` (a zero :math:`x_k` needs no rotation):
+
+- **Update** (:math:`c > 0`), a Givens rotation:
+
+  .. math::
+
+     r = \sqrt{\ell^2 + x_k^2}, \qquad \gamma = \ell / r, \qquad \sigma = x_k / r, \qquad L_{kk} \leftarrow r
+
+  and for :math:`i > k`, with :math:`L_{ik}` the value before the rotation:
+
+  .. math::
+
+     L_{ik} \leftarrow \gamma L_{ik} + \sigma x_i, \qquad x_i \leftarrow \gamma x_i - \sigma L_{ik}
+
+- **Downdate** (:math:`c < 0`), a hyperbolic rotation:
+
+  .. math::
+
+     r = \sqrt{(\ell - x_k)(\ell + x_k)}, \qquad \gamma = r / \ell, \qquad \sigma = x_k / \ell, \qquad
+     L_{kk} \leftarrow r
+
+  and for :math:`i > k`, with :math:`L_{ik}` the value after its update:
+
+  .. math::
+
+     L_{ik} \leftarrow (L_{ik} - \sigma x_i) / \gamma, \qquad x_i \leftarrow \gamma x_i - \sigma L_{ik}
+
+Each rotation works on entries of the size of the factor, not of the covariance, so the condition number is not
+squared. A downdate that would make the result indefinite gives :math:`|x_k| > |\ell|` and a non-finite :math:`r`,
+which the finite checks of the time and measurement updates reject. Because :math:`S S^T` is never formed, these
+checks also test that the covariance :math:`S S^T` is finite: :math:`S` can stay finite while :math:`S S^T`
+overflows float.
+
+The fuzz tests found the case where this matters. A flyby prior with velocity variances of :math:`10^{-6}` next to
+:math:`10^{4}`, propagated for 47 s without process noise, gave a velocity variance of :math:`10^{8}` instead of
+about :math:`10^{4}` when the factor was formed again. With the rotations, the result is correct and does not depend
+on the process noise. For a well-conditioned covariance, the two methods give the same results.
+
 
 host adapter
 ~~~~~~~~~~~~

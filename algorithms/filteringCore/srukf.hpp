@@ -59,21 +59,51 @@ class SRuKF {
         return chol.matrixL();
     }
 
-    /*! Rank-1 Cholesky up/down date: returns chol(S*S^T + sign(coef)*|coef|*v*v^T).
+    /*! Rank-1 Cholesky up/down date: returns lower-triangular L with
+     *  L*L^T = S*S^T + sign(coef)*|coef|*v*v^T. The rank-1 term is rotated into the columns of S
+     *  (Givens rotations to update, mixed hyperbolic rotations to downdate) instead of re-factoring
+     *  S*S^T, which in float cancels away the small-variance directions. A downdate that would make
+     *  the result indefinite yields non-finite entries.
      *  @return updated Cholesky factor
-     *  @param sqrtP       [-] current Cholesky factor S
+     *  @param sqrtP       [-] current lower-triangular Cholesky factor S
      *  @param v           [-] rank-1 update vector
      *  @param coefficient [-] signed weight (sign determines up vs down date) */
     template <int Size>
     static Eigen::Matrix<float, Size, Size> choleskyUpDownDate(Eigen::Matrix<float, Size, Size> const& sqrtP,
                                                                 Eigen::Vector<float, Size> const& v,
                                                                 float coefficient) {
-        Eigen::Matrix<float, Size, Size> P = sqrtP * sqrtP.transpose();
-        int const sign = (coefficient > 0) ? 1 : -1;
-        P += sign * fabsf(coefficient) * v * v.transpose();
+        Eigen::Matrix<float, Size, Size> L = sqrtP;
+        Eigen::Vector<float, Size> x = sqrtf(fabsf(coefficient)) * v;
+        bool const isUpdate = coefficient > 0.0F;
 
-        Eigen::Matrix<float, Size, Size> const A = choleskyDecomposition<Size>(P);
-        return qrDecompositionJustR<Size, Size>(A);
+        for (int k = 0; k < Size; ++k) {
+            float const xk = x(k);
+            if (xk == 0.0F) {
+                continue;  // identity rotation
+            }
+            float const lkk = L(k, k);
+            if (isUpdate) {
+                float const r = hypotf(lkk, xk);
+                float const c = lkk / r;
+                float const s = xk / r;
+                L(k, k) = r;
+                for (int i = k + 1; i < Size; ++i) {
+                    float const lik = L(i, k);
+                    L(i, k) = c * lik + s * x(i);
+                    x(i) = c * x(i) - s * lik;
+                }
+            } else {
+                float const r = sqrtf((lkk - xk) * (lkk + xk));
+                float const c = r / lkk;
+                float const s = xk / lkk;
+                L(k, k) = r;
+                for (int i = k + 1; i < Size; ++i) {
+                    L(i, k) = (L(i, k) - s * x(i)) / c;
+                    x(i) = c * x(i) - s * L(i, k);
+                }
+            }
+        }
+        return L;
     }
 
     /*! Forward substitution: solve L*x = b with L lower triangular.
