@@ -332,6 +332,54 @@ than that of the double-precision filter, and its estimate is less accurate by a
 propagation, the float filter matches the double-precision filter. Without it, the C++ flyby tests in which a precise
 heading measurement must shrink the covariance fail.
 
+Measurement update in Joseph form
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The textbook square-root update removes :math:`K P_{yy} K^T` from the prior with one rank-1 downdate of the
+Cholesky factor per column of :math:`K S_y`, so that :math:`P^+ = P^- - K P_{yy} K^T`. A precise measurement almost
+fully resolves some directions of the state. In those directions the downdate subtracts two nearly equal terms, and
+in float the result can become indefinite: the downdate fails, or the covariance grows instead of shrinking.
+
+The SRuKF therefore writes the updated covariance as a sum of squares. With the posterior deviations
+:math:`\boldsymbol{z}_i = \boldsymbol{d}_i - K \boldsymbol{u}_i` and :math:`\boldsymbol{m}_z = \boldsymbol{m} - K
+\bar{\boldsymbol{u}}` (the notation of "Statistics about the central sigma point"):
+
+.. math::
+
+   P^+ = \sum_{i=1}^{2N} w^m_i \, \boldsymbol{z}_i \boldsymbol{z}_i^T + (\beta - \alpha^2) \, \boldsymbol{m}_z
+         \boldsymbol{m}_z^T + K R K^T + Q_{\text{out}}
+
+:math:`Q_{\text{out}}` (``sqrtNoiseOutsideSigmaPoints``, stored as its square root) is the part of the prior that
+the sigma points do not represent. After a propagating ``timeUpdate`` it is the process noise :math:`Q`, which
+enters the prior factor through the QR decomposition but is not in the deviations. After a ``timeUpdate(0)`` it is
+zero, because the sigma points are drawn from the full covariance.
+
+To show that this is the textbook update, expand the first two terms with the expansions of :math:`P_{yy}` and
+:math:`P_{xy}`, where :math:`P^-_{\sigma}` is the prior covariance carried by the sigma points:
+
+.. math::
+
+   \sum_{i=1}^{2N} w^m_i \, \boldsymbol{z}_i \boldsymbol{z}_i^T + (\beta - \alpha^2) \, \boldsymbol{m}_z
+   \boldsymbol{m}_z^T = P^-_{\sigma} - K P_{xy}^T - P_{xy} K^T + K (P_{yy} - R) K^T
+
+With :math:`P_{xy} = K P_{yy}` and :math:`P^- = P^-_{\sigma} + Q_{\text{out}}`, the sum is :math:`P^- - K P_{yy}
+K^T`. The two forms are equal in exact arithmetic. As a sum of squares, the Joseph form stays positive
+semi-definite when float rounding perturbs :math:`K`. In the square-root form, ``measurementUpdate`` computes it
+with one QR decomposition of
+
+.. math::
+
+   \left[ \sqrt{w^m_1} \, (\boldsymbol{z}_1 \ \cdots \ \boldsymbol{z}_{2N}) \quad K S_R \quad S_{Q_{\text{out}}}
+   \right]
+
+where :math:`S_R` and :math:`S_{Q_{\text{out}}}` are the Cholesky factors of :math:`R` and :math:`Q_{\text{out}}`,
+and one rank-1 update by :math:`\boldsymbol{m}_z` with the coefficient :math:`\beta - \alpha^2`.
+
+For usual measurement noise the two forms give the same results. In a heading-only flyby with a heading noise of
+:math:`3 \times 10^{-6}` or more, the float filter is equally accurate with either form. With a heading noise of
+:math:`10^{-6}`, the textbook update rejects 3,000 to 20,000 updates in 50 runs and the filter diverges. The Joseph
+form rejects none.
+
 
 host adapter
 ~~~~~~~~~~~~
