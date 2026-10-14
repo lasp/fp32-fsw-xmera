@@ -207,6 +207,7 @@ class SRuKF {
                 this->sigmaDeviations[i + N] = State(-offset);
             }
             this->meanOffset = State::Storage::Zero();
+            this->sqrtNoiseOutsideSigmaPoints = Covariance::Zero();
         } else {
             std::array<float, 2> const interval = {0.0F, dt};
 
@@ -244,6 +245,7 @@ class SRuKF {
             this->sqrtCovar = choleskyUpDownDate<N>(sBar, this->meanOffset, this->wMeanOffset);
             this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
             this->state = this->sigmaPoints[0];
+            this->sqrtNoiseOutsideSigmaPoints = this->cholProcessNoise;
 
             if (!this->state.allFinite() || !this->sqrtCovar.allFinite()) {
                 return false;
@@ -320,12 +322,18 @@ class SRuKF {
             Eigen::Vector<float, MSize> const innovation = measurement.subtract(observation, yBarPre);
             this->state = State(this->sigmaPoints[0].raw() + (xMeanOffset + kMat * innovation));
 
-            //! > Cholesky downDate to get the update covariance (eq 29)
-            Eigen::Matrix<float, N, MSize> const Umat = kMat * sy;
-            for (int i = 0; i < MSize; ++i) {
-                Eigen::Vector<float, N> const col = Umat.col(i);
-                this->sqrtCovar = choleskyUpDownDate<N>(this->sqrtCovar, col, -1.0F);
-            }
+            //! > Updated covariance (eq 29) in Joseph form, expanded about the central point, as one QR decomposition
+            //! > of a sum of squares and one rank-1 update (see "Measurement update in Joseph form" in
+            //! > filteringCore.rst)
+            constexpr int numCols = 2 * N + MSize + N;
+            Eigen::Matrix<float, N, numCols> B;
+            B.template leftCols<numSigma - 1>() = sqrtf(this->wM(1)) * (xDev - kMat * yDev);
+            B.template block<N, MSize>(0, numSigma - 1) = kMat * cholMeasNoise;
+            B.template block<N, N>(0, numSigma - 1 + MSize) = this->sqrtNoiseOutsideSigmaPoints;
+            Eigen::Matrix<float, N, N> const sPlus = qrDecompositionJustR<N, numCols>(B);
+
+            Eigen::Vector<float, N> const meanOffsetError = xMeanOffset - kMat * yMeanOffset;
+            this->sqrtCovar = choleskyUpDownDate<N>(sPlus, meanOffsetError, this->wMeanOffset);
             this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
 
             if (this->state.allFinite() and this->sqrtCovar.allFinite()) {
@@ -382,6 +390,8 @@ class SRuKF {
     float beta = 0;
     float lambda = 0;
     float eta = 0;
+
+    Covariance sqrtNoiseOutsideSigmaPoints = Covariance::Zero();
 
     /*!  Sigma weights, latest propagated sigma points, their deviations from the central one (entry 0 unused), and
      *   the weighted mean as its offset from the central point. The deviations and the mean offset are kept
