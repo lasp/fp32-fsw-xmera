@@ -99,7 +99,7 @@ long runs; only their differences are narrowed to ``float`` before
    The C++20 concepts that define the interfaces, so filters compose by
    satisfying an interface rather than by inheritance:
 
-   - ``LinearlyCombinable<T>`` — has ``scale(k)`` and ``add(other)``.
+   - ``LinearlyCombinable<T>`` — has ``scale(k)``, ``add(other)`` and ``subtract(other)``.
    - ``FilterState<S>`` — ``LinearlyCombinable`` plus ``S::size`` and ``raw()``.
    - ``Measurement<M, State>`` — ``M::size``, ``observation()``,
      ``model(state)``, ``noise()``, ``subtract(a, b)``.
@@ -110,6 +110,8 @@ long runs; only their differences are narrowed to ``float`` before
    ``rk4()`` and ``propagate()`` — RK4 integration usable on any
    ``LinearlyCombinable`` state. ``propagate()`` accumulates the sub-steps
    with Kahan compensation (see "Accumulating the RK4 sub-steps").
+   ``propagateDeviation()`` propagates a small deviation from a reference
+   state (see "Propagating the sigma points as deviations").
 
 ``measurementQueue.h``
    ``measurement_queue<Measurement, CAPACITY>`` — a bounded, time-ordered
@@ -294,6 +296,41 @@ about 3 at closest approach and after it). With the compensation, the filter mat
 
    Kahan compensation requires that the target is not compiled with ``-ffast-math`` (or another flag that allows
    reassociation). With reassociation, the compiler can simplify :math:`\boldsymbol{c}_{k+1}` to zero.
+
+Propagating the sigma points as deviations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The statistics of the time update use only the deviations :math:`\boldsymbol{d}_i = \boldsymbol{X}_i -
+\boldsymbol{X}_0` (see "Statistics about the central sigma point"). If each sigma point is propagated as an absolute
+state and :math:`\boldsymbol{d}_i` is formed after the propagation, :math:`\boldsymbol{d}_i` keeps only the bits that
+survive next to the large state. Each RK4 sub-step also rounds the sigma point to the ulp of the state, so a change
+of the deviation smaller than about one ulp is lost. For example, at a range of :math:`5 \times 10^5` km one ulp of
+position is about 0.03 km, while the velocity spread moves a position deviation by about :math:`3 \times 10^{-4}` km
+in one sub-step. The spread of the sigma points then stops growing, and the covariance stops growing with it.
+
+The SRuKF therefore propagates the central sigma point :math:`\boldsymbol{X}_0` with ``propagate()``, and each other
+sigma point as its deviation from the central point with ``propagateDeviation()``. The deviation obeys
+
+.. math::
+
+   \dot{\boldsymbol{d}} = \boldsymbol{f}(t, \boldsymbol{X}_0 + \boldsymbol{d}) - \boldsymbol{f}(t, \boldsymbol{X}_0)
+
+and is integrated on its own scale. ``propagateDeviation()`` integrates the reference :math:`\boldsymbol{X}_0` and the
+deviation together. Each RK4 stage of the deviation uses the matching stage of the reference, so in exact arithmetic
+the stage points :math:`\boldsymbol{X}_{0,k} + \boldsymbol{d}_k` are those of an RK4 on the absolute sigma point. Only
+the rounding changes.
+
+The SRuKF keeps the propagated deviations (``sigmaDeviations``) and the mean offset :math:`\boldsymbol{m}`
+(``meanOffset``). It uses them directly in the QR decomposition, the rank-1 update, :math:`P_{xy}` and the state
+update, :math:`\boldsymbol{x}^+ = \boldsymbol{X}_0 + (\boldsymbol{m} + K \boldsymbol{\nu})`, where
+:math:`\boldsymbol{\nu}` is the innovation. The absolute sigma points :math:`\boldsymbol{X}_0 + \boldsymbol{d}_i` are
+formed only as inputs to the measurement models. A ``timeUpdate(0)`` sets the deviations directly to
+:math:`\pm \eta` times the columns of the square-root covariance, with no rounding against the state.
+
+In a heading-only Mars flyby with absolute propagation, the float filter's covariance is 4 to 20 times larger
+than that of the double-precision filter, and its estimate is less accurate by about the same factor. With deviation
+propagation, the float filter matches the double-precision filter. Without it, the C++ flyby tests in which a precise
+heading measurement must shrink the covariance fail.
 
 
 host adapter

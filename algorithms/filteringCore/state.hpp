@@ -96,6 +96,7 @@ class StateVector {
     bool allFinite() const { return this->data.allFinite(); }
 
     StateVector add(StateVector const& other) const { return StateVector(this->data + other.data); }
+    StateVector subtract(StateVector const& other) const { return StateVector(this->data - other.data); }
     StateVector scale(float scalar) const { return StateVector(this->data * scalar); }
 
    private:

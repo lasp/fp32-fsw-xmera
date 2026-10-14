@@ -10,11 +10,12 @@
 
 namespace filtering {
 
-/*! Linear combination contract: scale(k) and add(other) return the same type. */
+/*! Linear combination contract: scale(k), add(other) and subtract(other) return the same type. */
 template <class T>
 concept LinearlyCombinable = requires(T const t, float k) {
     { t.scale(k) } -> std::same_as<T>;
     { t.add(t) } -> std::same_as<T>;
+    { t.subtract(t) } -> std::same_as<T>;
 };
 
 /*! Filter state: LinearlyCombinable, with a compile-time `size` and a `raw()`

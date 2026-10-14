@@ -26,6 +26,7 @@ namespace {
 struct ScalarState {
     float v = 0.0;
     ScalarState add(ScalarState const& other) const { return {v + other.v}; }
+    ScalarState subtract(ScalarState const& other) const { return {v - other.v}; }
     ScalarState scale(float k) const { return {v * k}; }
 };
 

@@ -54,6 +54,7 @@ struct NotCombinable {
 struct CombinableButNotState {
     CombinableButNotState scale(float) const { return *this; }
     CombinableButNotState add(CombinableButNotState const&) const { return *this; }
+    CombinableButNotState subtract(CombinableButNotState const&) const { return *this; }
 };
 
 // Measurement missing noise() -> not a Measurement.
