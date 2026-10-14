@@ -24,7 +24,7 @@ With that, the implementation of a filter which has specific dynamics, state vec
 can be done at the module/algorithm level all the while relying on these core capabilities.
 
 Composable structure
------------------
+--------------------
 
 ::
 
@@ -170,6 +170,85 @@ long runs; only their differences are narrowed to ``float`` before
    state**, which it leaves untouched, so it is idempotent in ``dt`` — calling
    it twice with the same elapsed time produces the same posterior. Only
    ``measurementUpdate`` advances that saved state.
+
+Statistics about the central sigma point
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The SRuKF uses :math:`2N + 1` sigma points :math:`\boldsymbol{X}_0, \ldots, \boldsymbol{X}_{2N}`, where
+:math:`\boldsymbol{X}_0` is the central point and :math:`N` is the state size. With
+:math:`\lambda = N(\alpha^2 - 1)`, the weights are
+
+.. math::
+
+   w^m_0 = \frac{\lambda}{N + \lambda}, \qquad
+   w^m_i = w^c_i = \frac{1}{2(N + \lambda)} \ (i > 0), \qquad
+   w^c_0 = w^m_0 + 1 - \alpha^2 + \beta
+
+For a small :math:`\alpha`, the central weight is large and negative: :math:`w^m_0 = 1 - 1/\alpha^2`, which is
+about :math:`-2499` for :math:`\alpha = 0.02`. The textbook sums :math:`\sum_i w^m_i \boldsymbol{X}_i` and
+:math:`\sum_i w^c_i (\boldsymbol{X}_i - \bar{\boldsymbol{x}})(\cdot)^T` then subtract large terms that are almost
+equal. The textbook square-root form also includes the central point with a rank-1 downdate by
+:math:`w^c_0 \approx -2496`. In single precision, this loses most of the significant digits of the mean and the
+covariance.
+
+The SRuKF therefore writes all the statistics in terms of the deviations from the central point and the mean
+offset:
+
+.. math::
+
+   \boldsymbol{d}_i = \boldsymbol{X}_i - \boldsymbol{X}_0, \qquad
+   \boldsymbol{m} = \bar{\boldsymbol{x}} - \boldsymbol{X}_0 = \sum_{i=1}^{2N} w^m_i \boldsymbol{d}_i
+
+Because :math:`\sum_i w^m_i = 1` and :math:`\boldsymbol{d}_0 = \boldsymbol{0}`, the covariance about the mean is
+equal to
+
+.. math::
+
+   \sum_{i=0}^{2N} w^c_i (\boldsymbol{X}_i - \bar{\boldsymbol{x}})(\boldsymbol{X}_i - \bar{\boldsymbol{x}})^T
+   = \sum_{i=1}^{2N} w^m_i \, \boldsymbol{d}_i \boldsymbol{d}_i^T + (\beta - \alpha^2) \, \boldsymbol{m} \boldsymbol{m}^T
+
+The large negative weight does not appear. Only the small coefficient :math:`\beta - \alpha^2`
+(``wMeanOffset``) remains. In the square-root form, the QR decomposition uses the weighted deviations and the
+process-noise factor, and a rank-1 update adds the mean-offset term.
+
+The measurement update uses the same expansion with :math:`\boldsymbol{u}_i = \boldsymbol{Y}_i \ominus
+\boldsymbol{Y}_0` and :math:`\bar{\boldsymbol{u}} = \bar{\boldsymbol{y}} \ominus \boldsymbol{Y}_0`, where
+:math:`\ominus` is the ``subtract()`` of the measurement model:
+
+.. math::
+
+   \bar{\boldsymbol{y}} = \boldsymbol{Y}_0 + \sum_{i=1}^{2N} w^m_i (\boldsymbol{Y}_i - \boldsymbol{Y}_0), \qquad
+   P_{yy} = \sum_{i=1}^{2N} w^m_i \, \boldsymbol{u}_i \boldsymbol{u}_i^T
+          + (\beta - \alpha^2) \, \bar{\boldsymbol{u}} \bar{\boldsymbol{u}}^T + R, \qquad
+   P_{xy} = \sum_{i=1}^{2N} w^m_i \, \boldsymbol{d}_i \boldsymbol{u}_i^T
+          + (\beta - \alpha^2) \, \boldsymbol{m} \bar{\boldsymbol{u}}^T
+
+The identity is exact when :math:`\ominus` is linear, such as a plain vector difference. When :math:`\ominus` is
+nonlinear, the textbook form linearizes it at the mean :math:`\bar{\boldsymbol{y}}` and the expanded form linearizes
+it at the central point :math:`\boldsymbol{Y}_0`. For example, an attitude filter that measures MRPs uses
+``subMrp``, which is nonlinear. The two forms are equal when :math:`\bar{\boldsymbol{y}} = \boldsymbol{Y}_0` (for
+example after a ``timeUpdate(0)``), and their difference increases with :math:`|\bar{\boldsymbol{y}} -
+\boldsymbol{Y}_0|`. For an MRP attitude filter, the relative difference in the state correction is less than
+:math:`10^{-4}` for an attitude standard deviation of :math:`10^{-2}` (MRP) or less.
+
+The expansion must be about a sigma point, so that the deviation of that point, and with it the :math:`w^c_0` term,
+is zero. Centering on :math:`\bar{\boldsymbol{y}}` gives the deviation :math:`\boldsymbol{Y}_0 \ominus
+\bar{\boldsymbol{y}} \approx -\bar{\boldsymbol{u}}`, which is not zero. The :math:`w^c_0 \approx -2496` term (for :math:`\alpha = 0.02`) then
+returns, and the other weights add a term of about :math:`+2500 \, \bar{\boldsymbol{u}} \bar{\boldsymbol{u}}^T`
+that almost cancels it. So the choice is:
+
+- Linear :math:`\ominus`: both centerings give the same result in exact arithmetic, and only
+  :math:`\boldsymbol{Y}_0` is numerically safe in fp32.
+- Nonlinear :math:`\ominus` (``subMrp``): the two centerings differ slightly, because :math:`\ominus` is
+  linearized at a different point. This is the cost of avoiding the cancellation, and it is small for two reasons:
+
+  - :math:`\boldsymbol{Y}_0` is the propagated prior mean, so it is close to :math:`\bar{\boldsymbol{y}}`. The gap
+    :math:`|\bar{\boldsymbol{y}} - \boldsymbol{Y}_0|` comes only from curvature in the dynamics and measurement
+    model, and it is zero after ``timeUpdate(0)``.
+  - :math:`\bar{\boldsymbol{y}}` is computed as :math:`\boldsymbol{Y}_0 + \sum_i w^m_i (\boldsymbol{Y}_i -
+    \boldsymbol{Y}_0)` in any case. For MRPs, that weighted average is itself an approximation, so the "textbook"
+    linearization at :math:`\bar{\boldsymbol{y}}` is not more correct in any strict sense. It linearizes at an
+    equally approximate point.
 
 
 host adapter
