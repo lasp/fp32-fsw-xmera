@@ -327,6 +327,55 @@ TEST(SrukfMeasurementUpdate, HighMeasurementNoiseLeavesStateNearlyUnchanged) {
     EXPECT_TRUE(result->postFit.isApprox(result->preFit, 1e-5)) << "postFit ≈ preFit when R very large";
 }
 
+// A measurement much more precise than the prior (R = 1e-10, P = 1) almost fully resolves the state. The posterior
+// variance is P R / (P + R) ~ 1e-10. Removing K Pyy K^T from the prior subtracts two terms equal to 1 within 1e-10,
+// which float cannot resolve; the Joseph form builds the posterior as a sum of squares and keeps it.
+TEST(SrukfMeasurementUpdate, PreciseMeasurementKeepsAPositivePosteriorCovariance) {
+    SRuKFType filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    filter.setInitialCovariance(Eigen::Matrix3f::Identity());
+    filter.setProcessNoise(Eigen::Matrix3f::Zero());
+    filter.reInitialize();
+    filter.configure();
+    filter.timeUpdate(0.0);
+
+    PositionMeasurement m;
+    m.observed = Eigen::Vector3f(1.0, 0.0, 0.0);
+    m.noiseCov = 1e-10F * Eigen::Matrix3f::Identity();
+
+    ASSERT_TRUE(filter.measurementUpdate(m).has_value()) << "a precise measurement update should be valid";
+    Eigen::Matrix3f const P = filter.getCovariance();
+    float const expectedVariance = 1e-10F / (1.0F + 1e-10F);
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(P(i, i), expectedVariance, 1e-3F * expectedVariance) << "posterior variance " << i;
+    }
+    EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
+}
+
+// The process noise added by a propagating time update is in the prior factor but not in the propagated sigma
+// points, so the gain does not see it and the Joseph form adds it back unchanged (sqrtNoiseOutsideSigmaPoints).
+// With a precise measurement the sigma-point part is resolved to ~R, and the posterior is ~Q.
+TEST(SrukfMeasurementUpdate, ProcessNoiseOutsideTheSigmaPointsCarriesThroughTheUpdate) {
+    SRuKFType filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    filter.setInitialCovariance(Eigen::Matrix3f::Identity());
+    filter.setProcessNoise(0.1F * Eigen::Matrix3f::Identity());
+    filter.reInitialize();
+    filter.configure();
+    ASSERT_TRUE(filter.timeUpdate(1.0));
+
+    PositionMeasurement m;
+    m.observed = Eigen::Vector3f(1.0, 0.0, 0.0);
+    m.noiseCov = 1e-10F * Eigen::Matrix3f::Identity();
+
+    ASSERT_TRUE(filter.measurementUpdate(m).has_value()) << "a precise measurement update should be valid";
+    Eigen::Matrix3f const P = filter.getCovariance();
+    EXPECT_TRUE(P.isApprox(0.1F * Eigen::Matrix3f::Identity(), 1e-4F)) << "posterior should be the process noise:\n"
+                                                                       << P;
+}
+
 // NaNs in the measurement propagate into the state, so measurementUpdate returns no value.
 TEST(SrukfMeasurementUpdate, NaNMeasurementReturnsNoValue) {
     SRuKFType filter;

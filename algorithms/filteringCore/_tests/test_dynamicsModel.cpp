@@ -11,6 +11,7 @@
 #include <Eigen/Core>
 
 #include <math.h>
+#include <array>
 #include <cmath>
 #include <limits>
 
@@ -66,6 +67,33 @@ float energy(SpringMassState const& s) {
     float const x = s.get<Position<1>>()(0);
     float const v = s.get<Velocity<1>>()(0);
     return 0.5 * (x * x + v * v);
+}
+
+// Free motion: x' = v, v' = 0. Linear, so a deviation is integrated without truncation error.
+struct FreeMotionDyn {
+    SpringMassState operator()(float, SpringMassState const& s) const {
+        SpringMassState out;
+        out.set<Position<1>>(s.get<Velocity<1>>());
+        out.set<Velocity<1>>(Eigen::Vector<float, 1>(0.0F));
+        return out;
+    }
+};
+
+// Pendulum: x' = v, v' = -sin(x). Nonlinear, for checking that a deviation is not linearized.
+struct PendulumDyn {
+    SpringMassState operator()(float, SpringMassState const& s) const {
+        SpringMassState out;
+        out.set<Position<1>>(s.get<Velocity<1>>());
+        out.set<Velocity<1>>(Eigen::Vector<float, 1>(-sinf(s.get<Position<1>>()(0))));
+        return out;
+    }
+};
+
+SpringMassState makeSpringMassState(float x, float v) {
+    SpringMassState s;
+    s.set<Position<1>>(Eigen::Vector<float, 1>(x));
+    s.set<Velocity<1>>(Eigen::Vector<float, 1>(v));
+    return s;
 }
 
 }  // namespace
@@ -144,6 +172,58 @@ TEST(Propagate, IntegrationStepIsHonored) {
     SpringMassState const omitted = propagate(d, s0, {0.0, kSHOPeriod});
     EXPECT_TRUE(withDefault.raw().isApprox(omitted.raw(), 1e-15))
         << "default argument should match explicit kIntegrationStep";
+}
+
+// An increment of a few ulps added to a large state rounds the same way at every sub-step. Here one ulp of 5e5 is
+// 0.03125 and each of the 100 sub-steps adds 2.002, which plain addition rounds to 2.0: a bias of 0.2 at the end.
+// The Kahan compensation in propagate() adds the rounded-away part back, so the error stays at about one ulp.
+TEST(Propagate, KahanCompensationRemovesTheRoundingBiasOfALargeState) {
+    float const x0 = 5e5F;
+    float const rate = 10.01F;
+    float const span = 20.0F;  // 100 sub-steps of kIntegrationStep
+    ScalarState const sFinal = propagate(ConstantRate{rate}, ScalarState{x0}, {0.0F, span});
+
+    double const expected = static_cast<double>(x0) + static_cast<double>(rate) * static_cast<double>(span);
+    float const ulp = nextafterf(x0, 1e6F) - x0;
+    EXPECT_NEAR(static_cast<double>(sFinal.v), expected, 2.0 * ulp) << "sub-step rounding accumulated into a bias";
+}
+
+// A deviation from a large state, propagated on its own scale, keeps the bits that the absolute propagation of the
+// sigma point loses. Here the position deviation grows by 2e-5 per sub-step, below one ulp of 5e5 (0.03125).
+// The deviation rate is still formed as f(reference + deviation) - f(reference), which rounds the velocity
+// deviation to one ulp of the reference velocity, so the position deviation is accurate to ulp(7) * span.
+TEST(PropagateDeviation, KeepsASmallDeviationNextToALargeState) {
+    SpringMassState const reference = makeSpringMassState(5e5F, 7.0F);
+    SpringMassState const deviation = makeSpringMassState(0.0F, 1e-4F);
+    FreeMotionDyn const d;
+    std::array<float, 2> const interval = {0.0F, 20.0F};
+
+    SpringMassState const propagated = propagateDeviation(d, reference, deviation, interval);
+    float const rateUlp = nextafterf(7.0F, 8.0F) - 7.0F;
+    EXPECT_NEAR(propagated.get<Position<1>>()(0), 2e-3F, rateUlp * interval[1]) << "position deviation";
+    EXPECT_NEAR(propagated.get<Velocity<1>>()(0), 1e-4F, 1e-4F * kRoundoffTol) << "velocity deviation";
+
+    // Check of the setup: the difference of the two absolute propagations loses the position deviation.
+    SpringMassState const absolute =
+        propagate(d, reference.add(deviation), interval).add(propagate(d, reference, interval).scale(-1.0F));
+    EXPECT_GT(std::abs(absolute.get<Position<1>>()(0) - 2e-3F), 1e-3F)
+        << "absolute propagation was expected to lose the deviation";
+}
+
+// propagateDeviation() does not linearize the dynamics: for a deviation that is not small, it gives the difference
+// of the two absolute propagations of a nonlinear system, to float roundoff.
+TEST(PropagateDeviation, MatchesAbsolutePropagationForNonlinearDynamics) {
+    SpringMassState const reference = makeSpringMassState(1.0F, 0.0F);
+    SpringMassState const deviation = makeSpringMassState(0.5F, -0.3F);
+    PendulumDyn const d;
+    std::array<float, 2> const interval = {0.0F, 5.0F};
+
+    SpringMassState const propagated = propagateDeviation(d, reference, deviation, interval);
+    SpringMassState const absolute =
+        propagate(d, reference.add(deviation), interval).add(propagate(d, reference, interval).scale(-1.0F));
+    EXPECT_TRUE(propagated.raw().isApprox(absolute.raw(), 1e-5F))
+        << "deviation propagation differs from the absolute propagation: " << propagated.raw().transpose() << " vs "
+        << absolute.raw().transpose();
 }
 
 }  // namespace filtering
