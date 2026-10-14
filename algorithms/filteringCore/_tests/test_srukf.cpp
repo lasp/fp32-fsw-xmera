@@ -248,6 +248,20 @@ TEST(SrukfTimeUpdate, CovarianceUnderTimeUpdate) {
     EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
 }
 
+// A covariance that overflows float must fail the time update: the prior and the process noise are finite, but
+// their sum, 3e38 + 3e38, is above FLT_MAX (~3.4e38).
+TEST(SrukfTimeUpdate, CovarianceOverflowReturnsFalse) {
+    SRuKFType filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    filter.setInitialCovariance(3e38F * Eigen::Matrix3f::Identity());
+    filter.setProcessNoise(3e38F * Eigen::Matrix3f::Identity());
+    filter.reInitialize();
+    filter.configure();
+
+    EXPECT_FALSE(filter.timeUpdate(1.0)) << "a covariance that overflows float should fail the time update";
+}
+
 // measurementUpdate tests
 
 // State updates and covariance shrinks

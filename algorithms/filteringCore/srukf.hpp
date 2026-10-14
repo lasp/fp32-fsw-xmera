@@ -247,7 +247,7 @@ class SRuKF {
             this->state = this->sigmaPoints[0];
             this->sqrtNoiseOutsideSigmaPoints = this->cholProcessNoise;
 
-            if (!this->state.allFinite() || !this->sqrtCovar.allFinite()) {
+            if (!this->state.allFinite() || !this->sqrtCovar.allFinite() || !this->covariance.allFinite()) {
                 return false;
             }
         }
@@ -336,7 +336,7 @@ class SRuKF {
             this->sqrtCovar = choleskyUpDownDate<N>(sPlus, meanOffsetError, this->wMeanOffset);
             this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
 
-            if (this->state.allFinite() and this->sqrtCovar.allFinite()) {
+            if (this->state.allFinite() and this->sqrtCovar.allFinite() and this->covariance.allFinite()) {
                 //! > Move the state and covariance of last measuremnts up
                 this->stateLastMeasurement = this->state;
                 this->covarianceLastMeasurement = this->covariance;
