@@ -30,7 +30,7 @@ MimuVoteResult MimuMajorityVoteAlgorithm::majorityVote(const std::array<Eigen::V
     result.imuValid.fill(true);
     size_t maxDiffIndex = 0U;
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        result.imuDifferenceMag.at(i) = (measurements.at(i) - average).norm();
+        result.imuDifferenceMag.at(i) = (measurements.at(i) - average).stableNorm();
         if (result.imuDifferenceMag.at(i) > result.imuDifferenceMag.at(maxDiffIndex)) {
             maxDiffIndex = i;
         }

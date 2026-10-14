@@ -228,7 +228,7 @@ RateMeasurement SunlineFilterAlgorithm::packRateMeasurement(RateData const& rate
  *  @param state [-] state to regularize */
 SunlineFilterAlgorithm::State SunlineFilterAlgorithm::regularize(State const& state) const {
     State outputState = state;
-    outputState.set<filtering::Position<3>>(outputState.get<filtering::Position<3>>().normalized());
+    outputState.set<filtering::Position<3>>(outputState.get<filtering::Position<3>>().stableNormalized());
     Eigen::Vector<double, 1> biasVec;
     biasVec(0) = std::clamp(
         outputState.get<filtering::Bias<1>>()(0), this->cfg.getBiasLowerBound(), this->cfg.getBiasUpperBound());

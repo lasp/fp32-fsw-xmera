@@ -459,7 +459,7 @@ TEST(FlybyFilterAlgorithmDynamics, DerivativeMatchesTwoBody) {
 
     State const dot = FlybyDynamics{kMu}(0.0, s);
 
-    Eigen::Vector3d const expectedVDot = -kMu / std::pow(r.norm(), 3) * r;
+    Eigen::Vector3d const expectedVDot = -kMu / std::pow(r.stableNorm(), 3) * r;
     EXPECT_TRUE(dot.get<filtering::Position<3>>().isApprox(v, 1E-12));
     EXPECT_TRUE(dot.get<filtering::Velocity<3>>().isApprox(expectedVDot, 1E-12));
 }
@@ -550,7 +550,7 @@ TEST(FlybyFilterAlgorithmMeasurementUpdate, HighMeasurementNoiseLeavesStateNearl
     m.valid = true;
     EXPECT_TRUE(algo.measurementUpdate(m));
 
-    EXPECT_LT((algo.getState().raw() - before.raw()).norm(), 1E-3) << "state moved despite R >> P";
+    EXPECT_LT((algo.getState().raw() - before.raw()).stableNorm(), 1E-3) << "state moved despite R >> P";
     HeadingResidualsOutput const res = algo.getLastHeadingResiduals();
     EXPECT_TRUE(res.postFit.isApprox(res.preFit, 1E-3)) << "postFit should approx preFit when R >> P";
 }
@@ -603,7 +603,7 @@ TEST(FlybyFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual) {
 
     HeadingResidualsOutput const& res = algo.getLastHeadingResiduals();
     ASSERT_TRUE(res.valid);
-    EXPECT_LT(res.postFit.norm(), res.preFit.norm()) << "an informative update must shrink the residual";
+    EXPECT_LT(res.postFit.stableNorm(), res.preFit.stableNorm()) << "an informative update must shrink the residual";
 }
 
 TEST(FlybyFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovarianceLess) {
@@ -691,10 +691,10 @@ TEST(FlybyFilterAlgorithmDegenerate, GravityFloorIsContinuousAtTheBoundary) {
     // The clamp only engages strictly below the floor: exactly at |r| = MinGravityRange the guarded
     // derivative still equals the unguarded -mu/|r|^3 r, so nothing at or above the floor is
     // perturbed and the acceleration has no jump there.
-    Eigen::Vector3d const rAtFloor = Eigen::Vector3d(1.0, -2.0, 0.5).normalized() * MinGravityRange;
+    Eigen::Vector3d const rAtFloor = Eigen::Vector3d(1.0, -2.0, 0.5).stableNormalized() * MinGravityRange;
     TestState const dot = FlybyDynamics{kMu}(0.0, makeState(rAtFloor, Eigen::Vector3d::Zero()));
 
-    Eigen::Vector3d const expected = -kMu / std::pow(rAtFloor.norm(), 3) * rAtFloor;
+    Eigen::Vector3d const expected = -kMu / std::pow(rAtFloor.stableNorm(), 3) * rAtFloor;
     EXPECT_TRUE(dot.get<filtering::Velocity<3>>().isApprox(expected, 1E-12));
 }
 
@@ -702,7 +702,7 @@ TEST(FlybyFilterAlgorithmDegenerate, GravityStaysBoundedBelowTheFloor) {
     // Below the floor the acceleration decays linearly to zero instead of diverging, so its
     // magnitude can never exceed the value reached at the floor itself.
     double const maxAccel = kMu / (MinGravityRange * MinGravityRange);
-    Eigen::Vector3d const direction = Eigen::Vector3d(1.0, -2.0, 0.5).normalized();
+    Eigen::Vector3d const direction = Eigen::Vector3d(1.0, -2.0, 0.5).stableNormalized();
 
     for (double scale : {1.0, 1E-1, 1E-3, 1E-9, 0.0}) {
         TestState const dot =
@@ -710,7 +710,7 @@ TEST(FlybyFilterAlgorithmDegenerate, GravityStaysBoundedBelowTheFloor) {
         Eigen::Vector3d const vDot = dot.get<filtering::Velocity<3>>();
 
         EXPECT_TRUE(vDot.allFinite()) << "scale=" << scale;
-        EXPECT_LE(vDot.norm(), maxAccel * (1.0 + 1E-12)) << "scale=" << scale;
+        EXPECT_LE(vDot.stableNorm(), maxAccel * (1.0 + 1E-12)) << "scale=" << scale;
     }
 }
 
@@ -818,7 +818,7 @@ TEST(FlybyFilterAlgorithmConvergence, TracksHeadingAndShrinksCovarianceOverAnArc
     FlybyFilterAlgorithm algo(configWithProcessNoise(initial, P0, Matrix6::Identity() * 1E-10));
 
     double const initialPosErr =
-        (algo.getState().get<filtering::Position<3>>() - truth0.get<filtering::Position<3>>()).norm();
+        (algo.getState().get<filtering::Position<3>>() - truth0.get<filtering::Position<3>>()).stableNorm();
     double const initialTrace = algo.getCovariance().trace();
 
     constexpr double dt = 10.0;
@@ -834,9 +834,9 @@ TEST(FlybyFilterAlgorithmConvergence, TracksHeadingAndShrinksCovarianceOverAnArc
     // The observed heading is tracked tightly, total uncertainty shrinks, and the position estimate
     // has moved toward truth (angles-only range is only weakly observable, so we assert improvement
     // rather than a tight absolute bound).
-    double const headingErr = (headingOf(algo.getState()) - headingOf(truth)).norm();
+    double const headingErr = (headingOf(algo.getState()) - headingOf(truth)).stableNorm();
     double const finalPosErr =
-        (algo.getState().get<filtering::Position<3>>() - truth.get<filtering::Position<3>>()).norm();
+        (algo.getState().get<filtering::Position<3>>() - truth.get<filtering::Position<3>>()).stableNorm();
     EXPECT_LT(headingErr, 1E-2) << "heading error " << headingErr;
     EXPECT_LT(algo.getCovariance().trace(), initialTrace) << "covariance should shrink over the arc";
     EXPECT_LT(finalPosErr, initialPosErr)
@@ -860,14 +860,14 @@ TEST(FlybyFilterAlgorithmConvergence, TracksHeadingUnderNoisyMeasurements) {
     for (int i = 1; i <= 80; ++i) {
         truth = filtering::propagate(FlybyDynamics{kMu}, truth, {0.0, dt});
         Eigen::Vector3d rhat = headingOf(truth) + kHeadingStd * Eigen::Vector3d(noise(gen), noise(gen), noise(gen));
-        rhat.normalize();
+        rhat.stableNormalize();
         HeadingData heading;
         heading.timeTag = i * dt;
         heading.rhat_BN_N = rhat;
         algo.update(i * dt, heading);
     }
 
-    double const headingErr = (headingOf(algo.getState()) - headingOf(truth)).norm();
+    double const headingErr = (headingOf(algo.getState()) - headingOf(truth)).stableNorm();
     EXPECT_LT(headingErr, 5E-2) << "heading error " << headingErr;  // generous, seeded
     EXPECT_LT(algo.getCovariance().trace(), initialTrace);
     EXPECT_TRUE(algo.getState().raw().allFinite());

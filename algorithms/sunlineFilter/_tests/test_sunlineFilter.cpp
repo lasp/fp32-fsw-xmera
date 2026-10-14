@@ -99,7 +99,7 @@ TEST(SunlineFilterAlgorithmProperty, RateMeasurementDoesNotIncreaseCovariance) {
 // must be zero. No integrator involved — this isolates the dynamics from any
 // numerical concerns in propagate().
 TEST(SunlineFilterAlgorithmDynamics, DerivativeIsOrthogonalToHeading) {
-    Eigen::Vector3d const sHat = Eigen::Vector3d(0.4, -0.7, 0.6).normalized();
+    Eigen::Vector3d const sHat = Eigen::Vector3d(0.4, -0.7, 0.6).stableNormalized();
     Eigen::Vector3d const omega = Eigen::Vector3d(0.02, -0.005, 0.01);
     State s = makeState(sHat, omega, 0.6);
 
@@ -125,12 +125,12 @@ TEST(SunlineFilterAlgorithmDynamics, HeadingMagnitudePreservedOverSmallTimeUpdat
     algo.timeUpdate(1.0);
 
     Eigen::Vector3d const sHat = algo.getState().get<filtering::Position<3>>();
-    EXPECT_NEAR(sHat.norm(), sHat0.norm(), 1E-8);
+    EXPECT_NEAR(sHat.stableNorm(), sHat0.stableNorm(), 1E-8);
 }
 
 // With omega = 0 the heading must not move.
 TEST(SunlineFilterAlgorithmTimeUpdate, ZeroRateLeavesHeadingFixed) {
-    Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 1.0, 0.0).normalized();
+    Eigen::Vector3d const sHat0 = Eigen::Vector3d(0.0, 1.0, 0.0).stableNormalized();
     SunlineFilterAlgorithm algo(
         rateOnlyConfig(makeState(sHat0, Eigen::Vector3d::Zero(), 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
 
@@ -255,7 +255,7 @@ TEST(SunlineFilterAlgorithmMeasurementUpdate, HighMeasurementNoiseLeavesStateNea
     r.valid = true;
     EXPECT_TRUE(algo.measurementUpdate(r));
 
-    EXPECT_LT((algo.getState().raw() - before.raw()).norm(), 1E-5) << "state moved despite R >> P";
+    EXPECT_LT((algo.getState().raw() - before.raw()).stableNorm(), 1E-5) << "state moved despite R >> P";
     RateResidualsOutput const res = algo.getLastRateResiduals();
     EXPECT_TRUE(res.postFit.isApprox(res.preFit, 1E-4)) << "postFit should approx preFit when R >> P";
 }
@@ -281,7 +281,7 @@ TEST(SunlineFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual) 
 
     RateResidualsOutput const res = algo.getLastRateResiduals();
     EXPECT_TRUE(res.valid);
-    EXPECT_LT(res.postFit.norm(), res.preFit.norm());
+    EXPECT_LT(res.postFit.stableNorm(), res.preFit.stableNorm());
 }
 
 // A rate reading fires a residual only when fresh (timeTag > 0); a stale/empty reading is
@@ -513,10 +513,10 @@ TEST(SunlineFilterAlgorithmReInit, SetConfigReDerivesProcessNoise) {
 
 TEST(SunlineFilterAlgorithmRegression, ConvergesToConstantSunDirection) {
     Eigen::Matrix<double, MaxCss, 3> const nHat = threeCssNHat();
-    Eigen::Vector3d const sTrue = Eigen::Vector3d(0.2, -0.1, 1.0).normalized();
+    Eigen::Vector3d const sTrue = Eigen::Vector3d(0.2, -0.1, 1.0).stableNormalized();
 
     // Start the estimate away from the truth.
-    Eigen::Vector3d const sGuess = Eigen::Vector3d(-0.3, 0.4, 0.85).normalized();
+    Eigen::Vector3d const sGuess = Eigen::Vector3d(-0.3, 0.4, 0.85).stableNormalized();
     SunlineFilterAlgorithm algo(
         threeCssConfig(makeState(sGuess, Eigen::Vector3d::Zero(), 1.0), diagCovariance(3E-1, 1E-3, 1E-2), 0.0));
 
@@ -542,7 +542,7 @@ TEST(SunlineFilterAlgorithmRegression, ConvergesToConstantSunDirection) {
 
     EXPECT_LT(angleAfter, angleBefore);
     EXPECT_LT(angleAfter, 1E-2) << "estimate did not converge to the true sun direction";
-    EXPECT_NEAR(sEst.norm(), 1.0, 1E-6);
+    EXPECT_NEAR(sEst.stableNorm(), 1.0, 1E-6);
 }
 
 // ============================================================================
@@ -775,7 +775,7 @@ TEST(SunlineFilterConfig, GettersRoundTripAndNormalizeNHat) {
     EXPECT_DOUBLE_EQ(cfg.getGyroMeasurementNoiseStd(), 1E-3);
     // Active boresights are stored normalized; unused rows stay zero.
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(cfg.getCssNHat().row(i).norm(), 1.0, 1E-12);
+        EXPECT_NEAR(cfg.getCssNHat().row(i).stableNorm(), 1.0, 1E-12);
     }
     EXPECT_TRUE(cfg.getCssNHat().row(3).isZero());
 }

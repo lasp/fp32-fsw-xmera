@@ -21,7 +21,7 @@ inline constexpr float OMEGA_TOLERANCE = 1e-6F;
  * The quaternion convention is scalar-first: q = [cos(theta/2), sin(theta/2)*axis].
  */
 inline Eigen::Vector4d axisAngleToEp(const Eigen::Vector3d& axis, double angle) {
-    Eigen::Vector3d n = axis.normalized();
+    Eigen::Vector3d n = axis.stableNormalized();
     Eigen::Vector4d ep;
     ep(0) = std::cos(angle / 2.0);
     ep.tail<3>() = std::sin(angle / 2.0) * n;
@@ -45,7 +45,7 @@ inline Eigen::Vector4f toScalarLast(const Eigen::Vector4d& ep) {
  * ‖ω‖ is below a small threshold.
  */
 inline Eigen::Vector4f omegaToDeltaQuaternion(const Eigen::Vector3d& omega_CN_C) {
-    const double angle = omega_CN_C.norm();
+    const double angle = omega_CN_C.stableNorm();
     if (angle < 1e-12) {
         return {0.0F, 0.0F, 0.0F, 1.0F};
     }

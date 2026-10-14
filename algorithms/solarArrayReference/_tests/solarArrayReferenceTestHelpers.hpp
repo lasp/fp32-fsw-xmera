@@ -82,16 +82,16 @@ inline void regressionTestSolarArrayReference(std::vector<float> sigma_BN_Vec,
     // Filter: skip invalid inputs (axes must be near-unit and orthogonal)
     constexpr float normTolerance = 1e-3F;
     constexpr float maxDot = 1e-5F;
-    if (fabsf(a1Hat_B_f.norm() - 1.0F) > normTolerance || fabsf(a2Hat_B_f.norm() - 1.0F) > normTolerance) {
+    if (fabsf(a1Hat_B_f.stableNorm() - 1.0F) > normTolerance || fabsf(a2Hat_B_f.stableNorm() - 1.0F) > normTolerance) {
         return;
     }
-    if (fabsf(a1Hat_B_f.normalized().dot(a2Hat_B_f.normalized())) > maxDot) {
+    if (fabsf(a1Hat_B_f.stableNormalized().dot(a2Hat_B_f.stableNormalized())) > maxDot) {
         return;  // skip: not orthogonal
     }
 
     // Filter out near-zero sun vector
     Eigen::Vector3f rHatIn_SB_B_f(rHatIn_SB_B_Vec[0], rHatIn_SB_B_Vec[1], rHatIn_SB_B_Vec[2]);
-    if (rHatIn_SB_B_f.norm() < 1e-6F) {
+    if (rHatIn_SB_B_f.stableNorm() < 1e-6F) {
         return;  // skip: sun vector must be non-zero
     }
 
@@ -151,7 +151,7 @@ inline void propertyOutputIsFinite(std::vector<float> sigma_BN_Vec,
                                    float alignmentThreshold,
                                    float priorAngle) {
     Eigen::Vector3f rHatIn_SB_B_f(rHatIn_SB_B_Vec[0], rHatIn_SB_B_Vec[1], rHatIn_SB_B_Vec[2]);
-    if (rHatIn_SB_B_f.norm() < 1e-6F) {
+    if (rHatIn_SB_B_f.stableNorm() < 1e-6F) {
         return;
     }
 
@@ -198,7 +198,7 @@ inline void propertyAlignedSunReturnsPriorThetaRef(std::vector<float> a1Hat_B_Ve
                                                    float alignmentThreshold,
                                                    float priorAngle) {
     Eigen::Vector3f a1Hat_B_f(a1Hat_B_Vec[0], a1Hat_B_Vec[1], a1Hat_B_Vec[2]);
-    if (fabsf(a1Hat_B_f.norm() - 1.0F) > 1e-3F) {
+    if (fabsf(a1Hat_B_f.stableNorm() - 1.0F) > 1e-3F) {
         return;
     }
 
@@ -208,7 +208,7 @@ inline void propertyAlignedSunReturnsPriorThetaRef(std::vector<float> a1Hat_B_Ve
     if (std::abs(a1.dot(candidate)) > 0.9F) {
         candidate = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     }
-    Eigen::Vector3f a2 = (a1.cross(candidate)).normalized();
+    Eigen::Vector3f a2 = (a1.cross(candidate)).stableNormalized();
 
     const SolarArrayReferenceConfig cfg = SolarArrayReferenceConfig::create(
         SolarArrayAxes{a1Hat_B_f, a2}, alignmentThreshold, TrackingMode::AUTO_TRACK, 0.0F, 0.0F);

@@ -74,12 +74,12 @@ TEST(MrpRotationConfigTest, GettersRoundTrip) {
 // its shadow-set representative (-sigma / |sigma|^2), which has norm <= 1.
 TEST(MrpRotationConfigTest, InitialSigmaRR0SwitchedToShadowSetWhenNormExceedsOne) {
     const Eigen::Vector3f largeSigma{0.8F, 0.6F, 0.6F};  // |sigma|^2 = 1.36 > 1
-    ASSERT_GT(largeSigma.norm(), 1.0F) << "Test setup: seed MRP must exceed the norm-1 boundary";
+    ASSERT_GT(largeSigma.stableNorm(), 1.0F) << "Test setup: seed MRP must exceed the norm-1 boundary";
 
     const auto cfg = MrpRotationConfig::create(largeSigma, Eigen::Vector3f::Zero(), 0.5F);
     const Eigen::Vector3f stored = cfg.getInitialSigmaRR0();
 
-    EXPECT_LE(stored.norm(), 1.0F);
+    EXPECT_LE(stored.stableNorm(), 1.0F);
     const Eigen::Vector3f expectedShadow = -largeSigma / largeSigma.squaredNorm();
     for (int i = 0; i < 3; ++i) {
         EXPECT_FLOAT_EQ(stored(i), expectedShadow(i));
@@ -89,7 +89,7 @@ TEST(MrpRotationConfigTest, InitialSigmaRR0SwitchedToShadowSetWhenNormExceedsOne
 // A seed MRP already within the principal set (norm <= 1) is stored unchanged.
 TEST(MrpRotationConfigTest, InitialSigmaRR0WithinBoundStoredUnchanged) {
     const Eigen::Vector3f sigma{0.3F, -0.4F, 0.2F};  // norm < 1
-    ASSERT_LE(sigma.norm(), 1.0F);
+    ASSERT_LE(sigma.stableNorm(), 1.0F);
 
     const auto cfg = MrpRotationConfig::create(sigma, Eigen::Vector3f::Zero(), 0.5F);
     const Eigen::Vector3f stored = cfg.getInitialSigmaRR0();
@@ -309,7 +309,7 @@ TEST(MrpRotationTest, MrpShadowSwitchActivates) {
     // applies, and confirm the test setup actually crosses the |sigma| = 1 boundary.
     const Eigen::Matrix3f B = bmatMrp(initialSigmaRR0);
     const Eigen::Vector3f preSwitchSigma = initialSigmaRR0 + kControlPeriod * 0.25F * B * omegaRR0R;
-    ASSERT_GT(preSwitchSigma.norm(), 1.0F) << "Test setup: forward-Euler step must cross norm-1 boundary";
+    ASSERT_GT(preSwitchSigma.stableNorm(), 1.0F) << "Test setup: forward-Euler step must cross norm-1 boundary";
 
     const Eigen::Vector3f expectedShadow = -preSwitchSigma / preSwitchSigma.squaredNorm();
 
@@ -319,7 +319,7 @@ TEST(MrpRotationTest, MrpShadowSwitchActivates) {
     // sigma_R0N = 0 makes sigma_RN equal to the internal (post-switch) sigma_RR0.
     const MrpRotationOutput out = alg.update(MrpRotationAttRefInputs{});
 
-    EXPECT_LT(out.sigma_RN.norm(), 1.0F);
+    EXPECT_LT(out.sigma_RN.stableNorm(), 1.0F);
     constexpr float tol = 1e-5F;
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(out.sigma_RN(i), expectedShadow(i), tol);

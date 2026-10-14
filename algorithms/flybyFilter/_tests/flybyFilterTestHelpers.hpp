@@ -51,7 +51,7 @@ inline Matrix6 smallProcessNoise() { return Matrix6::Identity() * 1E-12; }
 
 inline Eigen::Vector3d headingOf(TestState const& s) {
     Eigen::Vector3d const r = s.get<filtering::Position<3>>();
-    return r / r.norm();
+    return r / r.stableNorm();
 }
 
 // A representative flyby state (km, km/s).
@@ -111,7 +111,7 @@ inline std::optional<FlybyFilterConfig> tryFuzzConfig(Eigen::Vector3d const& rOf
     }
     TestState const initial = makeState(nominalTruth().get<filtering::Position<3>>() + rOffset,
                                         nominalTruth().get<filtering::Velocity<3>>() + vOffset);
-    if (initial.get<filtering::Position<3>>().norm() < 1.0) {
+    if (initial.get<filtering::Position<3>>().stableNorm() < 1.0) {
         return std::nullopt;
     }
     // A strictly positive diagonal is symmetric positive definite, so the covariance always validates.
@@ -136,14 +136,14 @@ inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3d const& rOffs
                                                     Eigen::Vector3d const& rhatRaw,
                                                     double dt) {
     std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, q, kHeadingStd);
-    if (!cfg || !rhatRaw.allFinite() || rhatRaw.norm() < 1E-3 || !std::isfinite(dt) || dt < 0.0) {
+    if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3 || !std::isfinite(dt) || dt < 0.0) {
         return;
     }
     FlybyFilterAlgorithm algo(*cfg);
 
     HeadingData heading;
     heading.timeTag = dt;
-    heading.rhat_BN_N = rhatRaw.normalized();
+    heading.rhat_BN_N = rhatRaw.stableNormalized();
     FlybyFilterOutput const out = algo.update(dt, heading);
 
     EXPECT_TRUE(algo.getState().raw().allFinite());
@@ -185,7 +185,7 @@ inline void propertyMeasurementDoesNotIncreaseCovariance(Eigen::Vector3d const& 
                                                          Vector6 const& covDiagRaw,
                                                          Eigen::Vector3d const& rhatRaw) {
     std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, 0.0, kHeadingStd);
-    if (!cfg || !rhatRaw.allFinite() || rhatRaw.norm() < 1E-3) {
+    if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3) {
         return;
     }
     FlybyFilterAlgorithm algo(*cfg);
@@ -194,7 +194,7 @@ inline void propertyMeasurementDoesNotIncreaseCovariance(Eigen::Vector3d const& 
     if (!algo.timeUpdate(0.0)) {
         return;
     }
-    if (!algo.measurementUpdate(makeHeadingMeasurement(0.0, rhatRaw.normalized(), kHeadingStd))) {
+    if (!algo.measurementUpdate(makeHeadingMeasurement(0.0, rhatRaw.stableNormalized(), kHeadingStd))) {
         return;
     }
     double const traceAfter = algo.getCovariance().trace();

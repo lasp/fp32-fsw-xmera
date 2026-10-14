@@ -140,10 +140,10 @@ inline void regressionTestSunSearchPoint(std::vector<float> sunVector,
                                          std::vector<float> omega_RN_B_cfgVec) {
     // The setter requires a (near-)unit vector; normalize the fuzz-generated input first.
     Eigen::Vector3f sHatBdyCmd(sHatBdyCmdVec[0], sHatBdyCmdVec[1], sHatBdyCmdVec[2]);
-    if (sHatBdyCmd.norm() < 1e-3f) {
+    if (sHatBdyCmd.stableNorm() < 1e-3f) {
         return;
     }
-    Eigen::Vector3f normalizedSHat = sHatBdyCmd.normalized();
+    Eigen::Vector3f normalizedSHat = sHatBdyCmd.stableNormalized();
 
     Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
     Eigen::Vector3f omega_BN_B(omega_BN_B_Vec[0], omega_BN_B_Vec[1], omega_BN_B_Vec[2]);
@@ -171,8 +171,8 @@ inline void regressionTestSunSearchPoint(std::vector<float> sunVector,
         sigmaRefShadow = -sigmaRef / sigmaRef.squaredNorm();
     }
 
-    float errorNorm = (sigmaOut - sigmaRef).norm();
-    float errorShadow = (sigmaOut - sigmaRefShadow).norm();
+    float errorNorm = (sigmaOut - sigmaRef).stableNorm();
+    float errorShadow = (sigmaOut - sigmaRefShadow).stableNorm();
 
     EXPECT_TRUE(errorNorm < 1e-5F || errorShadow < 1e-5F);
 
@@ -204,7 +204,7 @@ inline void propertySigmaBrNormBounded(std::vector<float> sunVector) {
 
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
     auto output = pointUpdate(alg, sunVec, omega_BN_B);
-    EXPECT_LE(output.sigma_BR.norm(), 1.0F + 1e-6F);
+    EXPECT_LE(output.sigma_BR.stableNorm(), 1.0F + 1e-6F);
 }
 
 // omega_BR_B always equals omega_BN_B - omega_RN_B.

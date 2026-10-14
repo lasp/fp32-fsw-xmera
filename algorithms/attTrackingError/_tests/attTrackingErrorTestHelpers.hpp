@@ -85,8 +85,8 @@ inline void regressionTestAttTrackingError(const Eigen::Vector3f& sigma_BN,
         sigma_ref_shadow = -sigma_ref / sigma_ref.squaredNorm();
     }
 
-    double error_norm = (sigma_out - sigma_ref).norm();
-    double error_shadow = (sigma_out - sigma_ref_shadow).norm();
+    double error_norm = (sigma_out - sigma_ref).stableNorm();
+    double error_shadow = (sigma_out - sigma_ref_shadow).stableNorm();
 
     EXPECT_TRUE(error_norm < 1e-6 || error_shadow < 1e-6);
 

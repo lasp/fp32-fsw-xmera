@@ -76,7 +76,7 @@ class SunSearchPointConfig final {
             FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: controlPeriod must be finite and > 0");
         }
         return SunSearchPointConfig{
-            rotations, sHatBdyCmd.normalized(), sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod};
+            rotations, sHatBdyCmd.stableNormalized(), sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod};
     }
 
     static bool isValidRotationDuration(float time) { return fsw::is_finite(time) && time > 0.0F; }
@@ -86,7 +86,7 @@ class SunSearchPointConfig final {
     }
     static bool isValidSHatBdyCmd(const Eigen::Vector3f& sHatBdyCmd) {
         constexpr float kUnitNormTol = 1e-3F;
-        return fabsf(sHatBdyCmd.norm() - 1.0F) <= kUnitNormTol;
+        return fabsf(sHatBdyCmd.stableNorm() - 1.0F) <= kUnitNormTol;
     }
     static bool isValidSunAxisSpinRate(float sunAxisSpinRate) { return fsw::is_finite(sunAxisSpinRate); }
     static bool isValidOmega_RN_B(const Eigen::Vector3f& omega_RN_B) { return omega_RN_B.allFinite(); }

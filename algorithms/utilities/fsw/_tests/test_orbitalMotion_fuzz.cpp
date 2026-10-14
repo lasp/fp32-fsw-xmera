@@ -156,7 +156,7 @@ void fuzzVisViva(double e, double i, double Omega, double omega, double f) {
     el.trueAnomaly = f;
 
     const CartesianState state = orbitalMotion::elementsToCartesianState(kMu, el);
-    const double r = state.position.norm();
+    const double r = state.position.stableNorm();
     const double v2 = state.velocity.squaredNorm();
     ASSERT_TRUE(std::isfinite(r));
     ASSERT_TRUE(std::isfinite(v2));
@@ -181,7 +181,7 @@ void fuzzSpecificEnergy(double e, double i, double Omega, double omega, double f
     el.trueAnomaly = f;
 
     const CartesianState state = orbitalMotion::elementsToCartesianState(kMu, el);
-    const double r = state.position.norm();
+    const double r = state.position.stableNorm();
     const double energy = state.velocity.squaredNorm() / 2.0 - kMu / r;
     const double energy_expected = -kMu / (2.0 * kSemiMajorAxis);
     ASSERT_TRUE(std::isfinite(energy));
@@ -205,7 +205,7 @@ void fuzzAngularMomentum(double e, double i, double Omega, double omega, double 
     el.trueAnomaly = f;
 
     const CartesianState state = orbitalMotion::elementsToCartesianState(kMu, el);
-    const double h = state.position.cross(state.velocity).norm();
+    const double h = state.position.cross(state.velocity).stableNorm();
     const double h_expected = std::sqrt(kMu * kSemiMajorAxis * (1.0 - e * e));
     ASSERT_TRUE(std::isfinite(h));
     EXPECT_NEAR(h, h_expected, h_expected * kStateRelTol);
@@ -228,7 +228,7 @@ void fuzzOrbitEquation(double e, double i, double Omega, double omega, double f)
     el.trueAnomaly = f;
 
     const CartesianState state = orbitalMotion::elementsToCartesianState(kMu, el);
-    const double r = state.position.norm();
+    const double r = state.position.stableNorm();
     const double p = kSemiMajorAxis * (1.0 - e * e);
     const double r_expected = p / (1.0 + e * cos(f));
     ASSERT_TRUE(std::isfinite(r));
@@ -407,7 +407,7 @@ void fuzzExactParabolicOrbitEquation(double radiusPeriapsis, double i, double Om
         ASSERT_TRUE(std::isfinite(state.velocity[j])) << "velocity[" << j << ']';
     }
 
-    const double r = state.position.norm();
+    const double r = state.position.stableNorm();
     const double p = radiusPeriapsis * 2.0;  // p = radiusPeriapsis * (1 + e), e == 1
     const double r_expected = p / (1.0 + std::cos(f));
     EXPECT_NEAR(r, r_expected, r_expected * kStateRelTol);

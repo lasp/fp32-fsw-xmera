@@ -36,7 +36,7 @@ inline Eigen::Matrix<double, kMaxNumRw, kMaxNumRw> referenceTau(
     uint32_t numAvailRW = 0U;
     for (uint32_t i = 0U; i < numRW; ++i) {
         if (wheelsAvailability[i] == fsw::DeviceAvailability::Available) {
-            G_s_B.col(i) = GsMatrix_B.col(i).normalized();
+            G_s_B.col(i) = GsMatrix_B.col(i).stableNormalized();
             numAvailRW += 1U;
         }
     }
@@ -88,7 +88,7 @@ inline Eigen::Vector<double, kMaxNumRw> referenceUpdate(
     Eigen::Matrix<double, 3, kMaxNumRw> G_s_B{Eigen::Matrix<double, 3, kMaxNumRw>::Zero()};
     for (uint32_t i = 0U; i < numRW; ++i) {
         if (wheelsAvailability[i] == fsw::DeviceAvailability::Available) {
-            G_s_B.col(i) = GsMatrix_B.col(i).normalized();
+            G_s_B.col(i) = GsMatrix_B.col(i).stableNormalized();
         }
     }
 
@@ -185,7 +185,7 @@ inline bool buildConfig(uint32_t numControlAxes,
     // The config requires unit spin axes; normalize the columns the caller supplied. A zero column cannot
     // be normalized.
     for (uint32_t i = 0U; i < numRW; ++i) {
-        const float colNorm = rwConfiguration.GsMatrix_B.col(i).norm();
+        const float colNorm = rwConfiguration.GsMatrix_B.col(i).stableNorm();
         if (colNorm <= 0.0F) {
             return false;
         }
@@ -272,7 +272,7 @@ inline void runRegressionCase(Eigen::Vector3f Lr1_B,
     const float controlScale = static_cast<float>(controlRef.cwiseAbs().maxCoeff());
     const Eigen::Vector<float, kMaxNumRw> nullSpaceInput = omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
     const float controlTol = 1e-4F + 1e-3F * controlScale;
-    const float nullSpaceTol = 1e-4F + 1e-5F * nullSpaceInput.norm();
+    const float nullSpaceTol = 1e-4F + 1e-5F * nullSpaceInput.stableNorm();
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         EXPECT_NEAR(controlOut[i], static_cast<float>(controlRef[i]), controlTol);
         EXPECT_NEAR(nullSpaceOut[i], static_cast<float>(nullSpaceRef[i]), nullSpaceTol);
@@ -399,7 +399,7 @@ inline void propertyNullSpaceAddsNoBodyTorque(std::vector<bool> wheelAvailabilit
     // speeds toward their desired values.
     const Eigen::Vector<float, kMaxNumRw> nullSpaceInput = omegaGain * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
     const Eigen::Vector3f bodyTorque = availableGs(config) * nullSpaceOut;
-    EXPECT_LE(bodyTorque.norm(), 1e-4F + 1e-5F * nullSpaceInput.norm());
+    EXPECT_LE(bodyTorque.stableNorm(), 1e-4F + 1e-5F * nullSpaceInput.stableNorm());
 }
 
 // With a zero gain the null-space term vanishes: the output is independent of the RW speeds.
@@ -474,7 +474,7 @@ inline void propertyControlTorqueRealized(Eigen::Vector3f Lr1_B,
     for (uint32_t i = 0U; i < 3U; ++i) {
         if (desiredControlAxes_B[i]) {
             const auto axis = static_cast<Eigen::Index>(i);
-            EXPECT_NEAR(bodyTorque[axis], -Lr_B[axis], 1e-3F * Lr_B.norm() + 1e-3F);
+            EXPECT_NEAR(bodyTorque[axis], -Lr_B[axis], 1e-3F * Lr_B.stableNorm() + 1e-3F);
         }
     }
 }

@@ -136,7 +136,7 @@ inline void testDvGuidanceAngularVelocityMagnitude(const Eigen::Vector3f& dvInrt
     DvGuidanceOutput out;
     EXPECT_NO_THROW(out = alg.update(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime));
 
-    EXPECT_NEAR(out.omega_RN_N.norm(), dvRotVecMag, 1e-5F);
+    EXPECT_NEAR(out.omega_RN_N.stableNorm(), dvRotVecMag, 1e-5F);
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
         EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));

@@ -24,7 +24,7 @@ class SunAvoidanceConfig final {
         if (!isValidSlewRate(slewRate)) {
             FSW_THROW_INVALID_ARGUMENT("sunAvoidance: slewRate must be finite and greater than zero");
         }
-        return {sensitiveHat_B.normalized(), slewRate};
+        return {sensitiveHat_B.stableNormalized(), slewRate};
     }
 
     static bool isValidSensitiveHat_B(const Eigen::Vector3f& sensitiveHat_B) {

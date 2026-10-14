@@ -175,7 +175,7 @@ TEST(AxisToGimbalAnglesTest, TravelLimitIsContinuousAtTheEdgeOfTheCone) {
                 ? request
                 : Eigen::Vector3f{std::sin(thetaMax) * 0.6F, std::sin(thetaMax) * -0.8F, std::cos(thetaMax)};
         EXPECT_TRUE(out.thrustHat_B.isApprox(expected, kAccuracy)) << requested;
-        EXPECT_LT((out.thrustHat_B - request).norm(), 1.01F * step);
+        EXPECT_LT((out.thrustHat_B - request).stableNorm(), 1.01F * step);
     }
 }
 
@@ -283,7 +283,7 @@ TEST(AxisToGimbalAnglesTest, SetupTest) {
 
     // An MRP with a norm of more than one gives the same rotation. The module stores the shadow set.
     const Eigen::Vector3f shadow{0.0F, 0.0F, 2.0F};
-    EXPECT_LE(makeConfig(shadow).getSigma_MB().norm(), 1.0F);
+    EXPECT_LE(makeConfig(shadow).getSigma_MB().stableNorm(), 1.0F);
     EXPECT_TRUE(mrpToDcm(makeConfig(shadow).getSigma_MB()).isApprox(mrpToDcm(shadow), 1e-4F));
 }
 

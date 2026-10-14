@@ -20,7 +20,7 @@
 class SunAvoidanceReference {
    public:
     SunAvoidanceReference(const Eigen::Vector3f& sensitiveHat_B, float slewRate)
-        : sensitiveHat_B(sensitiveHat_B.normalized()), slewRate(slewRate) {}
+        : sensitiveHat_B(sensitiveHat_B.stableNormalized()), slewRate(slewRate) {}
 
     SunAvoidanceAttRef update(const Eigen::Vector3f& sigma_BN,
                               const Eigen::Vector3f& sigma_RN,
@@ -31,25 +31,25 @@ class SunAvoidanceReference {
         if (!this->maneuverInitialized) {
             // Sun avoidance always runs, but it needs a usable Sun direction: a zero Sun direction leaves
             // no maneuver to perform.
-            if (sHat_B.norm() > 0.0F) {
+            if (sHat_B.stableNorm() > 0.0F) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-                const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.normalized();
+                const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.stableNormalized();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
                 const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
                 const Eigen::Vector3f sensFinal_N = dcm_RN.transpose() * this->sensitiveHat_B;
 
-                const Eigen::Vector3f sensAxis_N = sensInitial_N.cross(sensFinal_N).normalized();
-                const Eigen::Vector3f pHat_N = (sHat_N - (sensAxis_N.dot(sHat_N)) * sensAxis_N).normalized();
+                const Eigen::Vector3f sensAxis_N = sensInitial_N.cross(sensFinal_N).stableNormalized();
+                const Eigen::Vector3f pHat_N = (sHat_N - (sensAxis_N.dot(sHat_N)) * sensAxis_N).stableNormalized();
 
                 const float initMnvrAngle = safeAcosf(sensInitial_N.dot(sensFinal_N));
                 const float initCelAngle = safeAcosf(pHat_N.dot(sensInitial_N));
 
                 const Eigen::Matrix3f dcm_BR = dcm_BN * dcm_RN.transpose();
                 const Eigen::Vector3f prv_BR = dcmToPrv(dcm_BR);
-                this->angleStart = prv_BR.norm();
-                this->mnvrAxis_B = prv_BR.normalized();
+                this->angleStart = prv_BR.stableNorm();
+                this->mnvrAxis_B = prv_BR.stableNormalized();
 
-                const Eigen::Vector3f sensToSunAxis_N = sensInitial_N.cross(sHat_N).normalized();
+                const Eigen::Vector3f sensToSunAxis_N = sensInitial_N.cross(sHat_N).stableNormalized();
                 const Eigen::Vector3f mnvrAxis_N = dcm_BN.transpose() * this->mnvrAxis_B;
                 if (sensToSunAxis_N.dot(mnvrAxis_N) < 0.0F && initCelAngle < initMnvrAngle) {
                     this->angleStart = (2.0F * std::numbers::pi_v<float>)-this->angleStart;
@@ -123,7 +123,7 @@ inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
         return true;  // no usable Sun information (the algorithm passes through)
     }
 
-    const Eigen::Vector3f sensitive_B = sensitiveHat_B.normalized();
+    const Eigen::Vector3f sensitive_B = sensitiveHat_B.stableNormalized();
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
     const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.stableNormalized();
     const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
@@ -132,29 +132,29 @@ inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
 
     // Degeneracies: each raw magnitude is a sin(angle) that stableNormalized() would collapse to zero.
     const Eigen::Vector3f sweepAxisRaw = sensitiveInitial_N.cross(sensitiveFinal_N);
-    if (sweepAxisRaw.norm() < kMargin) {
+    if (sweepAxisRaw.stableNorm() < kMargin) {
         return true;  // initial and final sensitive axes near parallel / anti-parallel
     }
-    const Eigen::Vector3f sweepAxis_N = sweepAxisRaw.normalized();
+    const Eigen::Vector3f sweepAxis_N = sweepAxisRaw.stableNormalized();
     const Eigen::Vector3f sunInPlaneRaw = sHat_N - (sweepAxis_N.dot(sHat_N)) * sweepAxis_N;
-    if (sunInPlaneRaw.norm() < kMargin) {
+    if (sunInPlaneRaw.stableNorm() < kMargin) {
         return true;  // Sun near parallel to the sweep axis
     }
     const Eigen::Vector3f initialToSunAxisRaw = sensitiveInitial_N.cross(sHat_N);
-    if (initialToSunAxisRaw.norm() < kMargin) {
+    if (initialToSunAxisRaw.stableNorm() < kMargin) {
         return true;  // Sun near parallel to the initial sensitive axis
     }
 
     // Decision ties: the two comparisons the short/long-way branch turns on.
     const float sensitiveSweepAngle = safeAcosf(sensitiveInitial_N.dot(sensitiveFinal_N));
-    const float initialToSunAngle = safeAcosf(sensitiveInitial_N.dot(sunInPlaneRaw.normalized()));
+    const float initialToSunAngle = safeAcosf(sensitiveInitial_N.dot(sunInPlaneRaw.stableNormalized()));
     if (std::fabs(initialToSunAngle - sensitiveSweepAngle) < kMargin) {
         return true;  // Sun near the edge of the swept arc
     }
     const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
     const Eigen::Vector3f prv_RB = dcmToPrv(dcm_RB);
     const Eigen::Vector3f slewAxis_N = dcm_BN.transpose() * prv_RB.stableNormalized();
-    if (std::fabs(initialToSunAxisRaw.normalized().dot(slewAxis_N)) < kMargin) {
+    if (std::fabs(initialToSunAxisRaw.stableNormalized().dot(slewAxis_N)) < kMargin) {
         return true;  // maneuver near perpendicular to the Sun (toward / away tie)
     }
 
@@ -278,7 +278,7 @@ inline void propertyManeuverOutputBoundedAndFinite(const Eigen::Vector3f& sigma_
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
         EXPECT_TRUE(out.domega_RN_N.allFinite());
-        EXPECT_LE(out.sigma_RN.norm(), normBound);
+        EXPECT_LE(out.sigma_RN.stableNorm(), normBound);
     }
 }
 

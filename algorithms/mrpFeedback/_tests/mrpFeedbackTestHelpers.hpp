@@ -64,7 +64,7 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
     Eigen::Vector3f H_B = ISCPntB_B * omega_BN_B;
     for (Eigen::Index i = 0; i < kMaxNumRw; ++i) {
         if (wheelsAvailability.wheelAvailability[i] == AVAILABLE) {
-            const Eigen::Vector3f G_s_B_i = G_s_B.col(i).normalized();
+            const Eigen::Vector3f G_s_B_i = G_s_B.col(i).stableNormalized();
             const Eigen::Vector3f h_s_i =
                 rwConfigParams.JsList[i] * (omega_BN_B.dot(G_s_B_i) + wheelSpeeds.wheelSpeeds[i]) * G_s_B_i;
             H_B += h_s_i;
@@ -191,7 +191,7 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         // The config requires (near-)unit spin axes on every slot; normalize before constructing it. Skip
         // inputs with a degenerate (near-zero) spin axis that cannot be normalized.
         for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-            const float colNorm = rwInputData.GsMatrix_B.col(static_cast<int>(i)).norm();
+            const float colNorm = rwInputData.GsMatrix_B.col(static_cast<int>(i)).stableNorm();
             if (colNorm < 1e-6F) {
                 return;
             }

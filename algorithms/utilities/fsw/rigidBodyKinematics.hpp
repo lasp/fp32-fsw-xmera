@@ -84,7 +84,7 @@ Eigen::Matrix3<ScalarT> binvMrp(const Eigen::Vector3<ScalarT>& mrp) {
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> binvPrv(const Eigen::Vector3<ScalarT>& prv) {
-    ScalarT norm = prv.norm();
+    ScalarT norm = prv.stableNorm();
     ScalarT norm2 = norm * norm;
     ScalarT norm3 = norm2 * norm;
 
@@ -208,7 +208,7 @@ Eigen::Matrix3<ScalarT> bmatDotMrp(const Eigen::Vector3<ScalarT>& mrp, const Eig
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> bmatPrv(const Eigen::Vector3<ScalarT>& prv) {
-    ScalarT normPrv = prv.norm();
+    ScalarT normPrv = prv.stableNorm();
     ScalarT c = 1.0 / (normPrv * normPrv) * (1.0 - normPrv / 2.0 / std::tan(normPrv / 2.0));
 
     Eigen::Matrix3<ScalarT> B;
@@ -562,7 +562,7 @@ Eigen::Vector4<ScalarT> mrpToEp(const Eigen::Vector3<ScalarT>& mrp) {
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> mrpToPrv(const Eigen::Vector3<ScalarT>& mrp, ScalarT localEps = ScalarT(1e-10)) {
-    ScalarT norm = mrp.norm();
+    ScalarT norm = mrp.stableNorm();
     if (norm < localEps) {
         return Eigen::Vector3<ScalarT>::Zero();
     }
@@ -586,7 +586,7 @@ Eigen::Vector3<ScalarT> mrpToEulerAngles321(const Eigen::Vector3<ScalarT>& mrp) 
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> prvToDcm(const Eigen::Vector3<ScalarT>& prv) {
-    ScalarT angle = prv.norm();
+    ScalarT angle = prv.stableNorm();
 
     if (angle < Types<ScalarT>::eps) {
         return Eigen::Matrix3<ScalarT>::Identity();
@@ -618,7 +618,7 @@ Eigen::Matrix3<ScalarT> prvToDcm(const Eigen::Vector3<ScalarT>& prv) {
  */
 template <typename ScalarT>
 Eigen::Vector4<ScalarT> prvToEp(const Eigen::Vector3<ScalarT>& prv) {
-    ScalarT angle = prv.norm();
+    ScalarT angle = prv.stableNorm();
     Eigen::Vector<ScalarT, 4> ep;
 
     if (constexpr ScalarT localEps = ScalarT(1e-12); angle < localEps) {
@@ -643,8 +643,8 @@ Eigen::Vector4<ScalarT> prvToEp(const Eigen::Vector3<ScalarT>& prv) {
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> prvToMrp(const Eigen::Vector3<ScalarT>& prv) {
     constexpr ScalarT localEps = ScalarT(1e-12);
-    if (ScalarT norm = prv.norm(); norm > localEps) {
-        return prv.normalized() * std::tan(norm / ScalarT(4));
+    if (ScalarT norm = prv.stableNorm(); norm > localEps) {
+        return prv.stableNormalized() * std::tan(norm / ScalarT(4));
     }
     return Eigen::Vector3<ScalarT>::Zero();
 }
@@ -786,20 +786,20 @@ Eigen::Vector3<ScalarT> addEulerAngles321(const Eigen::Vector3<ScalarT>& euler32
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> addPrv(const Eigen::Vector3<ScalarT>& prv1, const Eigen::Vector3<ScalarT>& prv2) {
-    if (prv1.norm() < ScalarT(1.0E-7) || prv2.norm() < ScalarT(1.0E-7)) {
+    if (prv1.stableNorm() < ScalarT(1.0E-7) || prv2.stableNorm() < ScalarT(1.0E-7)) {
         return prv1 + prv2;
     }
 
-    ScalarT phi1 = prv1.norm() / 2.0;
-    ScalarT phi2 = prv2.norm() / 2.0;
+    ScalarT phi1 = prv1.stableNorm() / 2.0;
+    ScalarT phi2 = prv2.stableNorm() / 2.0;
 
     ScalarT cosPhi1 = std::cos(phi1);
     ScalarT cosPhi2 = std::cos(phi2);
     ScalarT sinPhi1 = std::sin(phi1);
     ScalarT sinPhi2 = std::sin(phi2);
 
-    Eigen::Vector3<ScalarT> unitVector1 = prv1 / prv1.norm();
-    Eigen::Vector3<ScalarT> unitVector2 = prv2 / prv2.norm();
+    Eigen::Vector3<ScalarT> unitVector1 = prv1 / prv1.stableNorm();
+    Eigen::Vector3<ScalarT> unitVector2 = prv2 / prv2.stableNorm();
 
     ScalarT dotProduct = unitVector1.dot(unitVector2);
     ScalarT realPart = cosPhi1 * cosPhi2 - sinPhi1 * sinPhi2 * dotProduct;
@@ -899,12 +899,12 @@ Eigen::Vector3<ScalarT> subMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen:
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> subPrv(const Eigen::Vector3<ScalarT>& prv1, const Eigen::Vector3<ScalarT>& prv2) {
-    if (constexpr ScalarT threshold = ScalarT(1.0E-7); prv1.norm() < threshold || prv2.norm() < threshold) {
+    if (constexpr ScalarT threshold = ScalarT(1.0E-7); prv1.stableNorm() < threshold || prv2.stableNorm() < threshold) {
         return prv1 - prv2;
     }
 
-    ScalarT norm1 = prv1.norm();
-    ScalarT norm2 = prv2.norm();
+    ScalarT norm1 = prv1.stableNorm();
+    ScalarT norm2 = prv2.stableNorm();
 
     ScalarT cosPhi1 = std::cos(norm1 / ScalarT(2));
     ScalarT cosPhi2 = std::cos(norm2 / ScalarT(2));

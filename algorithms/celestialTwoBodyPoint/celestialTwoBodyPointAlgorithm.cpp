@@ -37,7 +37,7 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Inertia
 
     if (celestialBodiesResolved) {
         /*! Compute angle between celestial bodies */
-        const auto dotProduct1 = static_cast<float>(r_SB_N.normalized().dot(r_PB_N.normalized()));
+        const auto dotProduct1 = static_cast<float>(r_SB_N.stableNormalized().dot(r_PB_N.stableNormalized()));
         const float celestialBodySeparationAngle = safeAcosf(fabsf(dotProduct1)); /* Angle between r_PB_N and r_SB_N */
 
         bool constraintAxisValid = true;
@@ -45,7 +45,7 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::update(const Inertia
         /*! Update r_SB_N and v_SB_N if celestial bodies are aligned, unless r_PB_N and v_PB_N are collinear (fallback
          * constraint axis undefined) */
         if (celestialBodySeparationAngle < this->cfg.getCelestialBodyAlignmentThreshold()) {
-            const auto dotProduct2 = static_cast<float>(r_PB_N.normalized().dot(v_PB_N.normalized()));
+            const auto dotProduct2 = static_cast<float>(r_PB_N.stableNormalized().dot(v_PB_N.stableNormalized()));
             const float posVelSeparationAngle = safeAcosf(fabsf(dotProduct2)); /* Angle between r_PB_N and v_PB_N */
             /* The fallback axis r_PB_N x v_PB_N is undefined when v_PB_N is ~zero (the angle check alone
                misses this: a zero vector normalizes to zero, giving a spurious 90-deg angle) or collinear. */
@@ -82,9 +82,9 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(con
     const Eigen::Vector3d normalVecDDot_N = 2 * v_PB_N.cross(v_SB_N);
 
     /* Reference frame computation */
-    const Eigen::Vector3d r1Hat_N = r_PB_N.normalized();
-    const Eigen::Vector3d r3Hat_N = normalVec_N.normalized();
-    const Eigen::Vector3d r2Hat_N = r3Hat_N.cross(r1Hat_N).normalized();
+    const Eigen::Vector3d r1Hat_N = r_PB_N.stableNormalized();
+    const Eigen::Vector3d r3Hat_N = normalVec_N.stableNormalized();
+    const Eigen::Vector3d r2Hat_N = r3Hat_N.cross(r1Hat_N).stableNormalized();
     Eigen::Matrix3f dcm_RN = Eigen::Matrix3f::Identity();
     dcm_RN.row(0) = r1Hat_N.cast<float>();
     dcm_RN.row(1) = r2Hat_N.cast<float>();
@@ -96,9 +96,9 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(con
 
     /* Compute inertial time derivative of reference frame basis vectors */
     const Eigen::Vector3d r1HatDot_N =
-        (Eigen::Matrix3d::Identity() - r1Hat_N * r1Hat_N.transpose()) * (v_PB_N / r_PB_N.norm());
+        (Eigen::Matrix3d::Identity() - r1Hat_N * r1Hat_N.transpose()) * (v_PB_N / r_PB_N.stableNorm());
     const Eigen::Vector3d r3HatDot_N =
-        (Eigen::Matrix3d::Identity() - r3Hat_N * r3Hat_N.transpose()) * (normalVecDot_N / normalVec_N.norm());
+        (Eigen::Matrix3d::Identity() - r3Hat_N * r3Hat_N.transpose()) * (normalVecDot_N / normalVec_N.stableNorm());
     const Eigen::Vector3d r2HatDot_N = r3HatDot_N.cross(r1Hat_N) + r3Hat_N.cross(r1HatDot_N);
 
     /* Reference angular velocity computation */
@@ -110,11 +110,11 @@ CelestialTwoBodyPointOutput CelestialTwoBodyPointAlgorithm::rateAndAccelCalc(con
 
     /* Compute inertial acceleration of reference frame basis vectors */
     const Eigen::Vector3d r1HatDDot_N =
-        -(2 * r1HatDot_N * r1Hat_N.transpose() + r1Hat_N * r1HatDot_N.transpose()) * (v_PB_N / r_PB_N.norm());
+        -(2 * r1HatDot_N * r1Hat_N.transpose() + r1Hat_N * r1HatDot_N.transpose()) * (v_PB_N / r_PB_N.stableNorm());
     const Eigen::Vector3d r3HatDDot_N =
         ((Eigen::Matrix3d::Identity() - r3Hat_N * r3Hat_N.transpose()) * normalVecDDot_N -
          (2 * r3HatDot_N * r3Hat_N.transpose() + r3Hat_N * r3HatDot_N.transpose()) * normalVecDot_N) /
-        normalVec_N.norm();
+        normalVec_N.stableNorm();
     const Eigen::Vector3d r2HatDDot_N =
         r3HatDDot_N.cross(r1Hat_N) + r3Hat_N.cross(r1HatDDot_N) + 2 * r3HatDot_N.cross(r1HatDot_N);
 

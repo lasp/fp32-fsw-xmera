@@ -166,7 +166,7 @@ TEST(RwMotorTorqueTest, IllConditionedControlMappingRejected) {
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     parkUnusedWheels(rwConfiguration, 2);
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
-    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{1.0F, 5e-3F, 0.0F}.normalized();  // ~0.3 deg off wheel 0
+    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{1.0F, 5e-3F, 0.0F}.stableNormalized();  // ~0.3 deg off wheel 0
 
     // Control body x and y: y is reachable only through the tiny y-component of the near-parallel wheels.
     EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(2U), rwConfiguration), fsw::invalid_argument);
@@ -178,10 +178,10 @@ TEST(RwMotorTorqueTest, IllConditionedNullSpaceGeometryRejected) {
     constexpr float kOutOfPlane = 1e-3F;  // tiny z component -> [Gs] barely spans the third dimension
     RwMotorTorqueArrayConfiguration rwConfiguration{};
     parkUnusedWheels(rwConfiguration, 4);
-    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, kOutOfPlane}.normalized();
-    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, kOutOfPlane}.normalized();
-    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{-1.0F, 0.0F, kOutOfPlane}.normalized();
-    rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{0.0F, -1.0F, kOutOfPlane}.normalized();
+    rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, kOutOfPlane}.stableNormalized();
+    rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, kOutOfPlane}.stableNormalized();
+    rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{-1.0F, 0.0F, kOutOfPlane}.stableNormalized();
+    rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{0.0F, -1.0F, kOutOfPlane}.stableNormalized();
 
     EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(2U), rwConfiguration, 0.5F), fsw::invalid_argument);
 }
@@ -262,7 +262,7 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
     rwB.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwB.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwB.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    rwB.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.normalized();
+    rwB.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.stableNormalized();
     constexpr float kOmegaGain = 0.5F;
     alg.setConfig(RwMotorTorqueConfig::create(makeControlAxes(3U), rwB, kOmegaGain));
 
@@ -294,7 +294,7 @@ TEST(RwMotorTorqueTest, NullSpaceZeroAtDesiredSpeed) {
     rwConfiguration.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.normalized();
+    rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.stableNormalized();
 
     const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, 0.5F)};
 

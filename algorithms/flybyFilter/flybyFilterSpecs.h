@@ -28,7 +28,7 @@ struct FlybyDynamics {
         Eigen::Vector3d const r = state.get<filtering::Position<3>>();
         Eigen::Vector3d const v = state.get<filtering::Velocity<3>>();
 
-        double const norm = r.norm();
+        double const norm = r.stableNorm();
         double const range = norm < MinGravityRange ? MinGravityRange : norm;
         double const rangeCubed = range * range * range;
 

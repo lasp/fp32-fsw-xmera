@@ -105,7 +105,7 @@ inline void expectFitIsOptimal(const ActiveSystem& system,
         return;
     }
 
-    const Eigen::Vector3d heading = sunHeading_B.cast<double>().normalized();
+    const Eigen::Vector3d heading = sunHeading_B.cast<double>().stableNormalized();
     const Eigen::Vector3d htWy = system.H.transpose() * (system.weights.asDiagonal() * system.y);
     const Eigen::Matrix3d htWh = system.H.transpose() * system.weights.asDiagonal() * system.H;
 
@@ -119,8 +119,8 @@ inline void expectFitIsOptimal(const ActiveSystem& system,
     const double tolerance = std::max(1e-5, 64.0 * epsilon * system.condition);
 
     // 1. The weighted normal equations, measured against the scale of the data they are formed from.
-    const double dataScale = std::max(1e-30, htWy.norm());
-    EXPECT_LT((htWy - (htWh * fit)).norm() / dataScale, tolerance)
+    const double dataScale = std::max(1e-30, htWy.stableNorm());
+    EXPECT_LT((htWy - (htWh * fit)).stableNorm() / dataScale, tolerance)
         << "normal equations, condition " << system.condition;
 
     // 2. The heading lies in the row space of H, so the underdetermined fits are the minimum norm ones.
@@ -132,13 +132,13 @@ inline void expectFitIsOptimal(const ActiveSystem& system,
             inRowSpace += svd.matrixV().col(i) * svd.matrixV().col(i).dot(heading);
         }
     }
-    EXPECT_LT((heading - inRowSpace).norm(), std::max(1e-4, tolerance)) << "heading outside the row space of H";
+    EXPECT_LT((heading - inRowSpace).stableNorm(), std::max(1e-4, tolerance)) << "heading outside the row space of H";
 
     // The residuals follow from the fit by their own definition, so they are checked directly.
     for (size_t k = 0U; k < system.sensors.size(); ++k) {
         const auto observation = static_cast<Eigen::Index>(k);
         const uint32_t sensor = system.sensors[k];
-        const Eigen::Vector3d boresight = system.H.row(observation).transpose().normalized();
+        const Eigen::Vector3d boresight = system.H.row(observation).transpose().stableNormalized();
         const double prediction = std::max(0.0, fit.dot(boresight));
         const double expected = system.y(observation) - prediction;
         const double residualScale = std::max(1.0, std::abs(expected));
@@ -309,7 +309,7 @@ inline void propertyHeadingIsUnitOrZero(ConstellationInputs inputs, std::vector<
         SUCCEED();
         return;
     }
-    EXPECT_NEAR(out.sunHeading_B.norm(), 1.0F, 1e-5F);
+    EXPECT_NEAR(out.sunHeading_B.stableNorm(), 1.0F, 1e-5F);
 }
 
 // The residuals are indexed by observation, so entries at and beyond the count stay zero. A consumer reads
@@ -359,7 +359,7 @@ inline void propertyDisabledSensorIgnored(ConstellationInputs inputs,
     const CssWeightedLeastSquaresOutput disabledOut = disabled.update(makeReadings(readings));
 
     EXPECT_EQ(disabledOut.numCssViewingSun, silencedOut.numCssViewingSun);
-    EXPECT_LT((disabledOut.sunHeading_B - silencedOut.sunHeading_B).norm(), 1e-5F);
+    EXPECT_LT((disabledOut.sunHeading_B - silencedOut.sunHeading_B).stableNorm(), 1e-5F);
 }
 
 // Rotating the whole constellation rotates the heading with it. The fit is a geometric construction, so it
@@ -406,7 +406,7 @@ inline void propertyRotationEquivariance(ConstellationInputs inputs,
     const auto epsilon = static_cast<float>(std::numeric_limits<float>::epsilon());
     const auto condition = static_cast<float>(std::min(1e6, system.condition));
     const float tolerance = std::min(0.1F, std::max(1e-4F, 128.0F * epsilon * condition));
-    EXPECT_LT((rotatedOut.sunHeading_B - (dcm * plainOut.sunHeading_B)).norm(), tolerance)
+    EXPECT_LT((rotatedOut.sunHeading_B - (dcm * plainOut.sunHeading_B)).stableNorm(), tolerance)
         << "normal matrix condition " << system.condition;
 }
 

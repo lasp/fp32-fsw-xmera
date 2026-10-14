@@ -121,8 +121,8 @@ TEST(MomentumManagement, TorqueMagnitudeIsGainTimesStoredMomentum) {
 
     const Eigen::Vector3f hs_B = clusterMomentum(rwArrayConfig, wheelSpeeds);
 
-    EXPECT_NEAR(Lr_B.norm(), kNominalK * hs_B.norm(), kAccuracy);
-    EXPECT_LT(Lr_B.normalized().dot(hs_B.normalized()), -1.0F + kAccuracy);
+    EXPECT_NEAR(Lr_B.stableNorm(), kNominalK * hs_B.stableNorm(), kAccuracy);
+    EXPECT_LT(Lr_B.stableNormalized().dot(hs_B.stableNormalized()), -1.0F + kAccuracy);
 }
 
 // The torque scales linearly with the gain: doubling K doubles the request.
@@ -189,7 +189,7 @@ TEST(MomentumManagement, IntegralAccumulatesAcrossCycles) {
 
     float previous = 0.0F;
     for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
-        const float magnitude = alg.update(wheelSpeeds).norm();
+        const float magnitude = alg.update(wheelSpeeds).stableNorm();
         EXPECT_GT(magnitude, previous) << "cycle " << cycle;
         previous = magnitude;
     }
@@ -215,7 +215,7 @@ TEST(MomentumManagement, ZeroKiDisablesTheIntegral) {
     }
 
     EXPECT_TRUE(lastWithout.isApprox(firstWithout));
-    EXPECT_GT(lastWith.norm(), firstWith.norm());
+    EXPECT_GT(lastWith.stableNorm(), firstWith.stableNorm());
 }
 
 // A momentum below the threshold ends the dump: the module requests nothing, however much the integral had
@@ -304,10 +304,10 @@ TEST(MomentumManagement, IntegralLimitBoundsTheIntegralTerm) {
     }
 
     const float clampedBound = std::sqrt(3.0F) * kNominalKi * kTightIntegralLimit;
-    EXPECT_LE((LrClamped - LrProportional).norm(), clampedBound + kAccuracy);
+    EXPECT_LE((LrClamped - LrProportional).stableNorm(), clampedBound + kAccuracy);
 
     // The same sustained momentum drives an effectively unlimited integral far past that bound.
-    EXPECT_GT((LrUnlimited - LrProportional).norm(), 10.0F * clampedBound);
+    EXPECT_GT((LrUnlimited - LrProportional).stableNorm(), 10.0F * clampedBound);
 }
 
 // reInitialize() re-seeds the integrator, so the next update reproduces the very first request.
@@ -342,7 +342,7 @@ TEST(MomentumManagement, SetConfigPreservesIntegratorState) {
     alg.setConfig(MomentumManagementConfig::create(params, rwArrayConfig));
     const Eigen::Vector3f afterSetConfig = alg.update(wheelSpeeds);
 
-    EXPECT_GT(afterSetConfig.norm(), accumulated.norm());
+    EXPECT_GT(afterSetConfig.stableNorm(), accumulated.stableNorm());
     EXPECT_FALSE(afterSetConfig.isApprox(first));
 }
 
@@ -493,8 +493,8 @@ TEST(MomentumManagementConfigValidation, AcceptsZeroControlPeriodWhenKiIsZero) {
     const Eigen::Vector3f first = alg.update(wheelSpeeds);
     EXPECT_TRUE(alg.update(wheelSpeeds).isApprox(first));
 
-    const float hsNorm = clusterMomentum(makeStandardRwArrayConfig(), wheelSpeeds).norm();
-    EXPECT_NEAR(first.norm(), kNominalK * hsNorm, kAccuracy);
+    const float hsNorm = clusterMomentum(makeStandardRwArrayConfig(), wheelSpeeds).stableNorm();
+    EXPECT_NEAR(first.stableNorm(), kNominalK * hsNorm, kAccuracy);
 }
 
 // The projector must be a genuine orthogonal projector; anything else does not describe a subspace.

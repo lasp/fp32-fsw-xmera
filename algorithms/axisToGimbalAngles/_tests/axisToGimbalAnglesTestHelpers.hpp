@@ -33,7 +33,7 @@ inline AxisToGimbalAnglesConfig makeConfig(const Eigen::Vector3f& sigma_MB, cons
 inline Eigen::Vector3f gimbalAxis_M(const float angle1, const float angle2) {
     return Eigen::Vector3f{
         std::sin(angle2) * std::cos(angle1), -std::cos(angle2) * std::sin(angle1), std::cos(angle2) * std::cos(angle1)}
-        .normalized();
+        .stableNormalized();
 }
 
 // The DCM from the body frame to the mount frame, in double precision.
@@ -51,7 +51,7 @@ inline Eigen::Vector3d thrustHatUnit_M(const Eigen::Vector3f& sigma_MB, const Ei
 // [rad] angle between two directions. The arctangent of the cross and dot products stays well conditioned at
 // every angle, where an arccosine of the dot product does not near zero.
 inline double angleBetween(const Eigen::Vector3d& a, const Eigen::Vector3d& b) {
-    return std::atan2(a.cross(b).norm(), a.dot(b));
+    return std::atan2(a.cross(b).stableNorm(), a.dot(b));
 }
 
 // [rad] deflection of a direction from the mount +z axis, the neutral thrust axis.
@@ -162,8 +162,9 @@ inline void regressionTestAxisToGimbalAngles(const Eigen::Vector3f& sigma_MB,
 
     // The two angles and the achieved direction must both rebuild the direction that the travel limit gives.
     const Eigen::Vector3d limited_M = limitDeflectionReference(unitDirection_M, static_cast<double>(thetaMax));
-    EXPECT_LT((gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2).cast<double>() - limited_M).norm(), kAngleTolerance);
-    EXPECT_LT((out.thrustHat_B.cast<double>() - (dcmMountFromBody(sigma_MB).transpose() * limited_M)).norm(),
+    EXPECT_LT((gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2).cast<double>() - limited_M).stableNorm(),
+              kAngleTolerance);
+    EXPECT_LT((out.thrustHat_B.cast<double>() - (dcmMountFromBody(sigma_MB).transpose() * limited_M)).stableNorm(),
               kAngleTolerance);
 }
 
@@ -218,11 +219,12 @@ inline void propertyAchievedDirectionIsNearestReachable(const Eigen::Vector3f& s
     const Eigen::Matrix3d dcm_MB = dcmMountFromBody(sigma_MB);
     const Eigen::Vector3d achieved_M = dcm_MB * out.thrustHat_B.cast<double>();
 
-    EXPECT_NEAR(achieved_M.norm(), 1.0, 1e-6);
-    EXPECT_LT((achieved_M - gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2).cast<double>()).norm(), kAngleTolerance);
+    EXPECT_NEAR(achieved_M.stableNorm(), 1.0, 1e-6);
+    EXPECT_LT((achieved_M - gimbalAxis_M(out.gimbalAngle1, out.gimbalAngle2).cast<double>()).stableNorm(),
+              kAngleTolerance);
 
     if (thrustDirection_B.stableNorm() == 0.0F) {
-        EXPECT_LT((achieved_M - Eigen::Vector3d::UnitZ()).norm(), 1e-6);
+        EXPECT_LT((achieved_M - Eigen::Vector3d::UnitZ()).stableNorm(), 1e-6);
         return;
     }
 
@@ -248,7 +250,7 @@ inline void propertyLimitIsIdempotent(const Eigen::Vector3f& sigma_MB,
 
     EXPECT_NEAR(again.gimbalAngle1, out.gimbalAngle1, kAngleTolerance);
     EXPECT_NEAR(again.gimbalAngle2, out.gimbalAngle2, kAngleTolerance);
-    EXPECT_LT((again.thrustHat_B - out.thrustHat_B).norm(), kAngleTolerance);
+    EXPECT_LT((again.thrustHat_B - out.thrustHat_B).stableNorm(), kAngleTolerance);
 }
 
 // Both angles are ratios against the mount +z axis. Thus a change of the length of the input direction does not
@@ -269,7 +271,7 @@ inline void propertyLengthHasNoEffect(const Eigen::Vector3f& sigma_MB,
     const bool scalingKeptTheDirection =
         thrustDirection_B.stableNorm() > 0.0F && scaledDirection_B.stableNorm() > 0.0F &&
         !isNearlyOppositeTheNeutralAxis(thrustHatUnit_M(sigma_MB, thrustDirection_B)) &&
-        (thrustHatUnit_M(sigma_MB, scaledDirection_B) - thrustHatUnit_M(sigma_MB, thrustDirection_B)).norm() <
+        (thrustHatUnit_M(sigma_MB, scaledDirection_B) - thrustHatUnit_M(sigma_MB, thrustDirection_B)).stableNorm() <
             kDirectionKept;
     if (!scalingKeptTheDirection) {
         propertyOutputIsUsable(sigma_MB, thrustDirection_B, thetaMax);

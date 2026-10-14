@@ -88,7 +88,7 @@ class MrpFeedbackConfig final {
         std::optional<MrpFeedbackInputRwData> normalizedRwConfiguration = rwConfiguration;
         if (normalizedRwConfiguration.has_value()) {
             for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
-                normalizedRwConfiguration->GsMatrix_B.col(static_cast<int>(i)).normalize();
+                normalizedRwConfiguration->GsMatrix_B.col(static_cast<int>(i)).stableNormalize();
             }
         }
         return {controlParameters, knownTorquePntB_B, ISCPntB_B, normalizedRwConfiguration};

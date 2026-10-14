@@ -6,10 +6,10 @@
 // ---------------------------------------------------------------------------
 
 TEST(TriadTest, RegressionTest) {
-    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).stableNormalized();
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
-    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f(1.0F, -1.0F, -1.0F).normalized();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f(1.0F, -1.0F, -1.0F).stableNormalized();
     const N3Axis n3Axis = N3Axis::minusZHat_N;
 
     testTriadRegression(rHat_SB_N, thrustHat_B, sadaHat_B, thrustReqHat_N, n3Axis);
@@ -64,7 +64,7 @@ TEST(TriadTest, SetupTest) {
 
 // All output components are finite for valid inputs.
 TEST(TriadTest, OutputIsFinite) {
-    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).stableNormalized();
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
@@ -75,7 +75,7 @@ TEST(TriadTest, OutputIsFinite) {
 
 // Thrust body axis should align with thrust inertial heading direction
 TEST(TriadTest, ThrustBodyHeadingAlignedToThrustInertialHeading) {
-    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).stableNormalized();
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
@@ -86,7 +86,7 @@ TEST(TriadTest, ThrustBodyHeadingAlignedToThrustInertialHeading) {
 
 // sigma_RN norm is bounded by 1 (inner MRP set) for any inputs
 TEST(TriadTest, SigmaRnNormBounded) {
-    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).stableNormalized();
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
@@ -98,7 +98,7 @@ TEST(TriadTest, SigmaRnNormBounded) {
 // The solar array offset angle from the Sun is bounded by the body thrust vector offset angle from the plane normal
 // to the sada axis
 TEST(TriadTest, SolarArraySunOffsetBoundedByBodyThrustOffset) {
-    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).stableNormalized();
     const float thrustYZOffsetAngleRad = 15.0F * std::numbers::pi_v<float> / 180.0F;
     const Eigen::Vector3f thrustHat_B =
         Eigen::Vector3f(safeSinf(thrustYZOffsetAngleRad), 0.0F, -safeCosf(thrustYZOffsetAngleRad));
@@ -116,7 +116,7 @@ TEST(TriadTest, SolarArraySunOffsetBoundedByBodyThrustOffset) {
 // Comparing algorithm output to pre-computed known output
 TEST(TriadTest, ReturnedOutputMatchesPrecomputedReference) {
     const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(0.0F, 0.0F, -1.0F);
-    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f(0.0F, 1.0F, 1.0F).normalized();
+    const Eigen::Vector3f thrustHat_B = Eigen::Vector3f(0.0F, 1.0F, 1.0F).stableNormalized();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitY();
     const N3Axis n3Axis = N3Axis::plusZHat_N;
@@ -127,7 +127,7 @@ TEST(TriadTest, ReturnedOutputMatchesPrecomputedReference) {
 
     // Compute known output
     Eigen::Matrix3f dcm_BD;
-    dcm_BD.col(0) = Eigen::Vector3f(0.0F, 1.0F, -1.0F).normalized();
+    dcm_BD.col(0) = Eigen::Vector3f(0.0F, 1.0F, -1.0F).stableNormalized();
     dcm_BD.col(1) = thrustHat_B;
     dcm_BD.col(2) = Eigen::Vector3f::UnitX();
 
@@ -146,7 +146,7 @@ TEST(TriadTest, ReturnedOutputMatchesPrecomputedReference) {
 
 // Comparing final inertial sada axis with pre-computed known inertial sada axis direction
 TEST(TriadTest, InertialSadaAxisMatchesPrecomputedAxis) {
-    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(-1.0F, 0.0F, 1.0F).normalized();
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(-1.0F, 0.0F, 1.0F).stableNormalized();
     const float thrustYZOffsetAngleRad = 15.0F * std::numbers::pi_v<float> / 180.0F;
     const Eigen::Vector3f thrustHat_B =
         Eigen::Vector3f(safeSinf(thrustYZOffsetAngleRad), 0.0F, -safeCosf(thrustYZOffsetAngleRad));
@@ -174,7 +174,7 @@ TEST(TriadTest, InertialSadaAxisMatchesPrecomputedAxis) {
 
 // When the body thrust direction message is zero, the zero MRP is returned
 TEST(TriadTest, ZeroThrustDirectionReturnsZero) {
-    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).stableNormalized();
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::Zero();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitY();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
@@ -208,7 +208,7 @@ TEST(TriadTest, ZeroSunDirectionReturnsZero) {
 
 // When the solar array drive axis is aligned with body thrust direction message, the zero MRP is returned
 TEST(TriadTest, SadaAlignedBodyThrustReturnsZero) {
-    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).stableNormalized();
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitY();
@@ -245,7 +245,7 @@ TEST(TriadTest, SunAlignedWithThrustRefUsesFallbackZAxis) {
 
 // When the sada axis is orthogonal to the body thrust direction, the array-Sun orthogonality constraint is met
 TEST(TriadTest, SadaOrthogonalToSunWhenOrthogonalToBodyThrust) {
-    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).normalized();
+    const Eigen::Vector3f rHat_SB_N = Eigen::Vector3f(1.0F, 1.0F, 0.0F).stableNormalized();
     const Eigen::Vector3f thrustHat_B = Eigen::Vector3f::UnitZ();
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f::UnitZ();
@@ -270,7 +270,7 @@ TEST(TriadTest, SadaAxisOrthogonalToSunWhenSunAndThrustRefAligned) {
     const Eigen::Vector3f thrustHat_B =
         Eigen::Vector3f(safeSinf(thrustYZOffsetAngleRad), 0.0F, -safeCosf(thrustYZOffsetAngleRad));
     const Eigen::Vector3f sadaHat_B = Eigen::Vector3f::UnitX();
-    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f(1.0F, 0.0F, 1.0F).normalized();
+    const Eigen::Vector3f thrustReqHat_N = Eigen::Vector3f(1.0F, 0.0F, 1.0F).stableNormalized();
     const N3Axis n3Axis = N3Axis::plusZHat_N;
 
     auto config = TriadConfig::create(sadaHat_B, thrustReqHat_N, n3Axis);

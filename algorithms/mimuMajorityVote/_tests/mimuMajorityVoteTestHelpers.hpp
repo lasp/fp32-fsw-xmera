@@ -32,7 +32,7 @@ inline ReferenceVote referenceUpdate(float threshold,
     ReferenceVote out{};
     size_t maxDiffIndex = 0U;
     for (size_t i = 0U; i < kMimuCount; ++i) {
-        out.imuDifferenceMag.at(i) = (measurements.at(i) - average).norm();
+        out.imuDifferenceMag.at(i) = (measurements.at(i) - average).stableNorm();
         if (out.imuDifferenceMag.at(i) > out.imuDifferenceMag.at(maxDiffIndex)) {
             maxDiffIndex = i;
         }

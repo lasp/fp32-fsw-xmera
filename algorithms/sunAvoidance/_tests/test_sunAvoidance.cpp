@@ -182,7 +182,7 @@ void expectManeuverBoundedAndFinite(const Eigen::Vector3f& sHat_B) {
         const SunAvoidanceAttRef out = alg.update(kSigmaBN, refIn, sHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
-        EXPECT_LE(out.sigma_RN.norm(), normBound);
+        EXPECT_LE(out.sigma_RN.stableNorm(), normBound);
     }
 }
 }  // namespace
@@ -198,7 +198,7 @@ TEST(SunAvoidanceTest, EdgeSunParallelToSweepAxis) {
     const Eigen::Matrix3f dcm_BN = mrpToDcm(kSigmaBN);
     const Eigen::Vector3f sensitiveInitial_N = dcm_BN.transpose() * kSensitiveHat_B;
     const Eigen::Vector3f sensitiveFinal_N = mrpToDcm(kSigmaRN).transpose() * kSensitiveHat_B;
-    const Eigen::Vector3f sweepAxis_N = sensitiveInitial_N.cross(sensitiveFinal_N).normalized();
+    const Eigen::Vector3f sweepAxis_N = sensitiveInitial_N.cross(sensitiveFinal_N).stableNormalized();
     expectManeuverBoundedAndFinite(dcm_BN * sweepAxis_N);
 }
 
@@ -217,7 +217,7 @@ TEST(SunAvoidanceTest, EdgeAntiParallelSensitiveAxes) {
         const SunAvoidanceAttRef out = alg.update(sigmaBN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
-        EXPECT_LE(out.sigma_RN.norm(), normBound);
+        EXPECT_LE(out.sigma_RN.stableNorm(), normBound);
     }
 }
 
@@ -228,7 +228,7 @@ TEST(SunAvoidanceConfigTest, GettersRoundTrip) {
     const auto config = SunAvoidanceConfig::create(rawSensitive, kManeuverRate);
 
     constexpr float tol = 1e-6F;
-    const Eigen::Vector3f expectedSensitive = rawSensitive.normalized();
+    const Eigen::Vector3f expectedSensitive = rawSensitive.stableNormalized();
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(config.getSensitiveHat_B()(i), expectedSensitive(i), tol);
     }

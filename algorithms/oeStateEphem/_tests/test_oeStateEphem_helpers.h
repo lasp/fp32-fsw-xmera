@@ -213,8 +213,8 @@ inline void testOEStateEphemUpdate(double mu,
     constexpr double absFloor = 1e-14;
     constexpr double angleTol = 1e-6;
 
-    double posTol = std::max(absFloor, expected_state.position.norm() * relTol);
-    double velTol = std::max(absFloor, expected_state.velocity.norm() * relTol);
+    double posTol = std::max(absFloor, expected_state.position.stableNorm() * relTol);
+    double velTol = std::max(absFloor, expected_state.velocity.stableNorm() * relTol);
     for (int idx = 0; idx < 3; ++idx) {
         EXPECT_TRUE(std::isfinite(computed_state.position[idx]));
         EXPECT_TRUE(std::isfinite(computed_state.velocity[idx]));
@@ -222,7 +222,8 @@ inline void testOEStateEphemUpdate(double mu,
         EXPECT_NEAR(computed_state.position[idx], expected_state.position[idx], posTol);
         EXPECT_NEAR(computed_state.velocity[idx], expected_state.velocity[idx], velTol);
     }
-    EXPECT_LT(safeAcos(computed_state.position.normalized().dot(expected_state.position.normalized())), angleTol);
+    EXPECT_LT(safeAcos(computed_state.position.stableNormalized().dot(expected_state.position.stableNormalized())),
+              angleTol);
 }
 
 #endif  // TEST_OE_STATE_EPHEM_HELPERS_H

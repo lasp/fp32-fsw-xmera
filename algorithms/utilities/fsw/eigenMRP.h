@@ -112,14 +112,14 @@ class MRPBase : public RotationBase<Derived, 3> {
     /** \returns the norm of the MRP's coefficients
      * \sa MRPBase::squaredNorm(), MatrixBase::norm()
      */
-    inline Scalar norm() const { return coeffs().norm(); }
+    inline Scalar norm() const { return coeffs().stableNorm(); }
 
     /** Normalizes the MRP \c *this
      * \sa normalized(), MatrixBase::normalize() */
-    inline void normalize() { coeffs().normalize(); }
+    inline void normalize() { coeffs().stableNormalize(); }
     /** \returns a normalized copy of \c *this
      * \sa normalize(), MatrixBase::normalized() */
-    inline MRP<Scalar> normalized() const { return MRP<Scalar>(coeffs().normalized()); }
+    inline MRP<Scalar> normalized() const { return MRP<Scalar>(coeffs().stableNormalized()); }
 
     /** \returns the dot product of \c *this and \a other
      * Geometrically speaking, the dot product of two unit MRPs
@@ -588,13 +588,13 @@ inline Derived& MRPBase<Derived>::setFromTwoVectors(const MatrixBase<Derived1>& 
     using std::acos;
     using std::tan;
 
-    Vector3 v0 = a.normalized();
-    Vector3 v1 = b.normalized();
+    Vector3 v0 = a.stableNormalized();
+    Vector3 v1 = b.stableNormalized();
     Scalar c = v1.dot(v0);
 
     if (c <= 1 && c >= -1) {
         Vector3 axis = v0.cross(v1);
-        axis.normalize();
+        axis.stableNormalize();
 
         this->vec() = axis * tan(acos(c) / Scalar(4.0));
     } else {

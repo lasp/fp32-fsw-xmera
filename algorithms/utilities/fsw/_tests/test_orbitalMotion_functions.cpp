@@ -268,8 +268,8 @@ TEST_F(StateConversionTest, CircularOrbit_Conversion) {
     EXPECT_NEAR(state.position.z(), 0.0, kAnomalyTol);
 
     // Velocity should be perpendicular to position
-    double r = state.position.norm();
-    double v = state.velocity.norm();
+    double r = state.position.stableNorm();
+    double v = state.velocity.stableNorm();
     EXPECT_NEAR(state.position.dot(state.velocity), 0.0, r * v * kStateRelTol);
 }
 
@@ -289,8 +289,8 @@ TEST_F(StateConversionTest, EllipticalOrbit_Conversion) {
     }
 
     // Check that position and velocity magnitudes make sense
-    double r_mag = state.position.norm();
-    double v_mag = state.velocity.norm();
+    double r_mag = state.position.stableNorm();
+    double v_mag = state.velocity.stableNorm();
 
     EXPECT_GT(r_mag, 0.0);
     EXPECT_GT(v_mag, 0.0);
@@ -373,8 +373,8 @@ TEST_F(StateConversionTest, ParabolicOrbit_DirectConstruction_VisViva) {
         ASSERT_TRUE(std::isfinite(state.velocity[j]));
     }
 
-    double const r = state.position.norm();
-    double const v = state.velocity.norm();
+    double const r = state.position.stableNorm();
+    double const v = state.velocity.stableNorm();
     EXPECT_NEAR(r, elements.radiusPeriapsis, elements.radiusPeriapsis * kStateRelTol);
     EXPECT_NEAR(v * v, 2.0 * mu / r, (2.0 * mu / r) * kStateRelTol);
 }
@@ -398,8 +398,8 @@ TEST_F(StateConversionTest, ParabolicOrbit_NonZeroTrueAnomaly_MatchesConicEquati
 
     double const p = elements.radiusPeriapsis * (1.0 + elements.eccentricity);
     double const r_expected = p / (1.0 + elements.eccentricity * std::cos(elements.trueAnomaly));
-    double const r = state.position.norm();
-    double const v = state.velocity.norm();
+    double const r = state.position.stableNorm();
+    double const v = state.velocity.stableNorm();
     EXPECT_NEAR(r, r_expected, r_expected * kStateRelTol);
     EXPECT_NEAR(v * v, 2.0 * mu / r, (2.0 * mu / r) * kStateRelTol);
 }
@@ -421,8 +421,8 @@ TEST_F(StateConversionTest, ParabolicOrbit_RotatedFrame_RoundTrip) {
         ASSERT_TRUE(std::isfinite(state.velocity[j]));
     }
 
-    double const r = state.position.norm();
-    double const v = state.velocity.norm();
+    double const r = state.position.stableNorm();
+    double const v = state.velocity.stableNorm();
     EXPECT_NEAR(v * v, 2.0 * mu / r, (2.0 * mu / r) * kStateRelTol);
 
     ClassicalElements result = orbitalMotion::cartesianStateToElements(mu, state.position, state.velocity);

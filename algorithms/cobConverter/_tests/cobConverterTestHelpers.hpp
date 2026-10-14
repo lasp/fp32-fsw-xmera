@@ -108,7 +108,7 @@ inline Eigen::Vector3d mapState(const Eigen::Vector2d& pixel,
     if (converged != nullptr) {
         *converged = undistorted.valid;
     }
-    return -undistorted.vector.normalized();
+    return -undistorted.vector.stableNormalized();
 }
 
 // Double-precision mirror of CobConverterAlgorithm::computeBetaVar.
@@ -118,7 +118,7 @@ inline double betaVariance(const Eigen::Vector3d& position,
                            const Eigen::Vector3d& sunUnit_N,
                            double radiusUncertainty,
                            const Eigen::Matrix3d& positionCovar) {
-    const double positionNorm = position.norm();
+    const double positionNorm = position.stableNorm();
     const double oneMinusCosAlpha = 1.0 - safeCos(alpha);
     const double binaryTerm = (4.0 * radius / (3.0 * std::numbers::pi * positionNorm)) * oneMinusCosAlpha;
     const double constantsDeltaR = binaryTerm / (1.0 + (binaryTerm * binaryTerm));
@@ -149,8 +149,8 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     CobConverterUpdateResult output;
 
     if (!cob.cobValid || cob.cobPixelsFound == 0 ||
-        filter.filterVehPosition.norm() <= static_cast<double>(cfg.getRadius()) || !attitude.vehSunPntBdy.allFinite() ||
-        attitude.vehSunPntBdy.norm() == 0.0F) {
+        filter.filterVehPosition.stableNorm() <= static_cast<double>(cfg.getRadius()) ||
+        !attitude.vehSunPntBdy.allFinite() || attitude.vehSunPntBdy.stableNorm() == 0.0F) {
         return output;
     }
 
@@ -173,16 +173,16 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 
     // The Binary correction is unconditional, so alpha/phi/Rc/gamma always compute.
     const Eigen::Vector3d position = filter.filterVehPosition;
-    const Eigen::Vector3d rHat_N = position.normalized();
-    const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().normalized();
+    const Eigen::Vector3d rHat_N = position.stableNormalized();
+    const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().stableNormalized();
     const Eigen::Vector3d shat_N = dcm_BN.transpose() * shat_B;
     const Eigen::Vector3d shat_C = dcm_CB * shat_B;
 
     const double alpha = safeAcos(rHat_N.dot(shat_N));
     const double phi = safeAtan2(shat_C(1), shat_C(0));
     const double gamma = (4.0 / (3.0 * std::numbers::pi)) * (1.0 - safeCos(alpha));
-    const double objectRadiusPixels = static_cast<double>(cfg.getRadius()) * dX / position.norm();
-    const double tanBeta = static_cast<double>(cfg.getRadius()) * gamma / position.norm();
+    const double objectRadiusPixels = static_cast<double>(cfg.getRadius()) * dX / position.stableNorm();
+    const double tanBeta = static_cast<double>(cfg.getRadius()) * gamma / position.stableNorm();
 
     const Eigen::Vector2d cobPixels = cob.cobCenterOfBrightness.cast<double>();
     const Eigen::Vector2d comPixels(cobPixels(0) - (tanBeta * dX * safeCos(phi)),
@@ -226,7 +226,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const double y = h(1);
     Eigen::Matrix<double, 3, 2> jacobian;
     jacobian << (y * y) + 1.0, -x * y, -x * y, (x * x) + 1.0, -x, -y;
-    jacobian *= -1.0 / std::pow(h.norm(), 3);
+    jacobian *= -1.0 / std::pow(h.stableNorm(), 3);
     const Eigen::Matrix3d covarRHat_C = jacobian * covarCOMxy * jacobian.transpose();
 
     const Eigen::Vector3d rHat_B = dcm_CB.transpose() * rhatCOM_C;
@@ -246,8 +246,8 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     bool comErrorOutlierTrigger = false;
     if (cfg.isOutlierDetectionEnabled()) {
         // Mirrors comOutlierDetection: COM heading vs filter heading, both COM->SC in N.
-        const Eigen::Vector3d rhatNav_N = filter.filterVehPosition.normalized();
-        const double error = ((dcm_NC * rhatCOM_C) - rhatNav_N).norm();
+        const Eigen::Vector3d rhatNav_N = filter.filterVehPosition.stableNormalized();
+        const double error = ((dcm_NC * rhatCOM_C) - rhatNav_N).stableNorm();
         double sigma = 0.0;
         if (cfg.isStandardDeviationSpecified()) {
             sigma = static_cast<double>(cfg.getStandardDeviation()) * safeSqrt((1.0 / (dX * dX)) + (1.0 / (dY * dY)));

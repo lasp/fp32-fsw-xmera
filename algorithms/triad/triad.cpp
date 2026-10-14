@@ -37,11 +37,11 @@ void Triad::updateState(const uint64_t callTime) {
 
     const NavAttMsgF32Payload attNavIn = this->attNavInMsg();
     const Eigen::Matrix3f dcm_BN = mrpToDcm(cArrayToEigenVector(attNavIn.sigma_BN));
-    const Eigen::Vector3f rHat_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy).normalized();
+    const Eigen::Vector3f rHat_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy).stableNormalized();
     const Eigen::Vector3f rHat_SB_N = dcm_BN.transpose() * rHat_SB_B;
 
     const BodyHeadingMsgF32Payload bodyHeadingIn = this->bodyHeadingInMsg();
-    const Eigen::Vector3f thrustHat_B = cArrayToEigenVector(bodyHeadingIn.rHat_XB_B).normalized();
+    const Eigen::Vector3f thrustHat_B = cArrayToEigenVector(bodyHeadingIn.rHat_XB_B).stableNormalized();
 
     const Eigen::Vector3f sigma_RN = this->algorithm->update(rHat_SB_N, thrustHat_B);
 

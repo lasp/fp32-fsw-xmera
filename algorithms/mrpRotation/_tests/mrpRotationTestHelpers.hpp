@@ -166,8 +166,8 @@ inline void propertySigmaRNEqualsSigmaRR0WhenInputRefIsIdentity(const Eigen::Vec
         const float principalNormSq = principal.squaredNorm();
         const Eigen::Vector3f shadow =
             (principalNormSq > 1e-5F) ? Eigen::Vector3f(-principal / principalNormSq) : principal;
-        const float errPrincipal = (algOut.sigma_RN - principal).norm();
-        const float errShadow = (algOut.sigma_RN - shadow).norm();
+        const float errPrincipal = (algOut.sigma_RN - principal).stableNorm();
+        const float errShadow = (algOut.sigma_RN - shadow).stableNorm();
         EXPECT_LT(std::min(errPrincipal, errShadow), tol);
     }
 }
@@ -193,7 +193,7 @@ inline void propertySigmaRNNormLessOrEqualToOne(const Eigen::Vector3f& initialSi
 
     for (int k = 0; k < kNumSteps; ++k) {
         const MrpRotationOutput out = alg.update(attRef);
-        EXPECT_LE(out.sigma_RN.norm(), kMrpNormBound);
+        EXPECT_LE(out.sigma_RN.stableNorm(), kMrpNormBound);
     }
 }
 
@@ -221,7 +221,7 @@ inline void propertyOmegaRNDecomposesCorrectly(const Eigen::Vector3f& initialSig
     constexpr float kRoundingOps = 8.0F;
     constexpr float kSafetyMargin = 2.0F;
     constexpr float kRelTol = kSafetyMargin * kRoundingOps * std::numeric_limits<float>::epsilon();
-    const float tol = 1e-5F + kRelTol * (omegaRR0R.norm() + omega_R0N_N.norm());
+    const float tol = 1e-5F + kRelTol * (omegaRR0R.stableNorm() + omega_R0N_N.stableNorm());
     for (int k = 0; k < kNumSteps; ++k) {
         const MrpRotationOutput out = alg.update(attRef);
         const Eigen::Matrix3f dcm_RN = mrpToDcm(out.sigma_RN);

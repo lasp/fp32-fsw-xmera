@@ -33,7 +33,7 @@ TEST(SunSearchPointTest, SetupTest) {
     }
 
     Eigen::Vector3f retrieved_sHat = cfg.getSHatBdyCmd();
-    EXPECT_NEAR(retrieved_sHat.norm(), 1.0F, 1e-6F);
+    EXPECT_NEAR(retrieved_sHat.stableNorm(), 1.0F, 1e-6F);
     EXPECT_NEAR(retrieved_sHat(0), 0.6F, 1e-6F);
     EXPECT_NEAR(retrieved_sHat(1), 0.8F, 1e-6F);
     EXPECT_NEAR(retrieved_sHat(2), 0.0F, 1e-6F);
@@ -63,7 +63,7 @@ TEST(SunSearchPointTest, SigmaBrZeroWhenSunNotVisible) {
 
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
     auto output = pointUpdate(alg, Eigen::Vector3f::Zero(), omega_BN_B);
-    EXPECT_FLOAT_EQ(output.sigma_BR.norm(), 0.0F);
+    EXPECT_FLOAT_EQ(output.sigma_BR.stableNorm(), 0.0F);
 }
 
 // sigma_BR is zero when sun direction is aligned with sHatBdyCmd.
@@ -75,7 +75,7 @@ TEST(SunSearchPointTest, SigmaBrZeroWhenAligned) {
 
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
     auto output = pointUpdate(alg, sunVec, omega_BN_B);
-    EXPECT_NEAR(output.sigma_BR.norm(), 0.0F, 1e-6F);
+    EXPECT_NEAR(output.sigma_BR.stableNorm(), 0.0F, 1e-6F);
 }
 
 // In the normal case, sigma_BR direction is orthogonal to both sunVec and sHatBdyCmd.
@@ -89,9 +89,9 @@ TEST(SunSearchPointTest, SigmaBrOrthogonalToBothVectors) {
     auto output = pointUpdate(alg, sunVec, omega_BN_B);
 
     Eigen::Vector3f sHat = cfg.getSHatBdyCmd();
-    Eigen::Vector3f sigmaDir = output.sigma_BR.normalized();
+    Eigen::Vector3f sigmaDir = output.sigma_BR.stableNormalized();
 
-    EXPECT_NEAR(sigmaDir.dot(sunVec.normalized()), 0.0F, 1e-5F);
+    EXPECT_NEAR(sigmaDir.dot(sunVec.stableNormalized()), 0.0F, 1e-5F);
     EXPECT_NEAR(sigmaDir.dot(sHat), 0.0F, 1e-5F);
 }
 
@@ -105,10 +105,10 @@ TEST(SunSearchPointTest, OmegaRnParallelToSunVec) {
 
     // omega_RN_B should be parallel to sunVec: cross product should be zero
     Eigen::Vector3f cross = output.omega_RN_B.cross(sunVec);
-    EXPECT_NEAR(cross.norm(), 0.0F, 1e-5F);
+    EXPECT_NEAR(cross.stableNorm(), 0.0F, 1e-5F);
 
     // Magnitude should be |sunAxisSpinRate|
-    EXPECT_NEAR(output.omega_RN_B.norm(), 2.0F, 1e-5F);
+    EXPECT_NEAR(output.omega_RN_B.stableNorm(), 2.0F, 1e-5F);
 }
 
 // ---------------------------------------------------------------------------
@@ -125,8 +125,8 @@ TEST(SunSearchPointTest, SunOpposite180) {
     auto output = pointUpdate(alg, sunVec, omega_BN_B);
 
     // sigma_BR should be non-zero (180° rotation)
-    EXPECT_GT(output.sigma_BR.norm(), 0.1F);
-    EXPECT_LE(output.sigma_BR.norm(), 1.0F + 1e-6F);
+    EXPECT_GT(output.sigma_BR.stableNorm(), 0.1F);
+    EXPECT_LE(output.sigma_BR.stableNorm(), 1.0F + 1e-6F);
 
     // Verify against reference
     Eigen::Vector3f sHat = cfg.getSHatBdyCmd();
@@ -159,11 +159,11 @@ TEST(SunSearchPointTest, SmallNonZeroSunVectorIsVisible) {
     // Very small non-zero sun vector: still visible
     Eigen::Vector3f sunSmall{1e-6F, 0.0F, 0.0F};
     auto outputSmall = pointUpdate(alg, sunSmall, omega_BN_B);
-    EXPECT_GT(outputSmall.sigma_BR.norm(), 0.0F);
+    EXPECT_GT(outputSmall.sigma_BR.stableNorm(), 0.0F);
 
     // Zero vector: not visible
     auto outputZero = pointUpdate(alg, Eigen::Vector3f::Zero(), omega_BN_B);
-    EXPECT_FLOAT_EQ(outputZero.sigma_BR.norm(), 0.0F);
+    EXPECT_FLOAT_EQ(outputZero.sigma_BR.stableNorm(), 0.0F);
     // omega_RN_B should be the configured fallback
     EXPECT_FLOAT_EQ(outputZero.omega_RN_B(0), 0.5F);
 }
@@ -178,7 +178,7 @@ TEST(SunSearchPointTest, SHatAlongXAxis180Opposition) {
     auto output = pointUpdate(alg, sunVec, omega_BN_B);
 
     // sigma_BR should be non-zero and finite
-    EXPECT_GT(output.sigma_BR.norm(), 0.1F);
+    EXPECT_GT(output.sigma_BR.stableNorm(), 0.1F);
     EXPECT_TRUE(std::isfinite(output.sigma_BR(0)));
     EXPECT_TRUE(std::isfinite(output.sigma_BR(1)));
     EXPECT_TRUE(std::isfinite(output.sigma_BR(2)));
@@ -229,7 +229,7 @@ TEST(SunSearchPointTest, NegativeSpinRate) {
 
     // omega_RN_B should be anti-parallel to sunVec
     EXPECT_LT(output.omega_RN_B(0), 0.0F);
-    EXPECT_NEAR(output.omega_RN_B.norm(), 2.0F, 1e-5F);
+    EXPECT_NEAR(output.omega_RN_B.stableNorm(), 2.0F, 1e-5F);
 }
 
 // ---------------------------------------------------------------------------
@@ -314,7 +314,7 @@ TEST(SunSearchPointTest, NoTransitionDuringFirstRotation) {
     const SunSearchPointOutput out = advanceTo(alg, secToNs(5.0), sun, omega_BN_B, 100);
 
     // Still SEARCH: zero attitude error, omega_RN_B = rotation-1 rate (0.1 about b1), no fault.
-    EXPECT_FLOAT_EQ(out.sigma_BR.norm(), 0.0F);
+    EXPECT_FLOAT_EQ(out.sigma_BR.stableNorm(), 0.0F);
     EXPECT_NEAR(out.omega_RN_B[0], 0.1F, 1e-6F);
     EXPECT_NEAR(out.omega_RN_B[1], 0.0F, 1e-6F);
     EXPECT_NEAR(out.omega_RN_B[2], 0.0F, 1e-6F);
@@ -333,7 +333,7 @@ TEST(SunSearchPointTest, StaysSearchingBelowThreshold) {
     // rotation-by-rotation.
     auto checkSearch = [&](double tSec, const Eigen::Vector3f& expectedOmegaRN) {
         const SunSearchPointOutput out = observeAt(alg, nextElapsed, secToNs(tSec), sun, Eigen::Vector3f::Zero(), 3);
-        EXPECT_FLOAT_EQ(out.sigma_BR.norm(), 0.0F);
+        EXPECT_FLOAT_EQ(out.sigma_BR.stableNorm(), 0.0F);
         EXPECT_NEAR(out.omega_RN_B[0], expectedOmegaRN[0], 1e-6F);
         EXPECT_NEAR(out.omega_RN_B[1], expectedOmegaRN[1], 1e-6F);
         EXPECT_NEAR(out.omega_RN_B[2], expectedOmegaRN[2], 1e-6F);
@@ -357,11 +357,11 @@ TEST(SunSearchPointTest, ForcedTransitionAfterAllRotations) {
 
     // Pointing output (matches the reference), NOT the held last-rotation rate (0.4 about b1).
     const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
-    EXPECT_GT(out.sigma_BR.norm(), 0.0F);
+    EXPECT_GT(out.sigma_BR.stableNorm(), 0.0F);
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(out.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
     }
-    EXPECT_NEAR(out.omega_RN_B.norm(), 0.0F, 1e-6F);
+    EXPECT_NEAR(out.omega_RN_B.stableNorm(), 0.0F, 1e-6F);
     EXPECT_TRUE(out.sunNotFound);  // search failed (sun never acquired) -> fault latched
 }
 
@@ -381,11 +381,11 @@ TEST(SunSearchPointTest, TransitionsToPointAtThreshold) {
         const SunSearchPointOutput out = advanceTo(alg, secToNs(tSec), sun, omega_BN_B, 4);
 
         const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
-        EXPECT_GT(out.sigma_BR.norm(), 0.0F);
+        EXPECT_GT(out.sigma_BR.stableNorm(), 0.0F);
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(out.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
         }
-        EXPECT_NEAR(out.omega_RN_B.norm(), 0.0F, 1e-6F);
+        EXPECT_NEAR(out.omega_RN_B.stableNorm(), 0.0F, 1e-6F);
         EXPECT_FALSE(out.sunNotFound);  // sun acquired -> healthy transition, no fault
     }
 }
@@ -407,7 +407,7 @@ TEST(SunSearchPointTest, PointIsTerminalNoReturnToSearch) {
     const SunSearchPointOutput out = observeAt(alg, nextElapsed, secToNs(18.0), sun, omega_BN_B, 0);
 
     const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
-    EXPECT_GT(out.sigma_BR.norm(), 0.0F);  // pointing, not a search rate
+    EXPECT_GT(out.sigma_BR.stableNorm(), 0.0F);  // pointing, not a search rate
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(out.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
     }
@@ -427,17 +427,17 @@ TEST(SunSearchPointTest, PointResumesPointingWhenSunReturns) {
 
     // Enter POINT with a visible sun.
     const SunSearchPointOutput pointing1 = observeAt(alg, nextElapsed, secToNs(15.0), sun, omega_BN_B, 5);
-    EXPECT_GT(pointing1.sigma_BR.norm(), 0.0F);
+    EXPECT_GT(pointing1.sigma_BR.stableNorm(), 0.0F);
 
     // Sun lost: fallback branch (sigma 0, omega_RN_B = configured fallback).
     const SunSearchPointOutput fallback =
         observeAt(alg, nextElapsed, secToNs(16.0), Eigen::Vector3f::Zero(), omega_BN_B, 0);
-    EXPECT_FLOAT_EQ(fallback.sigma_BR.norm(), 0.0F);
+    EXPECT_FLOAT_EQ(fallback.sigma_BR.stableNorm(), 0.0F);
     EXPECT_NEAR(fallback.omega_RN_B[2], 0.1F, 1e-6F);
 
     // Sun returns: pointing resumes (the fallback is evaluated per-update, not latched).
     const SunSearchPointOutput pointing2 = observeAt(alg, nextElapsed, secToNs(17.0), sun, omega_BN_B, 0);
-    EXPECT_GT(pointing2.sigma_BR.norm(), 0.0F);
+    EXPECT_GT(pointing2.sigma_BR.stableNorm(), 0.0F);
     const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(pointing2.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
@@ -456,7 +456,7 @@ TEST(SunSearchPointTest, ForcedTransitionWithoutSunUsesFallbackRate) {
     // forced transition lands in POINT's zero-sun branch -> configured fallback rate.
     const SunSearchPointOutput out = advanceTo(alg, secToNs(40.0), Eigen::Vector3f::Zero(), omega_BN_B, 0);
 
-    EXPECT_FLOAT_EQ(out.sigma_BR.norm(), 0.0F);
+    EXPECT_FLOAT_EQ(out.sigma_BR.stableNorm(), 0.0F);
     EXPECT_NEAR(out.omega_RN_B[0], 0.0F, 1e-6F);
     EXPECT_NEAR(out.omega_RN_B[1], 0.0F, 1e-6F);
     EXPECT_NEAR(out.omega_RN_B[2], 0.1F, 1e-6F);  // fallback, not the 0.4 hold or zero

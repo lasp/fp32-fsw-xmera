@@ -532,7 +532,7 @@ TEST(InertialFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual)
 
     StAttResidualsOutput const res = algo.getLastStAttResiduals();
     EXPECT_TRUE(res.valid);
-    EXPECT_LT(res.postFit.norm(), res.preFit.norm());
+    EXPECT_LT(res.postFit.stableNorm(), res.preFit.stableNorm());
 }
 
 TEST(InertialFilterAlgorithmMeasurements, SequentialStAttThenRateBothApplied) {
@@ -620,7 +620,7 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, HighMeasurementNoiseLeavesStateNe
     m.valid = true;
     EXPECT_TRUE(algo.measurementUpdate(m));
 
-    EXPECT_LT((algo.getState().raw() - before.raw()).norm(), 1E-5) << "state moved despite R >> P";
+    EXPECT_LT((algo.getState().raw() - before.raw()).stableNorm(), 1E-5) << "state moved despite R >> P";
     StAttResidualsOutput const res = algo.getLastStAttResiduals();
     EXPECT_TRUE(res.postFit.isApprox(res.preFit, 1E-4)) << "postFit should approx preFit when R >> P";
 }
@@ -687,14 +687,14 @@ TEST(InertialFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
 
 TEST(InertialFilterAlgorithmRegularize, SwitchesOverUnityMrpToInnerSet) {
     Eigen::Vector3d const overUnity(0.9, 0.9, 0.9);  // norm ~1.56
-    ASSERT_GT(overUnity.norm(), 1.0);
+    ASSERT_GT(overUnity.stableNorm(), 1.0);
     InertialFilterAlgorithm algo(baseConfig(makeState(overUnity, Eigen::Vector3d::Zero()), diagCovariance(1E-2, 1E-3)));
 
     // currentSeconds = 0: no propagation, no measurements -- only regularization runs.
     algo.update(0.0, StAttData{}, RateData{});
 
     Eigen::Vector3d const sigma = algo.getState().get<filtering::MrpAttitude<3>>();
-    EXPECT_LE(sigma.norm(), 1.0);
+    EXPECT_LE(sigma.stableNorm(), 1.0);
     // Shadow switching preserves the physical attitude (same DCM).
     EXPECT_TRUE(mrpToDcm(sigma).isApprox(mrpToDcm(overUnity), 1E-9));
 }
@@ -732,8 +732,8 @@ TEST(InertialFilterAlgorithmConvergence, ConvergesToConstantAttitudeWithExactMea
         algo.update(i * dt, st, rate);
     }
 
-    double const attErr = (algo.getState().get<filtering::MrpAttitude<3>>() - truthSigma).norm();
-    double const rateErr = (algo.getState().get<filtering::AngularRate<3>>() - truthOmega).norm();
+    double const attErr = (algo.getState().get<filtering::MrpAttitude<3>>() - truthSigma).stableNorm();
+    double const rateErr = (algo.getState().get<filtering::AngularRate<3>>() - truthOmega).stableNorm();
     EXPECT_LT(attErr, 1E-3) << "attitude error " << attErr;
     EXPECT_LT(rateErr, 5E-3) << "rate error " << rateErr;
     EXPECT_LT(algo.getCovariance().trace(), P0.trace());
@@ -766,8 +766,8 @@ TEST(InertialFilterAlgorithmConvergence, ConvergesUnderNoisyMeasurements) {
 
     // Generous bound (~10 sigma) keeps the seeded test non-flaky while still
     // demonstrating convergence under noise.
-    double const attErr = (algo.getState().get<filtering::MrpAttitude<3>>() - truthSigma).norm();
-    double const rateErr = (algo.getState().get<filtering::AngularRate<3>>() - truthOmega).norm();
+    double const attErr = (algo.getState().get<filtering::MrpAttitude<3>>() - truthSigma).stableNorm();
+    double const rateErr = (algo.getState().get<filtering::AngularRate<3>>() - truthOmega).stableNorm();
     EXPECT_LT(attErr, 10 * stStd) << "attitude error " << attErr;
     EXPECT_LT(rateErr, 10 * rateStd) << "rate error " << rateErr;
     EXPECT_LT(algo.getCovariance().trace(), P0.trace());

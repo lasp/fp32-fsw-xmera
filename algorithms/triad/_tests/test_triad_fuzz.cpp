@@ -77,7 +77,7 @@ void fuzzPropertyThrustBodyHeadingAlignedToThrustInertialHeading(const Eigen::Ve
     const Eigen::Vector3f thrustReqHatUnit_N = thrustReqHat_N.stableNormalized();
     const float sunToThrustRefAngle = safeAcosf(fabsf(rHatUnit_SB_N.dot(thrustReqHatUnit_N)));
     const float n3HatSign = (n3Axis == N3Axis::plusZHat_N) ? 1.0F : -1.0F;
-    const Eigen::Vector3f n3Hat_N = (n3HatSign * Eigen::Vector3f::UnitZ()).normalized();
+    const Eigen::Vector3f n3Hat_N = (n3HatSign * Eigen::Vector3f::UnitZ()).stableNormalized();
     const float zToThrustRefAngle = safeAcosf(fabsf(n3Hat_N.dot(thrustReqHatUnit_N)));
     if (sunToThrustRefAngle < kParallelThresholdRad && zToThrustRefAngle < kParallelThresholdRad) {
         return;

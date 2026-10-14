@@ -166,13 +166,13 @@ inline std::optional<SunlineFilterConfig> tryFuzzConfig(Eigen::Vector3d const& s
                                                         Eigen::Vector3d const& omega,
                                                         double bias,
                                                         Vector7 const& covDiagRaw) {
-    if (!sHatRaw.allFinite() || sHatRaw.norm() < 1E-3 || !omega.allFinite() || !std::isfinite(bias) ||
+    if (!sHatRaw.allFinite() || sHatRaw.stableNorm() < 1E-3 || !omega.allFinite() || !std::isfinite(bias) ||
         !covDiagRaw.allFinite()) {
         return std::nullopt;
     }
     // A strictly positive diagonal is symmetric positive definite, so the covariance always validates.
     Vector7 const covDiag = covDiagRaw.cwiseAbs() + Vector7::Constant(1E-6);
-    return threeCssConfig(makeState(sHatRaw.normalized(), omega, bias), covDiag.asDiagonal(), 0.0);
+    return threeCssConfig(makeState(sHatRaw.stableNormalized(), omega, bias), covDiag.asDiagonal(), 0.0);
 }
 
 // Drives one update() with the given (possibly non-finite) CSS cos-values and rate at a shared
@@ -216,7 +216,7 @@ inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3d sHatRaw,
     Matrix7 const P = algo.getCovariance();
     EXPECT_TRUE(s.raw().allFinite());
     EXPECT_TRUE(P.allFinite());
-    EXPECT_NEAR(s.get<filtering::Position<3>>().norm(), 1.0, 1E-6);
+    EXPECT_NEAR(s.get<filtering::Position<3>>().stableNorm(), 1.0, 1E-6);
     double const biasOut = s.get<filtering::Bias<1>>()(0);
     EXPECT_GE(biasOut, kBiasLowerBound - 1E-6);
     EXPECT_LE(biasOut, kBiasUpperBound + 1E-6);
@@ -243,7 +243,7 @@ inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3d sHatRaw,
     TestState const s = algo.getState();
     EXPECT_TRUE(s.raw().allFinite());
     EXPECT_TRUE(algo.getCovariance().allFinite());
-    EXPECT_NEAR(s.get<filtering::Position<3>>().norm(), 1.0, 1E-6);
+    EXPECT_NEAR(s.get<filtering::Position<3>>().stableNorm(), 1.0, 1E-6);
 }
 
 // Folding in a measurement never increases the total uncertainty: with no time propagation between
