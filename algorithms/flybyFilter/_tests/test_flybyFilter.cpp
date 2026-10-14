@@ -657,12 +657,13 @@ TEST(FlybyFilterAlgorithmMeasurements, NearlySingularPropagatedCovarianceStaysPs
     // variance, a 1e4 velocity variance and zero process noise propagate to a covariance with
     // eigenvalues from ~0 to 3e7. The near-zero ones come back as -1e-10, which is roundoff and must
     // pass the PSD check.
-    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig({500.0F, 0.0F, 1.0F},
-                                                               {-0.93489308376760782F, 0.0F, 1.0F},
-                                                               1000.0F,
-                                                               (Vector6() << 0.0F, 0.0F, 0.0F, -1.0F, 1.0F, 1E4F).finished(),
-                                                               0.0F,
-                                                               kHeadingStd);
+    std::optional<FlybyFilterConfig> const cfg =
+        tryFuzzConfig({500.0F, 0.0F, 1.0F},
+                      {-0.93489308376760782F, 0.0F, 1.0F},
+                      1000.0F,
+                      (Vector6() << 0.0F, 0.0F, 0.0F, -1.0F, 1.0F, 1E4F).finished(),
+                      0.0F,
+                      kHeadingStd);
     ASSERT_TRUE(cfg);
     double const dt = 54.035677089711527;
     FlybyFilterAlgorithm algo(*cfg);

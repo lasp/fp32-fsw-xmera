@@ -74,7 +74,8 @@ bool FlybyFilterAlgorithm_validateConfig(double alpha,
     // Build the config through the same path create() uses: success means valid, a throw means
     // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
     try {
-        (void)configFromC(alpha, beta, mu, *processNoise, *initialState, *initialCovariance, headingMeasurementNoiseStd);
+        (void)configFromC(
+            alpha, beta, mu, *processNoise, *initialState, *initialCovariance, headingMeasurementNoiseStd);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;

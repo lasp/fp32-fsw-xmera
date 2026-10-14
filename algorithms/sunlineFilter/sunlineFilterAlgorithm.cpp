@@ -32,7 +32,7 @@ class CssMeasurementModel {
     }
     Eigen::Matrix<float, size, size> noise() const { return this->measNoise; }
     static Eigen::Vector<float, size> subtract(Eigen::Vector<float, size> const& a,
-                                                Eigen::Vector<float, size> const& b) {
+                                               Eigen::Vector<float, size> const& b) {
         return a - b;
     }
 
