@@ -19,8 +19,10 @@
 
 #include <gtest/gtest.h>
 
+#include <Eigen/Cholesky>
 #include <Eigen/Core>
 
+#include <cmath>
 #include <limits>
 
 namespace filtering {
@@ -143,6 +145,31 @@ TEST(SrukfStatic, CholeskyUpDownDateMatchesExplicitUpdate) {
         Eigen::Matrix3f const S1 = SRuKFType::choleskyUpDownDate<3>(S0, v, coef);
         Eigen::Matrix3f const P1 = P0 - 0.5 * v * v.transpose();
         EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol)) << "down-date";
+    }
+}
+
+// An ill-conditioned factor: P = S0 S0^T has a variance of 1e-6 in one direction next to 1e4, a condition number of
+// about 1e13. Forming P in float rounds the small direction away (2500 + 1e-6 == 2500); rotating the rank-1 term into
+// the columns of S0 keeps it. The result is compared with a double-precision reference.
+TEST(SrukfStatic, CholeskyUpDownDateKeepsTheSmallDirectionOfAnIllConditionedFactor) {
+    Eigen::Matrix3f S0;
+    S0 << 100.0F, 0.0F, 0.0F, 50.0F, 1e-3F, 0.0F, 0.0F, 0.0F, 1.0F;
+    Eigen::Vector3f const v(1.0F, 0.5F, 0.3F);
+
+    for (float const coef : {0.5F, -0.5F}) {
+        Eigen::Matrix3f const S1 = SRuKFType::choleskyUpDownDate<3>(S0, v, coef);
+
+        Eigen::Matrix3d const S0d = S0.cast<double>();
+        Eigen::Vector3d const vd = v.cast<double>();
+        Eigen::Matrix3d const P1 = S0d * S0d.transpose() + static_cast<double>(coef) * vd * vd.transpose();
+        Eigen::Matrix3d const expected = Eigen::LLT<Eigen::Matrix3d>(P1).matrixL();
+
+        Eigen::Matrix3d const actual = S1.cast<double>();
+        for (int i = 0; i < 3; ++i) {
+            // Compare magnitudes: a valid factor may differ from the LLT one by the sign of a column.
+            EXPECT_NEAR(std::abs(actual(i, i)), expected(i, i), 1e-4 * expected(i, i))
+                << "diagonal " << i << " of the factor, coef " << coef;
+        }
     }
 }
 
