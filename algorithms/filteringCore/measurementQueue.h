@@ -32,11 +32,16 @@ class measurement_queue final {
     double getDelay() const { return this->processingDelay; }
 
     /*! Insertion-sort a measurement into the queue by descending timeTag.
-     *  @return true if enqueued, false if the queue was full
+     *  When the queue is full, the oldest measurement is dropped (dropOldest) to make room; if the new measurement
+     *  is older than every queued one, it is the one dropped.
+     *  @return true if the measurement is in the queue, false if it was dropped
      *  @param timeTag     [s] time the measurement was taken
      *  @param measurement [-] measurement payload (moved in) */
     bool enqueue(double timeTag, Measurement&& measurement) {
-        if (this->isFull()) return false;
+        if (this->isFull()) {
+            if (CAPACITY == 0 || timeTag < this->measurements[this->size - 1].value().first) return false;
+            this->dropOldest();
+        }
 
         std::size_t insertionIndex = 0;
         for (insertionIndex = this->size; insertionIndex > 0; --insertionIndex) {
@@ -56,6 +61,13 @@ class measurement_queue final {
             this->measurements[this->size] = std::nullopt;
         }
         this->lastMeasurementTime = 0;
+    }
+
+    /*! Remove the earliest queued measurement; does nothing if the queue is empty. */
+    void dropOldest() {
+        if (this->isEmpty()) return;
+        this->size -= 1;
+        this->measurements[this->size] = std::nullopt;
     }
 
     /*! Remove and return the earliest queued measurement.
