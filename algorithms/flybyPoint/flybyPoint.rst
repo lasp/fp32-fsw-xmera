@@ -178,6 +178,10 @@ The required module configuration is::
     flybyGuid.maximumRateThreshold = 0.01
     flybyGuid.maximumAccelerationThreshold = 1e-7
     flybyGuid.positionKnowledgeSigma = 1e5
+    flybyGuid.groundPosition_BN_N = [-5e7, 7.5e6, 5e5]         # [m]
+    flybyGuid.groundVelocity_BN_N = [2e4, 0.0, 0.0]            # [m/s]
+    flybyGuid.groundPositionCovarianceDiag_N = [1e8, 1e8, 1e8]  # [m^2]
+    flybyGuid.groundVelocityCovarianceDiag_N = [1.0, 1.0, 1.0]  # [(m/s)^2]
     unitTestSim.AddModelToTask(unitTaskName, flybyGuid)
 
 The module is configurable with the following parameters:
@@ -210,6 +214,18 @@ The module is configurable with the following parameters:
    * - ``positionKnowledgeSigma``
      - 0
      - [m] maximum allowable deviation of the filter position from the rectilinear prediction made from the last accepted read. If greater, the filter solution is discarded. Must be greater than zero
+   * - ``groundPosition_BN_N``
+     - [0, 0, 0]
+     - [m] ground-based position of the spacecraft relative to the small body, in inertial frame components. Must be finite. Not yet used by the algorithm
+   * - ``groundVelocity_BN_N``
+     - [0, 0, 0]
+     - [m/s] ground-based velocity of the spacecraft relative to the small body, in inertial frame components. Must be finite. Not yet used by the algorithm
+   * - ``groundPositionCovarianceDiag_N``
+     - [0, 0, 0]
+     - [m^2] diagonal terms (variances) of the ground-based position covariance, in inertial frame components. Must be finite and non-negative. Not yet used by the algorithm
+   * - ``groundVelocityCovarianceDiag_N``
+     - [0, 0, 0]
+     - [(m/s)^2] diagonal terms (variances) of the ground-based velocity covariance, in inertial frame components. Must be finite and non-negative. Not yet used by the algorithm
 
 Unit Test
 ---------

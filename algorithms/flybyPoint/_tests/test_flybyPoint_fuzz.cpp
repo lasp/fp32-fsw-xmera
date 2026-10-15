@@ -20,22 +20,34 @@ auto configDomain() {
            int signOfOrbitNormalFrameVector,
            float maximumRateThreshold,
            float maximumAccelerationThreshold,
-           float positionKnowledgeSigma) {
+           float positionKnowledgeSigma,
+           const Eigen::Vector3d& groundPosition_BN_N,
+           const Eigen::Vector3d& groundVelocity_BN_N,
+           const Eigen::Vector3d& groundPositionCovarianceDiag_N,
+           const Eigen::Vector3d& groundVelocityCovarianceDiag_N) {
             return FlybyPointConfig::create(controlPeriod,
                                             filterReadPeriods,
                                             toleranceForCollinearity,
                                             signOfOrbitNormalFrameVector,
                                             maximumRateThreshold,
                                             maximumAccelerationThreshold,
-                                            positionKnowledgeSigma);
+                                            positionKnowledgeSigma,
+                                            groundPosition_BN_N,
+                                            groundVelocity_BN_N,
+                                            groundPositionCovarianceDiag_N,
+                                            groundVelocityCovarianceDiag_N);
         },
-        fuzztest::InRange(1e-3, 1.0),           // controlPeriod [s]
-        fuzztest::InRange<uint32_t>(1U, 200U),  // filterReadPeriods [-]
-        fuzztest::InRange(1e-6F, 1e6F),         // toleranceForCollinearity [-]
-        fuzztest::ElementOf<int>({-1, 1}),      // signOfOrbitNormalFrameVector
-        fuzztest::InRange(1e-6F, 1e6F),         // maximumRateThreshold [deg/s]
-        fuzztest::InRange(1e-6F, 1e6F),         // maximumAccelerationThreshold [deg/s^2]
-        fuzztest::InRange(1e-6F, 1e6F));        // positionKnowledgeSigma [m]
+        fuzztest::InRange(1e-3, 1.0),              // controlPeriod [s]
+        fuzztest::InRange<uint32_t>(1U, 200U),     // filterReadPeriods [-]
+        fuzztest::InRange(1e-6F, 1e6F),            // toleranceForCollinearity [-]
+        fuzztest::ElementOf<int>({-1, 1}),         // signOfOrbitNormalFrameVector
+        fuzztest::InRange(1e-6F, 1e6F),            // maximumRateThreshold [deg/s]
+        fuzztest::InRange(1e-6F, 1e6F),            // maximumAccelerationThreshold [deg/s^2]
+        fuzztest::InRange(1e-6F, 1e6F),            // positionKnowledgeSigma [m]
+        xmera::fuzz::Vector3dInRange(-1e9, 1e9),   // groundPosition_BN_N [m]
+        xmera::fuzz::Vector3dInRange(-1e9, 1e9),   // groundVelocity_BN_N [m/s]
+        xmera::fuzz::Vector3dInRange(0.0, 1e12),   // groundPositionCovarianceDiag_N [m^2]
+        xmera::fuzz::Vector3dInRange(0.0, 1e12));  // groundVelocityCovarianceDiag_N [(m/s)^2]
 }
 
 /*! Each component is drawn from a realistic range, the full finite range (overflow), any double including NaN and
@@ -121,7 +133,11 @@ static void fuzzFlybyPassMatchesStraightLine(double closestApproachDistance,
                                                           signOfOrbitNormalFrameVector,
                                                           kNoLimit,
                                                           kNoLimit,
-                                                          kNoLimit);
+                                                          kNoLimit,
+                                                          Eigen::Vector3d::Zero(),
+                                                          Eigen::Vector3d::Zero(),
+                                                          Eigen::Vector3d::Zero(),
+                                                          Eigen::Vector3d::Zero());
 
     // Skip runs that start or end almost head-on, where the collinearity check refuses the sample. The run is closest
     // to head-on at its two ends, so every sample in between is accepted.

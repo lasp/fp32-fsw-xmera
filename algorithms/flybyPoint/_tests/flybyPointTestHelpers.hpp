@@ -34,6 +34,10 @@ struct ConfigParams {
     float maximumRateThreshold = 10.0F;
     float maximumAccelerationThreshold = 1.0F;
     float positionKnowledgeSigma = 1e9F;
+    Eigen::Vector3d groundPosition_BN_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d groundVelocity_BN_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d groundPositionCovarianceDiag_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d groundVelocityCovarianceDiag_N = Eigen::Vector3d::Zero();
 };
 
 inline FlybyPointConfig makeConfig(const ConfigParams& p = {}) {
@@ -43,7 +47,11 @@ inline FlybyPointConfig makeConfig(const ConfigParams& p = {}) {
                                     p.signOfOrbitNormalFrameVector,
                                     p.maximumRateThreshold,
                                     p.maximumAccelerationThreshold,
-                                    p.positionKnowledgeSigma);
+                                    p.positionKnowledgeSigma,
+                                    p.groundPosition_BN_N,
+                                    p.groundVelocity_BN_N,
+                                    p.groundPositionCovarianceDiag_N,
+                                    p.groundVelocityCovarianceDiag_N);
 }
 
 // ---------------------------------------------------------------------------

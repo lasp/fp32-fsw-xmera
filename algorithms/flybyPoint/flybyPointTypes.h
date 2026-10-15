@@ -18,13 +18,17 @@ extern "C" {
  * invalid input.
  */
 typedef struct {
-    double controlPeriod;               /*!< [s]       time between updateState calls (finite, > 0) */
-    uint32_t filterReadPeriods;         /*!< [-]       control periods between filter data reads (>= 1) */
-    float toleranceForCollinearity;     /*!< [-]       collinearity tolerance threshold (> 0) */
-    int signOfOrbitNormalFrameVector;   /*!< [-]       sign of orbit-normal reference vector (+1 or -1) */
-    float maximumRateThreshold;         /*!< [deg/s]   maximum allowed predicted angular rate (> 0) */
-    float maximumAccelerationThreshold; /*!< [deg/s^2] maximum allowed predicted angular acceleration (> 0) */
-    float positionKnowledgeSigma;       /*!< [m]       position knowledge sigma bound (> 0) */
+    double controlPeriod;                      /*!< [s]       time between updateState calls (finite, > 0) */
+    uint32_t filterReadPeriods;                /*!< [-]       control periods between filter data reads (>= 1) */
+    float toleranceForCollinearity;            /*!< [-]       collinearity tolerance threshold (> 0) */
+    int signOfOrbitNormalFrameVector;          /*!< [-]       sign of orbit-normal reference vector (+1 or -1) */
+    float maximumRateThreshold;                /*!< [deg/s]   maximum allowed predicted angular rate (> 0) */
+    float maximumAccelerationThreshold;        /*!< [deg/s^2] maximum allowed predicted angular acceleration (> 0) */
+    float positionKnowledgeSigma;              /*!< [m]       position knowledge sigma bound (> 0) */
+    Vector3d_c groundPosition_BN_N;            /*!< [m]       ground-based position (finite) */
+    Vector3d_c groundVelocity_BN_N;            /*!< [m/s]     ground-based velocity (finite) */
+    Vector3d_c groundPositionCovarianceDiag_N; /*!< [m^2]     ground-based position covariance diagonal (>= 0) */
+    Vector3d_c groundVelocityCovarianceDiag_N; /*!< [(m/s)^2] ground-based velocity covariance diagonal (>= 0) */
 } FlybyPointConfig_c;
 
 /**

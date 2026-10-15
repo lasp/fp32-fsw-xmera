@@ -164,6 +164,12 @@ def test_flybyPoint_config_round_trip():
     flyby_guidance.signOfOrbitNormalFrameVector = -1
     np.testing.assert_equal(flyby_guidance.filterReadPeriods, 6)
     np.testing.assert_equal(flyby_guidance.signOfOrbitNormalFrameVector, -1)
+    vectors = {"groundPosition_BN_N": [-5E7, 7.5E6, 5E5], "groundVelocity_BN_N": [2E4, 0.0, 0.0],
+               "groundPositionCovarianceDiag_N": [1E8, 2E8, 3E8], "groundVelocityCovarianceDiag_N": [1.0, 2.0, 3.0]}
+    for name, value in vectors.items():
+        setattr(flyby_guidance, name, value)
+        np.testing.assert_allclose(np.array(getattr(flyby_guidance, name)).flatten(), value, rtol=0, atol=0,
+                                   err_msg=name)
 
 
 def test_flybyPoint_diagnostic_collinearity():

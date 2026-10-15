@@ -12,7 +12,11 @@ void FlybyPoint::reset(uint64_t currentSimNanos) {
                                            this->signOfOrbitNormalFrameVector,
                                            this->maximumRateThreshold,
                                            this->maximumAccelerationThreshold,
-                                           this->positionKnowledgeSigma);
+                                           this->positionKnowledgeSigma,
+                                           this->groundPosition_BN_N,
+                                           this->groundVelocity_BN_N,
+                                           this->groundPositionCovarianceDiag_N,
+                                           this->groundVelocityCovarianceDiag_N);
     this->algorithm = std::make_unique<FlybyPointAlgorithm>(config);
 }
 
