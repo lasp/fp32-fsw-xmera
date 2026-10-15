@@ -17,11 +17,16 @@ class measurement_queue final {
     bool isEmpty() const { return this->size == 0; }
     bool isFull() const { return this->size >= CAPACITY; }
 
-    /*! Set the time of last measurement.
+    /*! Set the time of last measurement. This also marks the queue time as synchronized with the call time.
      *  @param t [s] sim time of the last drained measurement */
-    void setTimeOfLastMeasurement(double t) { this->lastMeasurementTime = t; }
+    void setTimeOfLastMeasurement(double t) {
+        this->lastMeasurementTime = t;
+        this->timeSynchronized = true;
+    }
     /*! @return time of the most recent measurement processed */
     double getTimeOfLastMeasurement() const { return this->lastMeasurementTime; }
+    /*! @return true once the time of last measurement was set, false after construction or clear() */
+    bool isTimeSynchronized() const { return this->timeSynchronized; }
 
     /*! Set the processing delay: a measurement is processed only once the call time is at least its time tag plus
      *  the delay, so a measurement with a latency up to the delay is still processed in time order. Zero (the
@@ -54,13 +59,15 @@ class measurement_queue final {
         return true;
     }
 
-    /*! Drop all measurements and reset the time anchor to zero. The processing delay is kept. */
+    /*! Drop all measurements, reset the time anchor to zero and mark it as not synchronized. The processing delay is
+     *  kept. */
     void clear() {
         while (this->size > 0) {
             this->size -= 1;
             this->measurements[this->size] = std::nullopt;
         }
         this->lastMeasurementTime = 0;
+        this->timeSynchronized = false;
     }
 
     /*! Remove the earliest queued measurement; does nothing if the queue is empty. */
@@ -97,6 +104,7 @@ class measurement_queue final {
     std::array<std::optional<std::pair<double, Measurement>>, CAPACITY> measurements = {};
     double lastMeasurementTime = 0;
     double processingDelay = 0;
+    bool timeSynchronized = false;
 };
 
 }  // namespace filtering
