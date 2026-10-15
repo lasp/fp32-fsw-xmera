@@ -19,10 +19,22 @@ concept SequentialFilter = requires(Filter f, Measurement& m, double dt) {
     { f.measurementUpdate(m) };
 };
 
+/*! Synchronize the filter time with the call time. The first call after construction or queue.clear() sets the
+ *  time of last measurement to callTime.
+ *  @return true if this call synchronized the time, in which case the scheduler does nothing else
+ *  @param queue    [-] measurement queue holding the time of last measurement
+ *  @param callTime [s] sim time the filter is called at */
+template <class Measurement, std::size_t Capacity>
+bool synchronizeTime(measurement_queue<Measurement, Capacity>& queue, double callTime) {
+    if (queue.isTimeSynchronized()) return false;
+    queue.setTimeOfLastMeasurement(callTime);
+    return true;
+}
+
 /*! Basic sequential filter scheduling: empty the measurement queue in chronological order, calling
  *  timeUpdate from the last measurement-updated state to the measurement timeTag then measurementUpdate
  *  for each measurement; Call timeUpdate to `callTime` from there so the filter's `state`
- *  reflects the call time on return.
+ *  reflects the call time on return. The first call only synchronizes the filter time (see synchronizeTime).
  *  If this function is called, the timeUpdate and measurementUpdates of the specific filter obeying the concept
  *  defined above must both return voids
  *  @param queue    [-] measurement queue (drained on return)
@@ -31,6 +43,7 @@ concept SequentialFilter = requires(Filter f, Measurement& m, double dt) {
 template <class Filter, class Measurement, std::size_t Capacity>
     requires SequentialFilter<Filter, Measurement>
 void applySequential(measurement_queue<Measurement, Capacity>& queue, Filter& filter, double callTime) {
+    if (synchronizeTime(queue, callTime)) return;
     double timeOfLastMeasurement = queue.getTimeOfLastMeasurement();
 
     for (auto entry = queue.popEarliestDue(callTime); entry.has_value(); entry = queue.popEarliestDue(callTime)) {
@@ -51,7 +64,7 @@ void applySequential(measurement_queue<Measurement, Capacity>& queue, Filter& fi
 /*! Robust sequential filter scheduling: empty the measurement queue in chronological order, calling
  *  timeUpdate from the last measurement-updated state to the measurement timeTag then measurementUpdate
  *  for each measurement; Call timeUpdate to `callTime` from there so the filter's `state`
- *  reflects the call time on return.
+ *  reflects the call time on return. The first call only synchronizes the filter time (see synchronizeTime).
  *  Because the timeUpdate and measurementUpdates now detect bad updates, they must now both return a bool.
  *  If the update was successful they should return true, and false otherwise. The filter must also have a
  *  clear method so that internal state can be sanitized after a bad update.
@@ -61,6 +74,7 @@ void applySequential(measurement_queue<Measurement, Capacity>& queue, Filter& fi
 template <class Filter, class Measurement, std::size_t Capacity>
     requires SequentialFilter<Filter, Measurement>
 void applySequentialRobust(measurement_queue<Measurement, Capacity>& queue, Filter& filter, double callTime) {
+    if (synchronizeTime(queue, callTime)) return;
     double timeOfLastMeasurement = queue.getTimeOfLastMeasurement();
 
     for (auto entry = queue.popEarliestDue(callTime); entry.has_value(); entry = queue.popEarliestDue(callTime)) {
