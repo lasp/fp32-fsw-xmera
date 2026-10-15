@@ -21,18 +21,26 @@ inline std::array<double, kMaxNumCssSensors> referenceUpdate(
     const std::array<double, kMaxNumChebyPolys>& chebyPolynomials,
     const std::array<double, kMaxNumCssSensors>& inputValues) {
     uint32_t i, j;
-    double ChebyDiffFactor, ChebyPrev, ChebyNow, ChebyLocalPrev,
-        ValueMult; /* Parameters used for the Chebyshev Recursion Forumula */
+    double ChebyDiffFactor, ChebyPrev, ChebyNow, ChebyLocalPrev, ValueMult,
+        ChebyPoint; /* Parameters used for the Chebyshev Recursion Forumula */
 
     std::array<double, kMaxNumCssSensors> output{};
 
     for (i = 0; i < kMaxNumCssSensors; i++) {
         output[i] = inputValues[i] / maxSensorValues[i]; /* Scale Sensor Data */
 
+        /* The Chebyshev fit is only defined on [-1, 1]; outside it, evaluate at the nearest limit */
+        ChebyPoint = output[i];
+        if (ChebyPoint > 1.0) {
+            ChebyPoint = 1.0;
+        } else if (ChebyPoint < -1.0) {
+            ChebyPoint = -1.0;
+        }
+
         /* Seed the polynomial computations */
-        ValueMult = 2.0 * output[i];
+        ValueMult = 2.0 * ChebyPoint;
         ChebyPrev = 1.0;
-        ChebyNow = output[i];
+        ChebyNow = ChebyPoint;
         ChebyDiffFactor = ChebyPrev * chebyPolynomials[0]; /* first-order term */
         ChebyDiffFactor += ChebyNow * chebyPolynomials[1]; /* second-order term */
 
