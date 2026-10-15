@@ -88,6 +88,15 @@ TEST(MeasurementQueue, ClearEmptiesQueueAndResetsTimeAnchor) {
 
     EXPECT_TRUE(q.isEmpty());
     EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 0.0);
+    EXPECT_FALSE(q.isTimeSynchronized());
+}
+
+// A new queue is not synchronized; setting the time of last measurement synchronizes it, even to zero
+TEST(MeasurementQueue, SetTimeOfLastMeasurementSynchronizes) {
+    Queue q;
+    EXPECT_FALSE(q.isTimeSynchronized());
+    q.setTimeOfLastMeasurement(0.0);
+    EXPECT_TRUE(q.isTimeSynchronized());
 }
 
 // With a delay, popEarliestDue returns a measurement only once callTime - delay has reached its time tag
