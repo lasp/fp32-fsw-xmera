@@ -13,7 +13,7 @@
 namespace filtering::sunlineFilter {
 
 inline constexpr int MaxCss = SUNLINE_FILTER_MAX_CSS;
-inline constexpr int BatchSize = 2;
+inline constexpr int BatchSize = 5;
 
 // State: [s_hat (3), omega_BN_B (3), bias (1)].
 using SunlineState = filtering::StateVector<filtering::Position<3>, filtering::Velocity<3>, filtering::Bias<1>>;

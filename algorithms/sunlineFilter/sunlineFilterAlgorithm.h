@@ -61,7 +61,8 @@ class SunlineFilterConfig final {
                                       uint32_t numberOfCss,
                                       float sensorThreshold,
                                       float cssMeasurementNoiseStd,
-                                      float gyroMeasurementNoiseStd) {
+                                      float gyroMeasurementNoiseStd,
+                                      float measurementDelay = 0.0F) {
         if (!Srukf::alphaIsValid(alpha)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: alpha must be in (0, 1]");
         }
@@ -105,6 +106,9 @@ class SunlineFilterConfig final {
         if (!isValidGyroMeasurementNoiseStd(gyroMeasurementNoiseStd)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: gyro measurement noise std must not be negative");
         }
+        if (measurementDelay < 0.0F) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: measurement delay must not be negative");
+        }
         return {alpha,
                 beta,
                 processNoise,
@@ -117,7 +121,8 @@ class SunlineFilterConfig final {
                 numberOfCss,
                 sensorThreshold,
                 cssMeasurementNoiseStd,
-                gyroMeasurementNoiseStd};
+                gyroMeasurementNoiseStd,
+                measurementDelay};
     }
 
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
@@ -161,6 +166,7 @@ class SunlineFilterConfig final {
     float getSensorThreshold() const { return this->sensorThreshold; }
     float getCssMeasurementNoiseStd() const { return this->cssMeasNoiseStd; }
     float getGyroMeasurementNoiseStd() const { return this->gyroMeasNoiseStd; }
+    float getMeasurementDelay() const { return this->measurementDelay; }
 
    private:
     SunlineFilterConfig(float alpha,
@@ -175,7 +181,8 @@ class SunlineFilterConfig final {
                         uint32_t numberOfCss,
                         float sensorThreshold,
                         float cssMeasurementNoiseStd,
-                        float gyroMeasurementNoiseStd)
+                        float gyroMeasurementNoiseStd,
+                        float measurementDelay)
         : alpha(alpha),
           beta(beta),
           processNoise(processNoise),
@@ -188,7 +195,8 @@ class SunlineFilterConfig final {
           numberOfCss(numberOfCss),
           sensorThreshold(sensorThreshold),
           cssMeasNoiseStd(cssMeasurementNoiseStd),
-          gyroMeasNoiseStd(gyroMeasurementNoiseStd) {}
+          gyroMeasNoiseStd(gyroMeasurementNoiseStd),
+          measurementDelay(measurementDelay) {}
 
     static Eigen::Matrix<float, MaxCss, 3> normalizeCssNHat(Eigen::Matrix<float, MaxCss, 3> const& cssNHat,
                                                             uint32_t numberOfCss) {
@@ -213,6 +221,7 @@ class SunlineFilterConfig final {
     float sensorThreshold;
     float cssMeasNoiseStd;
     float gyroMeasNoiseStd;
+    float measurementDelay;
 };
 
 /*! @brief Sunline square-root UKF. Estimates sun-heading direction, body rate,

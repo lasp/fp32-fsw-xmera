@@ -83,6 +83,7 @@ void SunlineFilterAlgorithm::setConfig(SunlineFilterConfig const& config) {
     this->srukf.setInitialCovariance(config.getInitialCovariance());
     this->srukf.dynamics = SunlineDynamics{};
     this->srukf.configure();
+    this->measurements.setDelay(config.getMeasurementDelay());
 }
 
 /*! Clear the internal runtime state (pending measurements and residual snapshots); the filter state
