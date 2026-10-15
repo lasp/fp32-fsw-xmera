@@ -120,6 +120,8 @@ long runs; only their differences are narrowed to ``float`` before
    ``setTimeOfLastMeasurement()`` pair: the time of the last measurement
    the scheduler folded into the filter, and the processing delay
    (``setDelay`` / ``getDelay``, see "Heterogeneous rates share one anchor").
+   ``isTimeSynchronized()`` is false after construction or ``clear()`` and true
+   once the time of last measurement is set (see "Synchronizing the filter time").
    When the queue is full, ``enqueue`` drops the oldest measurement
    (``dropOldest``) to make room for a newer one.
    Scheduling itself is a free template (see ``kalmanFilter.hpp``).
@@ -514,6 +516,28 @@ left intact. Only ``measurementUpdate`` advances it — once a new measurement i
 folded in, that posterior becomes the new anchor. So ``dt`` is always measured
 from the anchor, not from the previous ``timeUpdate`` call.
 
+Synchronizing the filter time
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A new (or cleared) queue holds no meaningful time: its time of last measurement
+is 0, but the first ``callTime`` can be far ahead of 0. Propagating the initial
+state over that gap would be wrong, because the initial state and covariance
+describe the spacecraft when the filter starts, not at t = 0.
+
+So the first call to ``applySequential`` or ``applySequentialRobust`` after
+construction or ``queue.clear()`` only synchronizes (``synchronizeTime``): it
+sets the time of last measurement to ``callTime``, and the initial state and
+covariance become the anchor at ``callTime``. It does no time or measurement
+update, and the queued measurements stay in the queue. From the next call, the
+filter propagates from that anchor and processes the measurements with a time
+tag at or after it as usual; older ones are dropped like any measurement behind
+the anchor.
+
+The synchronization uses a flag, not the value 0, so a filter whose first call
+is at t = 0 synchronizes once and then runs normally. A
+``reInitializeExceptPersistentStates()`` (which clears the queue) keeps the
+estimate and anchors it at the next call time.
+
 Walkthrough of ``applySequential(queue, filter, callTime)``::
 
    Timeline (queue contents):
@@ -522,9 +546,11 @@ Walkthrough of ``applySequential(queue, filter, callTime)``::
                           ▼               ▼                    │
     ──•───────────────────•───────────────•────────────────────•─────→  t
       │
-      tLast := queue.getTimeOfLastMeasurement()   (e.g. t=0)
+      tLast := queue.getTimeOfLastMeasurement()   (e.g. t=0, synchronized by a first call at t=0)
 
    applySequential:
+     if not queue.isTimeSynchronized():                          // first call only
+         queue.setTimeOfLastMeasurement(callTime); return        // anchor := initial state at callTime
      tLast = queue.getTimeOfLastMeasurement()                    // = 0
      for each m in queue (earliest first):
          if m.timeTag < tLast: continue                          // drop late arrivals
