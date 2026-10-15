@@ -3,7 +3,6 @@
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
-#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,23 +29,16 @@ DvGuidanceAlgorithmHandle* DvGuidanceAlgorithm_create(void);
 void DvGuidanceAlgorithm_destroy(DvGuidanceAlgorithmHandle* self);
 
 /**
- * @brief Compute the attitude reference for a delta-V burn whose direction rotates at a constant
- *        rate about its 3rd axis.
+ * @brief Compute the inertially fixed attitude reference for a delta-V burn.
  *
  * @param self            Pointer to the instance.
  * @param dvInrtlCmd      Commanded delta-V vector in inertial coordinates [m/s].
  * @param dvRotVecUnit    Seed unit vector defining the burn frame's 2nd-axis cross product.
- * @param dvRotVecMag     Constant rotation rate about the burn frame's 3rd axis [rad/s].
- * @param burnStartTime   Absolute time at which the burn started [ns].
- * @param callTime        Current call time [ns].
- * @return AttRefMsgF32Payload  Reference attitude (sigma_RN), rate (omega_RN_N), and zero accel.
+ * @return AttRefMsgF32Payload  Reference attitude (sigma_RN) with zero rate and acceleration.
  */
 AttRefMsgF32Payload DvGuidanceAlgorithm_update(const DvGuidanceAlgorithmHandle* self,
                                                Vector3f_c dvInrtlCmd,
-                                               Vector3f_c dvRotVecUnit,
-                                               float dvRotVecMag,
-                                               uint64_t burnStartTime,
-                                               uint64_t callTime);
+                                               Vector3f_c dvRotVecUnit);
 
 #ifdef __cplusplus
 }  // extern "C"

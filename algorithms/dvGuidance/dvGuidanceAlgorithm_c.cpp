@@ -13,15 +13,12 @@ void DvGuidanceAlgorithm_destroy(DvGuidanceAlgorithmHandle* self) { fsw::deleteH
 
 AttRefMsgF32Payload DvGuidanceAlgorithm_update(const DvGuidanceAlgorithmHandle* self,
                                                Vector3f_c dvInrtlCmd,
-                                               Vector3f_c dvRotVecUnit,
-                                               float dvRotVecMag,
-                                               uint64_t burnStartTime,
-                                               uint64_t callTime) {
+                                               Vector3f_c dvRotVecUnit) {
     const Eigen::Vector3f dvInrtlCmd_e = cArrayToEigenVector3<float>(dvInrtlCmd.data);
     const Eigen::Vector3f dvRotVecUnit_e = cArrayToEigenVector3<float>(dvRotVecUnit.data);
 
-    const DvGuidanceOutput out = fsw::fromHandle<const ::DvGuidanceAlgorithm>(self)->update(
-        dvInrtlCmd_e, dvRotVecUnit_e, dvRotVecMag, burnStartTime, callTime);
+    const DvGuidanceOutput out =
+        fsw::fromHandle<const ::DvGuidanceAlgorithm>(self)->update(dvInrtlCmd_e, dvRotVecUnit_e);
 
     AttRefMsgF32Payload payload{};
     eigenVectorToCArray(out.sigma_RN, payload.sigma_RN);

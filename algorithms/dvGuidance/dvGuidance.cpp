@@ -23,8 +23,7 @@ void DvGuidance::updateState(const uint64_t callTime) {
     const Eigen::Vector3f dvInrtlCmd = cArrayToEigenVector3<float>(burnData.dvInrtlCmd);
     const Eigen::Vector3f dvRotVecUnit = cArrayToEigenVector3<float>(burnData.dvRotVecUnit);
 
-    const DvGuidanceOutput out =
-        this->algorithm->update(dvInrtlCmd, dvRotVecUnit, burnData.dvRotVecMag, burnData.burnStartTime, callTime);
+    const DvGuidanceOutput out = this->algorithm->update(dvInrtlCmd, dvRotVecUnit);
 
     AttRefMsgF32Payload attRefOut = AttRefMsgF32Payload();
     eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);
