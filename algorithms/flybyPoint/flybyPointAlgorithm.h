@@ -37,6 +37,9 @@ struct FlybyValidityTriggers {
  *
  * The filter re-read cadence is a whole number of control periods, so the decision of when to re-read is exact
  * integer arithmetic. Elapsed time in seconds is derived as (control periods elapsed) * controlPeriod.
+ *
+ * The ground-based position and velocity, and the diagonal terms (variances) of their ground-based covariance, are
+ * validated and stored for future use; the algorithm does not use them yet.
  */
 class FlybyPointConfig final {
    public:
@@ -46,7 +49,11 @@ class FlybyPointConfig final {
                                    int signOfOrbitNormalFrameVector,
                                    float maximumRateThreshold,
                                    float maximumAccelerationThreshold,
-                                   float positionKnowledgeSigma) {
+                                   float positionKnowledgeSigma,
+                                   const Eigen::Vector3d& groundPosition_BN_N,
+                                   const Eigen::Vector3d& groundVelocity_BN_N,
+                                   const Eigen::Vector3d& groundPositionCovarianceDiag_N,
+                                   const Eigen::Vector3d& groundVelocityCovarianceDiag_N) {
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("flybyPoint: controlPeriod must be finite and > 0");
         }
@@ -68,13 +75,29 @@ class FlybyPointConfig final {
         if (!isValidPositionKnowledgeSigma(positionKnowledgeSigma)) {
             FSW_THROW_INVALID_ARGUMENT("flybyPoint: positionKnowledgeSigma must be > 0");
         }
+        if (!isValidGroundPosition(groundPosition_BN_N)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundPosition_BN_N must be finite");
+        }
+        if (!isValidGroundVelocity(groundVelocity_BN_N)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundVelocity_BN_N must be finite");
+        }
+        if (!isValidGroundPositionCovarianceDiag(groundPositionCovarianceDiag_N)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundPositionCovarianceDiag_N must be finite and >= 0");
+        }
+        if (!isValidGroundVelocityCovarianceDiag(groundVelocityCovarianceDiag_N)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundVelocityCovarianceDiag_N must be finite and >= 0");
+        }
         return {controlPeriod,
                 filterReadPeriods,
                 toleranceForCollinearity,
                 signOfOrbitNormalFrameVector,
                 maximumRateThreshold,
                 maximumAccelerationThreshold,
-                positionKnowledgeSigma};
+                positionKnowledgeSigma,
+                groundPosition_BN_N,
+                groundVelocity_BN_N,
+                groundPositionCovarianceDiag_N,
+                groundVelocityCovarianceDiag_N};
     }
 
     static bool isValidControlPeriod(double t) { return fsw::is_finite(t) && t > 0.0; }
@@ -85,6 +108,15 @@ class FlybyPointConfig final {
     static bool isValidMaximumRateThreshold(float r) { return r > 0.0F; }
     static bool isValidMaximumAccelerationThreshold(float a) { return a > 0.0F; }
     static bool isValidPositionKnowledgeSigma(float s) { return s > 0.0F; }
+    static bool isValidGroundPosition(const Eigen::Vector3d& r) { return r.allFinite(); }
+    static bool isValidGroundVelocity(const Eigen::Vector3d& v) { return v.allFinite(); }
+    /*! A diagonal covariance is positive semi-definite if and only if every diagonal term is >= 0. */
+    static bool isValidGroundPositionCovarianceDiag(const Eigen::Vector3d& p) {
+        return p.allFinite() && (p.array() >= 0.0).all();
+    }
+    static bool isValidGroundVelocityCovarianceDiag(const Eigen::Vector3d& p) {
+        return p.allFinite() && (p.array() >= 0.0).all();
+    }
 
     /*! @return [s] time between successive updateState() calls */
     double getControlPeriod() const { return controlPeriod; }
@@ -95,6 +127,14 @@ class FlybyPointConfig final {
     float getMaximumRateThreshold() const { return maximumRateThreshold; }
     float getMaximumAccelerationThreshold() const { return maximumAccelerationThreshold; }
     float getPositionKnowledgeSigma() const { return positionKnowledgeSigma; }
+    /*! @return [m] ground-based position */
+    const Eigen::Vector3d& getGroundPosition_BN_N() const { return groundPosition_BN_N; }
+    /*! @return [m/s] ground-based velocity */
+    const Eigen::Vector3d& getGroundVelocity_BN_N() const { return groundVelocity_BN_N; }
+    /*! @return [m^2] diagonal terms of the ground-based position covariance */
+    const Eigen::Vector3d& getGroundPositionCovarianceDiag_N() const { return groundPositionCovarianceDiag_N; }
+    /*! @return [(m/s)^2] diagonal terms of the ground-based velocity covariance */
+    const Eigen::Vector3d& getGroundVelocityCovarianceDiag_N() const { return groundVelocityCovarianceDiag_N; }
 
    private:
     FlybyPointConfig(double controlPeriod,  // NOLINT(bugprone-easily-swappable-parameters)
@@ -103,14 +143,22 @@ class FlybyPointConfig final {
                      int signOfOrbitNormalFrameVector,
                      float maximumRateThreshold,
                      float maximumAccelerationThreshold,
-                     float positionKnowledgeSigma)
+                     float positionKnowledgeSigma,
+                     const Eigen::Vector3d& groundPosition_BN_N,
+                     const Eigen::Vector3d& groundVelocity_BN_N,
+                     const Eigen::Vector3d& groundPositionCovarianceDiag_N,
+                     const Eigen::Vector3d& groundVelocityCovarianceDiag_N)
         : controlPeriod(controlPeriod),
           filterReadPeriods(filterReadPeriods),
           toleranceForCollinearity(toleranceForCollinearity),
           signOfOrbitNormalFrameVector(signOfOrbitNormalFrameVector),
           maximumRateThreshold(maximumRateThreshold),
           maximumAccelerationThreshold(maximumAccelerationThreshold),
-          positionKnowledgeSigma(positionKnowledgeSigma) {}
+          positionKnowledgeSigma(positionKnowledgeSigma),
+          groundPosition_BN_N(groundPosition_BN_N),
+          groundVelocity_BN_N(groundVelocity_BN_N),
+          groundPositionCovarianceDiag_N(groundPositionCovarianceDiag_N),
+          groundVelocityCovarianceDiag_N(groundVelocityCovarianceDiag_N) {}
 
     double controlPeriod;        //!< [s] time between successive updateState() calls
     uint32_t filterReadPeriods;  //!< [-] control periods between two consecutive filter re-reads
@@ -119,6 +167,10 @@ class FlybyPointConfig final {
     float maximumRateThreshold;
     float maximumAccelerationThreshold;
     float positionKnowledgeSigma;
+    Eigen::Vector3d groundPosition_BN_N;             //!< [m] ground-based position
+    Eigen::Vector3d groundVelocity_BN_N;             //!< [m/s] ground-based velocity
+    Eigen::Vector3d groundPositionCovarianceDiag_N;  //!< [m^2] diagonal of the ground-based position covariance
+    Eigen::Vector3d groundVelocityCovarianceDiag_N;  //!< [(m/s)^2] diagonal of the ground-based velocity covariance
 };
 
 /*! @brief A class to perform flyby pointing

@@ -321,8 +321,10 @@ TEST(FlybyPointTest, ResetForgetsProfileAndWindow) {
 TEST(FlybyPointTest, ConfigRejectsInvalidValues) {
     EXPECT_NO_THROW((void)FlybyPointAlgorithm(makeConfig()));
     EXPECT_NO_THROW((void)makeConfig({.signOfOrbitNormalFrameVector = -1}));
+    EXPECT_NO_THROW((void)makeConfig({.groundPositionCovarianceDiag_N = Eigen::Vector3d{1e8, 0.0, 4e8},
+                                      .groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, 0.0, 4.0}}));
 
-    const std::array<ConfigParams, 15> invalid{{
+    const std::array<ConfigParams, 25> invalid{{
         {.controlPeriod = 0.0},
         {.controlPeriod = -1.0},
         {.controlPeriod = kNaN},
@@ -338,10 +340,33 @@ TEST(FlybyPointTest, ConfigRejectsInvalidValues) {
         {.maximumAccelerationThreshold = -1.0F},
         {.positionKnowledgeSigma = 0.0F},
         {.positionKnowledgeSigma = -1e3F},
+        {.groundPosition_BN_N = Eigen::Vector3d{kNaN, 0, 0}},
+        {.groundPosition_BN_N = Eigen::Vector3d{0, kInf, 0}},
+        {.groundVelocity_BN_N = Eigen::Vector3d{kNaN, 0, 0}},
+        {.groundVelocity_BN_N = Eigen::Vector3d{0, 0, -kInf}},
+        {.groundPositionCovarianceDiag_N = Eigen::Vector3d{1.0, -1.0, 1.0}},
+        {.groundPositionCovarianceDiag_N = Eigen::Vector3d{kNaN, 1.0, 1.0}},
+        {.groundPositionCovarianceDiag_N = Eigen::Vector3d{1.0, 1.0, kInf}},
+        {.groundVelocityCovarianceDiag_N = Eigen::Vector3d{-1.0, 1.0, 1.0}},
+        {.groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, kNaN, 1.0}},
+        {.groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, 1.0, kInf}},
     }};
     for (size_t i = 0; i < invalid.size(); ++i) {
         EXPECT_ANY_THROW((void)makeConfig(invalid[i])) << "case " << i;
     }
+}
+
+// The configuration stores the ground-based state and covariance diagonals it was given.
+TEST(FlybyPointTest, ConfigStoresGroundState) {
+    const ConfigParams params{.groundPosition_BN_N = kR0,
+                              .groundVelocity_BN_N = kV,
+                              .groundPositionCovarianceDiag_N = Eigen::Vector3d{1e8, 2e8, 3e8},
+                              .groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, 2.0, 3.0}};
+    const FlybyPointConfig cfg = makeConfig(params);
+    EXPECT_EQ(cfg.getGroundPosition_BN_N(), params.groundPosition_BN_N);
+    EXPECT_EQ(cfg.getGroundVelocity_BN_N(), params.groundVelocity_BN_N);
+    EXPECT_EQ(cfg.getGroundPositionCovarianceDiag_N(), params.groundPositionCovarianceDiag_N);
+    EXPECT_EQ(cfg.getGroundVelocityCovarianceDiag_N(), params.groundVelocityCovarianceDiag_N);
 }
 
 // The algorithm matches the test's double-precision copy of the same algorithm, period by period. The sequence holds

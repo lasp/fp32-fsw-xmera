@@ -13,7 +13,11 @@ FlybyPointConfig configFromC(const FlybyPointConfig_c& c) {
                                     c.signOfOrbitNormalFrameVector,
                                     c.maximumRateThreshold,
                                     c.maximumAccelerationThreshold,
-                                    c.positionKnowledgeSigma);
+                                    c.positionKnowledgeSigma,
+                                    cArrayToEigenVector3<double>(c.groundPosition_BN_N.data),
+                                    cArrayToEigenVector3<double>(c.groundVelocity_BN_N.data),
+                                    cArrayToEigenVector3<double>(c.groundPositionCovarianceDiag_N.data),
+                                    cArrayToEigenVector3<double>(c.groundVelocityCovarianceDiag_N.data));
 }
 }  // namespace
 
