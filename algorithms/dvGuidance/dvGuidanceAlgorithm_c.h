@@ -33,7 +33,8 @@ void DvGuidanceAlgorithm_destroy(DvGuidanceAlgorithmHandle* self);
  *
  * @param self            Pointer to the instance.
  * @param dvInrtlCmd      Commanded delta-V vector in inertial coordinates [m/s].
- * @param dvRotVecUnit    Seed unit vector defining the burn frame's 2nd-axis cross product.
+ * @param dvRotVecUnit    Preferred direction of the burn frame's 2nd axis; only its component
+ *                        perpendicular to dvInrtlCmd is used.
  * @return AttRefMsgF32Payload  Reference attitude (sigma_RN) with zero rate and acceleration.
  */
 AttRefMsgF32Payload DvGuidanceAlgorithm_update(const DvGuidanceAlgorithmHandle* self,
