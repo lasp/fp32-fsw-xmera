@@ -3,27 +3,29 @@
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <memory>
-#include <stdexcept>
 
-/*! Validates that burnDataInMsg is connected and constructs the algorithm. */
+/*! Builds the validated configuration and constructs the algorithm. */
 void DvGuidance::reset(const uint64_t callTime) {
-    if (!this->burnDataInMsg.isLinked()) {
-        throw std::invalid_argument("dvGuidance.burnDataInMsg wasn't connected.");
-    }
-    this->algorithm = std::make_unique<DvGuidanceAlgorithm>();
+    auto config = DvGuidanceConfig::create(this->cmdDv_N, this->rHatPref_N);
+    this->algorithm = std::make_unique<DvGuidanceAlgorithm>(config);
 }
 
-/*! Computes the burn-frame attitude reference from the commanded delta-V burn data */
+DvGuidanceConfig DvGuidance::toConfig() const { return DvGuidanceConfig::create(this->cmdDv_N, this->rHatPref_N); }
+
+void DvGuidance::reconfigure() const {
+    if (!this->algorithm) {
+        throw XmeraLifecycleException("DvGuidance reset() has not been called.");
+    }
+    this->algorithm->setConfig(this->toConfig());
+}
+
+/*! Computes the burn-frame attitude reference from the configured delta-V command. */
 void DvGuidance::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
         throw XmeraLifecycleException("DvGuidance reset() has not been called.");
     }
 
-    const DvBurnCmdMsgF32Payload burnData = this->burnDataInMsg();
-    const Eigen::Vector3f dvInrtlCmd = cArrayToEigenVector3<float>(burnData.dvInrtlCmd);
-    const Eigen::Vector3f dvRotVecUnit = cArrayToEigenVector3<float>(burnData.dvRotVecUnit);
-
-    const DvGuidanceOutput out = this->algorithm->update(dvInrtlCmd, dvRotVecUnit);
+    const DvGuidanceOutput out = this->algorithm->update();
 
     AttRefMsgF32Payload attRefOut = AttRefMsgF32Payload();
     eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);

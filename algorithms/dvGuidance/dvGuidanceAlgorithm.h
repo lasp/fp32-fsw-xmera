@@ -61,24 +61,22 @@ class DvGuidanceConfig final {
     Eigen::Vector3f rHatPref_N{Eigen::Vector3f::Zero()};  ///< [-] preferred 2nd-axis direction, inertial frame (unit)
 };
 
-/// Computes the inertially fixed delta-V burn-frame attitude reference from a commanded delta-V
-/// and a preferred 2nd-axis direction. All math is single-precision (FP32). Degenerate burn-frame
-/// geometry returns the default output.
+/// Computes the inertially fixed delta-V burn-frame attitude reference from the configured
+/// commanded delta-V and preferred 2nd-axis direction. All math is single-precision (FP32).
 class DvGuidanceAlgorithm final {
    public:
-    /// Squared delta-V norm threshold (~1e-6 m/s); below this the burn direction is treated as undefined.
-    static constexpr float kMinNormSq = 1e-12F;
-    /// Squared cross-product threshold (~1.7 deg from (anti)parallel); below this the burn-frame geometry
-    /// is treated as degenerate.
-    static constexpr float kMinCrossSq = 9e-4F;
+    /// Constructs the algorithm from a validated configuration.
+    explicit DvGuidanceAlgorithm(const DvGuidanceConfig& config);
+
+    /// Installs the configuration parameters.
+    void setConfig(const DvGuidanceConfig& config);
 
     /// Computes the burn-frame attitude reference.
-    /// @param dvInrtlCmd    Commanded delta-V in inertial frame [m/s]; defines the 3rd burn-frame axis
-    /// @param dvRotVecUnit  Preferred 2nd burn-frame axis direction; only its component perpendicular
-    ///                      to dvInrtlCmd is used (need not be unit)
-    /// @return The burn-frame attitude reference with zero rates, or the default output if the burn
-    ///         frame cannot be constructed.
-    static DvGuidanceOutput update(const Eigen::Vector3f& dvInrtlCmd, const Eigen::Vector3f& dvRotVecUnit);
+    /// @return The burn-frame attitude reference with zero rates.
+    DvGuidanceOutput update() const;
+
+   private:
+    DvGuidanceConfig cfg;  ///< validated configuration
 };
 
 #endif
