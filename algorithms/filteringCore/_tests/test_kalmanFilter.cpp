@@ -228,4 +228,121 @@ TEST(ApplySequentialRobust, FailedTimeUpdateShortCircuitsMeasurementAndClears) {
     EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 0.0);
 }
 
+// Processing-delay tests. Timeline: one call per second; at call t a fast sensor delivers a sample taken at t - 0.2 and
+// a slow sensor a sample taken at t - 2.5. A slow sample is identified by a measurement value offset by kSlow.
+
+namespace {
+
+constexpr double kSlow = 1000.0;
+
+// Enqueue the samples that arrive at callTime: fast at callTime - 0.2 and slow at callTime - 2.5.
+template <std::size_t Capacity>
+void enqueueArrivals(measurement_queue<double, Capacity>& q, double callTime) {
+    q.enqueue(callTime - 0.2, callTime - 0.2);
+    q.enqueue(callTime - 2.5, kSlow + callTime - 2.5);
+}
+
+// Measurement values applied, in call order.
+std::vector<double> appliedMeasurements(CallLog const& log) {
+    std::vector<double> values;
+    for (auto const& [k, v] : log.entries) {
+        if (k == CallLog::Kind::MeasurementUpdate) values.push_back(v);
+    }
+    return values;
+}
+
+}  // namespace
+
+// Without a delay, the fast sensor moves the anchor ahead of every later slow sample, so the slow sensor is dropped
+// from the second call on.
+TEST(ApplySequentialDelay, WithoutDelayTheSlowSensorFallsBehindTheAnchor) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 8> q;
+    for (double callTime = 10.0; callTime <= 15.0; callTime += 1.0) {
+        enqueueArrivals(q, callTime);
+        applySequential(q, filter, callTime);
+    }
+
+    int slowApplied = 0;
+    for (double const v : appliedMeasurements(log)) {
+        if (v >= kSlow) ++slowApplied;
+    }
+    EXPECT_EQ(slowApplied, 1) << "only the first slow sample, which arrives with the first fast one, is applied";
+}
+
+// With a 3 s delay, measurements are processed up to callTime - 3, so the slow samples (2.5 s late) are applied
+// with the fast ones, in time order, and none is dropped.
+TEST(ApplySequentialDelay, DelayAppliesTheSlowSensorInTimeOrder) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 8> q;
+    double const delay = 3.0;
+    q.setDelay(delay);
+    for (double callTime = 10.0; callTime <= 15.0; callTime += 1.0) {
+        enqueueArrivals(q, callTime);
+        applySequential(q, filter, callTime);
+        EXPECT_LE(q.getTimeOfLastMeasurement(), callTime - delay) << "the anchor stays at or behind callTime - delay";
+    }
+
+    // Every sample up to 15 - 3 = 12 is applied: slow 7.5 ... 11.5 and fast 9.8 ... 11.8, in time order.
+    std::vector<double> const expected = {
+        kSlow + 7.5, kSlow + 8.5, kSlow + 9.5, 10.0 - 0.2, kSlow + 10.5, 11.0 - 0.2, kSlow + 11.5, 12.0 - 0.2};
+    EXPECT_EQ(appliedMeasurements(log), expected);
+    EXPECT_FALSE(q.isEmpty()) << "the samples after 12 stay queued for a later call";
+}
+
+// The delayed measurements stay queued, and the filter is still propagated from the anchor to callTime.
+TEST(ApplySequentialDelay, DelayedMeasurementsStayQueuedAndTheFilterReachesCallTime) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(5.0);
+    q.setDelay(3.0);
+    q.enqueue(9.8, 9.8);
+
+    applySequential(q, filter, 10.0);
+
+    ASSERT_EQ(log.entries.size(), 1u);
+    EXPECT_EQ(log.entries[0].first, CallLog::Kind::TimeUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[0].second, 5.0) << "propagated from the anchor (5) to callTime (10)";
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 5.0);
+    auto const delayed = q.popEarliest();
+    ASSERT_TRUE(delayed.has_value());
+    EXPECT_DOUBLE_EQ(delayed->first, 9.8);
+}
+
+// A sample with a latency larger than the delay is behind the anchor: it is dropped.
+TEST(ApplySequentialDelay, SampleWithALatencyAboveTheDelayIsDropped) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(10.0);
+    q.setDelay(3.0);
+    q.enqueue(6.5, kSlow + 6.5);  // latency of 7.5 s at call 14, more than the 3 s delay
+    q.enqueue(10.5, 10.5);
+
+    applySequential(q, filter, 14.0);
+
+    EXPECT_EQ(appliedMeasurements(log), std::vector<double>{10.5});
+    EXPECT_TRUE(q.isEmpty()) << "the late sample is not kept";
+}
+
+// The robust scheduler delays measurements the same way.
+TEST(ApplySequentialDelay, RobustSchedulerDelaysTheSameWay) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 8> q;
+    q.setDelay(3.0);
+    for (double callTime = 10.0; callTime <= 15.0; callTime += 1.0) {
+        enqueueArrivals(q, callTime);
+        applySequentialRobust(q, filter, callTime);
+    }
+
+    std::vector<double> const expected = {
+        kSlow + 7.5, kSlow + 8.5, kSlow + 9.5, 10.0 - 0.2, kSlow + 10.5, 11.0 - 0.2, kSlow + 11.5, 12.0 - 0.2};
+    EXPECT_EQ(appliedMeasurements(log), expected);
+    EXPECT_EQ(count(log, CallLog::Kind::Clear), 0);
+}
+
 }  // namespace filtering
