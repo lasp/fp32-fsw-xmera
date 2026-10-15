@@ -44,6 +44,7 @@ class SunlineFilter : public SysModel {
     float sensorThreshold = 0.0F;          //!< [-] minimum cosValue to count a sensor active (>= 0)
     float cssMeasurementNoiseStd = 0.0F;   //!< [-] CSS measurement noise std (>= 0)
     float gyroMeasurementNoiseStd = 0.0F;  //!< [rad/s] gyro measurement noise std (>= 0)
+    float measurementDelay = 0.0F;         //!< [s] processing delay for late measurements (>= 0, default 0)
 
     ReadFunctor<NavAttMsgF32Payload> navAttInMsg;           //!< gyro rate input
     ReadFunctor<CSSArraySensorMsgF32Payload> cssDataInMsg;  //!< CSS array reading input

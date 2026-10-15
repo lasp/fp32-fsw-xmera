@@ -158,6 +158,17 @@ Configuration parameters
     * - gyroMeasurementNoiseStd
       - gyro measurement noise standard deviation
       - >= 0
+    * - measurementDelay
+      - processing delay [s]: a measurement is processed only once the filter time is at least its time tag
+        plus the delay (default 0, no delay). Set it to the largest measurement latency plus a margin.
+      - >= 0
+
+The measurement queue holds ``BatchSize = 5`` measurements. Each call enqueues the new readings before it processes
+the due ones, so the queue must hold every reading received within the delay, plus the new ones. With one CSS and one
+gyro reading per call, both on time, that is two readings per call of delay: a delay up to 2 s fits. A late sensor
+has fewer readings waiting: with the gyro arriving 3 s after its time tag and a 2.5 s delay, the queue holds three
+CSS readings and one gyro reading. When the queue is full, the oldest measurement is dropped. See
+"Heterogeneous rates share one anchor" in ``filteringCore.rst`` for how the delay works.
 
 The CSS geometry is not set directly: ``numberOfCss`` (:math:`1 \le n \le` ``MaxCss``), the per-sensor
 boresights (each of the first ``numberOfCss`` rows must be unit length within 1e-3), and the per-sensor
@@ -186,6 +197,7 @@ configuration::
     filter.sensorThreshold = 0.0
     filter.cssMeasurementNoiseStd = 0.01
     filter.gyroMeasurementNoiseStd = 0.001
+    filter.measurementDelay = 0.0  # e.g. 3.0 for a gyro delivered up to 2.5 s after its sample time
     sigmaSun = (1e-6) ** 2
     sigmaRate = (1e-8) ** 2
     sigmaBias = (1e-5) ** 2
