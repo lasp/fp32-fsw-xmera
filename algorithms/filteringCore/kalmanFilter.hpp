@@ -33,7 +33,7 @@ template <class Filter, class Measurement, std::size_t Capacity>
 void applySequential(measurement_queue<Measurement, Capacity>& queue, Filter& filter, double callTime) {
     double timeOfLastMeasurement = queue.getTimeOfLastMeasurement();
 
-    for (auto entry = queue.popEarliest(); entry.has_value(); entry = queue.popEarliest()) {
+    for (auto entry = queue.popEarliestDue(callTime); entry.has_value(); entry = queue.popEarliestDue(callTime)) {
         auto& [timeTag, measurement] = entry.value();
         if (timeTag < timeOfLastMeasurement) continue;
         filter.timeUpdate(timeTag - timeOfLastMeasurement);
@@ -63,7 +63,7 @@ template <class Filter, class Measurement, std::size_t Capacity>
 void applySequentialRobust(measurement_queue<Measurement, Capacity>& queue, Filter& filter, double callTime) {
     double timeOfLastMeasurement = queue.getTimeOfLastMeasurement();
 
-    for (auto entry = queue.popEarliest(); entry.has_value(); entry = queue.popEarliest()) {
+    for (auto entry = queue.popEarliestDue(callTime); entry.has_value(); entry = queue.popEarliestDue(callTime)) {
         auto& [timeTag, measurement] = entry.value();
         if (timeTag < timeOfLastMeasurement) continue;
 
