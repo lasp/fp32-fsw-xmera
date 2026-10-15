@@ -142,6 +142,7 @@ struct ConfigInputs {
     float sensorThreshold = 0.0;
     float cssMeasStd = 1E-2;
     float gyroStd = 1E-3;
+    float measurementDelay = 0.0;
 };
 
 inline SunlineFilterConfig buildConfig(ConfigInputs const& in) {
@@ -157,7 +158,8 @@ inline SunlineFilterConfig buildConfig(ConfigInputs const& in) {
                                        in.numberOfCss,
                                        in.sensorThreshold,
                                        in.cssMeasStd,
-                                       in.gyroStd);
+                                       in.gyroStd,
+                                       in.measurementDelay);
 }
 
 // ---------------------------------------------------------------------------
