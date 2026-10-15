@@ -334,11 +334,13 @@ TEST(SunlineFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovaria
     ConfigInputs sharpIn = base;
     sharpIn.gyroStd = 1E-3;
     SunlineFilterAlgorithm sharp(buildConfig(sharpIn));
+    sharp.update(0.0, CssData{}, RateData{});  // synchronize the filter time at t = 0
     sharp.update(1.0, CssData{}, rate);
 
     ConfigInputs looseIn = base;
     looseIn.gyroStd = 1E-1;
     SunlineFilterAlgorithm loose(buildConfig(looseIn));
+    loose.update(0.0, CssData{}, RateData{});  // synchronize the filter time at t = 0
     loose.update(1.0, CssData{}, rate);
 
     EXPECT_LT(rateBlockTrace(sharp.getCovariance()), rateBlockTrace(loose.getCovariance()));
@@ -352,6 +354,7 @@ TEST(SunlineFilterAlgorithmUpdate, UpdateWithRateAndCssExposesBothResiduals) {
     Eigen::Vector3f const sHat0 = Eigen::Vector3f(0.0, 0.0, 1.0);
     SunlineFilterAlgorithm algo(
         threeCssConfig(makeState(sHat0, Eigen::Vector3f(0.01, 0.0, 0.0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.0));
+    algo.update(0.0, CssData{}, RateData{});  // synchronize the filter time at t = 0
 
     CssData css;
     css.timeTag = 1.0;
@@ -437,6 +440,7 @@ TEST(SunlineFilterAlgorithmUpdate, WithoutMeasurementsGrowsCovarianceMonotonical
     Matrix7 const P0 = diagCovariance(1E-2, 1E-3, 1E-2);
     SunlineFilterAlgorithm algo(rateOnlyConfigWithProcessNoise(
         makeState(Eigen::Vector3f(0, 0, 1), Eigen::Vector3f::Zero(), 1.0), P0, Matrix7::Identity() * 1E-3));
+    algo.update(0.0, CssData{}, RateData{});  // synchronize the filter time at t = 0
 
     algo.update(1.0, CssData{}, RateData{});
     float const trace1 = algo.getCovariance().trace();
@@ -450,9 +454,41 @@ TEST(SunlineFilterAlgorithmUpdate, WithoutMeasurementsGrowsCovarianceMonotonical
     EXPECT_GT(trace9, trace4);
 }
 
+// The first update() at a call time well ahead of 0 only synchronizes the filter time: the covariance does not grow
+// over the gap from 0, and later calls give the same estimate as a filter synchronized at 0 and shifted by 1000 s.
+TEST(SunlineFilterAlgorithmSynchronization, FirstCallFarAheadOfZeroSetsTheFilterTime) {
+    Matrix7 const P0 = diagCovariance(1E-2, 1E-3, 1E-2);
+    auto const config = rateOnlyConfigWithProcessNoise(
+        makeState(Eigen::Vector3f(0, 0, 1), Eigen::Vector3f(0.01, 0, 0), 1.0), P0, Matrix7::Identity() * 1E-3);
+
+    SunlineFilterAlgorithm late(config);
+    late.update(1000.0, CssData{}, RateData{});
+    EXPECT_TRUE(late.getCovariance().isApprox(P0)) << "no propagation over the 1000 s before the first call";
+
+    SunlineFilterAlgorithm early(config);
+    early.update(0.0, CssData{}, RateData{});
+
+    RateData lateRate;
+    lateRate.timeTag = 1002.0;
+    lateRate.rate = Eigen::Vector3f(0.01, 0.0, 0.0);
+    RateData earlyRate = lateRate;
+    earlyRate.timeTag = 2.0;
+
+    late.update(1001.0, CssData{}, RateData{});
+    early.update(1.0, CssData{}, RateData{});
+    EXPECT_GT(late.getCovariance().trace(), P0.trace()) << "the second call propagates";
+    EXPECT_TRUE(late.getCovariance().isApprox(early.getCovariance())) << "propagated over 1 s, not 1001 s";
+
+    EXPECT_TRUE(late.update(1004.0, CssData{}, lateRate).rateResiduals.valid);
+    early.update(4.0, CssData{}, earlyRate);
+    EXPECT_TRUE(late.getState().raw().isApprox(early.getState().raw()));
+    EXPECT_TRUE(late.getCovariance().isApprox(early.getCovariance()));
+}
+
 TEST(SunlineFilterAlgorithmReInit, ReInitializeExceptPersistentStatesPreservesEstimateReInitializeResetsIt) {
     SunlineFilterAlgorithm algo(threeCssConfig(
         makeState(Eigen::Vector3f(0, 0, 1), Eigen::Vector3f(0.01, 0, 0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.0));
+    algo.update(0.0, CssData{}, RateData{});  // synchronize the filter time at t = 0
 
     State const initialState = algo.getState();
     Matrix7 const initialCovariance = algo.getCovariance();
@@ -734,6 +770,7 @@ TEST(SunlineFilterAlgorithmScheduler, MeasurementDelayAppliesALateGyroReading) {
         ConfigInputs in;
         in.measurementDelay = delay;
         SunlineFilterAlgorithm algo(buildConfig(in));
+        algo.update(0.0, CssData{}, RateData{});  // synchronize the filter time at t = 0
 
         Eigen::Vector<float, MaxCss> cos = Eigen::Vector<float, MaxCss>::Zero();
         cos.head<3>() = threeCssNHat().topRows<3>() * Eigen::Vector3f(0.0, 0.0, 1.0);

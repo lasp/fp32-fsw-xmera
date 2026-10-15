@@ -154,6 +154,7 @@ TEST(FlybyFilterAlgorithmLifecycle, ReInitializeExceptPersistentStatesPreservesE
     State const initial = nominalTruth();
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
 
     HeadingData heading;
     heading.timeTag = 10.0;
@@ -245,6 +246,7 @@ TEST(FlybyFilterAlgorithmLifecycle, ClearRevertsToTheLastMeasurementAnchor) {
     TestState const initial = nominalTruth();
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
 
     // A measurement stamped at the call time leaves the filter sitting exactly on its anchor.
     HeadingData heading;
@@ -312,6 +314,7 @@ TEST(FlybyFilterAlgorithmOutput, UpdateSnapshotMatchesTheAccessors) {
 namespace {
 TestState propagateOnly(TestState const& initial, Matrix6 const& P, double callTime) {
     FlybyFilterAlgorithm algo(baseConfig(initial, P));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
     algo.update(callTime, HeadingData{});
     return algo.getState();
 }
@@ -321,6 +324,7 @@ TEST(FlybyFilterAlgorithmScheduler, NoMeasurementCyclePropagatesToTheCallTime) {
     TestState const initial = nominalTruth();
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
 
     constexpr double callTime = 40.0;
     FlybyFilterOutput const out = algo.update(callTime, HeadingData{});
@@ -341,6 +345,7 @@ TEST(FlybyFilterAlgorithmScheduler, NonPositiveTimeTagIsNotEnqueued) {
     TestState const reference = propagateOnly(initial, P0, callTime);
     for (float staleTag : {0.0, -5.0}) {
         FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+        algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
         HeadingData heading;
         heading.timeTag = staleTag;
         heading.rhat_BN_N = Eigen::Vector3f(0.0, 0.0, 1.0);  // deliberately far from the prior
@@ -355,6 +360,7 @@ TEST(FlybyFilterAlgorithmScheduler, MeasurementOlderThanTheAnchorIsDropped) {
     TestState const initial = nominalTruth();
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
 
     // Anchor the filter at t = 100 with a good measurement.
     HeadingData fresh;
@@ -373,6 +379,56 @@ TEST(FlybyFilterAlgorithmScheduler, MeasurementOlderThanTheAnchorIsDropped) {
     EXPECT_FALSE(out.headingResiduals.valid) << "a measurement older than the anchor must be dropped";
     TestState const expected = filtering::propagate(FlybyDynamics{kMu}, anchor, {0.0, 10.0});
     EXPECT_TRUE(algo.getState().raw().isApprox(expected.raw(), 1E-9));
+}
+
+// The first update() synchronizes the filter time with a call time well ahead of 0: the initial state and covariance
+// are taken to be the estimate at that call time, so the filter does not propagate over the gap from 0.
+TEST(FlybyFilterAlgorithmSynchronization, FirstCallFarAheadOfZeroDoesNotPropagate) {
+    TestState const initial = nominalTruth();
+    Matrix6 const P0 = diagCovariance(100.0, 0.1);
+    FlybyFilterAlgorithm algo(configWithProcessNoise(initial, P0, Matrix6::Identity() * 1E-6));
+
+    FlybyFilterOutput const out = algo.update(1000.0, HeadingData{});
+
+    EXPECT_FALSE(out.headingResiduals.valid);
+    EXPECT_TRUE(algo.getState().raw().isApprox(initial.raw(), 1E-12)) << "the state must not move on the first call";
+    EXPECT_TRUE(algo.getCovariance().isApprox(P0, 1E-12)) << "the covariance must not grow on the first call";
+}
+
+// After synchronizing at t = 1000, the next call propagates only the time elapsed since 1000, not since 0.
+TEST(FlybyFilterAlgorithmSynchronization, NextCallPropagatesFromTheSynchronizedTime) {
+    TestState const initial = nominalTruth();
+    Matrix6 const P0 = diagCovariance(100.0, 0.1);
+    FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+
+    algo.update(1000.0, HeadingData{});
+    algo.update(1040.0, HeadingData{});
+
+    TestState const fromSync = filtering::propagate(FlybyDynamics{kMu}, initial, {0.0, 40.0});
+    TestState const fromZero = filtering::propagate(FlybyDynamics{kMu}, initial, {0.0, 1040.0});
+    EXPECT_TRUE(algo.getState().raw().isApprox(fromSync.raw(), 1E-9)) << "propagated over 40 s from the sync time";
+    EXPECT_FALSE(algo.getState().raw().isApprox(fromZero.raw(), 1E-3)) << "not propagated over 1040 s from 0";
+}
+
+// A measurement handed over on the first call stays queued: it is applied on the next call when its time tag is at the
+// synchronized time, and dropped when its time tag is before it.
+TEST(FlybyFilterAlgorithmSynchronization, MeasurementsAreProcessedRelativeToTheSynchronizedTime) {
+    TestState const initial = nominalTruth();
+    Matrix6 const P0 = diagCovariance(100.0, 0.1);
+
+    auto nextCallAppliesHeadingTaggedAt = [&](double timeTag) {
+        FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+        HeadingData heading;
+        heading.timeTag = timeTag;
+        heading.rhat_BN_N = headingOf(initial);
+        FlybyFilterOutput const first = algo.update(1000.0, heading);
+        EXPECT_FALSE(first.headingResiduals.valid) << "the first call only synchronizes";
+        EXPECT_TRUE(algo.getState().raw().isApprox(initial.raw(), 1E-12));
+        return algo.update(1010.0, HeadingData{}).headingResiduals.valid;
+    };
+
+    EXPECT_TRUE(nextCallAppliesHeadingTaggedAt(1000.0)) << "a heading at the sync time is applied";
+    EXPECT_FALSE(nextCallAppliesHeadingTaggedAt(990.0)) << "a heading before the sync time is dropped";
 }
 
 TEST(FlybyFilterAlgorithmScheduler, DelayedButNewerMeasurementIsAppliedAtItsOwnTimeTag) {
@@ -411,6 +467,7 @@ TEST(FlybyFilterAlgorithmScheduler, BadMeasurementIsRolledBackAndTheCycleStillPr
 
     auto anchored = [&]() {
         auto algo = std::make_unique<FlybyFilterAlgorithm>(baseConfig(initial, P0));
+        algo->update(0.0, HeadingData{});  // synchronize the filter time at t = 0
         HeadingData good;
         good.timeTag = 100.0;
         good.rhat_BN_N = headingOf(initial);
@@ -609,6 +666,7 @@ TEST(FlybyFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual) {
     TestState const initial = makeState(truth.get<filtering::Position<3>>() + Eigen::Vector3f(200.0, -150.0, 90.0),
                                         truth.get<filtering::Velocity<3>>());
     FlybyFilterAlgorithm algo(baseConfig(initial, diagCovariance(300.0, 0.1)));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
 
     HeadingData heading;
     heading.timeTag = 10.0;
@@ -628,6 +686,7 @@ TEST(FlybyFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovarianc
     // larger configured std must yield a smaller correction for the same reading.
     auto traceAfterUpdate = [&](float headingStd) {
         FlybyFilterAlgorithm algo(configWithHeadingStd(initial, P0, headingStd));
+        algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
         HeadingData heading;
         heading.timeTag = 10.0;
         heading.rhat_BN_N = headingOf(initial);
