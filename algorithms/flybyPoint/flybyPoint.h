@@ -26,6 +26,8 @@ class FlybyPoint : public SysModel {
     float maximumRateThreshold = 0.0F;
     float maximumAccelerationThreshold = 0.0F;
     float positionKnowledgeSigma = 0.0F;
+    // Ground-based state that seeds the profile, at the first updateState() after reset(). Required: the zero
+    // defaults are rejected, and r and v must be usable and not collinear.
     Eigen::Vector3d groundPosition_BN_N = Eigen::Vector3d::Zero();  //!< [m] ground-based position
     Eigen::Vector3d groundVelocity_BN_N = Eigen::Vector3d::Zero();  //!< [m/s] ground-based velocity
     Eigen::Vector3d groundPositionCovarianceDiag_N =

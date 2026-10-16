@@ -11,7 +11,8 @@ namespace {
 /*! One filter sample per control period: {r_x, r_y, r_z, v_x, v_y, v_z}. */
 using SampleSequence = std::vector<std::vector<double>>;
 
-/*! Random valid configuration. */
+/*! Random valid configuration. A ground state that can't seed the profile (unusable, or collinear for the drawn
+ tolerance) is replaced with a perpendicular pair, which any tolerance below 1 accepts. */
 auto configDomain() {
     return fuzztest::Map(
         [](double controlPeriod,
@@ -25,6 +26,8 @@ auto configDomain() {
            const Eigen::Vector3d& groundVelocity_BN_N,
            const Eigen::Vector3d& groundPositionCovarianceDiag_N,
            const Eigen::Vector3d& groundVelocityCovarianceDiag_N) {
+            const bool validGround = FlybyPointConfig::isValidGroundState(
+                groundPosition_BN_N, groundVelocity_BN_N, toleranceForCollinearity);
             return FlybyPointConfig::create(controlPeriod,
                                             filterReadPeriods,
                                             toleranceForCollinearity,
@@ -32,14 +35,14 @@ auto configDomain() {
                                             maximumRateThreshold,
                                             maximumAccelerationThreshold,
                                             positionKnowledgeSigma,
-                                            groundPosition_BN_N,
-                                            groundVelocity_BN_N,
+                                            validGround ? groundPosition_BN_N : Eigen::Vector3d{1e7, 0, 0},
+                                            validGround ? groundVelocity_BN_N : Eigen::Vector3d{0, 1e4, 0},
                                             groundPositionCovarianceDiag_N,
                                             groundVelocityCovarianceDiag_N);
         },
         fuzztest::InRange(1e-3, 1.0),              // controlPeriod [s]
         fuzztest::InRange<uint32_t>(1U, 200U),     // filterReadPeriods [-]
-        fuzztest::InRange(1e-6F, 1e6F),            // toleranceForCollinearity [-]
+        fuzztest::InRange(1e-6F, 0.5F),            // toleranceForCollinearity [-]
         fuzztest::ElementOf<int>({-1, 1}),         // signOfOrbitNormalFrameVector
         fuzztest::InRange(1e-6F, 1e6F),            // maximumRateThreshold [deg/s]
         fuzztest::InRange(1e-6F, 1e6F),            // maximumAccelerationThreshold [deg/s^2]
@@ -63,21 +66,39 @@ auto logRange(double lo, double hi) {
                          fuzztest::InRange(std::log10(lo), std::log10(hi)));
 }
 
+/*! The configuration with its ground state replaced by (r, v), which must be a valid ground state for it. */
+FlybyPointConfig withGroundState(const FlybyPointConfig& cfg,
+                                 const Eigen::Vector3d& r_BN_N,
+                                 const Eigen::Vector3d& v_BN_N) {
+    return FlybyPointConfig::create(cfg.getControlPeriod(),
+                                    cfg.getFilterReadPeriods(),
+                                    cfg.getToleranceForCollinearity(),
+                                    cfg.getSignOfOrbitNormalFrameVector(),
+                                    cfg.getMaximumRateThreshold(),
+                                    cfg.getMaximumAccelerationThreshold(),
+                                    cfg.getPositionKnowledgeSigma(),
+                                    r_BN_N,
+                                    v_BN_N,
+                                    cfg.getGroundPositionCovarianceDiag_N(),
+                                    cfg.getGroundVelocityCovarianceDiag_N());
+}
+
 auto sampleSequenceDomain() {
     return fuzztest::VectorOf(fuzztest::VectorOf(sampleComponentDomain()).WithSize(6)).WithMinSize(1).WithMaxSize(150);
 }
 }  // namespace
 
-// For any configuration and a noisy straight-line trajectory, the algorithm matches the test's double-precision copy of
-// it on every period, through accepted and rejected re-reads. A (nearly) collinear first sample is skipped: whether it
-// is refused can depend on rounding, and the property test below covers it.
-static void fuzzMatchesReferenceModel(const FlybyPointConfig& cfg,
+// For any configuration and a noisy straight-line trajectory starting at the ground state, the algorithm matches the
+// test's double-precision copy of it on every period, through accepted and rejected re-reads. A start that can't be a
+// ground state is skipped; the configuration tests cover it.
+static void fuzzMatchesReferenceModel(const FlybyPointConfig& fuzzedCfg,
                                       const Eigen::Vector3d& r0_BN_N,
                                       const Eigen::Vector3d& v_BN_N,
                                       const std::vector<Eigen::Vector3d>& noise_N) {
-    if (r0_BN_N.stableNormalized().cross(v_BN_N.stableNormalized()).stableNorm() < 1e-6) {
+    if (!FlybyPointConfig::isValidGroundState(r0_BN_N, v_BN_N, fuzzedCfg.getToleranceForCollinearity())) {
         return;
     }
+    const FlybyPointConfig cfg = withGroundState(fuzzedCfg, r0_BN_N, v_BN_N);
     std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> samples{{r0_BN_N, v_BN_N}};
     for (size_t k = 1; k <= noise_N.size(); ++k) {
         const double t = static_cast<double>(k) * cfg.getControlPeriod();
@@ -94,7 +115,8 @@ FUZZ_TEST(FlybyPointAlgorithmFuzz, fuzzMatchesReferenceModel)
 
 // Every case turns the algorithm on some time before closest approach of a straight-line flyby and runs it at its
 // control period until some time after, with re-reads along the way. On every period the reference matches the exact
-// one from the geometry. No check rejects under these limits, so the first sample seeds and every re-read is accepted.
+// one from the geometry. The ground state is the first sample, and no check rejects under these limits, so every
+// re-read is accepted.
 static void fuzzFlybyPassMatchesStraightLine(double closestApproachDistance,
                                              double speed,
                                              double timeBeforeClosestApproach,
@@ -125,7 +147,15 @@ static void fuzzFlybyPassMatchesStraightLine(double closestApproachDistance,
     const auto timeAt = [&](uint32_t k) { return static_cast<double>(k) * controlPeriod - timeBeforeClosestApproach; };
     const auto lastPeriod = static_cast<uint32_t>(numPeriods);
 
+    // Skip runs that start or end almost head-on, where the collinearity check refuses the ground state or a re-read.
+    // The run is closest to head-on at its two ends, so every sample in between is accepted.
     constexpr float kCollinearityTolerance = 1e-9F;
+    const Eigen::Vector3d rStart_BN_N = rClosest_BN_N + timeAt(0) * v_BN_N;
+    if (referenceIsCollinear(rStart_BN_N, v_BN_N, kCollinearityTolerance) ||
+        referenceIsCollinear(rClosest_BN_N + timeAt(lastPeriod) * v_BN_N, v_BN_N, kCollinearityTolerance)) {
+        return;
+    }
+
     constexpr float kNoLimit = std::numeric_limits<float>::max();
     const FlybyPointConfig cfg = FlybyPointConfig::create(controlPeriod,
                                                           filterReadPeriods,
@@ -134,17 +164,10 @@ static void fuzzFlybyPassMatchesStraightLine(double closestApproachDistance,
                                                           kNoLimit,
                                                           kNoLimit,
                                                           kNoLimit,
-                                                          Eigen::Vector3d::Zero(),
-                                                          Eigen::Vector3d::Zero(),
+                                                          rStart_BN_N,
+                                                          v_BN_N,
                                                           Eigen::Vector3d::Zero(),
                                                           Eigen::Vector3d::Zero());
-
-    // Skip runs that start or end almost head-on, where the collinearity check refuses the sample. The run is closest
-    // to head-on at its two ends, so every sample in between is accepted.
-    if (referenceIsCollinear(rClosest_BN_N + timeAt(0) * v_BN_N, v_BN_N, cfg) ||
-        referenceIsCollinear(rClosest_BN_N + timeAt(lastPeriod) * v_BN_N, v_BN_N, cfg)) {
-        return;
-    }
 
     const double speedOverDistance = speed / closestApproachDistance;
     const double peakAcceleration = 3.0 * std::numbers::sqrt3 / 8.0 * speedOverDistance * speedOverDistance;
@@ -171,11 +194,10 @@ FUZZ_TEST(FlybyPointAlgorithmFuzz, fuzzFlybyPassMatchesStraightLine)
                  fuzztest::ElementOf<int>({-1, 1}));       // signOfOrbitNormalFrameVector
 
 // For any configuration and any samples (realistic, extreme, non-finite or zero), every period: nothing throws or
-// aborts, the reference is finite with |sigma| <= 1, it is exactly zero until a usable, non-collinear sample seeds,
-// unusable samples are flagged, and no more samples are reported unusable than the window holds.
+// aborts, the reference is finite with |sigma| <= 1, unusable samples are flagged, and no more samples are reported
+// unusable than the window holds.
 static void fuzzOutputProperties(const FlybyPointConfig& cfg, const SampleSequence& samples) {
     FlybyPointAlgorithm alg(cfg);
-    bool seeded = false;
     for (const std::vector<double>& sample : samples) {
         const Eigen::Vector3d r{sample[0], sample[1], sample[2]};
         const Eigen::Vector3d v{sample[3], sample[4], sample[5]};
@@ -184,10 +206,6 @@ static void fuzzOutputProperties(const FlybyPointConfig& cfg, const SampleSequen
 
         EXPECT_TRUE(out.sigma_RN.allFinite() && out.omega_RN_N.allFinite() && out.domega_RN_N.allFinite());
         EXPECT_LE(out.sigma_RN.stableNorm(), 1.0F + 1e-6F);
-        seeded = seeded || (referenceIsUsableSample(r, v) && !referenceIsCollinear(r, v, cfg));
-        if (!seeded) {
-            expectZeroGuidance(out);
-        }
         EXPECT_EQ(out.inputSampleRejected, !referenceIsUsableSample(r, v));
         EXPECT_LE(out.rejectedSamplesInWindow, cfg.getFilterReadPeriods());
     }

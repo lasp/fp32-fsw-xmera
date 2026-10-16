@@ -4,13 +4,13 @@
 #include "flybyPointTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
+#include <math.h>
 #include <Eigen/Dense>
 #include <cstdint>
-#include <optional>
 
 /*! @brief Structure containing the attitude guidance output of the algorithm. As in the other guidance algorithms,
- * the reference (sigma_RN, omega_RN_N, domega_RN_N) is all zero when no solution is available: before the first seed,
- * or if the guidance solution is not finite. */
+ * the reference (sigma_RN, omega_RN_N, domega_RN_N) is all zero when no solution is available, which happens only if
+ * the guidance solution is not finite. */
 struct AttGuideOutput {
     Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();
     Eigen::Vector3f omega_RN_N = Eigen::Vector3f::Zero();
@@ -38,11 +38,18 @@ struct FlybyValidityTriggers {
  * The filter re-read cadence is a whole number of control periods, so the decision of when to re-read is exact
  * integer arithmetic. Elapsed time in seconds is derived as (control periods elapsed) * controlPeriod.
  *
- * The ground-based position and velocity, and the diagonal terms (variances) of their ground-based covariance, are
+ * The ground-based position and velocity seed the pointing profile when the algorithm is configured or reset. They are
+ * the relative state at the time of the first updateState() call that follows, and must be a usable, non-collinear
+ * pair, since r and v must define an orbit normal. The diagonal terms (variances) of their ground-based covariance are
  * validated and stored for future use; the algorithm does not use them yet.
  */
 class FlybyPointConfig final {
    public:
+    /*! [-] smallest |r_hat x v_hat| (sine of the r-v angle) for which r and v define an orbit normal. Below it the
+     orbit-normal direction would be dominated by rounding, so the pair is treated as collinear whatever
+     toleranceForCollinearity is; this only matters for a toleranceForCollinearity below double resolution. */
+    static constexpr double kMinOrbitNormalNorm = 1e-12;
+
     static FlybyPointConfig create(double controlPeriod,
                                    uint32_t filterReadPeriods,
                                    float toleranceForCollinearity,
@@ -75,11 +82,12 @@ class FlybyPointConfig final {
         if (!isValidPositionKnowledgeSigma(positionKnowledgeSigma)) {
             FSW_THROW_INVALID_ARGUMENT("flybyPoint: positionKnowledgeSigma must be > 0");
         }
-        if (!isValidGroundPosition(groundPosition_BN_N)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundPosition_BN_N must be finite");
+        if (!isUsableSample(groundPosition_BN_N, groundVelocity_BN_N)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "flybyPoint: groundPosition_BN_N and groundVelocity_BN_N must be finite, non-zero and not overflow");
         }
-        if (!isValidGroundVelocity(groundVelocity_BN_N)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundVelocity_BN_N must be finite");
+        if (isCollinear(groundPosition_BN_N, groundVelocity_BN_N, toleranceForCollinearity)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundPosition_BN_N and groundVelocity_BN_N must not be collinear");
         }
         if (!isValidGroundPositionCovarianceDiag(groundPositionCovarianceDiag_N)) {
             FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundPositionCovarianceDiag_N must be finite and >= 0");
@@ -108,14 +116,48 @@ class FlybyPointConfig final {
     static bool isValidMaximumRateThreshold(float r) { return r > 0.0F; }
     static bool isValidMaximumAccelerationThreshold(float a) { return a > 0.0F; }
     static bool isValidPositionKnowledgeSigma(float s) { return s > 0.0F; }
-    static bool isValidGroundPosition(const Eigen::Vector3d& r) { return r.allFinite(); }
-    static bool isValidGroundVelocity(const Eigen::Vector3d& v) { return v.allFinite(); }
+    /*! Check whether the ground state can seed the profile: it must be a usable, non-collinear sample. */
+    static bool isValidGroundState(const Eigen::Vector3d& r_BN_N,
+                                   const Eigen::Vector3d& v_BN_N,
+                                   float toleranceForCollinearity) {
+        return isUsableSample(r_BN_N, v_BN_N) && !isCollinear(r_BN_N, v_BN_N, toleranceForCollinearity);
+    }
     /*! A diagonal covariance is positive semi-definite if and only if every diagonal term is >= 0. */
     static bool isValidGroundPositionCovarianceDiag(const Eigen::Vector3d& p) {
         return p.allFinite() && (p.array() >= 0.0).all();
     }
     static bool isValidGroundVelocityCovarianceDiag(const Eigen::Vector3d& p) {
         return p.allFinite() && (p.array() >= 0.0).all();
+    }
+
+    /*! Check whether a sample can seed the profile or enter the averaging window: it must be finite, neither r nor v
+     may be (near) zero, and the products formed from it must be finite, |r||v| (closest approach) and
+     f0^2 = (|v|/|r|)^2 (frame acceleration).
+     @return true if the sample is usable
+     @param r_BN_N [m] relative position
+     @param v_BN_N [m/s] relative velocity
+     */
+    static bool isUsableSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
+        const double rNorm = r_BN_N.stableNorm();
+        const double vNorm = v_BN_N.stableNorm();
+        return r_BN_N.allFinite() && v_BN_N.allFinite() && rNorm >= 1e-3 && vNorm >= 1e-3 &&
+               fsw::is_finite(rNorm * vNorm) && fsw::is_finite((vNorm / rNorm) * (vNorm / rNorm));
+    }
+
+    /*! Check whether r and v are collinear: 1 - |cos| of their angle is below toleranceForCollinearity, or
+     |r_hat x v_hat| is below kMinOrbitNormalNorm.
+     @return true if r and v are collinear
+     @param r_BN_N [m] relative position
+     @param v_BN_N [m/s] relative velocity
+     @param toleranceForCollinearity [-] tolerance on 1 - |cos| of the r-v angle
+     */
+    static bool isCollinear(const Eigen::Vector3d& r_BN_N,
+                            const Eigen::Vector3d& v_BN_N,
+                            const float toleranceForCollinearity) {
+        const Eigen::Vector3d ur_N = r_BN_N.stableNormalized();
+        const Eigen::Vector3d uv_N = v_BN_N.stableNormalized();
+        return 1.0 - fabs(ur_N.dot(uv_N)) < toleranceForCollinearity ||
+               ur_N.cross(uv_N).stableNorm() < kMinOrbitNormalNorm;
     }
 
     /*! @return [s] time between successive updateState() calls */
@@ -127,9 +169,9 @@ class FlybyPointConfig final {
     float getMaximumRateThreshold() const { return maximumRateThreshold; }
     float getMaximumAccelerationThreshold() const { return maximumAccelerationThreshold; }
     float getPositionKnowledgeSigma() const { return positionKnowledgeSigma; }
-    /*! @return [m] ground-based position */
+    /*! @return [m] ground-based position at the first updateState() call after configuring or resetting */
     const Eigen::Vector3d& getGroundPosition_BN_N() const { return groundPosition_BN_N; }
-    /*! @return [m/s] ground-based velocity */
+    /*! @return [m/s] ground-based velocity at the first updateState() call after configuring or resetting */
     const Eigen::Vector3d& getGroundVelocity_BN_N() const { return groundVelocity_BN_N; }
     /*! @return [m^2] diagonal terms of the ground-based position covariance */
     const Eigen::Vector3d& getGroundPositionCovarianceDiag_N() const { return groundPositionCovarianceDiag_N; }
@@ -183,17 +225,16 @@ class FlybyPointConfig final {
  * average is the re-read candidate. With filterReadPeriods = 1 the average is the current sample, so the algorithm
  * re-reads a single sample, as without averaging.
  *
+ * The profile is seeded from the configuration's ground-based state when the algorithm is constructed, reconfigured
+ * or reset, so a profile always exists. The ground state is the state at the next updateState() call, which outputs
+ * the profile at zero elapsed time and opens the first averaging window.
+ *
  * An unusable sample is left out of the average and reported through the diagnostics; it does not affect the
  * guidance output, which comes from the last accepted profile. The output is therefore a valid reference on every
- * period after the first seed. The first seed must not be collinear, since r and v then define no orbit normal.
+ * period.
  */
 class FlybyPointAlgorithm final {
    public:
-    /*! [-] smallest |r_hat x v_hat| (sine of the r-v angle) for which r and v define an orbit normal. Below it the
-     orbit-normal direction would be dominated by rounding, so the pair is treated as collinear whatever
-     toleranceForCollinearity is; this only matters for a toleranceForCollinearity below double resolution. */
-    static constexpr double kMinOrbitNormalNorm = 1e-12;
-
     explicit FlybyPointAlgorithm(const FlybyPointConfig& config);
     void setConfig(const FlybyPointConfig& config);
     void reset();
@@ -226,13 +267,13 @@ class FlybyPointAlgorithm final {
         uint64_t periodsSinceRead = 0;                      //!< [-] control periods elapsed since the read
     };
 
-    void seedProfile(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
+    static Profile makeProfile(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
     FlybyValidityTriggers reReadFromWindow(const Profile& p);
     GuidanceReference computeGuidanceReference(const Profile& p) const;
 
     FlybyPointConfig cfg;
-    std::optional<Profile> profile;  //!< empty until the first seed, and again after reset()
-    AveragingWindow window{};        //!< averaging window in progress
+    Profile profile;           //!< profile of the last accepted read, or of the ground state
+    AveragingWindow window{};  //!< averaging window in progress
 };
 
 #endif  // F32XMERA_FLYBY_POINT_ALGORITHM_H
