@@ -159,7 +159,8 @@ struct ReferenceFlybyState {
 inline bool referenceIsUsableSample(const Eigen::Vector3d& r, const Eigen::Vector3d& v) {
     const double rNorm = r.stableNorm();
     const double vNorm = v.stableNorm();
-    return r.allFinite() && v.allFinite() && rNorm >= 1e-3 && vNorm >= 1e-3 && std::isfinite(rNorm * vNorm) &&
+    return r.allFinite() && v.allFinite() && rNorm >= FlybyPointConfig::kMinPositionNorm &&
+           vNorm >= FlybyPointConfig::kMinVelocityNorm && std::isfinite(rNorm * vNorm) &&
            std::isfinite((vNorm / rNorm) * (vNorm / rNorm));
 }
 
