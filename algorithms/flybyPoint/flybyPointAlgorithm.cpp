@@ -8,34 +8,6 @@ static constexpr double kRad2Deg = 180.0 / std::numbers::pi;
 static constexpr double kMaxAccelCoeff = 3.0 * std::numbers::sqrt3 / 8.0;
 
 namespace {
-/*! Check whether a filter sample can seed the profile or enter the averaging window: it must be finite, neither r
- nor v may be (near) zero, and the products formed from it must be finite, |r||v| (closest approach) and
- f0^2 = (|v|/|r|)^2 (frame acceleration).
- @return true if the sample is usable
- @param r_BN_N [m] relative position
- @param v_BN_N [m/s] relative velocity
- */
-bool isUsableSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
-    const double rNorm = r_BN_N.stableNorm();
-    const double vNorm = v_BN_N.stableNorm();
-    return r_BN_N.allFinite() && v_BN_N.allFinite() && rNorm >= 1e-3 && vNorm >= 1e-3 &&
-           fsw::is_finite(rNorm * vNorm) && fsw::is_finite((vNorm / rNorm) * (vNorm / rNorm));
-}
-
-/*! Check whether r and v are collinear: 1 - |cos| of their angle is below toleranceForCollinearity,
- * or |r_hat x v_hat| is below FlybyPointAlgorithm::kMinOrbitNormalNorm.
- @return true if r and v are collinear
- @param r_BN_N [m] relative position
- @param v_BN_N [m/s] relative velocity
- @param toleranceForCollinearity [-] tolerance on 1 - |cos| of the r-v angle
- */
-bool isCollinear(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N, const float toleranceForCollinearity) {
-    const Eigen::Vector3d ur_N = r_BN_N.stableNormalized();
-    const Eigen::Vector3d uv_N = v_BN_N.stableNormalized();
-    return 1.0 - fabs(ur_N.dot(uv_N)) < toleranceForCollinearity ||
-           ur_N.cross(uv_N).stableNorm() < FlybyPointAlgorithm::kMinOrbitNormalNorm;
-}
-
 /*! Check a re-read candidate (r, v) against the configured thresholds and against the rectilinear prediction from the
  last accepted read.
  @return std::nullopt if the candidate passes every check, otherwise the checks that rejected it
@@ -51,7 +23,7 @@ std::optional<FlybyValidityTriggers> checkValidity(
     const Eigen::Vector3d& rPredicted_BN_N,
     const FlybyPointConfig& cfg) {
     FlybyValidityTriggers triggers{};
-    triggers.collinearityTrigger = isCollinear(r_BN_N, v_BN_N, cfg.getToleranceForCollinearity());
+    triggers.collinearityTrigger = FlybyPointConfig::isCollinear(r_BN_N, v_BN_N, cfg.getToleranceForCollinearity());
 
     /*! the predicted peak rate and acceleration occur near closest approach of the candidate's own rectilinear
      trajectory, at distance d_CA = |r x v| / |v| = |r| |cos(gamma)|: peak rate |v| / d_CA and peak acceleration
@@ -80,99 +52,87 @@ std::optional<FlybyValidityTriggers> checkValidity(
 }
 }  // namespace
 
-/*! Construct the algorithm with a validated configuration and no profile.
+/*! Construct the algorithm with a validated configuration, and seed the profile from its ground-based state.
  @param config The validated configuration to install
  */
-FlybyPointAlgorithm::FlybyPointAlgorithm(const FlybyPointConfig& config) : cfg(config) {}
+FlybyPointAlgorithm::FlybyPointAlgorithm(const FlybyPointConfig& config)
+    : cfg(config), profile(makeProfile(config.getGroundPosition_BN_N(), config.getGroundVelocity_BN_N())) {}
 
-/*! Replace the configuration. The partial averaging window is discarded, since its samples were propagated to the
- end of a window of the old length.
+/*! Replace the configuration and re-seed the profile from its ground-based state. The partial averaging window is
+ discarded, since its samples belong to the replaced profile and were propagated to the end of a window of the old
+ length.
  @return void
  @param config The validated configuration to install
  */
 void FlybyPointAlgorithm::setConfig(const FlybyPointConfig& config) {
     this->cfg = config;
-    this->window = {};
+    this->reset();
 }
 
-/*! Forget the profile; the next usable, non-collinear sample seeds a new one.
+/*! Re-seed the profile from the configuration's ground-based state and discard the partial averaging window. The
+ next updateState() call outputs the profile at zero elapsed time.
  @return void
  */
 void FlybyPointAlgorithm::reset() {
-    this->profile.reset();
+    this->profile = makeProfile(this->cfg.getGroundPosition_BN_N(), this->cfg.getGroundVelocity_BN_N());
     this->window = {};
 }
 
 /*! Compute the reference attitude for this control period from the filter sample (r, v). Must be called once per
- control period. The reference is zero until the first seed, and zero if the guidance solution is not finite.
+ control period. The reference is zero only if the guidance solution is not finite.
  @return AttGuideOutput containing reference attitude (sigma_RN, omega_RN_N, domega_RN_N) and diagnostic flags
  @param r_BN_N [m] relative position from the filter
  @param v_BN_N [m/s] relative velocity from the filter
  */
 AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
     AttGuideOutput output{};
-    const bool usableSample = isUsableSample(r_BN_N, v_BN_N);
+    const bool usableSample = FlybyPointConfig::isUsableSample(r_BN_N, v_BN_N);
     output.inputSampleRejected = !usableSample;
 
-    if (!this->profile) {
-        /*! 1. Seed: no profile (zero reference) until the first usable, non-collinear sample, which is not otherwise
-         checked since the algorithm needs a seed. The window is still at its reset value, since nothing accumulates
-         before the seed */
-        if (!usableSample) {
-            return output;
-        }
-        if (isCollinear(r_BN_N, v_BN_N, this->cfg.getToleranceForCollinearity())) {
-            output.collinearityTrigger = true;
-            return output;
-        }
-        this->seedProfile(r_BN_N, v_BN_N);
-    } else {
-        /*! 2. Advance time, whether or not the sample is usable */
-        ++this->profile->periodsSinceRead;
-        ++this->window.periods;
+    /*! 1. Low-pass filter: propagate a usable sample to the window end with the rectilinear model (constant velocity)
+     and accumulate it. The sample fills slot window.periods (counted from 0) of the window, so the propagation time
+     is a whole number of control periods, zero for the last slot and when filterReadPeriods = 1 */
+    if (usableSample) {
+        const double timeToWindowEnd =
+            static_cast<double>(this->cfg.getFilterReadPeriods() - 1U - this->window.periods) *
+            this->cfg.getControlPeriod();
+        this->window.rSumAtEnd_N += r_BN_N + timeToWindowEnd * v_BN_N;
+        this->window.vSum_N += v_BN_N;
+        ++this->window.samples;
+    }
+    ++this->window.periods;
 
-        /*! 3. Low-pass filter: propagate a usable sample to the window end with the rectilinear model (constant
-         velocity) and accumulate it. The propagation time is a whole number of control periods, zero when
-         filterReadPeriods = 1 */
-        if (usableSample) {
-            const double timeToWindowEnd =
-                static_cast<double>(this->cfg.getFilterReadPeriods() - this->window.periods) *
-                this->cfg.getControlPeriod();
-            this->window.rSumAtEnd_N += r_BN_N + timeToWindowEnd * v_BN_N;
-            this->window.vSum_N += v_BN_N;
-            ++this->window.samples;
-        }
-
-        /*! 4. Window end: report the unusable samples and the checks that rejected the window average (all false if it
-         was accepted or no re-read was attempted), then start a new window */
-        if (this->window.periods >= this->cfg.getFilterReadPeriods()) {
-            output.rejectedSamplesInWindow = this->window.periods - this->window.samples;
-            const FlybyValidityTriggers triggers = this->reReadFromWindow(*this->profile);
-            output.collinearityTrigger = triggers.collinearityTrigger;
-            output.maxRateTrigger = triggers.maxRateTrigger;
-            output.maxAccelerationTrigger = triggers.maxAccelerationTrigger;
-            output.positionKnowledgeExceedTrigger = triggers.positionKnowledgeExceedTrigger;
-            this->window = {};
-        }
+    /*! 2. Window end: report the unusable samples and the checks that rejected the window average (all false if it
+     was accepted or no re-read was attempted), then start a new window */
+    if (this->window.periods >= this->cfg.getFilterReadPeriods()) {
+        output.rejectedSamplesInWindow = this->window.periods - this->window.samples;
+        const FlybyValidityTriggers triggers = this->reReadFromWindow(this->profile);
+        output.collinearityTrigger = triggers.collinearityTrigger;
+        output.maxRateTrigger = triggers.maxRateTrigger;
+        output.maxAccelerationTrigger = triggers.maxAccelerationTrigger;
+        output.positionKnowledgeExceedTrigger = triggers.positionKnowledgeExceedTrigger;
+        this->window = {};
     }
 
-    /*! 5. Output the reference propagated from the last accepted read */
-    if (this->profile) {
-        const GuidanceReference reference = this->computeGuidanceReference(*this->profile);
-        output.sigma_RN = reference.sigma_RN;
-        output.omega_RN_N = reference.omega_RN_N;
-        output.domega_RN_N = reference.domega_RN_N;
-    }
+    /*! 3. Output the reference propagated from the last accepted read, or from the ground state */
+    const GuidanceReference reference = this->computeGuidanceReference(this->profile);
+    output.sigma_RN = reference.sigma_RN;
+    output.omega_RN_N = reference.omega_RN_N;
+    output.domega_RN_N = reference.domega_RN_N;
+
+    /*! 4. Advance time to the next control period, whether or not the sample is usable */
+    ++this->profile.periodsSinceRead;
     return output;
 }
 
-/*! Start a new pointing profile from (r, v): the flyby parameters f0 and gamma0, the inertial-to-reference DCM R0N,
- and the time since the last accepted read.
- @return void
- @param r_BN_N [m] relative position of the accepted read
- @param v_BN_N [m/s] relative velocity of the accepted read
+/*! Make a new pointing profile from (r, v): the flyby parameters f0 and gamma0, the inertial-to-reference DCM R0N,
+ and the time since the read, zero.
+ @return the profile of the read
+ @param r_BN_N [m] relative position of the accepted read, or of the ground state
+ @param v_BN_N [m/s] relative velocity of the accepted read, or of the ground state
  */
-void FlybyPointAlgorithm::seedProfile(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
+FlybyPointAlgorithm::Profile FlybyPointAlgorithm::makeProfile(const Eigen::Vector3d& r_BN_N,
+                                                              const Eigen::Vector3d& v_BN_N) {
     /*! radial (ur_N), velocity (uv_N), out-of-plane (uh_N) and along-track (ut_N) unit direction vectors */
     const Eigen::Vector3d ur_N = r_BN_N.stableNormalized();
     const Eigen::Vector3d uv_N = v_BN_N.stableNormalized();
@@ -185,15 +145,14 @@ void FlybyPointAlgorithm::seedProfile(const Eigen::Vector3d& r_BN_N, const Eigen
     R0N.row(2) = uh_N.cast<float>();
     const double f0 = v_BN_N.stableNorm() / r_BN_N.stableNorm();
     const double gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));  // flight path angle
-    this->profile =
-        Profile{.r_N = r_BN_N, .v_N = v_BN_N, .f0 = f0, .gamma0 = gamma0, .R0N = R0N, .periodsSinceRead = 0};
+    return {.r_N = r_BN_N, .v_N = v_BN_N, .f0 = f0, .gamma0 = gamma0, .R0N = R0N, .periodsSinceRead = 0};
 }
 
 /*! Re-read from the average of the window that just ended: re-seed the profile if the average passes the validity
  checks, otherwise keep extrapolating the last accepted profile.
  @return the checks that rejected the average; all false if it was accepted, or if no re-read was attempted (no
  usable sample in the window, or an unusable average such as cancelling velocities)
- @param p the profile of the last accepted read
+ @param p the profile of the last accepted read, or of the ground state
  */
 FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow(const Profile& p) {
     if (this->window.samples == 0U) {
@@ -202,17 +161,17 @@ FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow(const Profile& p) {
     const auto sampleCount = static_cast<double>(this->window.samples);
     const Eigen::Vector3d rAverage_N = this->window.rSumAtEnd_N / sampleCount;
     const Eigen::Vector3d vAverage_N = this->window.vSum_N / sampleCount;
-    if (!isUsableSample(rAverage_N, vAverage_N)) {
+    if (!FlybyPointConfig::isUsableSample(rAverage_N, vAverage_N)) {
         return {};
     }
-    /*! p is read here, before seedProfile() replaces the profile, and not used afterwards */
+    /*! p is read here, before the accepted average replaces the profile, and not used afterwards */
     const double deltaT = static_cast<double>(p.periodsSinceRead) * this->cfg.getControlPeriod();
     const Eigen::Vector3d rPredicted_N = p.r_N + deltaT * p.v_N;
     if (const std::optional<FlybyValidityTriggers> rejection =
             checkValidity(rAverage_N, vAverage_N, rPredicted_N, this->cfg)) {
         return *rejection;
     }
-    this->seedProfile(rAverage_N, vAverage_N);
+    this->profile = makeProfile(rAverage_N, vAverage_N);
     return {};
 }
 

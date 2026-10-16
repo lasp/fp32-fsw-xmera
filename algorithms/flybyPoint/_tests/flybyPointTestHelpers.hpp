@@ -17,15 +17,16 @@
 // ---------------------------------------------------------------------------
 // Test scenario: a body passing the spacecraft on a straight line, and test configurations
 // ---------------------------------------------------------------------------
-const Eigen::Vector3d kR0{-5e7, 7.5e6, 5e5};       // [m] position at the first sample
-const Eigen::Vector3d kV{2e4, 0, 0};               // [m/s] constant velocity
+const Eigen::Vector3d kR0{-5e7, 7.5e6, 5e5};       // [m] position at the first sample, and default ground position
+const Eigen::Vector3d kV{2e4, 0, 0};               // [m/s] constant velocity, and default ground velocity
 const Eigen::Vector3d kShift{0, 0, 1e4};           // [m] shift that moves the frame visibly but passes every check
 const Eigen::Vector3d kPositionOffset{0, 0, 2e5};  // [m] offset that fails the position check of the tests using it
 
 /*! Position on the test trajectory t seconds after the first sample. */
 inline Eigen::Vector3d truthAt(double t) { return kR0 + t * kV; }
 
-/*! FlybyPointConfig::create() arguments with defaults under which the test trajectory passes every check. */
+/*! FlybyPointConfig::create() arguments with defaults under which the test trajectory passes every check. The ground
+ state is the test trajectory at the first sample. */
 struct ConfigParams {
     double controlPeriod = 1.0;
     uint32_t filterReadPeriods = 1U;
@@ -34,8 +35,8 @@ struct ConfigParams {
     float maximumRateThreshold = 10.0F;
     float maximumAccelerationThreshold = 1.0F;
     float positionKnowledgeSigma = 1e9F;
-    Eigen::Vector3d groundPosition_BN_N = Eigen::Vector3d::Zero();
-    Eigen::Vector3d groundVelocity_BN_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d groundPosition_BN_N = kR0;
+    Eigen::Vector3d groundVelocity_BN_N = kV;
     Eigen::Vector3d groundPositionCovarianceDiag_N = Eigen::Vector3d::Zero();
     Eigen::Vector3d groundVelocityCovarianceDiag_N = Eigen::Vector3d::Zero();
 };
@@ -153,7 +154,6 @@ inline void expectFlags(const AttGuideOutput& out, const ExpectedFlags& expected
 // formulas as the algorithm; the formulas themselves are checked against straightLineReference().
 // ---------------------------------------------------------------------------
 struct ReferenceFlybyState {
-    bool seeded = false;
     uint64_t periodsSinceRead = 0;
     uint32_t windowPeriods = 0;
     uint32_t windowSamples = 0;
@@ -166,7 +166,7 @@ struct ReferenceFlybyState {
     Eigen::Matrix3d R0N = Eigen::Matrix3d::Identity();
 };
 
-/*! Same test as isUsableSample() in flybyPointAlgorithm.cpp. */
+/*! Same test as FlybyPointConfig::isUsableSample(). */
 inline bool referenceIsUsableSample(const Eigen::Vector3d& r, const Eigen::Vector3d& v) {
     const double rNorm = r.stableNorm();
     const double vNorm = v.stableNorm();
@@ -174,12 +174,12 @@ inline bool referenceIsUsableSample(const Eigen::Vector3d& r, const Eigen::Vecto
            std::isfinite((vNorm / rNorm) * (vNorm / rNorm));
 }
 
-/*! Same test as isCollinear() in flybyPointAlgorithm.cpp. */
-inline bool referenceIsCollinear(const Eigen::Vector3d& r, const Eigen::Vector3d& v, const FlybyPointConfig& config) {
+/*! Same test as FlybyPointConfig::isCollinear(). */
+inline bool referenceIsCollinear(const Eigen::Vector3d& r, const Eigen::Vector3d& v, float toleranceForCollinearity) {
     const Eigen::Vector3d ur = r.stableNormalized();
     const Eigen::Vector3d uv = v.stableNormalized();
-    return 1.0 - std::fabs(ur.dot(uv)) < config.getToleranceForCollinearity() ||
-           ur.cross(uv).stableNorm() < FlybyPointAlgorithm::kMinOrbitNormalNorm;
+    return 1.0 - std::fabs(ur.dot(uv)) < toleranceForCollinearity ||
+           ur.cross(uv).stableNorm() < FlybyPointConfig::kMinOrbitNormalNorm;
 }
 
 /*! Same checks as checkValidity() in flybyPointAlgorithm.cpp.
@@ -192,7 +192,7 @@ inline bool referencePassesChecks(const ReferenceFlybyState& s,
     static constexpr double kRad2Deg = 180.0 / std::numbers::pi;
     static constexpr double kMaxAccelCoeff = 3.0 * std::numbers::sqrt3 / 8.0;
     const double distanceClosestApproach = r.cross(v).stableNorm() / v.stableNorm();
-    if (referenceIsCollinear(r, v, config) || !(distanceClosestApproach > 0.0)) {
+    if (referenceIsCollinear(r, v, config.getToleranceForCollinearity()) || !(distanceClosestApproach > 0.0)) {
         return false;
     }
     const double speedOverDistance = v.stableNorm() / distanceClosestApproach;
@@ -204,7 +204,7 @@ inline bool referencePassesChecks(const ReferenceFlybyState& s,
            (r - rPredicted).stableNorm() <= config.getPositionKnowledgeSigma();
 }
 
-/*! Same profile as seedProfile() in flybyPointAlgorithm.cpp, with the DCM kept in double. */
+/*! Same profile as FlybyPointAlgorithm::makeProfile(), with the DCM kept in double. */
 inline void referenceSeed(ReferenceFlybyState& s, const Eigen::Vector3d& r, const Eigen::Vector3d& v) {
     const Eigen::Vector3d ur = r.stableNormalized();
     const Eigen::Vector3d uv = v.stableNormalized();
@@ -218,7 +218,14 @@ inline void referenceSeed(ReferenceFlybyState& s, const Eigen::Vector3d& r, cons
     s.readPosition = r;
     s.readVelocity = v;
     s.periodsSinceRead = 0;
-    s.seeded = true;
+}
+
+/*! Reference model state seeded from the configuration's ground state, like the FlybyPointAlgorithm constructor,
+ setConfig() and reset(). */
+inline ReferenceFlybyState referenceInit(const FlybyPointConfig& config) {
+    ReferenceFlybyState s{};
+    referenceSeed(s, config.getGroundPosition_BN_N(), config.getGroundVelocity_BN_N());
+    return s;
 }
 
 /*! Same solution as computeGuidanceReference() in flybyPointAlgorithm.cpp, including its zero fallbacks. */
@@ -254,23 +261,14 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
                                                  const Eigen::Vector3d& v,
                                                  const FlybyPointConfig& config) {
     const uint32_t windowLength = config.getFilterReadPeriods();
-    const bool usable = referenceIsUsableSample(r, v);
-    if (!s.seeded) {
-        if (!usable || referenceIsCollinear(r, v, config)) {
-            return zeroReference();
-        }
-        referenceSeed(s, r, v);
-        return referenceGuidanceSolution(s, config);
-    }
-
-    ++s.periodsSinceRead;
-    ++s.windowPeriods;
-    if (usable) {
-        const double timeToWindowEnd = static_cast<double>(windowLength - s.windowPeriods) * config.getControlPeriod();
+    if (referenceIsUsableSample(r, v)) {
+        const double timeToWindowEnd =
+            static_cast<double>(windowLength - 1U - s.windowPeriods) * config.getControlPeriod();
         s.rSumAtWindowEnd += r + timeToWindowEnd * v;
         s.vSum += v;
         ++s.windowSamples;
     }
+    ++s.windowPeriods;
     if (s.windowPeriods >= windowLength) {
         if (s.windowSamples > 0U) {
             const double n = static_cast<double>(s.windowSamples);
@@ -285,7 +283,9 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
         s.rSumAtWindowEnd.setZero();
         s.vSum.setZero();
     }
-    return referenceGuidanceSolution(s, config);
+    const ReferenceFlybyOutput out = referenceGuidanceSolution(s, config);
+    ++s.periodsSinceRead;
+    return out;
 }
 
 /*! The algorithm's reference matches the reference model on every period of the sample sequence.
@@ -295,7 +295,7 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
 inline void expectMatchesReferenceModel(const FlybyPointConfig& config,
                                         const std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>>& samples) {
     FlybyPointAlgorithm alg(config);
-    ReferenceFlybyState model{};
+    ReferenceFlybyState model = referenceInit(config);
     for (size_t k = 0; k < samples.size(); ++k) {
         SCOPED_TRACE("period " + std::to_string(k));
         const auto& [r, v] = samples[k];
