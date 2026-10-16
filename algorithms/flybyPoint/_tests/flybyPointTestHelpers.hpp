@@ -15,19 +15,17 @@
 #include <vector>
 
 // ---------------------------------------------------------------------------
-// Test scenario: a body passing the spacecraft on a straight line, and test configurations
+// Test scenario: straight-line flyby and default configuration
 // ---------------------------------------------------------------------------
 const Eigen::Vector3d kR0{-5e7, 7.5e6, 5e5};       // [m] position at the first sample, and default ground position
 const Eigen::Vector3d kV{2e4, 0, 0};               // [m/s] constant velocity, and default ground velocity
-const Eigen::Vector3d kShift{0, 0, 1e4};           // [m] shift that moves the frame visibly but passes every check
-const Eigen::Vector3d kPositionOffset{0, 0, 2e5};  // [m] offset that fails the position check of the tests using it
+const Eigen::Vector3d kShift{0, 0, 1e4};           // [m] off-line shift that passes the checks of the tests using it
+const Eigen::Vector3d kPositionOffset{0, 0, 2e5};  // [m] offset that fails the state check of the tests using it
 
 /*! Position on the test trajectory t seconds after the first sample. */
 inline Eigen::Vector3d truthAt(double t) { return kR0 + t * kV; }
 
-/*! FlybyPointConfig::create() arguments with defaults under which the test trajectory passes every check. The ground
- state is the test trajectory at the first sample, and its covariance is wide enough (1e9 m, 1e5 m/s per axis) that
- the state knowledge check passes for every test sample. */
+/*! FlybyPointConfig::create() arguments; the defaults pass every check on the test trajectory. */
 struct ConfigParams {
     double controlPeriod = 1.0;
     uint32_t filterReadPeriods = 1U;
@@ -71,10 +69,7 @@ inline ReferenceFlybyOutput zeroReference() {
     return {Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
 }
 
-/*! Exact reference t seconds after a body at r0 moving with constant velocity v, from the geometry alone: the frame
- axes point along r, along the in-plane direction ahead of r, and along the orbit normal h = r x v (the last two
- negated for sign -1). It turns about h at |h| / |r|^2, and the rate changes at -2 (r.v) |h| / |r|^4. h is constant on
- a straight line, so it is taken at r0, where it is best conditioned.
+/*! Exact reference t seconds after (r0, v) on a straight line, from the geometry alone.
  @return the expected reference
  @param r0 [m] position at time 0
  @param v [m/s] constant velocity
@@ -100,13 +95,8 @@ inline ReferenceFlybyOutput straightLineReference(const Eigen::Vector3d& r0,
     return {RN, thetaDot * uh, thetaDDot * uh};
 }
 
-/*! The output matches the expected reference.
- The DCMs are compared, so either MRP of the same attitude is accepted. The float32 output (and the float32 DCM the
- algorithm stores at each read) carries about 1e-7 relative error: the DCM elements must agree within kDcmTol, and each
- rate and acceleration component within kRelTol of the expected vector's norm, which keeps a 20x margin. kTinyFloor
- only matters for values in the float32 subnormal range.
- @param domegaScale [rad/s^2] typical acceleration size of the scenario. The acceleration passes through zero at closest
- approach, where a tolerance relative to the expected value alone would fail on rounding; the larger of the two is used
+/*! The output matches the expected reference within float32 tolerance; DCMs are compared, so either MRP passes.
+ @param domegaScale [rad/s^2] acceleration scale for the tolerance near zero acceleration
  */
 inline void expectReference(const AttGuideOutput& out, const ReferenceFlybyOutput& expected, double domegaScale = 0.0) {
     static constexpr double kDcmTol = 1e-6;
@@ -151,8 +141,7 @@ inline void expectFlags(const AttGuideOutput& out, const ExpectedFlags& expected
 }
 
 // ---------------------------------------------------------------------------
-// Reference model: a double-precision copy of the algorithm, for regression tests. It deliberately uses the same
-// formulas as the algorithm; the formulas themselves are checked against straightLineReference().
+// Reference model: a double-precision copy of the algorithm, for regression tests
 // ---------------------------------------------------------------------------
 struct ReferenceFlybyState {
     uint64_t periodsSinceGroundState = 0;
@@ -201,7 +190,7 @@ inline bool referencePassesChecks(const ReferenceFlybyState& s,
         return false;
     }
 
-    // Ground state and covariance diagonal propagated from t0 with Phi = [[I, tI], [0, I]], checked axis by axis.
+    // Ground state and covariance propagated from t0, checked per axis.
     const double t = static_cast<double>(s.periodsSinceGroundState) * config.getControlPeriod();
     const double n = config.getNumberOfSigmas();
     const Eigen::Vector3d rPredicted = config.getGroundPosition_BN_N() + t * config.getGroundVelocity_BN_N();
@@ -231,8 +220,7 @@ inline void referenceSeed(ReferenceFlybyState& s, const Eigen::Vector3d& r, cons
     s.periodsSinceRead = 0;
 }
 
-/*! Reference model state seeded from the configuration's ground state, like the FlybyPointAlgorithm constructor,
- setConfig() and reset(). */
+/*! Reference model seeded from the configuration's ground state. */
 inline ReferenceFlybyState referenceInit(const FlybyPointConfig& config) {
     ReferenceFlybyState s{};
     referenceSeed(s, config.getGroundPosition_BN_N(), config.getGroundVelocity_BN_N());
@@ -300,9 +288,8 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
     return out;
 }
 
-/*! The algorithm's reference matches the reference model on every period of the sample sequence.
- @param config Algorithm configuration
- @param samples One (r [m], v [m/s]) filter sample per control period, starting with the first
+/*! The algorithm's reference matches the reference model on every period.
+ @param samples one (r [m], v [m/s]) filter sample per period
  */
 inline void expectMatchesReferenceModel(const FlybyPointConfig& config,
                                         const std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>>& samples) {
