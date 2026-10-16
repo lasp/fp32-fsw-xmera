@@ -24,10 +24,11 @@ def truth_position(i):
     return R0 + V0 * (i * SIM_DT)
 
 
-def run_flyby(samples, filter_periods=1, orbit_normal_sign=1, max_rate=1.0, max_acceleration=1.0, pos_knowledge=1e5,
-              ground_state=(R0, V0)):
+def run_flyby(samples, filter_periods=1, orbit_normal_sign=1, max_rate=1.0, max_acceleration=1.0, num_sigmas=3.0,
+              pos_variance=1e18, vel_variance=1e16, ground_state=(R0, V0)):
     """Run the flybyPoint module for one control period per filter sample (r, v), from the ground state (r, v) at the
-    first control period, which defaults to the straight-line flyby.
+    first control period, which defaults to the straight-line flyby. The ground covariance has the same variance on
+    every axis; the defaults are wide enough that the state knowledge check never trips.
 
     Returns the attitude reference and diagnostic message recorders."""
     unit_test_sim = SimulationBaseClass.SimBaseClass()
@@ -42,9 +43,11 @@ def run_flyby(samples, filter_periods=1, orbit_normal_sign=1, max_rate=1.0, max_
     flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign
     flyby_guidance.maximumRateThreshold = max_rate
     flyby_guidance.maximumAccelerationThreshold = max_acceleration
-    flyby_guidance.positionKnowledgeSigma = pos_knowledge
+    flyby_guidance.numberOfSigmas = num_sigmas
     flyby_guidance.groundPosition_BN_N = np.asarray(ground_state[0], dtype=float).tolist()
     flyby_guidance.groundVelocity_BN_N = np.asarray(ground_state[1], dtype=float).tolist()
+    flyby_guidance.groundPositionCovarianceDiag_N = [pos_variance] * 3
+    flyby_guidance.groundVelocityCovarianceDiag_N = [vel_variance] * 3
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
     input_data = messaging.NavTransMsgF32Payload()
@@ -72,12 +75,12 @@ def trigger_periods(flags):
     return [i for i, flag in enumerate(flags) if flag]
 
 
-def expect_triggers(diagnostic_log, collinearity=(), max_rate=(), max_acceleration=(), position_knowledge=()):
+def expect_triggers(diagnostic_log, collinearity=(), max_rate=(), max_acceleration=(), state_knowledge=()):
     """Each validity trigger is set on exactly the given control periods."""
     np.testing.assert_equal(trigger_periods(diagnostic_log.collinearityTrigger), list(collinearity))
     np.testing.assert_equal(trigger_periods(diagnostic_log.maxRateTrigger), list(max_rate))
     np.testing.assert_equal(trigger_periods(diagnostic_log.maxAccelerationTrigger), list(max_acceleration))
-    np.testing.assert_equal(trigger_periods(diagnostic_log.positionKnowledgeExceedTrigger), list(position_knowledge))
+    np.testing.assert_equal(trigger_periods(diagnostic_log.stateKnowledgeExceedTrigger), list(state_knowledge))
 
 
 def speed_over_closest_approach(r_BN_N, v_BN_N):
@@ -160,7 +163,7 @@ def test_flybyPoint_config_round_trip():
     """
     flyby_guidance = flybyPointF32.FlybyPoint()
     floats = {"controlPeriod": 10.0, "toleranceForCollinearity": 1E-5, "maximumRateThreshold": 0.01,
-              "maximumAccelerationThreshold": 1E-7, "positionKnowledgeSigma": 1E3}
+              "maximumAccelerationThreshold": 1E-7, "numberOfSigmas": 3.0}
     for name, value in floats.items():
         setattr(flyby_guidance, name, value)
         np.testing.assert_allclose(getattr(flyby_guidance, name), value, rtol=1E-6, atol=0, err_msg=name)
@@ -234,10 +237,11 @@ def test_flybyPoint_diagnostic_positionknowledge():
     The module refuses navigation data whose position is too far from where the spacecraft is expected to be, and
     reports why.
 
-    The expected position is the last accepted position (at first, the ground state) moved forward at its velocity.
-    In this test, the positionKnowledgeSigma is 1 km.
-    1. Shifting every position by 0.99 km gives no warning: the first shifted position is accepted and becomes the new
-       reference, so the later ones are on track. Shifting by 1.01 km gives a warning at every update.
+    The expected position is the ground-based trajectory: the ground position moved forward at the ground velocity.
+    In this test the ground position sigma is 1 km on every axis and the velocity sigma is negligible, so the bound,
+    propagated from the ground state as sqrt(sigma_r^2 + t^2 sigma_v^2), stays 1 km.
+    1. Shifting every position by 0.99 km gives no warning, since every shifted position is within 1 km of the ground
+       trajectory. Shifting by 1.01 km gives a warning at every update.
     2. Shifting some positions by 2 km raises only this warning, on exactly those periods, and the commanded attitude
        must still be correct for the true trajectory.
     """
@@ -245,13 +249,13 @@ def test_flybyPoint_diagnostic_positionknowledge():
     offset = np.array([0.0, 0.0, 1.0])
     for factor, expected in [(0.99, []), (1.01, list(range(1, NUM_PERIODS)))]:
         samples = [(truth_position(i) + (factor * sigma * offset if i > 0 else 0), V0) for i in range(NUM_PERIODS)]
-        _, diagnostic_log = run_flyby(samples, pos_knowledge=sigma)
-        expect_triggers(diagnostic_log, position_knowledge=expected)
+        _, diagnostic_log = run_flyby(samples, num_sigmas=1.0, pos_variance=sigma ** 2, vel_variance=1E-6)
+        expect_triggers(diagnostic_log, state_knowledge=expected)
 
     samples = [(truth_position(i) + (2 * sigma * offset if i in TRIGGER_INDICES else 0), V0) for i in
                range(NUM_PERIODS)]
-    attitude_log, diagnostic_log = run_flyby(samples, pos_knowledge=sigma)
-    expect_triggers(diagnostic_log, position_knowledge=TRIGGER_INDICES)
+    attitude_log, diagnostic_log = run_flyby(samples, num_sigmas=1.0, pos_variance=sigma ** 2, vel_variance=1E-6)
+    expect_triggers(diagnostic_log, state_knowledge=TRIGGER_INDICES)
     expect_straight_line_reference(attitude_log)
 
 

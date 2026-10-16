@@ -25,15 +25,15 @@ class FlybyPoint : public SysModel {
     int signOfOrbitNormalFrameVector = 1;
     float maximumRateThreshold = 0.0F;
     float maximumAccelerationThreshold = 0.0F;
-    float positionKnowledgeSigma = 0.0F;
+    float numberOfSigmas = 0.0F;  //!< [-] number of propagated ground sigmas a re-read may deviate (> 0)
     // Ground-based state that seeds the profile, at the first updateState() after reset(). Required: the zero
     // defaults are rejected, and r and v must be usable and not collinear.
     Eigen::Vector3d groundPosition_BN_N = Eigen::Vector3d::Zero();  //!< [m] ground-based position
     Eigen::Vector3d groundVelocity_BN_N = Eigen::Vector3d::Zero();  //!< [m/s] ground-based velocity
     Eigen::Vector3d groundPositionCovarianceDiag_N =
-        Eigen::Vector3d::Zero();  //!< [m^2] diagonal of the ground-based position covariance (>= 0)
+        Eigen::Vector3d::Zero();  //!< [m^2] diagonal of the ground-based position covariance (> 0)
     Eigen::Vector3d groundVelocityCovarianceDiag_N =
-        Eigen::Vector3d::Zero();  //!< [(m/s)^2] diagonal of the ground-based velocity covariance (>= 0)
+        Eigen::Vector3d::Zero();  //!< [(m/s)^2] diagonal of the ground-based velocity covariance (> 0)
 
     ReadFunctor<NavTransMsgF32Payload> filterInMsg;               //!< input msg relative position w.r.t. asteroid
     Message<AttRefMsgF32Payload> attRefOutMsg;                    //!< Attitude reference output message
