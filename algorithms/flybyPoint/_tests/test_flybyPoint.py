@@ -1,16 +1,10 @@
-import os
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from xmera import __path__
 from xmera.architecture import messaging
 from xmera.fp32 import flybyPointF32
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.utilities import SimulationBaseClass, macros, unitTestSupport
-
-bskPath = __path__[0]
-fileName = os.path.basename(os.path.splitext(__file__)[0])
 
 R0 = np.array([-5e7, 7.5e6, 5e5])  # [m] initial position of the straight-line flyby
 V0 = np.array([2e4, 0.0, 0.0])  # [m/s] its constant velocity; closest approach ~7.5e6 m at ~42 min
@@ -26,11 +20,8 @@ def truth_position(i):
 
 def run_flyby(samples, filter_periods=1, orbit_normal_sign=1, max_rate=1.0, max_acceleration=1.0, num_sigmas=3.0,
               pos_variance=1e18, vel_variance=1e16, ground_state=(R0, V0)):
-    """Run the flybyPoint module for one control period per filter sample (r, v), from the ground state (r, v) at the
-    first control period, which defaults to the straight-line flyby. The ground covariance has the same variance on
-    every axis; the defaults are wide enough that the state knowledge check never trips.
-
-    Returns the attitude reference and diagnostic message recorders."""
+    """Run the module once per (r, v) sample from the given ground state; return the attitude and diagnostic recorders.
+    The ground variances apply to every axis; the defaults never trip the state knowledge check."""
     unit_test_sim = SimulationBaseClass.SimBaseClass()
     test_process = unit_test_sim.CreateNewProcess("unit_process")
     test_process.addTask(unit_test_sim.CreateNewTask("unit_task", macros.sec2nano(SIM_DT)))
@@ -129,13 +120,8 @@ def expect_straight_line_reference(attitude_reference_log, orbit_normal_sign=1):
 @pytest.mark.parametrize("reject", [False, True])
 def test_flybyPoint(show_plots, filter_periods, orbit_normal_sign, reject):
     r"""
-    The commanded attitude, turn rate and turn acceleration are correct at every control period of an ideal
-    straight-line flyby.
-
-    A straight line with no gravity is exactly what the guidance law assumes, so any error is a code error. The test
-    feeds 90 minutes of perfect navigation data, through closest approach, and compares with the exact solution. On a
-    straight line, using every navigation update and ignoring every update (rate limit set too low) must give the same
-    attitude.
+    The module follows an ideal straight-line flyby. With every re-read rejected (reject=True), the attitude comes from
+    the configured ground state alone and must be the same.
     """
     num_periods = round(9 * 600 / SIM_DT)
     samples = [(truth_position(i), V0) for i in range(num_periods)]
@@ -158,9 +144,7 @@ def test_flybyPoint(show_plots, filter_periods, orbit_normal_sign, reject):
 
 
 def test_flybyPoint_config_round_trip():
-    r"""
-    Every configuration property reads back what was set through SWIG.
-    """
+    r"""Every configuration property reads back what was set through SWIG."""
     flyby_guidance = flybyPointF32.FlybyPoint()
     floats = {"controlPeriod": 10.0, "toleranceForCollinearity": 1E-5, "maximumRateThreshold": 0.01,
               "maximumAccelerationThreshold": 1E-7, "numberOfSigmas": 3.0}
@@ -181,12 +165,8 @@ def test_flybyPoint_config_round_trip():
 
 def test_flybyPoint_diagnostic_collinearity():
     r"""
-    Navigation data on a collision course is ignored, and a
-    warning is raised at exactly those control periods.
-
-    On some control periods the velocity is turned to point along the line to the body, keeping its speed.
-    The collinearity warning must be raised on exactly those periods (the rate and acceleration warnings come with it, since the closest-approach
-    distance is zero), and the commanded attitude must still be correct for the true trajectory, which proves the bad data was ignored rather than used.
+    Samples with velocity along r raise the collinearity, rate and acceleration flags on exactly those periods and are
+    ignored.
     """
     speed = np.linalg.norm(V0)
     samples = []
@@ -211,14 +191,8 @@ PEAK_LIMITS = {
 @pytest.mark.parametrize("limit", ["rate", "acceleration"])
 def test_flybyPoint_peak_limit(limit):
     r"""
-    The module refuses navigation data that would make the spacecraft turn too fast (or speed up its turn too
-    quickly), and reports why. Run once for the turn rate and once for the turn acceleration.
-
-    1. With correct data, a limit just above (+1%) the true peak gives no warning, and just below (-1%) gives a warning
-       at every update, including the first, whose data is the ground state itself. This proves the predicted peak is computed correctly to within 1%.
-    2. On some control periods the speed is made 1000x too high. Only this warning must be raised, on exactly those
-       periods, and the commanded attitude must still be correct for the true trajectory, which proves the bad data was
-       ignored rather than used.
+    A rate (or acceleration) limit 1% above the true peak raises no flag and 1% below flags every update; samples whose
+    speed is 1000x too high are flagged and ignored.
     """
     limit_key, other_key, peak, flag = PEAK_LIMITS[limit]
     straight_line = [(truth_position(i), V0) for i in range(NUM_PERIODS)]
@@ -232,18 +206,10 @@ def test_flybyPoint_peak_limit(limit):
     expect_straight_line_reference(attitude_log)
 
 
-def test_flybyPoint_diagnostic_positionknowledge():
+def test_flybyPoint_diagnostic_state_knowledge():
     r"""
-    The module refuses navigation data whose position is too far from where the spacecraft is expected to be, and
-    reports why.
-
-    The expected position is the ground-based trajectory: the ground position moved forward at the ground velocity.
-    In this test the ground position sigma is 1 km on every axis and the velocity sigma is negligible, so the bound,
-    propagated from the ground state as sqrt(sigma_r^2 + t^2 sigma_v^2), stays 1 km.
-    1. Shifting every position by 0.99 km gives no warning, since every shifted position is within 1 km of the ground
-       trajectory. Shifting by 1.01 km gives a warning at every update.
-    2. Shifting some positions by 2 km raises only this warning, on exactly those periods, and the commanded attitude
-       must still be correct for the true trajectory.
+    Samples farther from the ground trajectory than the propagated sigma, in position or velocity, are flagged and
+    ignored: a 1 km position sigma accepts 0.99 km and rejects 1.01 km, and a 1 m/s velocity sigma rejects 2 m/s.
     """
     sigma = 1E3
     offset = np.array([0.0, 0.0, 1.0])
@@ -258,16 +224,17 @@ def test_flybyPoint_diagnostic_positionknowledge():
     expect_triggers(diagnostic_log, state_knowledge=TRIGGER_INDICES)
     expect_straight_line_reference(attitude_log)
 
+    velocity_offset = np.array([0.0, 2.0, 0.0])
+    samples = [(truth_position(i), V0 + (velocity_offset if i in TRIGGER_INDICES else 0)) for i in range(NUM_PERIODS)]
+    attitude_log, diagnostic_log = run_flyby(samples, num_sigmas=1.0, pos_variance=1E18, vel_variance=1.0)
+    expect_triggers(diagnostic_log, state_knowledge=TRIGGER_INDICES)
+    expect_straight_line_reference(attitude_log)
+
 
 def test_flybyPoint_unusable_sample(filter_periods=3, unusable_index=4):
     r"""
-    A single unusable navigation message (zero position) is left out of the averaging and reported, while the
-    commanded attitude stays correct.
-
-    One bad message must not blank or corrupt the commanded attitude. With averaging over 3 control periods and a zero
-    position sent at period 4, that message is flagged at period 4, the averaging window that contains it (periods 3 to
-    5, since the first window starts at period 0) reports one rejected message at its end (period 5), and the commanded
-    attitude is correct at every period.
+    An unusable sample (zero position) is flagged on its period, counted at the end of its window, and doesn't affect
+    the attitude.
     """
     num_steps = 4 * filter_periods + 1
     samples = [(np.zeros(3) if i == unusable_index else truth_position(i), V0) for i in range(num_steps)]
