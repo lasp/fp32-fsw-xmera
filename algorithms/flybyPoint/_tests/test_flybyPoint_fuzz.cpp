@@ -21,7 +21,7 @@ auto configDomain() {
            int signOfOrbitNormalFrameVector,
            float maximumRateThreshold,
            float maximumAccelerationThreshold,
-           float positionKnowledgeSigma,
+           float numberOfSigmas,
            const Eigen::Vector3d& groundPosition_BN_N,
            const Eigen::Vector3d& groundVelocity_BN_N,
            const Eigen::Vector3d& groundPositionCovarianceDiag_N,
@@ -34,23 +34,23 @@ auto configDomain() {
                                             signOfOrbitNormalFrameVector,
                                             maximumRateThreshold,
                                             maximumAccelerationThreshold,
-                                            positionKnowledgeSigma,
+                                            numberOfSigmas,
                                             validGround ? groundPosition_BN_N : Eigen::Vector3d{1e7, 0, 0},
                                             validGround ? groundVelocity_BN_N : Eigen::Vector3d{0, 1e4, 0},
                                             groundPositionCovarianceDiag_N,
                                             groundVelocityCovarianceDiag_N);
         },
-        fuzztest::InRange(1e-3, 1.0),              // controlPeriod [s]
-        fuzztest::InRange<uint32_t>(1U, 200U),     // filterReadPeriods [-]
-        fuzztest::InRange(1e-6F, 0.5F),            // toleranceForCollinearity [-]
-        fuzztest::ElementOf<int>({-1, 1}),         // signOfOrbitNormalFrameVector
-        fuzztest::InRange(1e-6F, 1e6F),            // maximumRateThreshold [deg/s]
-        fuzztest::InRange(1e-6F, 1e6F),            // maximumAccelerationThreshold [deg/s^2]
-        fuzztest::InRange(1e-6F, 1e6F),            // positionKnowledgeSigma [m]
-        xmera::fuzz::Vector3dInRange(-1e9, 1e9),   // groundPosition_BN_N [m]
-        xmera::fuzz::Vector3dInRange(-1e9, 1e9),   // groundVelocity_BN_N [m/s]
-        xmera::fuzz::Vector3dInRange(0.0, 1e12),   // groundPositionCovarianceDiag_N [m^2]
-        xmera::fuzz::Vector3dInRange(0.0, 1e12));  // groundVelocityCovarianceDiag_N [(m/s)^2]
+        fuzztest::InRange(1e-3, 1.0),               // controlPeriod [s]
+        fuzztest::InRange<uint32_t>(1U, 200U),      // filterReadPeriods [-]
+        fuzztest::InRange(1e-6F, 0.5F),             // toleranceForCollinearity [-]
+        fuzztest::ElementOf<int>({-1, 1}),          // signOfOrbitNormalFrameVector
+        fuzztest::InRange(1e-6F, 1e6F),             // maximumRateThreshold [deg/s]
+        fuzztest::InRange(1e-6F, 1e6F),             // maximumAccelerationThreshold [deg/s^2]
+        fuzztest::InRange(0.1F, 10.0F),             // numberOfSigmas [-]
+        xmera::fuzz::Vector3dInRange(-1e9, 1e9),    // groundPosition_BN_N [m]
+        xmera::fuzz::Vector3dInRange(-1e9, 1e9),    // groundVelocity_BN_N [m/s]
+        xmera::fuzz::Vector3dInRange(1e-6, 1e12),   // groundPositionCovarianceDiag_N [m^2]
+        xmera::fuzz::Vector3dInRange(1e-6, 1e12));  // groundVelocityCovarianceDiag_N [(m/s)^2]
 }
 
 /*! Each component is drawn from a realistic range, the full finite range (overflow), any double including NaN and
@@ -76,7 +76,7 @@ FlybyPointConfig withGroundState(const FlybyPointConfig& cfg,
                                     cfg.getSignOfOrbitNormalFrameVector(),
                                     cfg.getMaximumRateThreshold(),
                                     cfg.getMaximumAccelerationThreshold(),
-                                    cfg.getPositionKnowledgeSigma(),
+                                    cfg.getNumberOfSigmas(),
                                     r_BN_N,
                                     v_BN_N,
                                     cfg.getGroundPositionCovarianceDiag_N(),
@@ -166,8 +166,8 @@ static void fuzzFlybyPassMatchesStraightLine(double closestApproachDistance,
                                                           kNoLimit,
                                                           rStart_BN_N,
                                                           v_BN_N,
-                                                          Eigen::Vector3d::Zero(),
-                                                          Eigen::Vector3d::Zero());
+                                                          Eigen::Vector3d::Constant(1.0),
+                                                          Eigen::Vector3d::Constant(1.0));
 
     const double speedOverDistance = speed / closestApproachDistance;
     const double peakAcceleration = 3.0 * std::numbers::sqrt3 / 8.0 * speedOverDistance * speedOverDistance;

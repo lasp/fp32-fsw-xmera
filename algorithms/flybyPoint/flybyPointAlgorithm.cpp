@@ -8,20 +8,43 @@ static constexpr double kRad2Deg = 180.0 / std::numbers::pi;
 static constexpr double kMaxAccelCoeff = 3.0 * std::numbers::sqrt3 / 8.0;
 
 namespace {
-/*! Check a re-read candidate (r, v) against the configured thresholds and against the rectilinear prediction from the
- last accepted read.
+/*! Ground-based state and its one-sigma uncertainty on each inertial axis, propagated to a later time */
+struct GroundPrediction {
+    Eigen::Vector3d r_N;       //!< [m] ground position propagated to t
+    Eigen::Vector3d v_N;       //!< [m/s] ground velocity, constant under the rectilinear model
+    Eigen::Vector3d sigmaR_N;  //!< [m] one-sigma position uncertainty per axis
+    Eigen::Vector3d sigmaV_N;  //!< [m/s] one-sigma velocity uncertainty per axis
+};
+
+/*! Propagate the ground-based state x0 = (r0, v0) and its diagonal covariance P0 = diag(sigmaR0^2, sigmaV0^2), both
+ given at the ground state time t0, to t seconds later with the rectilinear state transition matrix
+ Phi(t) = [[I, t I], [0, I]]: x(t) = Phi x0 = (r0 + t v0, v0), and the diagonal of P(t) = Phi P0 Phi^T is
+ sigmaR0^2 + t^2 sigmaV0^2 for position and sigmaV0^2 for velocity, axis by axis.
+ @return the propagated ground state and one-sigma uncertainty per axis
+ @param cfg validated configuration (ground-based state and covariance diagonals)
+ @param t [s] time since the ground state
+ */
+GroundPrediction propagateGroundState(const FlybyPointConfig& cfg, const double t) {
+    const Eigen::Vector3d& positionVariance_N = cfg.getGroundPositionCovarianceDiag_N();
+    const Eigen::Vector3d& velocityVariance_N = cfg.getGroundVelocityCovarianceDiag_N();
+    return {.r_N = cfg.getGroundPosition_BN_N() + t * cfg.getGroundVelocity_BN_N(),
+            .v_N = cfg.getGroundVelocity_BN_N(),
+            .sigmaR_N = (positionVariance_N + t * t * velocityVariance_N).cwiseSqrt(),
+            .sigmaV_N = velocityVariance_N.cwiseSqrt()};
+}
+
+/*! Check a re-read candidate (r, v) against the configured thresholds and against the ground-based trajectory and its
+ uncertainty at the candidate's time.
  @return std::nullopt if the candidate passes every check, otherwise the checks that rejected it
  @param r_BN_N [m] candidate relative position
  @param v_BN_N [m/s] candidate relative velocity
- @param rPredicted_BN_N [m] rectilinear prediction of the position at the candidate's time, made from the last accepted
- read
- @param cfg validated configuration (collinearity tolerance and the rate, acceleration and position thresholds)
+ @param ground ground-based state and uncertainty propagated to the candidate's time
+ @param cfg validated configuration (collinearity tolerance, the rate and acceleration thresholds, numberOfSigmas)
  */
-std::optional<FlybyValidityTriggers> checkValidity(
-    const Eigen::Vector3d& r_BN_N,
-    const Eigen::Vector3d& v_BN_N,  // NOLINT(bugprone-easily-swappable-parameters)
-    const Eigen::Vector3d& rPredicted_BN_N,
-    const FlybyPointConfig& cfg) {
+std::optional<FlybyValidityTriggers> checkValidity(const Eigen::Vector3d& r_BN_N,
+                                                   const Eigen::Vector3d& v_BN_N,
+                                                   const GroundPrediction& ground,
+                                                   const FlybyPointConfig& cfg) {
     FlybyValidityTriggers triggers{};
     triggers.collinearityTrigger = FlybyPointConfig::isCollinear(r_BN_N, v_BN_N, cfg.getToleranceForCollinearity());
 
@@ -40,12 +63,17 @@ std::optional<FlybyValidityTriggers> checkValidity(
         triggers.maxAccelerationTrigger = true;
     }
 
-    /*! position error with respect to the prediction from the last accepted read against the a-priori sigma bound */
-    const double deltaPositionNorm = (r_BN_N - rPredicted_BN_N).stableNorm();
-    triggers.positionKnowledgeExceedTrigger = deltaPositionNorm > cfg.getPositionKnowledgeSigma();
+    /*! position and velocity errors with respect to the propagated ground state, axis by axis, against numberOfSigmas
+     times the propagated ground sigmas */
+    const double numberOfSigmas = cfg.getNumberOfSigmas();
+    const bool positionExceeds =
+        ((r_BN_N - ground.r_N).cwiseAbs().array() > numberOfSigmas * ground.sigmaR_N.array()).any();
+    const bool velocityExceeds =
+        ((v_BN_N - ground.v_N).cwiseAbs().array() > numberOfSigmas * ground.sigmaV_N.array()).any();
+    triggers.stateKnowledgeExceedTrigger = positionExceeds || velocityExceeds;
 
     if (triggers.collinearityTrigger || triggers.maxRateTrigger || triggers.maxAccelerationTrigger ||
-        triggers.positionKnowledgeExceedTrigger) {
+        triggers.stateKnowledgeExceedTrigger) {
         return triggers;
     }
     return std::nullopt;
@@ -69,13 +97,14 @@ void FlybyPointAlgorithm::setConfig(const FlybyPointConfig& config) {
     this->reset();
 }
 
-/*! Re-seed the profile from the configuration's ground-based state and discard the partial averaging window. The
- next updateState() call outputs the profile at zero elapsed time.
+/*! Re-seed the profile from the configuration's ground-based state, discard the partial averaging window, and restart
+ the time since the ground state. The next updateState() call outputs the profile at zero elapsed time.
  @return void
  */
 void FlybyPointAlgorithm::reset() {
     this->profile = makeProfile(this->cfg.getGroundPosition_BN_N(), this->cfg.getGroundVelocity_BN_N());
     this->window = {};
+    this->periodsSinceGroundState = 0;
 }
 
 /*! Compute the reference attitude for this control period from the filter sample (r, v). Must be called once per
@@ -106,11 +135,11 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
      was accepted or no re-read was attempted), then start a new window */
     if (this->window.periods >= this->cfg.getFilterReadPeriods()) {
         output.rejectedSamplesInWindow = this->window.periods - this->window.samples;
-        const FlybyValidityTriggers triggers = this->reReadFromWindow(this->profile);
+        const FlybyValidityTriggers triggers = this->reReadFromWindow();
         output.collinearityTrigger = triggers.collinearityTrigger;
         output.maxRateTrigger = triggers.maxRateTrigger;
         output.maxAccelerationTrigger = triggers.maxAccelerationTrigger;
-        output.positionKnowledgeExceedTrigger = triggers.positionKnowledgeExceedTrigger;
+        output.stateKnowledgeExceedTrigger = triggers.stateKnowledgeExceedTrigger;
         this->window = {};
     }
 
@@ -122,6 +151,7 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
 
     /*! 4. Advance time to the next control period, whether or not the sample is usable */
     ++this->profile.periodsSinceRead;
+    ++this->periodsSinceGroundState;
     return output;
 }
 
@@ -145,16 +175,16 @@ FlybyPointAlgorithm::Profile FlybyPointAlgorithm::makeProfile(const Eigen::Vecto
     R0N.row(2) = uh_N.cast<float>();
     const double f0 = v_BN_N.stableNorm() / r_BN_N.stableNorm();
     const double gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));  // flight path angle
-    return {.r_N = r_BN_N, .v_N = v_BN_N, .f0 = f0, .gamma0 = gamma0, .R0N = R0N, .periodsSinceRead = 0};
+    return {.f0 = f0, .gamma0 = gamma0, .R0N = R0N, .periodsSinceRead = 0};
 }
 
 /*! Re-read from the average of the window that just ended: re-seed the profile if the average passes the validity
- checks, otherwise keep extrapolating the last accepted profile.
+ checks, otherwise keep extrapolating the last accepted profile. The state knowledge check compares the average with
+ the ground-based trajectory and its uncertainty, both propagated from the ground state to the window end.
  @return the checks that rejected the average; all false if it was accepted, or if no re-read was attempted (no
  usable sample in the window, or an unusable average such as cancelling velocities)
- @param p the profile of the last accepted read, or of the ground state
  */
-FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow(const Profile& p) {
+FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow() {
     if (this->window.samples == 0U) {
         return {};
     }
@@ -164,11 +194,11 @@ FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow(const Profile& p) {
     if (!FlybyPointConfig::isUsableSample(rAverage_N, vAverage_N)) {
         return {};
     }
-    /*! p is read here, before the accepted average replaces the profile, and not used afterwards */
-    const double deltaT = static_cast<double>(p.periodsSinceRead) * this->cfg.getControlPeriod();
-    const Eigen::Vector3d rPredicted_N = p.r_N + deltaT * p.v_N;
+    const double timeSinceGroundState =
+        static_cast<double>(this->periodsSinceGroundState) * this->cfg.getControlPeriod();
+    const GroundPrediction ground = propagateGroundState(this->cfg, timeSinceGroundState);
     if (const std::optional<FlybyValidityTriggers> rejection =
-            checkValidity(rAverage_N, vAverage_N, rPredicted_N, this->cfg)) {
+            checkValidity(rAverage_N, vAverage_N, ground, this->cfg)) {
         return *rejection;
     }
     this->profile = makeProfile(rAverage_N, vAverage_N);

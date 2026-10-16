@@ -26,7 +26,8 @@ const Eigen::Vector3d kPositionOffset{0, 0, 2e5};  // [m] offset that fails the 
 inline Eigen::Vector3d truthAt(double t) { return kR0 + t * kV; }
 
 /*! FlybyPointConfig::create() arguments with defaults under which the test trajectory passes every check. The ground
- state is the test trajectory at the first sample. */
+ state is the test trajectory at the first sample, and its covariance is wide enough (1e9 m, 1e5 m/s per axis) that
+ the state knowledge check passes for every test sample. */
 struct ConfigParams {
     double controlPeriod = 1.0;
     uint32_t filterReadPeriods = 1U;
@@ -34,11 +35,11 @@ struct ConfigParams {
     int signOfOrbitNormalFrameVector = 1;
     float maximumRateThreshold = 10.0F;
     float maximumAccelerationThreshold = 1.0F;
-    float positionKnowledgeSigma = 1e9F;
+    float numberOfSigmas = 3.0F;
     Eigen::Vector3d groundPosition_BN_N = kR0;
     Eigen::Vector3d groundVelocity_BN_N = kV;
-    Eigen::Vector3d groundPositionCovarianceDiag_N = Eigen::Vector3d::Zero();
-    Eigen::Vector3d groundVelocityCovarianceDiag_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3d groundPositionCovarianceDiag_N = Eigen::Vector3d::Constant(1e18);
+    Eigen::Vector3d groundVelocityCovarianceDiag_N = Eigen::Vector3d::Constant(1e10);
 };
 
 inline FlybyPointConfig makeConfig(const ConfigParams& p = {}) {
@@ -48,7 +49,7 @@ inline FlybyPointConfig makeConfig(const ConfigParams& p = {}) {
                                     p.signOfOrbitNormalFrameVector,
                                     p.maximumRateThreshold,
                                     p.maximumAccelerationThreshold,
-                                    p.positionKnowledgeSigma,
+                                    p.numberOfSigmas,
                                     p.groundPosition_BN_N,
                                     p.groundVelocity_BN_N,
                                     p.groundPositionCovarianceDiag_N,
@@ -135,7 +136,7 @@ struct ExpectedFlags {
     bool collinearity = false;
     bool maxRate = false;
     bool maxAcceleration = false;
-    bool positionKnowledge = false;
+    bool stateKnowledge = false;
     bool inputSampleRejected = false;
     uint32_t rejectedSamplesInWindow = 0U;
 };
@@ -144,7 +145,7 @@ inline void expectFlags(const AttGuideOutput& out, const ExpectedFlags& expected
     EXPECT_EQ(out.collinearityTrigger, expected.collinearity);
     EXPECT_EQ(out.maxRateTrigger, expected.maxRate);
     EXPECT_EQ(out.maxAccelerationTrigger, expected.maxAcceleration);
-    EXPECT_EQ(out.positionKnowledgeExceedTrigger, expected.positionKnowledge);
+    EXPECT_EQ(out.stateKnowledgeExceedTrigger, expected.stateKnowledge);
     EXPECT_EQ(out.inputSampleRejected, expected.inputSampleRejected);
     EXPECT_EQ(out.rejectedSamplesInWindow, expected.rejectedSamplesInWindow);
 }
@@ -154,13 +155,12 @@ inline void expectFlags(const AttGuideOutput& out, const ExpectedFlags& expected
 // formulas as the algorithm; the formulas themselves are checked against straightLineReference().
 // ---------------------------------------------------------------------------
 struct ReferenceFlybyState {
+    uint64_t periodsSinceGroundState = 0;
     uint64_t periodsSinceRead = 0;
     uint32_t windowPeriods = 0;
     uint32_t windowSamples = 0;
     Eigen::Vector3d rSumAtWindowEnd = Eigen::Vector3d::Zero();
     Eigen::Vector3d vSum = Eigen::Vector3d::Zero();
-    Eigen::Vector3d readPosition = Eigen::Vector3d::Zero();  // last accepted read
-    Eigen::Vector3d readVelocity = Eigen::Vector3d::Zero();
     double f0 = 0.0;
     double gamma0 = 0.0;
     Eigen::Matrix3d R0N = Eigen::Matrix3d::Identity();
@@ -196,12 +196,25 @@ inline bool referencePassesChecks(const ReferenceFlybyState& s,
         return false;
     }
     const double speedOverDistance = v.stableNorm() / distanceClosestApproach;
-    const double deltaT = static_cast<double>(s.periodsSinceRead) * config.getControlPeriod();
-    const Eigen::Vector3d rPredicted = s.readPosition + deltaT * s.readVelocity;
-    return speedOverDistance * kRad2Deg <= config.getMaximumRateThreshold() &&
-           kMaxAccelCoeff * speedOverDistance * speedOverDistance * kRad2Deg <=
-               config.getMaximumAccelerationThreshold() &&
-           (r - rPredicted).stableNorm() <= config.getPositionKnowledgeSigma();
+    if (speedOverDistance * kRad2Deg > config.getMaximumRateThreshold() ||
+        kMaxAccelCoeff * speedOverDistance * speedOverDistance * kRad2Deg > config.getMaximumAccelerationThreshold()) {
+        return false;
+    }
+
+    // Ground state and covariance diagonal propagated from t0 with Phi = [[I, tI], [0, I]], checked axis by axis.
+    const double t = static_cast<double>(s.periodsSinceGroundState) * config.getControlPeriod();
+    const double n = config.getNumberOfSigmas();
+    const Eigen::Vector3d rPredicted = config.getGroundPosition_BN_N() + t * config.getGroundVelocity_BN_N();
+    const Eigen::Vector3d vPredicted = config.getGroundVelocity_BN_N();
+    for (int i = 0; i < 3; ++i) {
+        const double positionVariance = config.getGroundPositionCovarianceDiag_N()[i];
+        const double velocityVariance = config.getGroundVelocityCovarianceDiag_N()[i];
+        if (std::fabs(r[i] - rPredicted[i]) > n * std::sqrt(positionVariance + t * t * velocityVariance) ||
+            std::fabs(v[i] - vPredicted[i]) > n * std::sqrt(velocityVariance)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 /*! Same profile as FlybyPointAlgorithm::makeProfile(), with the DCM kept in double. */
@@ -215,8 +228,6 @@ inline void referenceSeed(ReferenceFlybyState& s, const Eigen::Vector3d& r, cons
     s.R0N.row(2) = uh;
     s.f0 = v.stableNorm() / r.stableNorm();
     s.gamma0 = safeAtan2(v.dot(ur), v.dot(ut));
-    s.readPosition = r;
-    s.readVelocity = v;
     s.periodsSinceRead = 0;
 }
 
@@ -285,6 +296,7 @@ inline ReferenceFlybyOutput referenceUpdateState(ReferenceFlybyState& s,
     }
     const ReferenceFlybyOutput out = referenceGuidanceSolution(s, config);
     ++s.periodsSinceRead;
+    ++s.periodsSinceGroundState;
     return out;
 }
 

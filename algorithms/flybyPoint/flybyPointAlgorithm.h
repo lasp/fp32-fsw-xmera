@@ -19,17 +19,19 @@ struct AttGuideOutput {
     bool maxRateTrigger = false;          // true if the predicted rate exceeds the maximum rate of the spacecraft
     bool maxAccelerationTrigger = false;  // true if the predicted acceleration exceeds the maximum acceleration of the
                                           // spacecraft
-    bool positionKnowledgeExceedTrigger = false;  // true if the position error exceeds a-priori sigma bound
+    bool stateKnowledgeExceedTrigger = false;  // true if the position or velocity error exceeds the propagated ground
+                                               // sigma bound
     bool inputSampleRejected = false;  // true if this period's filter sample was unusable and left out of the average
     uint32_t rejectedSamplesInWindow = 0;  // number of unusable samples in the window ending this period, else 0
 };
 
 /*! @brief Which validity checks rejected a re-read candidate; all false when none did. */
 struct FlybyValidityTriggers {
-    bool collinearityTrigger = false;             // true if vectors r and v are collinear
-    bool maxRateTrigger = false;                  // true if the predicted peak rate exceeds the maximum rate
-    bool maxAccelerationTrigger = false;          // true if the predicted peak acceleration exceeds the maximum
-    bool positionKnowledgeExceedTrigger = false;  // true if the position error exceeds a-priori sigma bound
+    bool collinearityTrigger = false;          // true if vectors r and v are collinear
+    bool maxRateTrigger = false;               // true if the predicted peak rate exceeds the maximum rate
+    bool maxAccelerationTrigger = false;       // true if the predicted peak acceleration exceeds the maximum
+    bool stateKnowledgeExceedTrigger = false;  // true if the position or velocity error exceeds the propagated ground
+                                               // sigma bound
 };
 
 /*!
@@ -40,8 +42,9 @@ struct FlybyValidityTriggers {
  *
  * The ground-based position and velocity seed the pointing profile when the algorithm is configured or reset. They are
  * the relative state at the time of the first updateState() call that follows, and must be a usable, non-collinear
- * pair, since r and v must define an orbit normal. The diagonal terms (variances) of their ground-based covariance are
- * validated and stored for future use; the algorithm does not use them yet.
+ * pair, since r and v must define an orbit normal. The ground-based state and the diagonal terms (variances) of its
+ * covariance, both propagated from that time, give the trajectory each re-read is checked against and the per-axis
+ * bound on its deviation, scaled by numberOfSigmas.
  */
 class FlybyPointConfig final {
    public:
@@ -56,7 +59,7 @@ class FlybyPointConfig final {
                                    int signOfOrbitNormalFrameVector,
                                    float maximumRateThreshold,
                                    float maximumAccelerationThreshold,
-                                   float positionKnowledgeSigma,
+                                   float numberOfSigmas,
                                    const Eigen::Vector3d& groundPosition_BN_N,
                                    const Eigen::Vector3d& groundVelocity_BN_N,
                                    const Eigen::Vector3d& groundPositionCovarianceDiag_N,
@@ -79,8 +82,8 @@ class FlybyPointConfig final {
         if (!isValidMaximumAccelerationThreshold(maximumAccelerationThreshold)) {
             FSW_THROW_INVALID_ARGUMENT("flybyPoint: maximumAccelerationThreshold must be > 0");
         }
-        if (!isValidPositionKnowledgeSigma(positionKnowledgeSigma)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyPoint: positionKnowledgeSigma must be > 0");
+        if (!isValidNumberOfSigmas(numberOfSigmas)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: numberOfSigmas must be finite and > 0");
         }
         if (!isUsableSample(groundPosition_BN_N, groundVelocity_BN_N)) {
             FSW_THROW_INVALID_ARGUMENT(
@@ -90,10 +93,10 @@ class FlybyPointConfig final {
             FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundPosition_BN_N and groundVelocity_BN_N must not be collinear");
         }
         if (!isValidGroundPositionCovarianceDiag(groundPositionCovarianceDiag_N)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundPositionCovarianceDiag_N must be finite and >= 0");
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundPositionCovarianceDiag_N must be finite and > 0");
         }
         if (!isValidGroundVelocityCovarianceDiag(groundVelocityCovarianceDiag_N)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundVelocityCovarianceDiag_N must be finite and >= 0");
+            FSW_THROW_INVALID_ARGUMENT("flybyPoint: groundVelocityCovarianceDiag_N must be finite and > 0");
         }
         return {controlPeriod,
                 filterReadPeriods,
@@ -101,7 +104,7 @@ class FlybyPointConfig final {
                 signOfOrbitNormalFrameVector,
                 maximumRateThreshold,
                 maximumAccelerationThreshold,
-                positionKnowledgeSigma,
+                numberOfSigmas,
                 groundPosition_BN_N,
                 groundVelocity_BN_N,
                 groundPositionCovarianceDiag_N,
@@ -115,19 +118,20 @@ class FlybyPointConfig final {
     static bool isValidSignOfOrbitNormalFrameVector(int s) { return s == 1 || s == -1; }
     static bool isValidMaximumRateThreshold(float r) { return r > 0.0F; }
     static bool isValidMaximumAccelerationThreshold(float a) { return a > 0.0F; }
-    static bool isValidPositionKnowledgeSigma(float s) { return s > 0.0F; }
+    static bool isValidNumberOfSigmas(float n) { return fsw::is_finite(n) && n > 0.0F; }
     /*! Check whether the ground state can seed the profile: it must be a usable, non-collinear sample. */
     static bool isValidGroundState(const Eigen::Vector3d& r_BN_N,
                                    const Eigen::Vector3d& v_BN_N,
                                    float toleranceForCollinearity) {
         return isUsableSample(r_BN_N, v_BN_N) && !isCollinear(r_BN_N, v_BN_N, toleranceForCollinearity);
     }
-    /*! A diagonal covariance is positive semi-definite if and only if every diagonal term is >= 0. */
+    /*! A diagonal covariance is positive definite if and only if every diagonal term is > 0; a zero variance would
+     reject any deviation on that axis. */
     static bool isValidGroundPositionCovarianceDiag(const Eigen::Vector3d& p) {
-        return p.allFinite() && (p.array() >= 0.0).all();
+        return p.allFinite() && (p.array() > 0.0).all();
     }
     static bool isValidGroundVelocityCovarianceDiag(const Eigen::Vector3d& p) {
-        return p.allFinite() && (p.array() >= 0.0).all();
+        return p.allFinite() && (p.array() > 0.0).all();
     }
 
     /*! Check whether a sample can seed the profile or enter the averaging window: it must be finite, neither r nor v
@@ -168,7 +172,8 @@ class FlybyPointConfig final {
     int getSignOfOrbitNormalFrameVector() const { return signOfOrbitNormalFrameVector; }
     float getMaximumRateThreshold() const { return maximumRateThreshold; }
     float getMaximumAccelerationThreshold() const { return maximumAccelerationThreshold; }
-    float getPositionKnowledgeSigma() const { return positionKnowledgeSigma; }
+    /*! @return [-] number of propagated ground sigmas a re-read may deviate from the ground-based trajectory */
+    float getNumberOfSigmas() const { return numberOfSigmas; }
     /*! @return [m] ground-based position at the first updateState() call after configuring or resetting */
     const Eigen::Vector3d& getGroundPosition_BN_N() const { return groundPosition_BN_N; }
     /*! @return [m/s] ground-based velocity at the first updateState() call after configuring or resetting */
@@ -185,7 +190,7 @@ class FlybyPointConfig final {
                      int signOfOrbitNormalFrameVector,
                      float maximumRateThreshold,
                      float maximumAccelerationThreshold,
-                     float positionKnowledgeSigma,
+                     float numberOfSigmas,
                      const Eigen::Vector3d& groundPosition_BN_N,
                      const Eigen::Vector3d& groundVelocity_BN_N,
                      const Eigen::Vector3d& groundPositionCovarianceDiag_N,
@@ -196,7 +201,7 @@ class FlybyPointConfig final {
           signOfOrbitNormalFrameVector(signOfOrbitNormalFrameVector),
           maximumRateThreshold(maximumRateThreshold),
           maximumAccelerationThreshold(maximumAccelerationThreshold),
-          positionKnowledgeSigma(positionKnowledgeSigma),
+          numberOfSigmas(numberOfSigmas),
           groundPosition_BN_N(groundPosition_BN_N),
           groundVelocity_BN_N(groundVelocity_BN_N),
           groundPositionCovarianceDiag_N(groundPositionCovarianceDiag_N),
@@ -208,7 +213,7 @@ class FlybyPointConfig final {
     int signOfOrbitNormalFrameVector;
     float maximumRateThreshold;
     float maximumAccelerationThreshold;
-    float positionKnowledgeSigma;
+    float numberOfSigmas;  //!< [-] number of propagated ground sigmas allowed for the state knowledge check
     Eigen::Vector3d groundPosition_BN_N;             //!< [m] ground-based position
     Eigen::Vector3d groundVelocity_BN_N;             //!< [m/s] ground-based velocity
     Eigen::Vector3d groundPositionCovarianceDiag_N;  //!< [m^2] diagonal of the ground-based position covariance
@@ -256,11 +261,8 @@ class FlybyPointAlgorithm final {
         Eigen::Vector3f domega_RN_N = Eigen::Vector3f::Zero();  //!< [rad/s^2] reference angular acceleration
     };
 
-    /*! Pointing profile from the last accepted read; the position-knowledge check compares re-reads with the read's
-     rectilinear prediction */
+    /*! Pointing profile from the last accepted read, or from the ground state */
     struct Profile {
-        Eigen::Vector3d r_N = Eigen::Vector3d::Zero();      //!< [m] position of the accepted read
-        Eigen::Vector3d v_N = Eigen::Vector3d::Zero();      //!< [m/s] velocity of the accepted read
         double f0 = 0;                                      //!< [1/s] |v| / |r| at the read
         double gamma0 = 0;                                  //!< [rad] flight path angle at the read
         Eigen::Matrix3f R0N = Eigen::Matrix3f::Identity();  //!< [-] inertial-to-reference DCM at the read
@@ -268,12 +270,13 @@ class FlybyPointAlgorithm final {
     };
 
     static Profile makeProfile(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
-    FlybyValidityTriggers reReadFromWindow(const Profile& p);
+    FlybyValidityTriggers reReadFromWindow();
     GuidanceReference computeGuidanceReference(const Profile& p) const;
 
     FlybyPointConfig cfg;
-    Profile profile;           //!< profile of the last accepted read, or of the ground state
-    AveragingWindow window{};  //!< averaging window in progress
+    Profile profile;                       //!< profile of the last accepted read, or of the ground state
+    AveragingWindow window{};              //!< averaging window in progress
+    uint64_t periodsSinceGroundState = 0;  //!< [-] control periods elapsed since the ground state (t0)
 };
 
 #endif  // F32XMERA_FLYBY_POINT_ALGORITHM_H

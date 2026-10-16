@@ -10,7 +10,8 @@ average if it passes three checks:
 
 - the trajectory is not a collision course (r and v not collinear),
 - the predicted peak frame rate and acceleration are within the spacecraft limits,
-- the position agrees with the prediction from the last accepted state.
+- the position and velocity agree with the ground-based trajectory, within its uncertainty propagated to the re-read
+  time.
 
 Between re-reads, the reference is propagated analytically from the last accepted state.
 
@@ -34,7 +35,7 @@ Message Connection Descriptions
     * - flybyDiagnosticOutMsg
       - :ref:`FlybyDiagnosticMsgF32Payload`
       - Written every update. ``collinearityTrigger``, ``maxRateTrigger``, ``maxAccelerationTrigger`` and
-        ``positionKnowledgeExceedTrigger`` flag the checks that rejected the averaged state, on the update that ends a
+        ``stateKnowledgeExceedTrigger`` flag the checks that rejected the averaged state, on the update that ends a
         window. ``inputSampleRejected`` flags an unusable filter state on this update. ``rejectedSamplesInWindow``
         counts the unusable states of the window ending on this update (0 otherwise).
 
@@ -50,7 +51,7 @@ time in whole control periods. On every update it:
 2. at the end of a window of :math:`N` = ``filterReadPeriods`` updates, checks the window average and, if it passes,
    re-seeds the pointing profile from it, then starts a new window;
 3. outputs the reference propagated from the last accepted state;
-4. advances the time since that state by one control period.
+4. advances the time since that state, and since the ground state, by one control period.
 
 The ground-based state ``groundPosition_BN_N``, ``groundVelocity_BN_N`` seeds the profile on reset and is the state at
 the first update that follows. That update outputs the profile at :math:`t = 0` and opens the first window, so the
@@ -105,9 +106,21 @@ The window average :math:`(\boldsymbol{r}, \boldsymbol{v})` is rejected, and the
 
    exceed ``maximumRateThreshold`` or ``maximumAccelerationThreshold``. A collinear state (:math:`d_{CA} = 0`) fails
    both.
-3. **Position knowledge:** :math:`\boldsymbol{r}` is farther than ``positionKnowledgeSigma`` from the prediction
-   :math:`\boldsymbol{r}_{read} + \Delta t\,\boldsymbol{v}_{read}` from the last accepted state, :math:`\Delta t`
-   after it.
+3. **State knowledge:** the ground-based state :math:`(\boldsymbol{r}_g, \boldsymbol{v}_g)` and its covariance
+   diagonals :math:`\sigma_{r0,i}^2`, :math:`\sigma_{v0,i}^2` (``groundPositionCovarianceDiag_N``,
+   ``groundVelocityCovarianceDiag_N``) are propagated from the ground state to the re-read time :math:`t` with the
+   rectilinear state transition matrix :math:`\Phi(t) = \begin{bmatrix} I & tI \\ 0 & I \end{bmatrix}`: the state
+   becomes :math:`(\boldsymbol{r}_g + t\,\boldsymbol{v}_g, \boldsymbol{v}_g)`, and the diagonal of
+   :math:`P(t) = \Phi P_0 \Phi^T` gives, on each inertial axis :math:`i`,
+
+   .. math::
+       \sigma_{r,i}(t) = \sqrt{\sigma_{r0,i}^2 + t^2 \sigma_{v0,i}^2}, \qquad \sigma_{v,i}(t) = \sigma_{v0,i}
+
+   The check fails if, on any axis, the position is more than :math:`n\,\sigma_{r,i}(t)` from
+   :math:`\boldsymbol{r}_g + t\,\boldsymbol{v}_g`, or the velocity more than :math:`n\,\sigma_{v,i}(t)` from
+   :math:`\boldsymbol{v}_g`, with :math:`n` = ``numberOfSigmas``. Accepted re-reads re-seed the pointing profile but
+   do not change this reference: every re-read is checked against the ground-based trajectory, and :math:`t` restarts
+   only on reset.
 
 Module Assumptions and Limitations
 ----------------------------------
@@ -115,7 +128,8 @@ Module Assumptions and Limitations
   rectilinear model is accurate: a longer window averages out more noise but adds more model error.
 - The ground-based state is trusted. It is only checked, on reset, to be usable and not collinear, otherwise the reset
   throws an invalid-argument error. The other checks apply from the first re-read on.
-- ``groundPositionCovarianceDiag_N`` and ``groundVelocityCovarianceDiag_N`` are validated but not yet used.
+- The state knowledge check uses only the diagonal of the ground-based covariance, and of its propagation, so it
+  ignores the position-velocity correlation that the propagation builds up.
 
 User Guide
 ----------
@@ -129,7 +143,7 @@ Example configuration::
     flybyGuid.signOfOrbitNormalFrameVector = 1
     flybyGuid.maximumRateThreshold = 0.01
     flybyGuid.maximumAccelerationThreshold = 1e-7
-    flybyGuid.positionKnowledgeSigma = 1e5
+    flybyGuid.numberOfSigmas = 3.0
     flybyGuid.groundPosition_BN_N = [-5e7, 7.5e6, 5e5]          # [m]
     flybyGuid.groundVelocity_BN_N = [2e4, 0.0, 0.0]             # [m/s]
     flybyGuid.groundPositionCovarianceDiag_N = [1e8, 1e8, 1e8]  # [m^2]
@@ -161,9 +175,10 @@ Example configuration::
    * - ``maximumAccelerationThreshold``
      - 0
      - [deg/s^2] maximum predicted peak frame acceleration. > 0
-   * - ``positionKnowledgeSigma``
+   * - ``numberOfSigmas``
      - 0
-     - [m] maximum distance from the predicted position. > 0
+     - [-] number of propagated ground sigmas the position and velocity may deviate from the prediction, per axis.
+       Finite, > 0
    * - ``groundPosition_BN_N``
      - [0, 0, 0]
      - [m] ground-based position at the first update after reset, N frame. Required; usable and not collinear with
@@ -173,7 +188,8 @@ Example configuration::
      - [m/s] ground-based velocity at the first update after reset, N frame. Required
    * - ``groundPositionCovarianceDiag_N``
      - [0, 0, 0]
-     - [m^2] position variances of the ground-based covariance, N frame. Finite, >= 0. Not yet used
+     - [m^2] position variances of the ground-based covariance at the ground state, N frame. Required; finite, > 0
    * - ``groundVelocityCovarianceDiag_N``
      - [0, 0, 0]
-     - [(m/s)^2] velocity variances of the ground-based covariance, N frame. Finite, >= 0. Not yet used
+     - [(m/s)^2] velocity variances of the ground-based covariance at the ground state, N frame. Required; finite,
+       > 0

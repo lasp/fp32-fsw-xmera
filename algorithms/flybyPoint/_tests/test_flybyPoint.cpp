@@ -9,6 +9,10 @@
 namespace {
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 constexpr double kInf = std::numeric_limits<double>::infinity();
+constexpr float kNaNF = std::numeric_limits<float>::quiet_NaN();
+
+/*! Covariance diagonal with the same one-sigma value on every axis. */
+Eigen::Vector3d variance(double sigma) { return Eigen::Vector3d::Constant(sigma * sigma); }
 
 // Samples that can't be used: non-finite, (near) zero r or v, |r||v| overflows, (|v|/|r|)^2 overflows.
 const std::array<std::pair<Eigen::Vector3d, Eigen::Vector3d>, 6> kUnusableSamples{{
@@ -67,40 +71,53 @@ TEST(FlybyPointTest, AverageRecoversStraightLineState) {
 
 // Each check accepts a candidate 1% under its threshold and rejects it 1% over, raising only its own flag: the
 // predicted peak rate |v|/d and peak acceleration (3 sqrt(3)/8)(|v|/d)^2 in degrees, with d the closest-approach
-// distance, and the distance from the predicted position. The first period's sample is the ground state itself; the
-// candidate comes one period later. An accepted candidate moves the frame; after a rejection the frame keeps following
-// the ground state.
+// distance, and the position and velocity errors on one axis against one propagated ground sigma. The first period's
+// sample is the ground state itself; the candidate comes one period later. An accepted candidate moves the frame; after
+// a rejection the frame keeps following the ground state.
 TEST(FlybyPointTest, ThresholdsAcceptBelowAndRejectAbove) {
     const Eigen::Vector3d nearCandidate = truthAt(1.0) + kShift;
     const double speedOverDistance = kV.stableNorm() / (nearCandidate.cross(kV).stableNorm() / kV.stableNorm());
     const double peakRate = speedOverDistance * 180.0 / std::numbers::pi;
     const double peakAcceleration = 3.0 * std::numbers::sqrt3 / 8.0 * speedOverDistance * peakRate;
     const double positionError = kPositionOffset.stableNorm();
+    const Eigen::Vector3d velocityOffset{0, 10, 0};
 
     for (const double margin : {1.01, 0.99}) {
         const bool reject = margin < 1.0;
         struct Case {
             ConfigParams params;
-            Eigen::Vector3d candidate;
+            Eigen::Vector3d candidatePosition;
+            Eigen::Vector3d candidateVelocity;
             ExpectedFlags flags;
         };
-        const std::array<Case, 3> cases{{
-            {{.maximumRateThreshold = static_cast<float>(margin * peakRate)}, nearCandidate, {.maxRate = reject}},
+        const std::array<Case, 4> cases{{
+            {{.maximumRateThreshold = static_cast<float>(margin * peakRate)}, nearCandidate, kV, {.maxRate = reject}},
             {{.maximumAccelerationThreshold = static_cast<float>(margin * peakAcceleration)},
              nearCandidate,
+             kV,
              {.maxAcceleration = reject}},
-            {{.positionKnowledgeSigma = static_cast<float>(margin * positionError)},
+            {{.numberOfSigmas = 1.0F,
+              .groundPositionCovarianceDiag_N = variance(margin * positionError),
+              .groundVelocityCovarianceDiag_N = variance(1.0)},
              truthAt(1.0) + kPositionOffset,
-             {.positionKnowledge = reject}},
+             kV,
+             {.stateKnowledge = reject}},
+            {{.numberOfSigmas = 1.0F,
+              .groundPositionCovarianceDiag_N = variance(1e9),
+              .groundVelocityCovarianceDiag_N = variance(margin * velocityOffset.stableNorm())},
+             truthAt(1.0),
+             kV + velocityOffset,
+             {.stateKnowledge = reject}},
         }};
         for (size_t i = 0; i < cases.size(); ++i) {
             SCOPED_TRACE("case " + std::to_string(i) + ", margin " + std::to_string(margin));
             FlybyPointAlgorithm alg(makeConfig(cases[i].params));
             alg.updateState(kR0, kV);
-            const AttGuideOutput out = alg.updateState(cases[i].candidate, kV);
+            const AttGuideOutput out = alg.updateState(cases[i].candidatePosition, cases[i].candidateVelocity);
             expectFlags(out, cases[i].flags);
-            expectReference(
-                out, reject ? straightLineReference(kR0, kV, 1.0) : straightLineReference(cases[i].candidate, kV));
+            expectReference(out,
+                            reject ? straightLineReference(kR0, kV, 1.0)
+                                   : straightLineReference(cases[i].candidatePosition, cases[i].candidateVelocity));
         }
     }
 }
@@ -117,21 +134,45 @@ TEST(FlybyPointTest, CollinearCandidateIsRejected) {
     }
 }
 
-// The position check predicts from the last accepted read, so after a small velocity change the next read is judged
-// against the new trajectory. The second read is accepted, though it is 10 m off the line from the first sample.
-TEST(FlybyPointTest, PositionCheckPredictsFromLastAcceptedRead) {
-    FlybyPointAlgorithm alg(makeConfig({.positionKnowledgeSigma = 1.0F}));
+// The state check is against the ground-based trajectory, not the last accepted read. A read 9 km off the ground line
+// is within the 10 km bound and is accepted; the next read, 18 km off the ground line, is rejected, though it is only
+// 9 km from the accepted read's prediction, and the output keeps following the accepted read.
+TEST(FlybyPointTest, StateCheckIsAgainstGroundTrajectory) {
+    FlybyPointAlgorithm alg(makeConfig({.numberOfSigmas = 1.0F,
+                                        .groundPositionCovarianceDiag_N = variance(1e4),
+                                        .groundVelocityCovarianceDiag_N = variance(1.0)}));
     alg.updateState(kR0, kV);
 
-    const Eigen::Vector3d v1 = kV + Eigen::Vector3d{0, 10, 0};
-    const Eigen::Vector3d r1 = truthAt(1.0);
-    const AttGuideOutput out1 = alg.updateState(r1, v1);
+    const Eigen::Vector3d step{0, 0, 9e3};
+    const AttGuideOutput out1 = alg.updateState(truthAt(1.0) + step, kV);
     expectFlags(out1);
-    expectReference(out1, straightLineReference(r1, v1));
+    expectReference(out1, straightLineReference(truthAt(1.0) + step, kV));
 
-    const AttGuideOutput out2 = alg.updateState(r1 + v1, v1);
-    expectFlags(out2);
-    expectReference(out2, straightLineReference(r1 + v1, v1));
+    const AttGuideOutput out2 = alg.updateState(truthAt(2.0) + 2.0 * step, kV);
+    expectFlags(out2, {.stateKnowledge = true});
+    expectReference(out2, straightLineReference(truthAt(1.0) + step, kV, 1.0));
+}
+
+// The ground uncertainty is propagated from the ground state: the position bound on each axis grows as
+// sqrt(sigmaR0^2 + t^2 sigmaV0^2). With 1 m and 1 m/s, samples 5 m off the line are rejected until the bound
+// sqrt(1 + t^2) passes 5 m at t = 5 s, and accepted then. reset() restarts the time, so the bound is 1 m again.
+TEST(FlybyPointTest, StateKnowledgeBoundGrowsFromGroundState) {
+    FlybyPointAlgorithm alg(makeConfig({.numberOfSigmas = 1.0F,
+                                        .groundPositionCovarianceDiag_N = variance(1.0),
+                                        .groundVelocityCovarianceDiag_N = variance(1.0)}));
+    const Eigen::Vector3d offset{0, 0, 5};
+    for (int k = 0; k <= 5; ++k) {
+        SCOPED_TRACE("period " + std::to_string(k));
+        const AttGuideOutput out = alg.updateState(truthAt(k) + offset, kV);
+        expectFlags(out, {.stateKnowledge = k < 5});
+        expectReference(out,
+                        k < 5 ? straightLineReference(kR0, kV, k) : straightLineReference(truthAt(k) + offset, kV));
+    }
+
+    alg.reset();
+    const AttGuideOutput out = alg.updateState(kR0 + offset, kV);
+    expectFlags(out, {.stateKnowledge = true});
+    expectReference(out, straightLineReference(kR0, kV));
 }
 
 // ---------------------------------------------------------------------------
@@ -245,12 +286,15 @@ TEST(FlybyPointTest, UnrepresentableReferenceFallsBackToZero) {
 // with no exact binary representation. Every sample is far off the prediction, so each attempt is rejected, which
 // makes the attempts visible.
 TEST(FlybyPointTest, ReReadsOnEveryFilterReadPeriod) {
-    FlybyPointAlgorithm alg(
-        makeConfig({.controlPeriod = 0.1, .filterReadPeriods = 3U, .positionKnowledgeSigma = 1.0F}));
+    FlybyPointAlgorithm alg(makeConfig({.controlPeriod = 0.1,
+                                        .filterReadPeriods = 3U,
+                                        .numberOfSigmas = 1.0F,
+                                        .groundPositionCovarianceDiag_N = variance(1.0),
+                                        .groundVelocityCovarianceDiag_N = variance(1.0)}));
     for (int k = 0; k < 30; ++k) {
         SCOPED_TRACE("period " + std::to_string(k));
         const AttGuideOutput out = alg.updateState(kR0 + kPositionOffset, kV);
-        expectFlags(out, {.positionKnowledge = (k % 3) == 2});
+        expectFlags(out, {.stateKnowledge = (k % 3) == 2});
         expectReference(out, straightLineReference(kR0, kV, k * 0.1));
     }
 }
@@ -258,12 +302,15 @@ TEST(FlybyPointTest, ReReadsOnEveryFilterReadPeriod) {
 // A rejected average starts a fresh window: no attempt is made until another full window has passed, and that window's
 // good average is then accepted.
 TEST(FlybyPointTest, RejectedAverageRestartsWindow) {
-    FlybyPointAlgorithm alg(makeConfig({.filterReadPeriods = 3U, .positionKnowledgeSigma = 1.0F}));
+    FlybyPointAlgorithm alg(makeConfig({.filterReadPeriods = 3U,
+                                        .numberOfSigmas = 1.0F,
+                                        .groundPositionCovarianceDiag_N = variance(1.0),
+                                        .groundVelocityCovarianceDiag_N = variance(1.0)}));
     for (int k = 0; k <= 5; ++k) {
         SCOPED_TRACE("period " + std::to_string(k));
         const Eigen::Vector3d sample = k <= 2 ? Eigen::Vector3d(truthAt(k) + kPositionOffset) : truthAt(k);
         const AttGuideOutput out = alg.updateState(sample, kV);
-        expectFlags(out, {.positionKnowledge = k == 2});
+        expectFlags(out, {.stateKnowledge = k == 2});
         expectReference(out, straightLineReference(kR0, kV, k));
     }
 }
@@ -272,13 +319,19 @@ TEST(FlybyPointTest, RejectedAverageRestartsWindow) {
 // partial window, also when the new window is shorter than the periods already elapsed. The two bad samples before the
 // change are dropped, and the new 2-period window reads only the good samples after it.
 TEST(FlybyPointTest, SetConfigReseedsFromGroundState) {
-    FlybyPointAlgorithm alg(makeConfig({.filterReadPeriods = 5U, .positionKnowledgeSigma = 1e5F}));
+    FlybyPointAlgorithm alg(makeConfig({.filterReadPeriods = 5U,
+                                        .numberOfSigmas = 1.0F,
+                                        .groundPositionCovarianceDiag_N = variance(1e5),
+                                        .groundVelocityCovarianceDiag_N = variance(1.0)}));
     for (int k = 0; k <= 1; ++k) {
         expectFlags(alg.updateState(truthAt(k) + kPositionOffset, kV));
     }
     const Eigen::Vector3d newGround = truthAt(2.0) + kShift;
-    alg.setConfig(
-        makeConfig({.filterReadPeriods = 2U, .positionKnowledgeSigma = 1e5F, .groundPosition_BN_N = newGround}));
+    alg.setConfig(makeConfig({.filterReadPeriods = 2U,
+                              .numberOfSigmas = 1.0F,
+                              .groundPosition_BN_N = newGround,
+                              .groundPositionCovarianceDiag_N = variance(1e5),
+                              .groundVelocityCovarianceDiag_N = variance(1.0)}));
 
     const AttGuideOutput out0 = alg.updateState(newGround + kShift, kV);
     expectFlags(out0);
@@ -293,7 +346,10 @@ TEST(FlybyPointTest, SetConfigReseedsFromGroundState) {
 // window: after an accepted re-read moved the frame, the output follows the ground state again, and the next re-read
 // comes a full window after the reset.
 TEST(FlybyPointTest, ResetReseedsFromGroundState) {
-    FlybyPointAlgorithm alg(makeConfig({.filterReadPeriods = 3U, .positionKnowledgeSigma = 1e5F}));
+    FlybyPointAlgorithm alg(makeConfig({.filterReadPeriods = 3U,
+                                        .numberOfSigmas = 1.0F,
+                                        .groundPositionCovarianceDiag_N = variance(1e5),
+                                        .groundVelocityCovarianceDiag_N = variance(1.0)}));
     for (int k = 0; k <= 2; ++k) {
         alg.updateState(truthAt(k) + kShift, kV);
     }
@@ -303,7 +359,7 @@ TEST(FlybyPointTest, ResetReseedsFromGroundState) {
     for (int k = 0; k <= 2; ++k) {
         SCOPED_TRACE("period " + std::to_string(k));
         const AttGuideOutput out = alg.updateState(truthAt(k) + kPositionOffset, kV);
-        expectFlags(out, {.positionKnowledge = k == 2});
+        expectFlags(out, {.stateKnowledge = k == 2});
         expectReference(out, straightLineReference(kR0, kV, k));
     }
 }
@@ -316,10 +372,10 @@ TEST(FlybyPointTest, ResetReseedsFromGroundState) {
 TEST(FlybyPointTest, ConfigRejectsInvalidValues) {
     EXPECT_NO_THROW((void)FlybyPointAlgorithm(makeConfig()));
     EXPECT_NO_THROW((void)makeConfig({.signOfOrbitNormalFrameVector = -1}));
-    EXPECT_NO_THROW((void)makeConfig({.groundPositionCovarianceDiag_N = Eigen::Vector3d{1e8, 0.0, 4e8},
-                                      .groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, 0.0, 4.0}}));
+    EXPECT_NO_THROW((void)makeConfig({.groundPositionCovarianceDiag_N = Eigen::Vector3d{1e8, 1e-6, 4e8},
+                                      .groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, 1e-6, 4.0}}));
 
-    const std::array<ConfigParams, 25> invalid{{
+    const std::array<ConfigParams, 28> invalid{{
         {.controlPeriod = 0.0},
         {.controlPeriod = -1.0},
         {.controlPeriod = kNaN},
@@ -333,15 +389,18 @@ TEST(FlybyPointTest, ConfigRejectsInvalidValues) {
         {.maximumRateThreshold = -1.0F},
         {.maximumAccelerationThreshold = 0.0F},
         {.maximumAccelerationThreshold = -1.0F},
-        {.positionKnowledgeSigma = 0.0F},
-        {.positionKnowledgeSigma = -1e3F},
+        {.numberOfSigmas = 0.0F},
+        {.numberOfSigmas = -1.0F},
+        {.numberOfSigmas = kNaNF},
         {.groundPosition_BN_N = Eigen::Vector3d::Zero()},
         {.groundPosition_BN_N = Eigen::Vector3d{0, kInf, 0}},
         {.groundVelocity_BN_N = Eigen::Vector3d{kNaN, 0, 0}},
         {.groundVelocity_BN_N = kR0},
+        {.groundPositionCovarianceDiag_N = Eigen::Vector3d{1.0, 0.0, 1.0}},
         {.groundPositionCovarianceDiag_N = Eigen::Vector3d{1.0, -1.0, 1.0}},
         {.groundPositionCovarianceDiag_N = Eigen::Vector3d{kNaN, 1.0, 1.0}},
         {.groundPositionCovarianceDiag_N = Eigen::Vector3d{1.0, 1.0, kInf}},
+        {.groundVelocityCovarianceDiag_N = Eigen::Vector3d{0.0, 1.0, 1.0}},
         {.groundVelocityCovarianceDiag_N = Eigen::Vector3d{-1.0, 1.0, 1.0}},
         {.groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, kNaN, 1.0}},
         {.groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, 1.0, kInf}},
@@ -368,7 +427,11 @@ TEST(FlybyPointTest, ConfigStoresGroundState) {
 // an accepted window, a rejected window, an unusable sample and another accepted window, so this catches bookkeeping
 // and single-precision errors; the formulas themselves are checked against the exact flyby above.
 TEST(FlybyPointTest, MatchesReferenceModel) {
-    const ConfigParams params{.controlPeriod = 0.3, .filterReadPeriods = 2U, .positionKnowledgeSigma = 1e5F};
+    const ConfigParams params{.controlPeriod = 0.3,
+                              .filterReadPeriods = 2U,
+                              .numberOfSigmas = 1.0F,
+                              .groundPositionCovarianceDiag_N = variance(1e5),
+                              .groundVelocityCovarianceDiag_N = variance(1.0)};
     std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> samples;
     for (int k = 0; k <= 8; ++k) {
         const Eigen::Vector3d r = truthAt(k * params.controlPeriod);
