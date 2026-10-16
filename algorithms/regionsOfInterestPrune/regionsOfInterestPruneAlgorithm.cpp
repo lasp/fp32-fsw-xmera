@@ -45,6 +45,8 @@ namespace {
  @param centerRow Reference point row coordinate.
  @param centerCol Reference point column coordinate.
 */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters) -- centerRow/centerCol are a legitimately
+// paired 2-D point (the reference center); this shape is intentional.
 float squaredDistanceToCenter(const RoiCandidateEntry& candidate, float centerRow, float centerCol) {
     const float candidateCenterRow = static_cast<float>(candidate.row) + (static_cast<float>(candidate.height) / 2.0F);
     const float candidateCenterCol = static_cast<float>(candidate.col) + (static_cast<float>(candidate.width) / 2.0F);
@@ -52,6 +54,7 @@ float squaredDistanceToCenter(const RoiCandidateEntry& candidate, float centerRo
     const float dCol = candidateCenterCol - centerCol;
     return (dRow * dRow) + (dCol * dCol);
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
 }  // namespace
 
 /*! Scans a 1-D sum array and returns all contiguous non-zero spans together
@@ -160,6 +163,8 @@ RegionsOfInterestPruneAlgorithm::CandidateArray RegionsOfInterestPruneAlgorithm:
  @param numRows     Number of rows in the image (defines the image center's row coordinate).
  @param numCols     Number of columns in the image (defines the image center's column coordinate).
 */
+// NOLINTBEGIN(bugprone-easily-swappable-parameters) -- numRows/numCols are a legitimately paired
+// image-size pair; this shape is intentional and matches update()'s own parameter order.
 RoiCandidates RegionsOfInterestPruneAlgorithm::packOutput(CandidateArray candidates,
                                                           uint32_t numRows,
                                                           uint32_t numCols) {
@@ -187,3 +192,4 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::packOutput(CandidateArray candida
     }
     return outRoi;
 }
+// NOLINTEND(bugprone-easily-swappable-parameters)
