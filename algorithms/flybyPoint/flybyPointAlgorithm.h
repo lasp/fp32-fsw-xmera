@@ -52,6 +52,12 @@ class FlybyPointConfig final {
      orbit-normal direction would be dominated by rounding, so the pair is treated as collinear whatever
      toleranceForCollinearity is; this only matters for a toleranceForCollinearity below double resolution. */
     static constexpr double kMinOrbitNormalNorm = 1e-12;
+    /*! [m] smallest |r| of a usable state. Below it r_hat and f0 = |v| / |r| are dominated by rounding, so the state
+     can't define a profile. Far below any real flyby distance */
+    static constexpr double kMinPositionNorm = 1e-3;
+    /*! [m/s] smallest |v| of a usable state. Below it v_hat, and so the orbit normal, is dominated by rounding. Far
+     below any real flyby speed  */
+    static constexpr double kMinVelocityNorm = 1e-3;
 
     static FlybyPointConfig create(double controlPeriod,
                                    uint32_t filterReadPeriods,
@@ -134,9 +140,10 @@ class FlybyPointConfig final {
         return p.allFinite() && (p.array() > 0.0).all();
     }
 
-    /*! Check whether a sample can seed the profile or enter the averaging window: it must be finite, neither r nor v
-     may be (near) zero, and the products formed from it must be finite, |r||v| (closest approach) and
-     f0^2 = (|v|/|r|)^2 (frame acceleration).
+    /*! Check whether a state can seed the profile or enter the averaging window: it must be finite, with
+     |r| >= kMinPositionNorm and |v| >= kMinVelocityNorm, and the products formed from it must be finite, |r||v|
+     (closest approach) and f0^2 = (|v|/|r|)^2 (frame acceleration). Used by create() for the ground state, and by
+     updateState() for each filter sample and for the window average.
      @return true if the sample is usable
      @param r_BN_N [m] relative position
      @param v_BN_N [m/s] relative velocity
@@ -144,7 +151,7 @@ class FlybyPointConfig final {
     static bool isUsableSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
         const double rNorm = r_BN_N.stableNorm();
         const double vNorm = v_BN_N.stableNorm();
-        return r_BN_N.allFinite() && v_BN_N.allFinite() && rNorm >= 1e-3 && vNorm >= 1e-3 &&
+        return r_BN_N.allFinite() && v_BN_N.allFinite() && rNorm >= kMinPositionNorm && vNorm >= kMinVelocityNorm &&
                fsw::is_finite(rNorm * vNorm) && fsw::is_finite((vNorm / rNorm) * (vNorm / rNorm));
     }
 

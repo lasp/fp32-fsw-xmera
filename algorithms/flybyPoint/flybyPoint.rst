@@ -86,8 +86,9 @@ The state received on update :math:`j = 0, \dots, N - 1` of the window is :math:
     \qquad
     \bar{\boldsymbol{v}} = \frac{1}{n} \sum_j \boldsymbol{v}_j
 
-A state is unusable if it is not finite, if r or v is (near) zero, or if :math:`\|\boldsymbol{r}\|\|\boldsymbol{v}\|`
-or :math:`(\|\boldsymbol{v}\| / \|\boldsymbol{r}\|)^2` overflows. It is left out of the average and does not affect
+A state is unusable if it is not finite, if :math:`\|\boldsymbol{r}\| <` 1 mm or :math:`\|\boldsymbol{v}\| <`
+1 mm/s (near zero), or if :math:`\|\boldsymbol{r}\|\|\boldsymbol{v}\|` or
+:math:`(\|\boldsymbol{v}\| / \|\boldsymbol{r}\|)^2` overflows. It is left out of the average and does not affect
 the output. A window with no usable state, or whose average is unusable, makes no re-read. With :math:`N = 1` the
 module re-reads every state without averaging.
 
