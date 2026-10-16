@@ -1,16 +1,10 @@
-import os
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from xmera import __path__
 from xmera.architecture import messaging
 from xmera.fp32 import flybyPointF32
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.utilities import SimulationBaseClass, macros, unitTestSupport
-
-bskPath = __path__[0]
-fileName = os.path.basename(os.path.splitext(__file__)[0])
 
 R0 = np.array([-5e7, 7.5e6, 5e5])  # [m] initial position of the straight-line flyby
 V0 = np.array([2e4, 0.0, 0.0])  # [m/s] its constant velocity; closest approach ~7.5e6 m at ~42 min
@@ -24,10 +18,10 @@ def truth_position(i):
     return R0 + V0 * (i * SIM_DT)
 
 
-def run_flyby(samples, filter_periods=1, orbit_normal_sign=1, max_rate=1.0, max_acceleration=1.0, pos_knowledge=1e5):
-    """Run the flybyPoint module for one control period per filter sample (r, v).
-
-    Returns the attitude reference and diagnostic message recorders."""
+def run_flyby(samples, filter_periods=1, orbit_normal_sign=1, max_rate=1.0, max_acceleration=1.0, num_sigmas=3.0,
+              pos_variance=1e18, vel_variance=1e16, ground_state=(R0, V0)):
+    """Run the module once per (r, v) sample from the given ground state; return the attitude and diagnostic recorders.
+    The ground variances apply to every axis; the defaults never trip the state knowledge check."""
     unit_test_sim = SimulationBaseClass.SimBaseClass()
     test_process = unit_test_sim.CreateNewProcess("unit_process")
     test_process.addTask(unit_test_sim.CreateNewTask("unit_task", macros.sec2nano(SIM_DT)))
@@ -40,7 +34,11 @@ def run_flyby(samples, filter_periods=1, orbit_normal_sign=1, max_rate=1.0, max_
     flyby_guidance.signOfOrbitNormalFrameVector = orbit_normal_sign
     flyby_guidance.maximumRateThreshold = max_rate
     flyby_guidance.maximumAccelerationThreshold = max_acceleration
-    flyby_guidance.positionKnowledgeSigma = pos_knowledge
+    flyby_guidance.numberOfSigmas = num_sigmas
+    flyby_guidance.groundPosition_BN_N = np.asarray(ground_state[0], dtype=float).tolist()
+    flyby_guidance.groundVelocity_BN_N = np.asarray(ground_state[1], dtype=float).tolist()
+    flyby_guidance.groundPositionCovarianceDiag_N = [pos_variance] * 3
+    flyby_guidance.groundVelocityCovarianceDiag_N = [vel_variance] * 3
     unit_test_sim.AddModelToTask("unit_task", flyby_guidance)
 
     input_data = messaging.NavTransMsgF32Payload()
@@ -68,12 +66,12 @@ def trigger_periods(flags):
     return [i for i, flag in enumerate(flags) if flag]
 
 
-def expect_triggers(diagnostic_log, collinearity=(), max_rate=(), max_acceleration=(), position_knowledge=()):
+def expect_triggers(diagnostic_log, collinearity=(), max_rate=(), max_acceleration=(), state_knowledge=()):
     """Each validity trigger is set on exactly the given control periods."""
     np.testing.assert_equal(trigger_periods(diagnostic_log.collinearityTrigger), list(collinearity))
     np.testing.assert_equal(trigger_periods(diagnostic_log.maxRateTrigger), list(max_rate))
     np.testing.assert_equal(trigger_periods(diagnostic_log.maxAccelerationTrigger), list(max_acceleration))
-    np.testing.assert_equal(trigger_periods(diagnostic_log.positionKnowledgeExceedTrigger), list(position_knowledge))
+    np.testing.assert_equal(trigger_periods(diagnostic_log.stateKnowledgeExceedTrigger), list(state_knowledge))
 
 
 def speed_over_closest_approach(r_BN_N, v_BN_N):
@@ -122,20 +120,15 @@ def expect_straight_line_reference(attitude_reference_log, orbit_normal_sign=1):
 @pytest.mark.parametrize("reject", [False, True])
 def test_flybyPoint(show_plots, filter_periods, orbit_normal_sign, reject):
     r"""
-    The commanded attitude, turn rate and turn acceleration are correct at every control period of an ideal
-    straight-line flyby.
-
-    A straight line with no gravity is exactly what the guidance law assumes, so any error is a code error. The test
-    feeds 90 minutes of perfect navigation data, through closest approach, and compares with the exact solution. On a
-    straight line, using every navigation update and ignoring every update (rate limit set too low) must give the same
-    attitude.
+    The module follows an ideal straight-line flyby. With every re-read rejected (reject=True), the attitude comes from
+    the configured ground state alone and must be the same.
     """
     num_periods = round(9 * 600 / SIM_DT)
     samples = [(truth_position(i), V0) for i in range(num_periods)]
     attitude_log, diagnostic_log = run_flyby(samples, filter_periods=filter_periods,
                                              orbit_normal_sign=orbit_normal_sign, max_rate=0.01 if reject else 1.0)
 
-    re_read_periods = list(range(filter_periods, num_periods, filter_periods))
+    re_read_periods = list(range(filter_periods - 1, num_periods, filter_periods))  # windows end every N periods
     expect_triggers(diagnostic_log, max_rate=re_read_periods if reject else [])
     expect_straight_line_reference(attitude_log, orbit_normal_sign)
 
@@ -151,12 +144,10 @@ def test_flybyPoint(show_plots, filter_periods, orbit_normal_sign, reject):
 
 
 def test_flybyPoint_config_round_trip():
-    r"""
-    Every configuration property reads back what was set through SWIG.
-    """
+    r"""Every configuration property reads back what was set through SWIG."""
     flyby_guidance = flybyPointF32.FlybyPoint()
     floats = {"controlPeriod": 10.0, "toleranceForCollinearity": 1E-5, "maximumRateThreshold": 0.01,
-              "maximumAccelerationThreshold": 1E-7, "positionKnowledgeSigma": 1E3}
+              "maximumAccelerationThreshold": 1E-7, "numberOfSigmas": 3.0}
     for name, value in floats.items():
         setattr(flyby_guidance, name, value)
         np.testing.assert_allclose(getattr(flyby_guidance, name), value, rtol=1E-6, atol=0, err_msg=name)
@@ -164,16 +155,18 @@ def test_flybyPoint_config_round_trip():
     flyby_guidance.signOfOrbitNormalFrameVector = -1
     np.testing.assert_equal(flyby_guidance.filterReadPeriods, 6)
     np.testing.assert_equal(flyby_guidance.signOfOrbitNormalFrameVector, -1)
+    vectors = {"groundPosition_BN_N": [-5E7, 7.5E6, 5E5], "groundVelocity_BN_N": [2E4, 0.0, 0.0],
+               "groundPositionCovarianceDiag_N": [1E8, 2E8, 3E8], "groundVelocityCovarianceDiag_N": [1.0, 2.0, 3.0]}
+    for name, value in vectors.items():
+        setattr(flyby_guidance, name, value)
+        np.testing.assert_allclose(np.array(getattr(flyby_guidance, name)).flatten(), value, rtol=0, atol=0,
+                                   err_msg=name)
 
 
 def test_flybyPoint_diagnostic_collinearity():
     r"""
-    Navigation data on a collision course is ignored, and a
-    warning is raised at exactly those control periods.
-
-    On some control periods the velocity is turned to point along the line to the body, keeping its speed.
-    The collinearity warning must be raised on exactly those periods (the rate and acceleration warnings come with it, since the closest-approach
-    distance is zero), and the commanded attitude must still be correct for the true trajectory, which proves the bad data was ignored rather than used.
+    Samples with velocity along r raise the collinearity, rate and acceleration flags on exactly those periods and are
+    ignored.
     """
     speed = np.linalg.norm(V0)
     samples = []
@@ -198,18 +191,12 @@ PEAK_LIMITS = {
 @pytest.mark.parametrize("limit", ["rate", "acceleration"])
 def test_flybyPoint_peak_limit(limit):
     r"""
-    The module refuses navigation data that would make the spacecraft turn too fast (or speed up its turn too
-    quickly), and reports why. Run once for the turn rate and once for the turn acceleration.
-
-    1. With correct data, a limit just above (+1%) the true peak gives no warning, and just below (-1%) gives a warning
-       at every update. This proves the predicted peak is computed correctly to within 1%.
-    2. On some control periods the speed is made 1000x too high. Only this warning must be raised, on exactly those
-       periods, and the commanded attitude must still be correct for the true trajectory, which proves the bad data was
-       ignored rather than used.
+    A rate (or acceleration) limit 1% above the true peak raises no flag and 1% below flags every update; samples whose
+    speed is 1000x too high are flagged and ignored.
     """
     limit_key, other_key, peak, flag = PEAK_LIMITS[limit]
     straight_line = [(truth_position(i), V0) for i in range(NUM_PERIODS)]
-    for factor, expected in [(1.01, []), (0.99, list(range(1, NUM_PERIODS)))]:
+    for factor, expected in [(1.01, []), (0.99, list(range(NUM_PERIODS)))]:
         _, diagnostic_log = run_flyby(straight_line, **{limit_key: factor * peak(R0, V0), other_key: 1E6})
         np.testing.assert_equal(trigger_periods(getattr(diagnostic_log, flag)), expected)
 
@@ -219,46 +206,41 @@ def test_flybyPoint_peak_limit(limit):
     expect_straight_line_reference(attitude_log)
 
 
-def test_flybyPoint_diagnostic_positionknowledge():
+def test_flybyPoint_diagnostic_state_knowledge():
     r"""
-    The module refuses navigation data whose position is too far from where the spacecraft is expected to be, and
-    reports why.
-
-    The expected position is the last accepted position moved forward at its velocity.
-    In this test, the positionKnowledgeSigma is 1 km.
-    1. Shifting every position by 0.99 km gives no warning: the first shifted position is accepted and becomes the new
-       reference, so the later ones are on track. Shifting by 1.01 km gives a warning at every update.
-    2. Shifting some positions by 2 km raises only this warning, on exactly those periods, and the commanded attitude
-       must still be correct for the true trajectory.
+    Samples farther from the ground trajectory than the propagated sigma, in position or velocity, are flagged and
+    ignored: a 1 km position sigma accepts 0.99 km and rejects 1.01 km, and a 1 m/s velocity sigma rejects 2 m/s.
     """
     sigma = 1E3
     offset = np.array([0.0, 0.0, 1.0])
     for factor, expected in [(0.99, []), (1.01, list(range(1, NUM_PERIODS)))]:
         samples = [(truth_position(i) + (factor * sigma * offset if i > 0 else 0), V0) for i in range(NUM_PERIODS)]
-        _, diagnostic_log = run_flyby(samples, pos_knowledge=sigma)
-        expect_triggers(diagnostic_log, position_knowledge=expected)
+        _, diagnostic_log = run_flyby(samples, num_sigmas=1.0, pos_variance=sigma ** 2, vel_variance=1E-6)
+        expect_triggers(diagnostic_log, state_knowledge=expected)
 
     samples = [(truth_position(i) + (2 * sigma * offset if i in TRIGGER_INDICES else 0), V0) for i in
                range(NUM_PERIODS)]
-    attitude_log, diagnostic_log = run_flyby(samples, pos_knowledge=sigma)
-    expect_triggers(diagnostic_log, position_knowledge=TRIGGER_INDICES)
+    attitude_log, diagnostic_log = run_flyby(samples, num_sigmas=1.0, pos_variance=sigma ** 2, vel_variance=1E-6)
+    expect_triggers(diagnostic_log, state_knowledge=TRIGGER_INDICES)
+    expect_straight_line_reference(attitude_log)
+
+    velocity_offset = np.array([0.0, 2.0, 0.0])
+    samples = [(truth_position(i), V0 + (velocity_offset if i in TRIGGER_INDICES else 0)) for i in range(NUM_PERIODS)]
+    attitude_log, diagnostic_log = run_flyby(samples, num_sigmas=1.0, pos_variance=1E18, vel_variance=1.0)
+    expect_triggers(diagnostic_log, state_knowledge=TRIGGER_INDICES)
     expect_straight_line_reference(attitude_log)
 
 
 def test_flybyPoint_unusable_sample(filter_periods=3, unusable_index=4):
     r"""
-    A single unusable navigation message (zero position) is left out of the averaging and reported, while the
-    commanded attitude stays correct.
-
-    One bad message must not blank or corrupt the commanded attitude. With averaging over 3 control periods and a zero
-    position sent at period 4, that message is flagged at period 4, the averaging window that contains it reports one
-    rejected message at its end (period 6), and the commanded attitude is correct at every period.
+    An unusable sample (zero position) is flagged on its period, counted at the end of its window, and doesn't affect
+    the attitude.
     """
     num_steps = 4 * filter_periods + 1
     samples = [(np.zeros(3) if i == unusable_index else truth_position(i), V0) for i in range(num_steps)]
     attitude_reference_log, flyby_diagnostic_log = run_flyby(samples, filter_periods=filter_periods)
 
-    window_end_index = int(np.ceil(unusable_index / filter_periods)) * filter_periods  # windows end every N periods
+    window_end_index = (unusable_index // filter_periods + 1) * filter_periods - 1  # windows end every N periods
     expected_rejected = [i == unusable_index for i in range(num_steps)]
     expected_count = [1 if i == window_end_index else 0 for i in range(num_steps)]
     np.testing.assert_equal(np.array(flyby_diagnostic_log.inputSampleRejected, dtype=bool), expected_rejected)

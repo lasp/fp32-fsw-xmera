@@ -18,28 +18,32 @@ extern "C" {
  * invalid input.
  */
 typedef struct {
-    double controlPeriod;               /*!< [s]       time between updateState calls (finite, > 0) */
-    uint32_t filterReadPeriods;         /*!< [-]       control periods between filter data reads (>= 1) */
-    float toleranceForCollinearity;     /*!< [-]       collinearity tolerance threshold (> 0) */
-    int signOfOrbitNormalFrameVector;   /*!< [-]       sign of orbit-normal reference vector (+1 or -1) */
-    float maximumRateThreshold;         /*!< [deg/s]   maximum allowed predicted angular rate (> 0) */
-    float maximumAccelerationThreshold; /*!< [deg/s^2] maximum allowed predicted angular acceleration (> 0) */
-    float positionKnowledgeSigma;       /*!< [m]       position knowledge sigma bound (> 0) */
+    double controlPeriod;                      /*!< [s]       time between updateState calls (finite, > 0) */
+    uint32_t filterReadPeriods;                /*!< [-]       control periods between filter data reads (>= 1) */
+    float toleranceForCollinearity;            /*!< [-]       collinearity tolerance threshold (> 0) */
+    int signOfOrbitNormalFrameVector;          /*!< [-]       sign of orbit-normal reference vector (+1 or -1) */
+    float maximumRateThreshold;                /*!< [deg/s]   maximum allowed predicted angular rate (> 0) */
+    float maximumAccelerationThreshold;        /*!< [deg/s^2] maximum allowed predicted angular acceleration (> 0) */
+    float numberOfSigmas;                      /*!< [-]       number of propagated ground sigmas allowed (> 0) */
+    Vector3d_c groundPosition_BN_N;            /*!< [m]       ground-based position seeding the profile */
+    Vector3d_c groundVelocity_BN_N;            /*!< [m/s]     ground-based velocity seeding the profile */
+    Vector3d_c groundPositionCovarianceDiag_N; /*!< [m^2]     ground-based position covariance diagonal (> 0) */
+    Vector3d_c groundVelocityCovarianceDiag_N; /*!< [(m/s)^2] ground-based velocity covariance diagonal (> 0) */
 } FlybyPointConfig_c;
 
 /**
  * @brief C-compatible mirror of the C++ AttGuideOutput.
  */
 typedef struct {
-    Vector3f_c sigma_RN;                 /*!< [-]       MRP reference attitude */
-    Vector3f_c omega_RN_N;               /*!< [rad/s]   reference angular velocity in inertial frame */
-    Vector3f_c domega_RN_N;              /*!< [rad/s^2] reference angular acceleration in inertial frame */
-    bool collinearityTrigger;            /*!< true if r and v are collinear (collision trajectory) */
-    bool maxRateTrigger;                 /*!< true if the predicted rate exceeds the maximum threshold */
-    bool maxAccelerationTrigger;         /*!< true if the predicted acceleration exceeds the maximum threshold */
-    bool positionKnowledgeExceedTrigger; /*!< true if the position error exceeds the a-priori sigma bound */
-    bool inputSampleRejected;            /*!< true if this period's filter sample was unusable and left out */
-    uint32_t rejectedSamplesInWindow;    /*!< [-] unusable samples in the averaging window ending this period, else 0 */
+    Vector3f_c sigma_RN;              /*!< [-]       MRP reference attitude */
+    Vector3f_c omega_RN_N;            /*!< [rad/s]   reference angular velocity in inertial frame */
+    Vector3f_c domega_RN_N;           /*!< [rad/s^2] reference angular acceleration in inertial frame */
+    bool collinearityTrigger;         /*!< true if r and v are collinear (collision trajectory) */
+    bool maxRateTrigger;              /*!< true if the predicted rate exceeds the maximum threshold */
+    bool maxAccelerationTrigger;      /*!< true if the predicted acceleration exceeds the maximum threshold */
+    bool stateKnowledgeExceedTrigger; /*!< true if the position or velocity error exceeds the ground sigma bound */
+    bool inputSampleRejected;         /*!< true if this period's filter sample was unusable and left out */
+    uint32_t rejectedSamplesInWindow; /*!< [-] unusable samples in the averaging window ending this period, else 0 */
 } AttGuideOutput_c;
 
 #ifdef __cplusplus

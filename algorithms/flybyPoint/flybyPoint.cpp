@@ -12,7 +12,11 @@ void FlybyPoint::reset(uint64_t currentSimNanos) {
                                            this->signOfOrbitNormalFrameVector,
                                            this->maximumRateThreshold,
                                            this->maximumAccelerationThreshold,
-                                           this->positionKnowledgeSigma);
+                                           this->numberOfSigmas,
+                                           this->groundPosition_BN_N,
+                                           this->groundVelocity_BN_N,
+                                           this->groundPositionCovarianceDiag_N,
+                                           this->groundVelocityCovarianceDiag_N);
     this->algorithm = std::make_unique<FlybyPointAlgorithm>(config);
 }
 
@@ -31,7 +35,7 @@ void FlybyPoint::updateState(uint64_t currentSimNanos) {
     flybyDiagnosticMsgBuffer.collinearityTrigger = algo_output.collinearityTrigger;
     flybyDiagnosticMsgBuffer.maxRateTrigger = algo_output.maxRateTrigger;
     flybyDiagnosticMsgBuffer.maxAccelerationTrigger = algo_output.maxAccelerationTrigger;
-    flybyDiagnosticMsgBuffer.positionKnowledgeExceedTrigger = algo_output.positionKnowledgeExceedTrigger;
+    flybyDiagnosticMsgBuffer.stateKnowledgeExceedTrigger = algo_output.stateKnowledgeExceedTrigger;
     flybyDiagnosticMsgBuffer.inputSampleRejected = algo_output.inputSampleRejected;
     flybyDiagnosticMsgBuffer.rejectedSamplesInWindow = algo_output.rejectedSamplesInWindow;
     this->flybyDiagnosticOutMsg.write(flybyDiagnosticMsgBuffer, this->moduleID, currentSimNanos);

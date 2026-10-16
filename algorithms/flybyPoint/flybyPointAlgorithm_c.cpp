@@ -13,7 +13,11 @@ FlybyPointConfig configFromC(const FlybyPointConfig_c& c) {
                                     c.signOfOrbitNormalFrameVector,
                                     c.maximumRateThreshold,
                                     c.maximumAccelerationThreshold,
-                                    c.positionKnowledgeSigma);
+                                    c.numberOfSigmas,
+                                    cArrayToEigenVector3<double>(c.groundPosition_BN_N.data),
+                                    cArrayToEigenVector3<double>(c.groundVelocity_BN_N.data),
+                                    cArrayToEigenVector3<double>(c.groundPositionCovarianceDiag_N.data),
+                                    cArrayToEigenVector3<double>(c.groundVelocityCovarianceDiag_N.data));
 }
 }  // namespace
 
@@ -48,7 +52,7 @@ AttGuideOutput_c FlybyPointAlgorithm_updateState(FlybyPointAlgorithmHandle* self
     result.collinearityTrigger = out.collinearityTrigger;
     result.maxRateTrigger = out.maxRateTrigger;
     result.maxAccelerationTrigger = out.maxAccelerationTrigger;
-    result.positionKnowledgeExceedTrigger = out.positionKnowledgeExceedTrigger;
+    result.stateKnowledgeExceedTrigger = out.stateKnowledgeExceedTrigger;
     result.inputSampleRejected = out.inputSampleRejected;
     result.rejectedSamplesInWindow = out.rejectedSamplesInWindow;
     return result;
