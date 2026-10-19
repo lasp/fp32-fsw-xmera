@@ -11,7 +11,7 @@
 
 #include <memory>
 
-/*! @brief Basilisk adapter for the regions-of-interest pruning module.
+/*! @brief adapter for the regions-of-interest pruning module.
  *
  *  Reads FpgaRowColSumMsgF32Payload, delegates computation to RegionsOfInterestPruneAlgorithm,
  *  and publishes up to MAX_NUMBER_REGIONS candidates sorted by estimated above-threshold
@@ -35,9 +35,6 @@ class RegionsOfInterestPrune : public SysModel {
    private:
     RegionsOfInterestPruneConfig toConfig() const;  //!< Single source of truth for reset() + reconfigure()
     std::unique_ptr<RegionsOfInterestPruneAlgorithm> algorithm = nullptr;
-
-    uint32_t numPublished{};                             //!< Number of valid entries in lastRegionsOutput
-    RegionsIdentifiedMsgF32Payload lastRegionsOutput{};  //!< Published center-coordinate form
 };
 
 #endif
