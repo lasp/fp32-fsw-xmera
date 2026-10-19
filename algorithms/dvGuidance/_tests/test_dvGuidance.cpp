@@ -95,3 +95,8 @@ TEST(DvGuidanceTest, SetConfigAppliesNewDeltaV) {
     EXPECT_TRUE(dcm_RN.row(2).transpose().isApprox(newCmdDv_N, 1e-5F));
     EXPECT_TRUE(dcm_RN.row(1).transpose().isApprox(rHatPref_N, 1e-5F));
 }
+
+TEST(DvGuidanceTest, ThirdAxisAlignedWithDeltaV) {
+    // The burn frame's 3rd axis r3 is expected to point along the commanded delta-V direction.
+    propertyThirdAxisAlignedWithDeltaV(Eigen::Vector3f{2.0F, -1.0F, 4.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+}

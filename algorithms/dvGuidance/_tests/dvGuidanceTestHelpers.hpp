@@ -79,6 +79,17 @@ inline void testDvGuidanceDeltaVNormBoundary(const Eigen::Vector3f& rHatPref_N) 
     testDvGuidanceInvalidConfigRejected(dvBelowThreshold, rHatPref_N);
 }
 
+// The burn frame's 3rd axis is aligned with the commanded delta-V direction.
+inline void propertyThirdAxisAlignedWithDeltaV(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N) {
+    DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update());
+
+    const Eigen::Vector3f r3_N = mrpToDcm<float>(out.sigma_RN).row(2).transpose();
+    EXPECT_NEAR((r3_N - cmdDv_N.stableNormalized()).stableNorm(), 0.0F, 1e-5F);
+}
+
 // Robustness: the output is finite for any valid configuration.
 inline void propertyOutputIsFinite(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N) {
     DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};

@@ -34,12 +34,23 @@ void fuzzPropertySigmaNormBounded(const Eigen::Vector3f& cmdDv_N, const Eigen::V
     propertySigmaNormBounded(cmdDv_N, rHatPref_N);
 }
 
+void fuzzPropertyThirdAxisAlignedWithDeltaV(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rPref_N) {
+    const Eigen::Vector3f rHatPref_N = rPref_N.stableNormalized();
+    if (!DvGuidanceConfig::isValidCmdDv(cmdDv_N) || !DvGuidanceConfig::isValidRHatPref(cmdDv_N, rHatPref_N)) {
+        return;
+    }
+    propertyThirdAxisAlignedWithDeltaV(cmdDv_N, rHatPref_N);
+}
+
 }  // namespace
 
 FUZZ_TEST(DvGuidancePropertyFuzz, fuzzPropertyOutputIsFinite)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1.0e4F, 1.0e4F), xmera::fuzz::Vector3fInRange(-1.0F, 1.0F));
 
 FUZZ_TEST(DvGuidancePropertyFuzz, fuzzPropertySigmaNormBounded)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0e4F, 1.0e4F), xmera::fuzz::Vector3fInRange(-1.0F, 1.0F));
+
+FUZZ_TEST(DvGuidancePropertyFuzz, fuzzPropertyThirdAxisAlignedWithDeltaV)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1.0e4F, 1.0e4F), xmera::fuzz::Vector3fInRange(-1.0F, 1.0F));
 
 FUZZ_TEST(DvGuidanceFuzz, fuzzDvGuidance)
