@@ -8,6 +8,12 @@ TEST(DvGuidanceTest, ReferenceTest) {
                              Eigen::Vector3f{1.0F, 0.0F, 0.0F});  // rHatPref_N
 }
 
+TEST(DvGuidanceTest, ReferenceTestRHatPrefPerpendicularToDeltaV) {
+    // The preferred 2nd-axis direction is orthogonal to the delta-V command, so it becomes the 2nd axis.
+    testDvGuidanceRegression(Eigen::Vector3f{0.0F, 0.0F, 3.0F},   // cmdDv_N
+                             Eigen::Vector3f{0.0F, 1.0F, 0.0F});  // rHatPref_N
+}
+
 TEST(DvGuidanceTest, SigmaNormBounded) {
     // A delta-V command along -z with the 2nd axis preferred along -y gives a 180 deg rotation about x,
     // the MRP shadow-set boundary: |sigma_RN| is expected to remain <= 1 + tolerance.
