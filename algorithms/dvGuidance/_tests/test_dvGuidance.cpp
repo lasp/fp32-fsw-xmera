@@ -81,3 +81,17 @@ TEST(DvGuidanceTest, SetupTest) {
     EXPECT_FALSE(DvGuidanceConfig::isValidRHatPref(cmdDv_N, Eigen::Vector3f::Zero()));
     EXPECT_FALSE(DvGuidanceConfig::isValidRHatPref(cmdDv_N, Eigen::Vector3f{0.0F, 3.0F, 0.0F}));
 }
+
+// setConfig() installs the new configuration. Thus the module uses the new delta-V command.
+TEST(DvGuidanceTest, SetConfigAppliesNewDeltaV) {
+    const Eigen::Vector3f cmdDv_N = Eigen::Vector3f::UnitZ();
+    const Eigen::Vector3f rHatPref_N = Eigen::Vector3f::UnitY();
+    DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};
+    EXPECT_TRUE(alg.update().sigma_RN.isZero());
+
+    const Eigen::Vector3f newCmdDv_N = Eigen::Vector3f::UnitX();
+    alg.setConfig(DvGuidanceConfig::create(newCmdDv_N, rHatPref_N));
+    const Eigen::Matrix3f dcm_RN = mrpToDcm<float>(alg.update().sigma_RN);
+    EXPECT_TRUE(dcm_RN.row(2).transpose().isApprox(newCmdDv_N, 1e-5F));
+    EXPECT_TRUE(dcm_RN.row(1).transpose().isApprox(rHatPref_N, 1e-5F));
+}
