@@ -1,5 +1,6 @@
 #include "dvGuidanceTestHelpers.hpp"
 #include <gtest/gtest.h>
+#include <limits>
 
 TEST(DvGuidanceTest, ReferenceTest) {
     // The preferred 2nd-axis direction is not orthogonal to the delta-V command.
@@ -51,4 +52,32 @@ TEST(DvGuidanceTest, OutputIsFinite) {
     // A valid configuration is provided:
     // all sigma_RN, omega_RN_N, and domega_RN_N components are expected to remain finite.
     propertyOutputIsFinite(Eigen::Vector3f{2.0F, -1.0F, 4.0F}, Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+}
+
+TEST(DvGuidanceTest, SetupTest) {
+    // Valid config should not throw
+    EXPECT_NO_THROW(DvGuidanceConfig::create(Eigen::Vector3f::UnitZ(), Eigen::Vector3f::UnitY()));
+
+    // Non-finite cmdDv_N or rHatPref_N should throw
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const Eigen::Vector3f cmdDv_N{1.0F, 2.0F, -3.0F};
+    EXPECT_THROW(DvGuidanceConfig::create(Eigen::Vector3f{nan, 0.0F, 0.0F}, Eigen::Vector3f::UnitY()),
+                 fsw::invalid_argument);
+    EXPECT_THROW(DvGuidanceConfig::create(cmdDv_N, Eigen::Vector3f{nan, 0.0F, 0.0F}), fsw::invalid_argument);
+
+    // A non-unit rHatPref_N should throw
+    EXPECT_THROW(DvGuidanceConfig::create(cmdDv_N, Eigen::Vector3f{0.0F, 3.0F, 0.0F}), fsw::invalid_argument);
+
+    // Config round-trip: cmdDv_N is stored as given, rHatPref_N is stored normalized
+    const Eigen::Vector3f rHatPref_N{0.0F, 1.0005F, 0.0F};
+    const auto config = DvGuidanceConfig::create(cmdDv_N, rHatPref_N);
+    EXPECT_EQ(config.getCmdDv(), cmdDv_N);
+    EXPECT_TRUE(config.getRHatPref().isApprox(Eigen::Vector3f::UnitY(), 1e-7F));
+
+    // Static validators
+    EXPECT_TRUE(DvGuidanceConfig::isValidCmdDv(cmdDv_N));
+    EXPECT_FALSE(DvGuidanceConfig::isValidCmdDv(Eigen::Vector3f::Zero()));
+    EXPECT_TRUE(DvGuidanceConfig::isValidRHatPref(cmdDv_N, rHatPref_N));
+    EXPECT_FALSE(DvGuidanceConfig::isValidRHatPref(cmdDv_N, Eigen::Vector3f::Zero()));
+    EXPECT_FALSE(DvGuidanceConfig::isValidRHatPref(cmdDv_N, Eigen::Vector3f{0.0F, 3.0F, 0.0F}));
 }
