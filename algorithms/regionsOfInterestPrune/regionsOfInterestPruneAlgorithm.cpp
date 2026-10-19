@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <functional>
 #include <iterator>
-#include <numeric>
 
 RegionsOfInterestPruneAlgorithm::RegionsOfInterestPruneAlgorithm(const RegionsOfInterestPruneConfig& config)
     : cfg(config) {
@@ -104,11 +103,10 @@ RegionsOfInterestPruneAlgorithm::AccumArray RegionsOfInterestPruneAlgorithm::top
     // vals.count <= MAX_SPANS is guaranteed because AccumArray values are produced by
     // findSpans(), which caps the number of stored entries at MAX_SPANS.
     const uint32_t n = vals.count;
-    // std::ranges::iota isn't implemented in this project's libc++ yet, despite being valid
-    // C++23; plain std::iota is the portable choice.
-    // NOLINTNEXTLINE(modernize-use-ranges)
-    std::iota(idx.data.begin(), std::next(idx.data.begin(), n), 0);  // only initialize n valid slots
-    keep = std::min(keep, n);                                        // use logical count
+    for (uint32_t i = 0; i < n; ++i) {
+        idx.data[i] = i;
+    }
+    keep = std::min(keep, n);  // use logical count
     std::ranges::partial_sort(idx.data.begin(),
                               std::next(idx.data.begin(), keep),
                               std::next(idx.data.begin(), n),
