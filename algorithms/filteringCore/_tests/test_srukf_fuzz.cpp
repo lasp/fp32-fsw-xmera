@@ -16,7 +16,10 @@
 #include <Eigen/Core>
 
 #include <algorithm>
+#include <cfenv>
 #include <cmath>
+#include <limits>
+#include <vector>
 
 namespace filtering {
 namespace {
@@ -82,5 +85,36 @@ FUZZ_TEST(SrukfFuzz, fuzzMeasurementUpdateInvariants)
                  fuzztest::InRange(-1e3, 1e3),   // obs
                  fuzztest::InRange(1e-3, 1e3),   // P_diag
                  fuzztest::InRange(1e-3, 1e3));  // R_diag
+
+// For any lower-triangular factor (zeros and non-finite entries included), vector and weight, the rank-1 up/down date
+// never evaluates a division by zero: a downdate that would divide by zero fails instead, for the caller to report a
+// bad update. The inputs go through a volatile so that the compiler cannot fold the divisions away.
+void fuzzCholeskyUpDownDateNeverDividesByZero(Eigen::Matrix3f S, Eigen::Vector3f v, float coef) {
+    volatile float opaqueOne = 1.0F;
+    float const one = opaqueOne;  // not a compile-time constant
+    Eigen::Matrix3f const S0 = S.triangularView<Eigen::Lower>().toDenseMatrix() * one;
+    std::feclearexcept(FE_DIVBYZERO);
+    (void)SRuKFType::choleskyUpDownDate<3>(S0, v * one, coef * one);
+    EXPECT_FALSE(std::fetestexcept(FE_DIVBYZERO)) << "division by zero";
+}
+FUZZ_TEST(SrukfFuzz, fuzzCholeskyUpDownDateNeverDividesByZero)
+    .WithDomains(
+        fuzztest::Map(
+            [](std::vector<float> const& e) { return Eigen::Matrix3f(Eigen::Map<const Eigen::Matrix3f>(e.data())); },
+            fuzztest::VectorOf(fuzztest::OneOf(fuzztest::InRange(-1e3F, 1e3F),
+                                               fuzztest::ElementOf<float>({0.0F,
+                                                                           -0.0F,
+                                                                           1.0F,
+                                                                           -1.0F,
+                                                                           std::numeric_limits<float>::quiet_NaN(),
+                                                                           std::numeric_limits<float>::infinity()})))
+                .WithSize(9)),
+        fuzztest::Map(
+            [](std::vector<float> const& e) { return Eigen::Vector3f(Eigen::Map<const Eigen::Vector3f>(e.data())); },
+            fuzztest::VectorOf(fuzztest::OneOf(fuzztest::InRange(-1e3F, 1e3F),
+                                               fuzztest::ElementOf<float>({0.0F, 1.0F, -1.0F})))
+                .WithSize(3)),
+        fuzztest::OneOf(fuzztest::InRange(-4.0F, 4.0F),
+                        fuzztest::ElementOf<float>({0.0F, -1.0F, 1.0F, std::numeric_limits<float>::quiet_NaN()})));
 
 }  // namespace filtering
