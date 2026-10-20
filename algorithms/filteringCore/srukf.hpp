@@ -14,6 +14,7 @@
 
 #include <math.h>
 #include <array>
+#include <optional>
 
 namespace filtering {
 
@@ -63,15 +64,19 @@ class SRuKF {
      *  L*L^T = S*S^T + sign(coef)*|coef|*v*v^T. The rank-1 term is rotated into the columns of S
      *  (Givens rotations to update, mixed hyperbolic rotations to downdate) instead of re-factoring
      *  S*S^T, which in float cancels away the small-variance directions. A downdate that would make
-     *  the result indefinite yields non-finite entries.
-     *  @return updated Cholesky factor
+     *  the result indefinite or singular, and so divide by zero, fails: the caller reports a bad
+     *  update and the filter clears. No division by zero is ever evaluated: the Givens rotation
+     *  divides by r = hypot(l, x) >= |x| > 0, and the hyperbolic rotation is taken only once
+     *  (l - x)(l + x) > 0, which gives |l| > |x| > 0 and a nonzero gamma = r / l.
+     *  @return updated Cholesky factor, or nullopt if the downdate fails
      *  @param sqrtP       [-] current lower-triangular Cholesky factor S
      *  @param v           [-] rank-1 update vector
      *  @param coefficient [-] signed weight (sign determines up vs down date) */
     template <int Size>
-    static Eigen::Matrix<float, Size, Size> choleskyUpDownDate(Eigen::Matrix<float, Size, Size> const& sqrtP,
-                                                                Eigen::Vector<float, Size> const& v,
-                                                                float coefficient) {
+    static std::optional<Eigen::Matrix<float, Size, Size>> choleskyUpDownDate(
+        Eigen::Matrix<float, Size, Size> const& sqrtP,
+        Eigen::Vector<float, Size> const& v,
+        float coefficient) {
         Eigen::Matrix<float, Size, Size> L = sqrtP;
         Eigen::Vector<float, Size> x = sqrtf(fabsf(coefficient)) * v;
         bool const isUpdate = coefficient > 0.0F;
@@ -83,7 +88,7 @@ class SRuKF {
             }
             float const lkk = L(k, k);
             if (isUpdate) {
-                float const r = hypotf(lkk, xk);
+                float const r = hypotf(lkk, xk);  // >= |xk| > 0
                 float const c = lkk / r;
                 float const s = xk / r;
                 L(k, k) = r;
@@ -93,8 +98,15 @@ class SRuKF {
                     x(i) = c * x(i) - s * lik;
                 }
             } else {
-                float const r = sqrtf((lkk - xk) * (lkk + xk));
-                float const c = r / lkk;
+                float const rSquared = (lkk - xk) * (lkk + xk);
+                if (!(rSquared > 0.0F)) {
+                    return std::nullopt;
+                }
+                float const r = sqrtf(rSquared);
+                float const c = r / lkk;  // nonzero: |lkk| > |xk| > 0
+                if (c == 0.0F) {
+                    return std::nullopt;
+                }
                 float const s = xk / lkk;
                 L(k, k) = r;
                 for (int i = k + 1; i < Size; ++i) {
@@ -112,7 +124,7 @@ class SRuKF {
      *  @param b [-] Rows×Cols RHS */
     template <int Rows, int Cols>
     static Eigen::Matrix<float, Rows, Cols> forwardSubstitution(Eigen::Matrix<float, Rows, Rows> const& L,
-                                                                 Eigen::Matrix<float, Rows, Cols> const& b) {
+                                                                Eigen::Matrix<float, Rows, Cols> const& b) {
         Eigen::Matrix<float, Rows, Cols> x = Eigen::Matrix<float, Rows, Cols>::Zero();
         for (int col = 0; col < Cols; ++col) {
             for (int i = 0; i < Rows; ++i) {
@@ -132,7 +144,7 @@ class SRuKF {
      *  @param b [-] Rows×Cols RHS */
     template <int Rows, int Cols>
     static Eigen::Matrix<float, Rows, Cols> backSubstitution(Eigen::Matrix<float, Rows, Rows> const& U,
-                                                              Eigen::Matrix<float, Rows, Cols> const& b) {
+                                                             Eigen::Matrix<float, Rows, Cols> const& b) {
         Eigen::Matrix<float, Rows, Cols> x = Eigen::Matrix<float, Rows, Cols>::Zero();
         for (int col = 0; col < Cols; ++col) {
             for (int i = Rows - 1; i >= 0; --i) {
@@ -272,7 +284,12 @@ class SRuKF {
             A.template block<N, N>(0, numSigmaPoints - 1) = this->cholProcessNoise;
             Eigen::Matrix<float, N, N> const sBar = qrDecompositionJustR<N, 3 * N>(A);
 
-            this->sqrtCovar = choleskyUpDownDate<N>(sBar, this->meanOffset, this->wMeanOffset);
+            std::optional<Eigen::Matrix<float, N, N>> const sqrtCovarUpdated =
+                choleskyUpDownDate<N>(sBar, this->meanOffset, this->wMeanOffset);
+            if (!sqrtCovarUpdated) {
+                return false;  // the rank-1 downdate failed: a bad update, for the caller to clear
+            }
+            this->sqrtCovar = *sqrtCovarUpdated;
             this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
             this->state = this->sigmaPoints[0];
             this->sqrtNoiseOutsideSigmaPoints = this->cholProcessNoise;
@@ -335,8 +352,12 @@ class SRuKF {
             Eigen::Matrix<float, MSize, 2 * N + MSize> A;
             A.template leftCols<numSigma - 1>() = sqrtf(this->wM(1)) * yDev;
             A.template block<MSize, MSize>(0, numSigma - 1) = cholMeasNoise;
-            Eigen::Matrix<float, MSize, MSize> sy = qrDecompositionJustR<MSize, 2 * N + MSize>(A);
-            sy = choleskyUpDownDate<MSize>(sy, yMeanOffset, this->wMeanOffset);
+            std::optional<Eigen::Matrix<float, MSize, MSize>> const syUpdated = choleskyUpDownDate<MSize>(
+                qrDecompositionJustR<MSize, 2 * N + MSize>(A), yMeanOffset, this->wMeanOffset);
+            if (!syUpdated) {
+                return residuals;  // the rank-1 downdate failed: a bad update (no residuals), for the caller to clear
+            }
+            Eigen::Matrix<float, MSize, MSize> const& sy = *syUpdated;
 
             //! > Covariance of prior prediction computation eq 26
             Eigen::Matrix<float, N, MSize> const pXY =
@@ -363,7 +384,12 @@ class SRuKF {
             Eigen::Matrix<float, N, N> const sPlus = qrDecompositionJustR<N, numCols>(B);
 
             Eigen::Vector<float, N> const meanOffsetError = xMeanOffset - kMat * yMeanOffset;
-            this->sqrtCovar = choleskyUpDownDate<N>(sPlus, meanOffsetError, this->wMeanOffset);
+            std::optional<Eigen::Matrix<float, N, N>> const sqrtCovarUpdated =
+                choleskyUpDownDate<N>(sPlus, meanOffsetError, this->wMeanOffset);
+            if (!sqrtCovarUpdated) {
+                return residuals;  // the rank-1 downdate failed: a bad update (no residuals), for the caller to clear
+            }
+            this->sqrtCovar = *sqrtCovarUpdated;
             this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
 
             if (this->state.allFinite() and this->sqrtCovar.allFinite() and this->covariance.allFinite()) {

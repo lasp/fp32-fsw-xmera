@@ -425,8 +425,12 @@ direction is rounded away when :math:`P` is formed, and the factor of :math:`P` 
      L_{ik} \leftarrow (L_{ik} - \sigma x_i) / \gamma, \qquad x_i \leftarrow \gamma x_i - \sigma L_{ik}
 
 Each rotation works on entries of the size of the factor, not of the covariance, so the condition number is not
-squared. A downdate that would make the result indefinite gives :math:`|x_k| > |\ell|` and a non-finite :math:`r`,
-which the finite checks of the time and measurement updates reject. Because :math:`S S^T` is never formed, these
+squared. A downdate that would make the result indefinite or singular has :math:`(\ell - x_k)(\ell + x_k) \le 0`:
+this includes a zero :math:`\ell` (a state with zero variance) and :math:`|x_k| = |\ell|`. The downdate tests this
+before it divides and fails: ``choleskyUpDownDate()`` returns no factor, the time or measurement update reports a bad
+update, and ``applySequentialRobust`` clears the filter back to its last good state. So no division by zero is ever
+evaluated: the Givens rotation divides by :math:`r \ge |x_k| > 0`, and the hyperbolic
+rotation divides by :math:`\ell` and :math:`\gamma` only once :math:`|\ell| > |x_k| > 0`. Because :math:`S S^T` is never formed, these
 checks also test that the covariance :math:`S S^T` is finite: :math:`S` can stay finite while :math:`S S^T`
 overflows float.
 

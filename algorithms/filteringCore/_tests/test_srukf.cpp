@@ -22,8 +22,10 @@
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 
+#include <cfenv>
 #include <cmath>
 #include <limits>
+#include <optional>
 
 namespace filtering {
 
@@ -135,14 +137,14 @@ TEST(SrukfStatic, CholeskyUpDownDateMatchesExplicitUpdate) {
     // Up-date with +coef: chol(P + |coef|·v·v^T).
     {
         float const coef = 0.5;
-        Eigen::Matrix3f const S1 = SRuKFType::choleskyUpDownDate<3>(S0, v, coef);
+        Eigen::Matrix3f const S1 = SRuKFType::choleskyUpDownDate<3>(S0, v, coef).value();
         Eigen::Matrix3f const P1 = P0 + coef * v * v.transpose();
         EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol)) << "up-date";
     }
     // Down-date with -coef: chol(P - |coef|·v·v^T).
     {
         float const coef = -0.5;
-        Eigen::Matrix3f const S1 = SRuKFType::choleskyUpDownDate<3>(S0, v, coef);
+        Eigen::Matrix3f const S1 = SRuKFType::choleskyUpDownDate<3>(S0, v, coef).value();
         Eigen::Matrix3f const P1 = P0 - 0.5 * v * v.transpose();
         EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol)) << "down-date";
     }
@@ -157,7 +159,7 @@ TEST(SrukfStatic, CholeskyUpDownDateKeepsTheSmallDirectionOfAnIllConditionedFact
     Eigen::Vector3f const v(1.0F, 0.5F, 0.3F);
 
     for (float const coef : {0.5F, -0.5F}) {
-        Eigen::Matrix3f const S1 = SRuKFType::choleskyUpDownDate<3>(S0, v, coef);
+        Eigen::Matrix3f const S1 = SRuKFType::choleskyUpDownDate<3>(S0, v, coef).value();
 
         Eigen::Matrix3d const S0d = S0.cast<double>();
         Eigen::Vector3d const vd = v.cast<double>();
@@ -171,6 +173,34 @@ TEST(SrukfStatic, CholeskyUpDownDateKeepsTheSmallDirectionOfAnIllConditionedFact
                 << "diagonal " << i << " of the factor, coef " << coef;
         }
     }
+}
+
+// The downdates that would leave the factor indefinite or singular -- a zero diagonal (a zero-variance state), a
+// downdate of exactly the whole diagonal, more than the diagonal, a NaN weight -- fail without evaluating a division
+// by zero, so that the caller reports a bad update; an update of a zero diagonal is a valid rotation. The inputs go
+// through a volatile so that the compiler cannot fold the divisions away.
+TEST(SrukfStatic, CholeskyUpDownDateFailsInsteadOfDividingByZero) {
+    volatile float opaqueOne = 1.0F;
+    float const one = opaqueOne;  // not a compile-time constant
+    auto const upDownDate = [&](Eigen::Matrix3f const& S, Eigen::Vector3f const& v, float coef) {
+        std::feclearexcept(FE_DIVBYZERO);
+        std::optional<Eigen::Matrix3f> const S1 = SRuKFType::choleskyUpDownDate<3>(S * one, v * one, coef * one);
+        EXPECT_FALSE(std::fetestexcept(FE_DIVBYZERO)) << "division by zero, coef " << coef;
+        return S1;
+    };
+
+    Eigen::Matrix3f const singular = Eigen::Vector3f(1.0F, 0.0F, 1.0F).asDiagonal();
+    EXPECT_FALSE(upDownDate(singular, Eigen::Vector3f(0.0F, 1.0F, 0.0F), -0.5F)) << "zero diagonal";
+    EXPECT_FALSE(upDownDate(Eigen::Matrix3f::Identity(), Eigen::Vector3f::UnitX(), -1.0F)) << "singular result";
+    EXPECT_FALSE(upDownDate(Eigen::Matrix3f::Identity(), Eigen::Vector3f::UnitX(), -4.0F)) << "indefinite result";
+    EXPECT_FALSE(
+        upDownDate(Eigen::Matrix3f::Identity(), Eigen::Vector3f::UnitX(), std::numeric_limits<float>::quiet_NaN()))
+        << "NaN weight";
+
+    Eigen::Vector3f const v(1.0F, 2.0F, 3.0F);
+    std::optional<Eigen::Matrix3f> const S1 = upDownDate(Eigen::Matrix3f::Zero(), v, 1.0F);
+    ASSERT_TRUE(S1) << "an update of a zero factor is a valid rotation";
+    EXPECT_TRUE((*S1 * S1->transpose()).isApprox(v * v.transpose(), kRoundoffTol));
 }
 
 // Test setters/getters and reset
