@@ -90,6 +90,17 @@ inline void propertyThirdAxisAlignedWithDeltaV(const Eigen::Vector3f& cmdDv_N, c
     EXPECT_NEAR((r3_N - cmdDv_N.stableNormalized()).stableNorm(), 0.0F, 1e-5F);
 }
 
+// The burn frame's 2nd axis points toward the preferred direction, not away from it.
+inline void propertySecondAxisTowardRHatPref(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N) {
+    DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};
+
+    DvGuidanceOutput out;
+    EXPECT_NO_THROW(out = alg.update());
+
+    const Eigen::Vector3f r2_N = mrpToDcm<float>(out.sigma_RN).row(1).transpose();
+    EXPECT_GT(r2_N.dot(rHatPref_N), 0.0F);
+}
+
 // Robustness: the output is finite for any valid configuration.
 inline void propertyOutputIsFinite(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N) {
     DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};

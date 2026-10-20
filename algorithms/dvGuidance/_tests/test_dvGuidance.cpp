@@ -106,3 +106,8 @@ TEST(DvGuidanceTest, ThirdAxisAlignedWithDeltaV) {
     // The burn frame's 3rd axis r3 is expected to point along the commanded delta-V direction.
     propertyThirdAxisAlignedWithDeltaV(Eigen::Vector3f{2.0F, -1.0F, 4.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
 }
+
+TEST(DvGuidanceTest, SecondAxisTowardRHatPref) {
+    // The burn frame's 2nd axis r2 is expected to point toward the preferred direction (r2 . rHatPref > 0).
+    propertySecondAxisTowardRHatPref(Eigen::Vector3f{2.0F, -1.0F, 4.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
+}
