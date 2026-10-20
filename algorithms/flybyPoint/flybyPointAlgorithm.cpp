@@ -225,7 +225,7 @@ FlybyPointAlgorithm::GuidanceReference FlybyPointAlgorithm::computeGuidanceRefer
     const float thetaDDot = -2.0F * f0 * f0 * cosGamma0 * alongTrack / (den * den);
 
     /*! a profile that overflows (e.g. f0^2 in the acceleration) has no finite solution; stop before the attitude
-     conversions, which must not be given non-finite values */
+     conversions, which must not be given non-finite values. Once these are finite, so is the output */
     if (!fsw::is_finite(f0) || !fsw::is_finite(gamma0) || !fsw::is_finite(theta) || !fsw::is_finite(thetaDot) ||
         !fsw::is_finite(thetaDDot)) {
         return {};
@@ -242,11 +242,9 @@ FlybyPointAlgorithm::GuidanceReference FlybyPointAlgorithm::computeGuidanceRefer
     }
     const Eigen::Vector3f sigma_RN = dcmToMrp(RN);
 
-    /*! the rotated rate and acceleration can still overflow (e.g. a very large thetaDDot) */
+    /*! finite by construction: |sigma| <= 1, and the rate and acceleration are thetaDot and thetaDDot along the unit
+     orbit normal (third row of RtN) */
     const Eigen::Vector3f omega_RN_N = RtN.transpose() * Eigen::Vector3f{0.0F, 0.0F, thetaDot};
     const Eigen::Vector3f domega_RN_N = RtN.transpose() * Eigen::Vector3f{0.0F, 0.0F, thetaDDot};
-    if (sigma_RN.allFinite() && omega_RN_N.allFinite() && domega_RN_N.allFinite()) {
-        return {.sigma_RN = sigma_RN, .omega_RN_N = omega_RN_N, .domega_RN_N = domega_RN_N};
-    }
-    return {};
+    return {.sigma_RN = sigma_RN, .omega_RN_N = omega_RN_N, .domega_RN_N = domega_RN_N};
 }

@@ -269,9 +269,6 @@ inline ReferenceFlybyOutput referenceGuidanceSolution(const ReferenceFlybyState&
         RN.bottomRows<2>() *= -1.0F;  // 180 deg turn about the first axis
     }
     const Eigen::Vector3f sigma = dcmToMrp(RN);  // same float output step as the algorithm
-    if (!sigma.allFinite() || !omega.allFinite() || !domega.allFinite()) {
-        return zeroReference();
-    }
     return {mrpToDcm(Eigen::Vector3d(sigma.cast<double>())), omega.cast<double>(), domega.cast<double>()};
 }
 
