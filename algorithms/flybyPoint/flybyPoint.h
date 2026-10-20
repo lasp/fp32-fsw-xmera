@@ -16,7 +16,7 @@ class FlybyPoint : public SysModel {
    public:
     void reset(uint64_t currentSimNanos) override;
     void updateState(uint64_t currentSimNanos) override;
-    std::tuple<Eigen::Vector3d, Eigen::Vector3d> readRelativeState();
+    std::tuple<Eigen::Vector3f, Eigen::Vector3f> readRelativeState();
 
     // Phase 1: Public config properties — set before reset()
     double controlPeriod = 0.0;       //!< [s] time between updateState() calls; must match the task rate (> 0)

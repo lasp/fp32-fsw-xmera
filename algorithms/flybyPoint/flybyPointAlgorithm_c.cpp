@@ -14,10 +14,10 @@ FlybyPointConfig configFromC(const FlybyPointConfig_c& c) {
                                     c.maximumRateThreshold,
                                     c.maximumAccelerationThreshold,
                                     c.numberOfSigmas,
-                                    cArrayToEigenVector3<double>(c.groundPosition_BN_N.data),
-                                    cArrayToEigenVector3<double>(c.groundVelocity_BN_N.data),
-                                    cArrayToEigenVector3<double>(c.groundPositionCovarianceDiag_N.data),
-                                    cArrayToEigenVector3<double>(c.groundVelocityCovarianceDiag_N.data));
+                                    cArrayToEigenVector3<float>(c.groundPosition_BN_N.data),
+                                    cArrayToEigenVector3<float>(c.groundVelocity_BN_N.data),
+                                    cArrayToEigenVector3<float>(c.groundPositionCovarianceDiag_N.data),
+                                    cArrayToEigenVector3<float>(c.groundVelocityCovarianceDiag_N.data));
 }
 }  // namespace
 
@@ -38,10 +38,10 @@ void FlybyPointAlgorithm_reset(FlybyPointAlgorithmHandle* self) {
 }
 
 AttGuideOutput_c FlybyPointAlgorithm_updateState(FlybyPointAlgorithmHandle* self,
-                                                 const Vector3d_c r_BN_N,
-                                                 const Vector3d_c v_BN_N) {
-    const Eigen::Vector3d r_BN_N_e = cArrayToEigenVector3<double>(r_BN_N.data);
-    const Eigen::Vector3d v_BN_N_e = cArrayToEigenVector3<double>(v_BN_N.data);
+                                                 const Vector3f_c r_BN_N,
+                                                 const Vector3f_c v_BN_N) {
+    const Eigen::Vector3f r_BN_N_e = cArrayToEigenVector3<float>(r_BN_N.data);
+    const Eigen::Vector3f v_BN_N_e = cArrayToEigenVector3<float>(v_BN_N.data);
 
     const AttGuideOutput out = reinterpret_cast<::FlybyPointAlgorithm*>(self)->updateState(r_BN_N_e, v_BN_N_e);
 

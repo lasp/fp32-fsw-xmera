@@ -49,27 +49,27 @@ struct FlybyValidityTriggers {
 class FlybyPointConfig final {
    public:
     /*! [-] smallest |r_hat x v_hat| (sine of the r-v angle) for which r and v define an orbit normal. Below it the
-     orbit-normal direction would be dominated by rounding, so the pair is treated as collinear whatever
-     toleranceForCollinearity is; this only matters for a toleranceForCollinearity below double resolution. */
-    static constexpr double kMinOrbitNormalNorm = 1e-12;
+     orbit-normal direction would be dominated by float rounding (~1e-7), so the pair is treated as collinear whatever
+     toleranceForCollinearity is; this only matters for a toleranceForCollinearity below float resolution. */
+    static constexpr float kMinOrbitNormalNorm = 1e-6F;
     /*! [m] smallest |r| of a usable state. Below it r_hat and f0 = |v| / |r| are dominated by rounding, so the state
      can't define a profile. Far below any real flyby distance */
-    static constexpr double kMinPositionNorm = 1e-3;
+    static constexpr float kMinPositionNorm = 1e-3F;
     /*! [m/s] smallest |v| of a usable state. Below it v_hat, and so the orbit normal, is dominated by rounding. Far
      below any real flyby speed  */
-    static constexpr double kMinVelocityNorm = 1e-3;
+    static constexpr float kMinVelocityNorm = 1e-3F;
 
-    static FlybyPointConfig create(double controlPeriod,
+    static FlybyPointConfig create(float controlPeriod,
                                    uint32_t filterReadPeriods,
                                    float toleranceForCollinearity,
                                    int signOfOrbitNormalFrameVector,
                                    float maximumRateThreshold,
                                    float maximumAccelerationThreshold,
                                    float numberOfSigmas,
-                                   const Eigen::Vector3d& groundPosition_BN_N,
-                                   const Eigen::Vector3d& groundVelocity_BN_N,
-                                   const Eigen::Vector3d& groundPositionCovarianceDiag_N,
-                                   const Eigen::Vector3d& groundVelocityCovarianceDiag_N) {
+                                   const Eigen::Vector3f& groundPosition_BN_N,
+                                   const Eigen::Vector3f& groundVelocity_BN_N,
+                                   const Eigen::Vector3f& groundPositionCovarianceDiag_N,
+                                   const Eigen::Vector3f& groundVelocityCovarianceDiag_N) {
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("flybyPoint: controlPeriod must be finite and > 0");
         }
@@ -117,7 +117,7 @@ class FlybyPointConfig final {
                 groundVelocityCovarianceDiag_N};
     }
 
-    static bool isValidControlPeriod(double t) { return fsw::is_finite(t) && t > 0.0; }
+    static bool isValidControlPeriod(float t) { return fsw::is_finite(t) && t > 0.0F; }
     /*! The filter is re-read at most once per control period, so the shortest cadence is one period. */
     static bool isValidFilterReadPeriods(uint32_t n) { return n >= 1U; }
     static bool isValidToleranceForCollinearity(float t) { return t > 0.0F; }
@@ -126,18 +126,18 @@ class FlybyPointConfig final {
     static bool isValidMaximumAccelerationThreshold(float a) { return a > 0.0F; }
     static bool isValidNumberOfSigmas(float n) { return fsw::is_finite(n) && n > 0.0F; }
     /*! Check whether the ground state can seed the profile: it must be a usable, non-collinear sample. */
-    static bool isValidGroundState(const Eigen::Vector3d& r_BN_N,
-                                   const Eigen::Vector3d& v_BN_N,
+    static bool isValidGroundState(const Eigen::Vector3f& r_BN_N,
+                                   const Eigen::Vector3f& v_BN_N,
                                    float toleranceForCollinearity) {
         return isUsableSample(r_BN_N, v_BN_N) && !isCollinear(r_BN_N, v_BN_N, toleranceForCollinearity);
     }
     /*! A diagonal covariance is positive definite if and only if every diagonal term is > 0; a zero variance would
      reject any deviation on that axis. */
-    static bool isValidGroundPositionCovarianceDiag(const Eigen::Vector3d& p) {
-        return p.allFinite() && (p.array() > 0.0).all();
+    static bool isValidGroundPositionCovarianceDiag(const Eigen::Vector3f& p) {
+        return p.allFinite() && (p.array() > 0.0F).all();
     }
-    static bool isValidGroundVelocityCovarianceDiag(const Eigen::Vector3d& p) {
-        return p.allFinite() && (p.array() > 0.0).all();
+    static bool isValidGroundVelocityCovarianceDiag(const Eigen::Vector3f& p) {
+        return p.allFinite() && (p.array() > 0.0F).all();
     }
 
     /*! Check whether a state can seed the profile or enter the averaging window: it must be finite, with
@@ -148,31 +148,33 @@ class FlybyPointConfig final {
      @param r_BN_N [m] relative position
      @param v_BN_N [m/s] relative velocity
      */
-    static bool isUsableSample(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
-        const double rNorm = r_BN_N.stableNorm();
-        const double vNorm = v_BN_N.stableNorm();
+    static bool isUsableSample(const Eigen::Vector3f& r_BN_N, const Eigen::Vector3f& v_BN_N) {
+        const float rNorm = r_BN_N.stableNorm();
+        const float vNorm = v_BN_N.stableNorm();
         return r_BN_N.allFinite() && v_BN_N.allFinite() && rNorm >= kMinPositionNorm && vNorm >= kMinVelocityNorm &&
                fsw::is_finite(rNorm * vNorm) && fsw::is_finite((vNorm / rNorm) * (vNorm / rNorm));
     }
 
     /*! Check whether r and v are collinear: 1 - |cos| of their angle is below toleranceForCollinearity, or
-     |r_hat x v_hat| is below kMinOrbitNormalNorm.
+     |r_hat x v_hat| is below kMinOrbitNormalNorm. 1 - |cos| is computed as sin^2 / (1 + |cos|), which stays accurate
+     in float for small angles, where 1 - |cos| itself cancels to rounding noise.
      @return true if r and v are collinear
      @param r_BN_N [m] relative position
      @param v_BN_N [m/s] relative velocity
      @param toleranceForCollinearity [-] tolerance on 1 - |cos| of the r-v angle
      */
-    static bool isCollinear(const Eigen::Vector3d& r_BN_N,
-                            const Eigen::Vector3d& v_BN_N,
+    static bool isCollinear(const Eigen::Vector3f& r_BN_N,
+                            const Eigen::Vector3f& v_BN_N,
                             const float toleranceForCollinearity) {
-        const Eigen::Vector3d ur_N = r_BN_N.stableNormalized();
-        const Eigen::Vector3d uv_N = v_BN_N.stableNormalized();
-        return 1.0 - fabs(ur_N.dot(uv_N)) < toleranceForCollinearity ||
-               ur_N.cross(uv_N).stableNorm() < kMinOrbitNormalNorm;
+        const Eigen::Vector3f ur_N = r_BN_N.stableNormalized();
+        const Eigen::Vector3f uv_N = v_BN_N.stableNormalized();
+        const float sineAngle = ur_N.cross(uv_N).stableNorm();
+        const float oneMinusAbsCos = sineAngle * sineAngle / (1.0F + fabsf(ur_N.dot(uv_N)));
+        return oneMinusAbsCos < toleranceForCollinearity || sineAngle < kMinOrbitNormalNorm;
     }
 
     /*! @return [s] time between successive updateState() calls */
-    double getControlPeriod() const { return controlPeriod; }
+    float getControlPeriod() const { return controlPeriod; }
     /*! @return [-] control periods between two consecutive filter re-reads */
     uint32_t getFilterReadPeriods() const { return filterReadPeriods; }
     float getToleranceForCollinearity() const { return toleranceForCollinearity; }
@@ -182,26 +184,26 @@ class FlybyPointConfig final {
     /*! @return [-] number of propagated ground sigmas a re-read may deviate from the ground-based trajectory */
     float getNumberOfSigmas() const { return numberOfSigmas; }
     /*! @return [m] ground-based position at the first updateState() call after configuring or resetting */
-    const Eigen::Vector3d& getGroundPosition_BN_N() const { return groundPosition_BN_N; }
+    const Eigen::Vector3f& getGroundPosition_BN_N() const { return groundPosition_BN_N; }
     /*! @return [m/s] ground-based velocity at the first updateState() call after configuring or resetting */
-    const Eigen::Vector3d& getGroundVelocity_BN_N() const { return groundVelocity_BN_N; }
+    const Eigen::Vector3f& getGroundVelocity_BN_N() const { return groundVelocity_BN_N; }
     /*! @return [m^2] diagonal terms of the ground-based position covariance */
-    const Eigen::Vector3d& getGroundPositionCovarianceDiag_N() const { return groundPositionCovarianceDiag_N; }
+    const Eigen::Vector3f& getGroundPositionCovarianceDiag_N() const { return groundPositionCovarianceDiag_N; }
     /*! @return [(m/s)^2] diagonal terms of the ground-based velocity covariance */
-    const Eigen::Vector3d& getGroundVelocityCovarianceDiag_N() const { return groundVelocityCovarianceDiag_N; }
+    const Eigen::Vector3f& getGroundVelocityCovarianceDiag_N() const { return groundVelocityCovarianceDiag_N; }
 
    private:
-    FlybyPointConfig(double controlPeriod,  // NOLINT(bugprone-easily-swappable-parameters)
+    FlybyPointConfig(float controlPeriod,  // NOLINT(bugprone-easily-swappable-parameters)
                      uint32_t filterReadPeriods,
                      float toleranceForCollinearity,
                      int signOfOrbitNormalFrameVector,
                      float maximumRateThreshold,
                      float maximumAccelerationThreshold,
                      float numberOfSigmas,
-                     const Eigen::Vector3d& groundPosition_BN_N,
-                     const Eigen::Vector3d& groundVelocity_BN_N,
-                     const Eigen::Vector3d& groundPositionCovarianceDiag_N,
-                     const Eigen::Vector3d& groundVelocityCovarianceDiag_N)
+                     const Eigen::Vector3f& groundPosition_BN_N,
+                     const Eigen::Vector3f& groundVelocity_BN_N,
+                     const Eigen::Vector3f& groundPositionCovarianceDiag_N,
+                     const Eigen::Vector3f& groundVelocityCovarianceDiag_N)
         : controlPeriod(controlPeriod),
           filterReadPeriods(filterReadPeriods),
           toleranceForCollinearity(toleranceForCollinearity),
@@ -214,20 +216,22 @@ class FlybyPointConfig final {
           groundPositionCovarianceDiag_N(groundPositionCovarianceDiag_N),
           groundVelocityCovarianceDiag_N(groundVelocityCovarianceDiag_N) {}
 
-    double controlPeriod;        //!< [s] time between successive updateState() calls
+    float controlPeriod;         //!< [s] time between successive updateState() calls
     uint32_t filterReadPeriods;  //!< [-] control periods between two consecutive filter re-reads
     float toleranceForCollinearity;
     int signOfOrbitNormalFrameVector;
     float maximumRateThreshold;
     float maximumAccelerationThreshold;
     float numberOfSigmas;  //!< [-] number of propagated ground sigmas allowed for the state knowledge check
-    Eigen::Vector3d groundPosition_BN_N;             //!< [m] ground-based position
-    Eigen::Vector3d groundVelocity_BN_N;             //!< [m/s] ground-based velocity
-    Eigen::Vector3d groundPositionCovarianceDiag_N;  //!< [m^2] diagonal of the ground-based position covariance
-    Eigen::Vector3d groundVelocityCovarianceDiag_N;  //!< [(m/s)^2] diagonal of the ground-based velocity covariance
+    Eigen::Vector3f groundPosition_BN_N;             //!< [m] ground-based position
+    Eigen::Vector3f groundVelocity_BN_N;             //!< [m/s] ground-based velocity
+    Eigen::Vector3f groundPositionCovarianceDiag_N;  //!< [m^2] diagonal of the ground-based position covariance
+    Eigen::Vector3f groundVelocityCovarianceDiag_N;  //!< [(m/s)^2] diagonal of the ground-based velocity covariance
 };
 
 /*! @brief A class to perform flyby pointing
+ *
+ * The algorithm computes in single precision (float) throughout.
  *
  * The algorithm has no time input: the caller must call updateState() once per control period. Time is counted
  * in whole control periods, and converted to seconds only where the continuous guidance equations need it.
@@ -250,15 +254,16 @@ class FlybyPointAlgorithm final {
     explicit FlybyPointAlgorithm(const FlybyPointConfig& config);
     void setConfig(const FlybyPointConfig& config);
     void reset();
-    AttGuideOutput updateState(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
+    AttGuideOutput updateState(const Eigen::Vector3f& r_BN_N, const Eigen::Vector3f& v_BN_N);
 
    private:
-    /*! Running sums of the current averaging window */
+    /*! Running means of the current averaging window. Each update adds a small correction to the mean, so the float
+     rounding stays near one ulp of |r| for any window length */
     struct AveragingWindow {
-        uint32_t periods = 0;                                   //!< [-] control periods elapsed in the window
-        uint32_t samples = 0;                                   //!< [-] usable samples accumulated
-        Eigen::Vector3d rSumAtEnd_N = Eigen::Vector3d::Zero();  //!< [m] sum of positions propagated to the window end
-        Eigen::Vector3d vSum_N = Eigen::Vector3d::Zero();       //!< [m/s] sum of velocities
+        uint32_t periods = 0;                                    //!< [-] control periods elapsed in the window
+        uint32_t samples = 0;                                    //!< [-] usable samples accumulated
+        Eigen::Vector3f rMeanAtEnd_N = Eigen::Vector3f::Zero();  //!< [m] mean usable position, propagated to the end
+        Eigen::Vector3f vMean_N = Eigen::Vector3f::Zero();       //!< [m/s] mean usable velocity
     };
 
     /*! Reference attitude, rate and acceleration of the propagated profile; all zero when it has no finite solution */
@@ -270,13 +275,13 @@ class FlybyPointAlgorithm final {
 
     /*! Pointing profile from the last accepted read, or from the ground state */
     struct Profile {
-        double f0 = 0;                                      //!< [1/s] |v| / |r| at the read
-        double gamma0 = 0;                                  //!< [rad] flight path angle at the read
+        float f0 = 0.0F;                                    //!< [1/s] |v| / |r| at the read
+        float gamma0 = 0.0F;                                //!< [rad] flight path angle at the read
         Eigen::Matrix3f R0N = Eigen::Matrix3f::Identity();  //!< [-] inertial-to-reference DCM at the read
         uint64_t periodsSinceRead = 0;                      //!< [-] control periods elapsed since the read
     };
 
-    static Profile makeProfile(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N);
+    static Profile makeProfile(const Eigen::Vector3f& r_BN_N, const Eigen::Vector3f& v_BN_N);
     FlybyValidityTriggers reReadFromWindow();
     GuidanceReference computeGuidanceReference(const Profile& p) const;
 

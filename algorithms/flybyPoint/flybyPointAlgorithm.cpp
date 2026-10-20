@@ -4,16 +4,16 @@
 #include <numbers>
 #include <optional>
 
-static constexpr double kRad2Deg = 180.0 / std::numbers::pi;
-static constexpr double kMaxAccelCoeff = 3.0 * std::numbers::sqrt3 / 8.0;
+static constexpr float kRad2Deg = 180.0F / std::numbers::pi_v<float>;
+static constexpr float kMaxAccelCoeff = 3.0F * std::numbers::sqrt3_v<float> / 8.0F;
 
 namespace {
 /*! Ground-based state and its one-sigma uncertainty on each inertial axis, propagated to a later time */
 struct GroundPrediction {
-    Eigen::Vector3d r_N;       //!< [m] ground position propagated to t
-    Eigen::Vector3d v_N;       //!< [m/s] ground velocity, constant under the rectilinear model
-    Eigen::Vector3d sigmaR_N;  //!< [m] one-sigma position uncertainty per axis
-    Eigen::Vector3d sigmaV_N;  //!< [m/s] one-sigma velocity uncertainty per axis
+    Eigen::Vector3f r_N;       //!< [m] ground position propagated to t
+    Eigen::Vector3f v_N;       //!< [m/s] ground velocity, constant under the rectilinear model
+    Eigen::Vector3f sigmaR_N;  //!< [m] one-sigma position uncertainty per axis
+    Eigen::Vector3f sigmaV_N;  //!< [m/s] one-sigma velocity uncertainty per axis
 };
 
 /*! Propagate the ground-based state x0 = (r0, v0) and its diagonal covariance P0 = diag(sigmaR0^2, sigmaV0^2), both
@@ -24,9 +24,9 @@ struct GroundPrediction {
  @param cfg validated configuration (ground-based state and covariance diagonals)
  @param t [s] time since the ground state
  */
-GroundPrediction propagateGroundState(const FlybyPointConfig& cfg, const double t) {
-    const Eigen::Vector3d& positionVariance_N = cfg.getGroundPositionCovarianceDiag_N();
-    const Eigen::Vector3d& velocityVariance_N = cfg.getGroundVelocityCovarianceDiag_N();
+GroundPrediction propagateGroundState(const FlybyPointConfig& cfg, const float t) {
+    const Eigen::Vector3f& positionVariance_N = cfg.getGroundPositionCovarianceDiag_N();
+    const Eigen::Vector3f& velocityVariance_N = cfg.getGroundVelocityCovarianceDiag_N();
     return {.r_N = cfg.getGroundPosition_BN_N() + t * cfg.getGroundVelocity_BN_N(),
             .v_N = cfg.getGroundVelocity_BN_N(),
             .sigmaR_N = (positionVariance_N + t * t * velocityVariance_N).cwiseSqrt(),
@@ -41,8 +41,8 @@ GroundPrediction propagateGroundState(const FlybyPointConfig& cfg, const double 
  @param ground ground-based state and uncertainty propagated to the candidate's time
  @param cfg validated configuration (collinearity tolerance, the rate and acceleration thresholds, numberOfSigmas)
  */
-std::optional<FlybyValidityTriggers> checkValidity(const Eigen::Vector3d& r_BN_N,
-                                                   const Eigen::Vector3d& v_BN_N,
+std::optional<FlybyValidityTriggers> checkValidity(const Eigen::Vector3f& r_BN_N,
+                                                   const Eigen::Vector3f& v_BN_N,
                                                    const GroundPrediction& ground,
                                                    const FlybyPointConfig& cfg) {
     FlybyValidityTriggers triggers{};
@@ -52,9 +52,9 @@ std::optional<FlybyValidityTriggers> checkValidity(const Eigen::Vector3d& r_BN_N
      trajectory, at distance d_CA = |r x v| / |v| = |r| |cos(gamma)|: peak rate |v| / d_CA and peak acceleration
      3 sqrt(3) / 8 (|v| / d_CA)^2, compared with the spacecraft limits. An exactly collinear candidate has d_CA = 0, so
      its peaks are unbounded and exceed both limits */
-    const double distanceClosestApproach = r_BN_N.cross(v_BN_N).stableNorm() / v_BN_N.stableNorm();
-    if (distanceClosestApproach > 0.0) {
-        const double speedOverDistance = v_BN_N.stableNorm() / distanceClosestApproach;
+    const float distanceClosestApproach = r_BN_N.cross(v_BN_N).stableNorm() / v_BN_N.stableNorm();
+    if (distanceClosestApproach > 0.0F) {
+        const float speedOverDistance = v_BN_N.stableNorm() / distanceClosestApproach;
         triggers.maxRateTrigger = speedOverDistance * kRad2Deg > cfg.getMaximumRateThreshold();
         triggers.maxAccelerationTrigger =
             kMaxAccelCoeff * speedOverDistance * speedOverDistance * kRad2Deg > cfg.getMaximumAccelerationThreshold();
@@ -65,7 +65,7 @@ std::optional<FlybyValidityTriggers> checkValidity(const Eigen::Vector3d& r_BN_N
 
     /*! position and velocity errors with respect to the propagated ground state, axis by axis, against numberOfSigmas
      times the propagated ground sigmas */
-    const double numberOfSigmas = cfg.getNumberOfSigmas();
+    const float numberOfSigmas = cfg.getNumberOfSigmas();
     const bool positionExceeds =
         ((r_BN_N - ground.r_N).cwiseAbs().array() > numberOfSigmas * ground.sigmaR_N.array()).any();
     const bool velocityExceeds =
@@ -113,21 +113,22 @@ void FlybyPointAlgorithm::reset() {
  @param r_BN_N [m] relative position from the filter
  @param v_BN_N [m/s] relative velocity from the filter
  */
-AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, const Eigen::Vector3d& v_BN_N) {
+AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3f& r_BN_N, const Eigen::Vector3f& v_BN_N) {
     AttGuideOutput output{};
     const bool usableSample = FlybyPointConfig::isUsableSample(r_BN_N, v_BN_N);
     output.inputSampleRejected = !usableSample;
 
     /*! 1. Low-pass filter: propagate a usable sample to the window end with the rectilinear model (constant velocity)
-     and accumulate it. The sample fills slot window.periods (counted from 0) of the window, so the propagation time
-     is a whole number of control periods, zero for the last slot and when filterReadPeriods = 1 */
+     and update the window's running means. The sample fills slot window.periods (counted from 0) of the window, so
+     the propagation time is a whole number of control periods, zero for the last slot and when filterReadPeriods = 1 */
     if (usableSample) {
-        const double timeToWindowEnd =
-            static_cast<double>(this->cfg.getFilterReadPeriods() - 1U - this->window.periods) *
-            this->cfg.getControlPeriod();
-        this->window.rSumAtEnd_N += r_BN_N + timeToWindowEnd * v_BN_N;
-        this->window.vSum_N += v_BN_N;
+        const float timeToWindowEnd = static_cast<float>(this->cfg.getFilterReadPeriods() - 1U - this->window.periods) *
+                                      this->cfg.getControlPeriod();
+        const Eigen::Vector3f rAtEnd_N = r_BN_N + timeToWindowEnd * v_BN_N;
         ++this->window.samples;
+        const auto sampleCount = static_cast<float>(this->window.samples);
+        this->window.rMeanAtEnd_N += (rAtEnd_N - this->window.rMeanAtEnd_N) / sampleCount;
+        this->window.vMean_N += (v_BN_N - this->window.vMean_N) / sampleCount;
     }
     ++this->window.periods;
 
@@ -161,20 +162,20 @@ AttGuideOutput FlybyPointAlgorithm::updateState(const Eigen::Vector3d& r_BN_N, c
  @param r_BN_N [m] relative position of the accepted read, or of the ground state
  @param v_BN_N [m/s] relative velocity of the accepted read, or of the ground state
  */
-FlybyPointAlgorithm::Profile FlybyPointAlgorithm::makeProfile(const Eigen::Vector3d& r_BN_N,
-                                                              const Eigen::Vector3d& v_BN_N) {
+FlybyPointAlgorithm::Profile FlybyPointAlgorithm::makeProfile(const Eigen::Vector3f& r_BN_N,
+                                                              const Eigen::Vector3f& v_BN_N) {
     /*! radial (ur_N), velocity (uv_N), out-of-plane (uh_N) and along-track (ut_N) unit direction vectors */
-    const Eigen::Vector3d ur_N = r_BN_N.stableNormalized();
-    const Eigen::Vector3d uv_N = v_BN_N.stableNormalized();
-    const Eigen::Vector3d uh_N = ur_N.cross(uv_N).stableNormalized();
-    const Eigen::Vector3d ut_N = uh_N.cross(ur_N).stableNormalized();
+    const Eigen::Vector3f ur_N = r_BN_N.stableNormalized();
+    const Eigen::Vector3f uv_N = v_BN_N.stableNormalized();
+    const Eigen::Vector3f uh_N = ur_N.cross(uv_N).stableNormalized();
+    const Eigen::Vector3f ut_N = uh_N.cross(ur_N).stableNormalized();
 
     Eigen::Matrix3f R0N;
-    R0N.row(0) = ur_N.cast<float>();
-    R0N.row(1) = ut_N.cast<float>();
-    R0N.row(2) = uh_N.cast<float>();
-    const double f0 = v_BN_N.stableNorm() / r_BN_N.stableNorm();
-    const double gamma0 = safeAtan2(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));  // flight path angle
+    R0N.row(0) = ur_N;
+    R0N.row(1) = ut_N;
+    R0N.row(2) = uh_N;
+    const float f0 = v_BN_N.stableNorm() / r_BN_N.stableNorm();
+    const float gamma0 = safeAtan2f(v_BN_N.dot(ur_N), v_BN_N.dot(ut_N));  // flight path angle
     return {.f0 = f0, .gamma0 = gamma0, .R0N = R0N, .periodsSinceRead = 0};
 }
 
@@ -188,14 +189,12 @@ FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow() {
     if (this->window.samples == 0U) {
         return {};
     }
-    const auto sampleCount = static_cast<double>(this->window.samples);
-    const Eigen::Vector3d rAverage_N = this->window.rSumAtEnd_N / sampleCount;
-    const Eigen::Vector3d vAverage_N = this->window.vSum_N / sampleCount;
+    const Eigen::Vector3f rAverage_N = this->window.rMeanAtEnd_N;
+    const Eigen::Vector3f vAverage_N = this->window.vMean_N;
     if (!FlybyPointConfig::isUsableSample(rAverage_N, vAverage_N)) {
         return {};
     }
-    const double timeSinceGroundState =
-        static_cast<double>(this->periodsSinceGroundState) * this->cfg.getControlPeriod();
+    const float timeSinceGroundState = static_cast<float>(this->periodsSinceGroundState) * this->cfg.getControlPeriod();
     const GroundPrediction ground = propagateGroundState(this->cfg, timeSinceGroundState);
     if (const std::optional<FlybyValidityTriggers> rejection =
             checkValidity(rAverage_N, vAverage_N, ground, this->cfg)) {
@@ -206,21 +205,26 @@ FlybyValidityTriggers FlybyPointAlgorithm::reReadFromWindow() {
 }
 
 /*! Compute the reference attitude, rate and acceleration of the profile propagated to the current control period.
- @return the reference; all zero if the solution is not finite, in double or after the cast to float
+ @return the reference; all zero if the solution is not finite
  @param p the profile of the last accepted read
  */
 FlybyPointAlgorithm::GuidanceReference FlybyPointAlgorithm::computeGuidanceReference(const Profile& p) const {
     /*! rotation angle of the reference frame since the last read, and its scalar rate and acceleration in R-frame
      coordinates, dt [s] after that read */
-    const double f0 = p.f0;
-    const double gamma0 = p.gamma0;
-    const double dt = static_cast<double>(p.periodsSinceRead) * this->cfg.getControlPeriod();
-    const double theta = safeAtan(safeTan(gamma0) + (f0 / safeCos(gamma0) * dt)) - gamma0;
-    const double den = ((f0 * f0 * dt * dt) + (2 * f0 * safeSin(gamma0) * dt) + 1);
-    const double thetaDot = f0 * safeCos(gamma0) / den;
-    const double thetaDDot = -2 * f0 * f0 * safeCos(gamma0) * ((f0 * dt) + safeSin(gamma0)) / (den * den);
+    const float f0 = p.f0;
+    const float gamma0 = p.gamma0;
+    const float dt = static_cast<float>(p.periodsSinceRead) * this->cfg.getControlPeriod();
+    const float cosGamma0 = safeCosf(gamma0);
+    const float sinGamma0 = safeSinf(gamma0);
+    const float theta = safeAtanf(safeTanf(gamma0) + (f0 / cosGamma0 * dt)) - gamma0;
+    /*! den = f0^2 dt^2 + 2 f0 sin(gamma0) dt + 1, written as a sum of squares so it doesn't cancel in float near a
+     head-on closest approach, where its minimum cos^2(gamma0) is far below the rounding of the expanded form */
+    const float alongTrack = (f0 * dt) + sinGamma0;  // zero at closest approach
+    const float den = (alongTrack * alongTrack) + (cosGamma0 * cosGamma0);
+    const float thetaDot = f0 * cosGamma0 / den;
+    const float thetaDDot = -2.0F * f0 * f0 * cosGamma0 * alongTrack / (den * den);
 
-    /*! a profile that overflows (e.g. an f0 too large for double) has no finite solution; stop before the attitude
+    /*! a profile that overflows (e.g. f0^2 in the acceleration) has no finite solution; stop before the attitude
      conversions, which must not be given non-finite values */
     if (!fsw::is_finite(f0) || !fsw::is_finite(gamma0) || !fsw::is_finite(theta) || !fsw::is_finite(thetaDot) ||
         !fsw::is_finite(thetaDDot)) {
@@ -228,18 +232,21 @@ FlybyPointAlgorithm::GuidanceReference FlybyPointAlgorithm::computeGuidanceRefer
     }
 
     /*! DCM of the reference frame at the last read time + dt with respect to the inertial frame */
-    const Eigen::Matrix3d RtN = prvToDcm(Eigen::Vector3d{0, 0, theta}) * p.R0N.cast<double>();
-    Eigen::Vector3d sigma_RN = dcmToMrp(RtN);
-    if (this->cfg.getSignOfOrbitNormalFrameVector() == -1) {
-        sigma_RN = addMrp(sigma_RN, Eigen::Vector3d{1, 0, 0});
-    }
+    const Eigen::Matrix3f RtN = prvToDcm(Eigen::Vector3f{0.0F, 0.0F, theta}) * p.R0N;
 
-    /*! a solution finite in double can still overflow float (e.g. f0^2 in the acceleration) */
-    const Eigen::Vector3f sigma_RN_f = sigma_RN.cast<float>();
-    const Eigen::Vector3f omega_RN_N_f = (RtN.transpose() * Eigen::Vector3d{0, 0, thetaDot}).cast<float>();
-    const Eigen::Vector3f domega_RN_N_f = (RtN.transpose() * Eigen::Vector3d{0, 0, thetaDDot}).cast<float>();
-    if (sigma_RN_f.allFinite() && omega_RN_N_f.allFinite() && domega_RN_N_f.allFinite()) {
-        return {.sigma_RN = sigma_RN_f, .omega_RN_N = omega_RN_N_f, .domega_RN_N = domega_RN_N_f};
+    /*! for sign -1 the frame is turned 180 deg about its first axis, diag(1, -1, -1) * RtN, applied exactly by negating
+     the last two rows. It doesn't change the inertial rate and acceleration, which are computed from RtN */
+    Eigen::Matrix3f RN = RtN;
+    if (this->cfg.getSignOfOrbitNormalFrameVector() == -1) {
+        RN.bottomRows<2>() *= -1.0F;
+    }
+    const Eigen::Vector3f sigma_RN = dcmToMrp(RN);
+
+    /*! the rotated rate and acceleration can still overflow (e.g. a very large thetaDDot) */
+    const Eigen::Vector3f omega_RN_N = RtN.transpose() * Eigen::Vector3f{0.0F, 0.0F, thetaDot};
+    const Eigen::Vector3f domega_RN_N = RtN.transpose() * Eigen::Vector3f{0.0F, 0.0F, thetaDDot};
+    if (sigma_RN.allFinite() && omega_RN_N.allFinite() && domega_RN_N.allFinite()) {
+        return {.sigma_RN = sigma_RN, .omega_RN_N = omega_RN_N, .domega_RN_N = domega_RN_N};
     }
     return {};
 }

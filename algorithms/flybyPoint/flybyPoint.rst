@@ -73,7 +73,9 @@ From an accepted state :math:`(\boldsymbol{r}_0, \boldsymbol{v}_0)`, with flight
 where :math:`t` is the time since that state. The frame at :math:`t` is the Hill frame of the accepted state rotated by
 :math:`\theta` about :math:`\hat{\boldsymbol{h}}`, and the angular rate and acceleration are
 :math:`\dot{\theta}\,\hat{\boldsymbol{h}}` and :math:`\ddot{\theta}\,\hat{\boldsymbol{h}}`.
-``signOfOrbitNormalFrameVector = -1`` turns the frame 180 deg about its first axis.
+``signOfOrbitNormalFrameVector = -1`` turns the frame 180 deg about its first axis. The denominator is evaluated as
+the equal :math:`(f_0 t + \sin \gamma_0)^2 + \cos^2 \gamma_0`, which stays positive and accurate in single precision
+near a head-on closest approach, where its minimum :math:`\cos^2 \gamma_0` is tiny.
 
 Batch Averaging of Filter States
 ................................
@@ -96,7 +98,10 @@ Filter Solution Validity Checks
 ...............................
 The window average :math:`(\boldsymbol{r}, \boldsymbol{v})` is rejected, and the profile kept, if any check fails:
 
-1. **Collinearity:** :math:`1 - |\hat{\boldsymbol{r}} \cdot \hat{\boldsymbol{v}}| <` ``toleranceForCollinearity``.
+1. **Collinearity:** :math:`1 - |\hat{\boldsymbol{r}} \cdot \hat{\boldsymbol{v}}| <` ``toleranceForCollinearity``, or
+   :math:`\|\hat{\boldsymbol{r}} \times \hat{\boldsymbol{v}}\| < 10^{-6}`, below which float rounding dominates the
+   orbit normal. :math:`1 - |\cos|` is evaluated as :math:`\sin^2 / (1 + |\cos|)` to avoid float cancellation at
+   small angles.
 2. **Peak rate and acceleration:** with the closest-approach distance
    :math:`d_{CA} = \|\boldsymbol{r} \times \boldsymbol{v}\| / \|\boldsymbol{v}\|`, the peaks of the candidate's own
    trajectory
@@ -131,6 +136,10 @@ Module Assumptions and Limitations
   throws an invalid-argument error. The other checks apply from the first re-read on.
 - The state knowledge check uses only the diagonal of the ground-based covariance, and of its propagation, so it
   ignores the position-velocity correlation that the propagation builds up.
+- The algorithm computes in single precision (float); the module casts the double message fields and configuration to
+  float. Position resolution is about :math:`6 \times 10^{-8} \|\boldsymbol{r}\|` (about 3 m at 50,000 km), so the
+  ground position sigmas should be well above that, and ``toleranceForCollinearity`` below float resolution has no
+  effect.
 
 User Guide
 ----------

@@ -1,6 +1,7 @@
 #include "flybyPointTestHelpers.hpp"
 #include "utilities/testUtilities/eigenFuzzDomains.hpp"
 #include <fuzztest/fuzztest.h>
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -11,50 +12,52 @@
 
 namespace {
 /*! One filter sample per control period: {r_x, r_y, r_z, v_x, v_y, v_z}. */
-using SampleSequence = std::vector<std::vector<double>>;
+using SampleSequence = std::vector<std::vector<float>>;
 
 /*! Per-sample filter noise: {position [m], velocity [m/s]}. */
-using StateNoise = std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>>;
+using StateNoise = std::vector<std::pair<Eigen::Vector3f, Eigen::Vector3f>>;
 
 /*! Random configuration; every parameter is valid except possibly the ground state. */
 auto configDomain() {
     return fuzztest::StructOf<ConfigParams>(
-        fuzztest::InRange(1e-3, 1.0),               // controlPeriod [s]
-        fuzztest::InRange<uint32_t>(1U, 200U),      // filterReadPeriods [-]
-        fuzztest::InRange(1e-6F, 0.5F),             // toleranceForCollinearity [-]
-        fuzztest::ElementOf<int>({-1, 1}),          // signOfOrbitNormalFrameVector
-        fuzztest::InRange(1e-6F, 1e6F),             // maximumRateThreshold [deg/s]
-        fuzztest::InRange(1e-6F, 1e6F),             // maximumAccelerationThreshold [deg/s^2]
-        fuzztest::InRange(0.1F, 10.0F),             // numberOfSigmas [-]
-        xmera::fuzz::Vector3dInRange(-1e9, 1e9),    // groundPosition_BN_N [m]
-        xmera::fuzz::Vector3dInRange(-1e9, 1e9),    // groundVelocity_BN_N [m/s]
-        xmera::fuzz::Vector3dInRange(1e-6, 1e12),   // groundPositionCovarianceDiag_N [m^2]
-        xmera::fuzz::Vector3dInRange(1e-6, 1e12));  // groundVelocityCovarianceDiag_N [(m/s)^2]
+        fuzztest::InRange(1e-3F, 1.0F),               // controlPeriod [s]
+        fuzztest::InRange<uint32_t>(1U, 200U),        // filterReadPeriods [-]
+        fuzztest::InRange(1e-6F, 0.5F),               // toleranceForCollinearity [-]
+        fuzztest::ElementOf<int>({-1, 1}),            // signOfOrbitNormalFrameVector
+        fuzztest::InRange(1e-6F, 1e6F),               // maximumRateThreshold [deg/s]
+        fuzztest::InRange(1e-6F, 1e6F),               // maximumAccelerationThreshold [deg/s^2]
+        fuzztest::InRange(0.1F, 10.0F),               // numberOfSigmas [-]
+        xmera::fuzz::Vector3fInRange(-1e9F, 1e9F),    // groundPosition_BN_N [m]
+        xmera::fuzz::Vector3fInRange(-1e9F, 1e9F),    // groundVelocity_BN_N [m/s]
+        xmera::fuzz::Vector3fInRange(1e-6F, 1e12F),   // groundPositionCovarianceDiag_N [m^2]
+        xmera::fuzz::Vector3fInRange(1e-6F, 1e12F));  // groundVelocityCovarianceDiag_N [(m/s)^2]
 }
 
 /*! Any configuration parameters, valid or not: non-finite, zero, negative and out-of-range values included. */
 auto anyConfigDomain() {
     const auto component = [] {
-        return fuzztest::OneOf(fuzztest::InRange(-1e6, 1e6), fuzztest::Arbitrary<double>(), fuzztest::Just(0.0));
+        return fuzztest::OneOf(fuzztest::InRange(-1e6F, 1e6F), fuzztest::Arbitrary<float>(), fuzztest::Just(0.0F));
     };
     return fuzztest::StructOf<ConfigParams>(
-        fuzztest::Arbitrary<double>(),                        // controlPeriod
-        fuzztest::Arbitrary<uint32_t>(),                      // filterReadPeriods
-        fuzztest::Arbitrary<float>(),                         // toleranceForCollinearity
-        fuzztest::ElementOf<int>({-2, -1, 0, 1, 2}),          // signOfOrbitNormalFrameVector
-        fuzztest::Arbitrary<float>(),                         // maximumRateThreshold
-        fuzztest::Arbitrary<float>(),                         // maximumAccelerationThreshold
-        fuzztest::Arbitrary<float>(),                         // numberOfSigmas
-        xmera::fuzz::EigenVectorOf<double, 3>(component()),   // groundPosition_BN_N
-        xmera::fuzz::EigenVectorOf<double, 3>(component()),   // groundVelocity_BN_N
-        xmera::fuzz::EigenVectorOf<double, 3>(component()),   // position variances
-        xmera::fuzz::EigenVectorOf<double, 3>(component()));  // velocity variances
+        fuzztest::Arbitrary<float>(),                        // controlPeriod
+        fuzztest::Arbitrary<uint32_t>(),                     // filterReadPeriods
+        fuzztest::Arbitrary<float>(),                        // toleranceForCollinearity
+        fuzztest::ElementOf<int>({-2, -1, 0, 1, 2}),         // signOfOrbitNormalFrameVector
+        fuzztest::Arbitrary<float>(),                        // maximumRateThreshold
+        fuzztest::Arbitrary<float>(),                        // maximumAccelerationThreshold
+        fuzztest::Arbitrary<float>(),                        // numberOfSigmas
+        xmera::fuzz::EigenVectorOf<float, 3>(component()),   // groundPosition_BN_N
+        xmera::fuzz::EigenVectorOf<float, 3>(component()),   // groundVelocity_BN_N
+        xmera::fuzz::EigenVectorOf<float, 3>(component()),   // position variances
+        xmera::fuzz::EigenVectorOf<float, 3>(component()));  // velocity variances
 }
 
-/*! Sample component: realistic, any finite, any double (NaN, inf), or zero. */
+/*! Sample component: realistic, any finite, any float (NaN, inf), or zero. */
 auto sampleComponentDomain() {
-    return fuzztest::OneOf(
-        fuzztest::InRange(-1e14, 1e14), fuzztest::Finite<double>(), fuzztest::Arbitrary<double>(), fuzztest::Just(0.0));
+    return fuzztest::OneOf(fuzztest::InRange(-1e14F, 1e14F),
+                           fuzztest::Finite<float>(),
+                           fuzztest::Arbitrary<float>(),
+                           fuzztest::Just(0.0F));
 }
 
 auto sampleSequenceDomain() {
@@ -118,10 +121,10 @@ FUZZ_TEST(FlybyPointConfigFuzz, fuzzConfigCreateMatchesValidators).WithDomains(a
 
 // The algorithm matches the reference model on a noisy straight line with a ground state error.
 static void fuzzMatchesReferenceModel(ConfigParams p,
-                                      const Eigen::Vector3d& r0_BN_N,
-                                      const Eigen::Vector3d& v_BN_N,
-                                      const Eigen::Vector3d& groundPositionError_N,
-                                      const Eigen::Vector3d& groundVelocityError_N,
+                                      const Eigen::Vector3f& r0_BN_N,
+                                      const Eigen::Vector3f& v_BN_N,
+                                      const Eigen::Vector3f& groundPositionError_N,
+                                      const Eigen::Vector3f& groundVelocityError_N,
                                       const StateNoise& noise) {
     p.groundPosition_BN_N = r0_BN_N + groundPositionError_N;
     p.groundVelocity_BN_N = v_BN_N + groundVelocityError_N;
@@ -129,9 +132,9 @@ static void fuzzMatchesReferenceModel(ConfigParams p,
     if (!cfg) {
         return;
     }
-    std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> samples;
+    std::vector<std::pair<Eigen::Vector3f, Eigen::Vector3f>> samples;
     for (size_t k = 0; k < noise.size(); ++k) {
-        const double t = static_cast<double>(k) * cfg->getControlPeriod();
+        const float t = static_cast<float>(k) * cfg->getControlPeriod();
         const auto& [positionNoise_N, velocityNoise_N] = noise[k];
         samples.emplace_back(r0_BN_N + t * v_BN_N + positionNoise_N, v_BN_N + velocityNoise_N);
     }
@@ -140,16 +143,18 @@ static void fuzzMatchesReferenceModel(ConfigParams p,
 
 FUZZ_TEST(FlybyPointAlgorithmFuzz, fuzzMatchesReferenceModel)
     .WithDomains(configDomain(),
-                 xmera::fuzz::Vector3dInRange(-1e14, 1e14),  // r0_BN_N [m]
-                 xmera::fuzz::Vector3dInRange(-1e14, 1e14),  // v_BN_N [m/s]
-                 xmera::fuzz::Vector3dInRange(-1e4, 1e4),    // groundPositionError_N [m]
-                 xmera::fuzz::Vector3dInRange(-10.0, 10.0),  // groundVelocityError_N [m/s]
-                 fuzztest::VectorOf(fuzztest::PairOf(xmera::fuzz::Vector3dInRange(-1e3, 1e3),     // [m]
-                                                     xmera::fuzz::Vector3dInRange(-10.0, 10.0)))  // [m/s]
+                 xmera::fuzz::Vector3fInRange(-1e14F, 1e14F),  // r0_BN_N [m]
+                 xmera::fuzz::Vector3fInRange(-1e14F, 1e14F),  // v_BN_N [m/s]
+                 xmera::fuzz::Vector3fInRange(-1e4F, 1e4F),    // groundPositionError_N [m]
+                 xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),  // groundVelocityError_N [m/s]
+                 fuzztest::VectorOf(fuzztest::PairOf(xmera::fuzz::Vector3fInRange(-1e3F, 1e3F),     // [m]
+                                                     xmera::fuzz::Vector3fInRange(-10.0F, 10.0F)))  // [m/s]
                      .WithMinSize(1)
                      .WithMaxSize(120));
 
-// The output matches the exact straight-line flyby, and the live state check accepts every re-read.
+// The output matches the exact straight-line flyby, and the live state check accepts every re-read. The tolerances
+// are a float floor plus a conditioning term for the run's most head-on end: the frame error grows as eps / s and the
+// rate error as eps / s^2, with s the sine of the r-v angle.
 static void fuzzFlybyPassMatchesStraightLine(double closestApproachDistance,
                                              double speed,
                                              double timeBeforeClosestApproach,
@@ -180,38 +185,49 @@ static void fuzzFlybyPassMatchesStraightLine(double closestApproachDistance,
     const auto timeAt = [&](uint32_t k) { return static_cast<double>(k) * controlPeriod - timeBeforeClosestApproach; };
     const auto lastPeriod = static_cast<uint32_t>(numPeriods);
 
-    // Skip runs that start or end almost head-on (collinear).
+    // Skip runs that start or end almost head-on (collinear in float).
     constexpr float kCollinearityTolerance = 1e-9F;
     const Eigen::Vector3d rStart_BN_N = rClosest_BN_N + timeAt(0) * v_BN_N;
-    if (referenceIsCollinear(rStart_BN_N, v_BN_N, kCollinearityTolerance) ||
-        referenceIsCollinear(rClosest_BN_N + timeAt(lastPeriod) * v_BN_N, v_BN_N, kCollinearityTolerance)) {
+    const Eigen::Vector3d rEnd_BN_N = rClosest_BN_N + timeAt(lastPeriod) * v_BN_N;
+    const Eigen::Vector3f v_BN_N_f = v_BN_N.cast<float>();
+    if (referenceIsCollinear(rStart_BN_N.cast<float>(), v_BN_N_f, kCollinearityTolerance) ||
+        referenceIsCollinear(rEnd_BN_N.cast<float>(), v_BN_N_f, kCollinearityTolerance)) {
         return;
     }
 
+    // Position sigma relative to |r|, well above the float position resolution (~1e-7 |r|).
     constexpr float kNoLimit = std::numeric_limits<float>::max();
     constexpr float kNumberOfSigmas = 3.0F;
-    const FlybyPointConfig cfg = FlybyPointConfig::create(controlPeriod,
+    const auto positionSigma = static_cast<float>(1e-5 * rStart_BN_N.stableNorm());
+    const FlybyPointConfig cfg = FlybyPointConfig::create(static_cast<float>(controlPeriod),
                                                           filterReadPeriods,
                                                           kCollinearityTolerance,
                                                           signOfOrbitNormalFrameVector,
                                                           kNoLimit,
                                                           kNoLimit,
                                                           kNumberOfSigmas,
-                                                          rStart_BN_N,
-                                                          v_BN_N,
-                                                          Eigen::Vector3d::Constant(1.0),
-                                                          Eigen::Vector3d::Constant(1.0));
+                                                          rStart_BN_N.cast<float>(),
+                                                          v_BN_N_f,
+                                                          Eigen::Vector3f::Constant(positionSigma * positionSigma),
+                                                          Eigen::Vector3f::Constant(1.0F));
 
+    const double sineMin =
+        std::min(closestApproachDistance / rStart_BN_N.stableNorm(), closestApproachDistance / rEnd_BN_N.stableNorm());
+    const double dcmTolScale = 3.0 + 10.0 / sineMin;  // ~170 eps / s; worst measured ~37 eps / s at s ~ 8e-5
+    const double rateTolScale = std::max(1.0, 0.05 / (sineMin * sineMin));
     const double speedOverDistance = speed / closestApproachDistance;
     const double peakAcceleration = 3.0 * std::numbers::sqrt3 / 8.0 * speedOverDistance * speedOverDistance;
     FlybyPointAlgorithm alg(cfg);
     for (uint32_t k = 0; k <= lastPeriod; ++k) {
         SCOPED_TRACE("period " + std::to_string(k));
         const double t = timeAt(k);
-        const AttGuideOutput out = alg.updateState(rClosest_BN_N + t * v_BN_N, v_BN_N);
+        const AttGuideOutput out = alg.updateState((rClosest_BN_N + t * v_BN_N).cast<float>(), v_BN_N_f);
         expectFlags(out);
-        expectReference(
-            out, straightLineReference(rClosest_BN_N, v_BN_N, t, signOfOrbitNormalFrameVector), peakAcceleration);
+        expectReference(out,
+                        exactStraightLineReference(rClosest_BN_N, v_BN_N, t, signOfOrbitNormalFrameVector),
+                        peakAcceleration,
+                        dcmTolScale,
+                        rateTolScale);
     }
 }
 
@@ -237,8 +253,8 @@ static void fuzzOutputProperties(const ConfigParams& p, const SampleSequence& sa
     uint32_t unusableInWindow = 0U;
     for (size_t k = 0; k < samples.size(); ++k) {
         SCOPED_TRACE("period " + std::to_string(k));
-        const Eigen::Vector3d r{samples[k][0], samples[k][1], samples[k][2]};
-        const Eigen::Vector3d v{samples[k][3], samples[k][4], samples[k][5]};
+        const Eigen::Vector3f r{samples[k][0], samples[k][1], samples[k][2]};
+        const Eigen::Vector3f v{samples[k][3], samples[k][4], samples[k][5]};
         AttGuideOutput out{};
         EXPECT_NO_THROW(out = alg.updateState(r, v));
 

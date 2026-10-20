@@ -7,12 +7,11 @@
 #include <vector>
 
 namespace {
-constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
-constexpr double kInf = std::numeric_limits<double>::infinity();
-constexpr float kNaNF = std::numeric_limits<float>::quiet_NaN();
+constexpr float kNaN = std::numeric_limits<float>::quiet_NaN();
+constexpr float kInf = std::numeric_limits<float>::infinity();
 
 /*! Covariance diagonal with the same one-sigma value on every axis. */
-Eigen::Vector3d variance(double sigma) { return Eigen::Vector3d::Constant(sigma * sigma); }
+Eigen::Vector3f variance(double sigma) { return Eigen::Vector3f::Constant(static_cast<float>(sigma * sigma)); }
 
 /*! p with a one-sigma state check that only position can trip: positionSigma per axis, 1 m/s velocity sigma. */
 ConfigParams withPositionSigma(double positionSigma, ConfigParams p = {}) {
@@ -23,13 +22,13 @@ ConfigParams withPositionSigma(double positionSigma, ConfigParams p = {}) {
 }
 
 // Samples that can't be used: non-finite, (near) zero r or v, |r||v| overflows, (|v|/|r|)^2 overflows.
-const std::array<std::pair<Eigen::Vector3d, Eigen::Vector3d>, 6> kUnusableSamples{{
-    {Eigen::Vector3d::Constant(kNaN), kV},
-    {kR0, Eigen::Vector3d{kInf, 0, 0}},
-    {Eigen::Vector3d{1e-4, 0, 0}, kV},
-    {kR0, Eigen::Vector3d{0, 1e-4, 0}},
-    {Eigen::Vector3d{1e200, 0, 0}, Eigen::Vector3d{0, 1e200, 0}},
-    {Eigen::Vector3d{1, 0, 0}, Eigen::Vector3d{0, 1e200, 0}},
+const std::array<std::pair<Eigen::Vector3f, Eigen::Vector3f>, 6> kUnusableSamples{{
+    {Eigen::Vector3f::Constant(kNaN), kV},
+    {kR0, Eigen::Vector3f{kInf, 0.0F, 0.0F}},
+    {Eigen::Vector3f{1e-4F, 0.0F, 0.0F}, kV},
+    {kR0, Eigen::Vector3f{0.0F, 1e-4F, 0.0F}},
+    {Eigen::Vector3f{1e20F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1e20F, 0.0F}},
+    {Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1e20F, 0.0F}},
 }};
 }  // namespace
 
@@ -58,9 +57,9 @@ TEST(FlybyPointTest, AverageRecoversStraightLineState) {
     FlybyPointAlgorithm alg(makeConfig({.filterReadPeriods = 4U}));
 
     AttGuideOutput out{};
-    Eigen::Vector3d lastSample;
+    Eigen::Vector3f lastSample;
     for (int k = 0; k <= 3; ++k) {
-        lastSample = truthAt(k) + ((k % 2) == 1 ? kShift : Eigen::Vector3d(-kShift));
+        lastSample = truthAt(k) + ((k % 2) == 1 ? kShift : Eigen::Vector3f(-kShift));
         out = alg.updateState(lastSample, kV);
         expectFlags(out);
         expectReference(out, straightLineReference(truthAt(k), kV));
@@ -80,16 +79,18 @@ TEST(FlybyPointTest, ConfigRejectsUnusableOrCollinearGroundState) {
         EXPECT_ANY_THROW((void)makeConfig({.groundPosition_BN_N = r, .groundVelocity_BN_N = v})) << "unusable " << i;
     }
 
-    const Eigen::Vector3d radial = kR0.stableNormalized();
-    const Eigen::Vector3d transverse = (kV - kV.dot(radial) * radial).stableNormalized();
+    const Eigen::Vector3d v = kV.cast<double>();
+    const Eigen::Vector3d radial = kR0.cast<double>().stableNormalized();
+    const Eigen::Vector3d transverse = (v - v.dot(radial) * radial).stableNormalized();
     const auto tilted = [&](double angle) {
-        return kV.stableNorm() * (std::cos(angle) * radial + std::sin(angle) * transverse);
+        return Eigen::Vector3f(
+            (v.stableNorm() * (std::cos(angle) * radial + std::sin(angle) * transverse)).cast<float>());
     };
-    const std::array<std::pair<Eigen::Vector3d, float>, 4> collinear{{
+    const std::array<std::pair<Eigen::Vector3f, float>, 4> collinear{{
         {tilted(0.0), 1e-3F},
         {tilted(std::numbers::pi), 1e-3F},
         {tilted(0.1), 1e-2F},
-        {tilted(1e-14), 1e-30F},
+        {tilted(1e-7), 1e-30F},
     }};
     for (size_t i = 0; i < collinear.size(); ++i) {
         EXPECT_ANY_THROW((void)makeConfig(
@@ -109,7 +110,7 @@ TEST(FlybyPointTest, SetConfigReseedsFromGroundState) {
     for (int k = 0; k <= 1; ++k) {
         expectFlags(alg.updateState(truthAt(k) + kPositionOffset, kV));
     }
-    const Eigen::Vector3d newGround = truthAt(2.0) + kShift;
+    const Eigen::Vector3f newGround = truthAt(2.0) + kShift;
     alg.setConfig(makeConfig(withPositionSigma(1e5, {.filterReadPeriods = 2U, .groundPosition_BN_N = newGround})));
 
     const AttGuideOutput out0 = alg.updateState(newGround + kShift, kV);
@@ -144,19 +145,19 @@ TEST(FlybyPointTest, ResetReseedsFromGroundState) {
 
 // Each check accepts a candidate 1% under its threshold and rejects it 1% over, raising only its own flag.
 TEST(FlybyPointTest, ThresholdsAcceptBelowAndRejectAbove) {
-    const Eigen::Vector3d nearCandidate = truthAt(1.0) + kShift;
+    const Eigen::Vector3f nearCandidate = truthAt(1.0) + kShift;
     const double speedOverDistance = kV.stableNorm() / (nearCandidate.cross(kV).stableNorm() / kV.stableNorm());
     const double peakRate = speedOverDistance * 180.0 / std::numbers::pi;
     const double peakAcceleration = 3.0 * std::numbers::sqrt3 / 8.0 * speedOverDistance * peakRate;
     const double positionError = kPositionOffset.stableNorm();
-    const Eigen::Vector3d velocityOffset{0, 10, 0};
+    const Eigen::Vector3f velocityOffset{0.0F, 10.0F, 0.0F};
 
     for (const double margin : {1.01, 0.99}) {
         const bool reject = margin < 1.0;
         struct Case {
             ConfigParams params;
-            Eigen::Vector3d candidatePosition;
-            Eigen::Vector3d candidateVelocity;
+            Eigen::Vector3f candidatePosition;
+            Eigen::Vector3f candidateVelocity;
             ExpectedFlags flags;
         };
         const std::array<Case, 4> cases{{
@@ -188,10 +189,10 @@ TEST(FlybyPointTest, ThresholdsAcceptBelowAndRejectAbove) {
 
 // A candidate with r parallel to v is rejected as collinear and exceeds the rate and acceleration limits.
 TEST(FlybyPointTest, CollinearCandidateIsRejected) {
-    for (const double direction : {1.0, -1.0}) {
+    for (const float direction : {1.0F, -1.0F}) {
         FlybyPointAlgorithm alg(makeConfig());
         alg.updateState(kR0, kV);
-        const AttGuideOutput out = alg.updateState(Eigen::Vector3d{-5e7, 0, 0}, direction * kV);
+        const AttGuideOutput out = alg.updateState(Eigen::Vector3f{-5e7F, 0.0F, 0.0F}, direction * kV);
         expectFlags(out, {.collinearity = true, .maxRate = true, .maxAcceleration = true});
         expectReference(out, straightLineReference(kR0, kV, 1.0));
     }
@@ -206,12 +207,12 @@ TEST(FlybyPointTest, StateCheckIsAgainstGroundTrajectory) {
     FlybyPointAlgorithm alg(makeConfig(withPositionSigma(1e4)));
     alg.updateState(kR0, kV);
 
-    const Eigen::Vector3d step{0, 0, 9e3};
+    const Eigen::Vector3f step{0.0F, 0.0F, 9e3F};
     const AttGuideOutput out1 = alg.updateState(truthAt(1.0) + step, kV);
     expectFlags(out1);
     expectReference(out1, straightLineReference(truthAt(1.0) + step, kV));
 
-    const AttGuideOutput out2 = alg.updateState(truthAt(2.0) + 2.0 * step, kV);
+    const AttGuideOutput out2 = alg.updateState(truthAt(2.0) + 2.0F * step, kV);
     expectFlags(out2, {.stateKnowledge = true});
     expectReference(out2, straightLineReference(truthAt(1.0) + step, kV, 1.0));
 }
@@ -219,10 +220,10 @@ TEST(FlybyPointTest, StateCheckIsAgainstGroundTrajectory) {
 // The position bound grows as sqrt(sigmaR0^2 + t^2 sigmaV0^2); only reset() and setConfig() restart t.
 TEST(FlybyPointTest, StateCheckBoundGrowsFromGroundState) {
     const FlybyPointConfig cfg = makeConfig({.numberOfSigmas = 1.0F,
-                                             .groundPositionCovarianceDiag_N = variance(1.0),
-                                             .groundVelocityCovarianceDiag_N = variance(1.0)});
+                                             .groundPositionCovarianceDiag_N = variance(1e3),
+                                             .groundVelocityCovarianceDiag_N = variance(1e3)});
     FlybyPointAlgorithm alg(cfg);
-    const Eigen::Vector3d offset{0, 0, 5};
+    const Eigen::Vector3f offset{0.0F, 0.0F, 5e3F};
     const auto expectBoundGrows = [&]() {
         for (int k = 0; k <= 6; ++k) {
             SCOPED_TRACE("period " + std::to_string(k));
@@ -249,13 +250,13 @@ TEST(FlybyPointTest, StateCheckBoundGrowsFromGroundState) {
 // The state check is per axis, not on the error norm, and scaled by numberOfSigmas.
 TEST(FlybyPointTest, StateCheckIsPerAxisAndScaledByNumberOfSigmas) {
     const ConfigParams params{.numberOfSigmas = 3.0F,
-                              .groundPositionCovarianceDiag_N = Eigen::Vector3d{1e8, 1e8, 1e6},
+                              .groundPositionCovarianceDiag_N = Eigen::Vector3f{1e8F, 1e8F, 1e6F},
                               .groundVelocityCovarianceDiag_N = variance(1.0)};
-    const std::array<std::pair<Eigen::Vector3d, bool>, 4> cases{{
-        {Eigen::Vector3d{2.9e4, 2.9e4, 0}, false},
-        {Eigen::Vector3d{0, 0, 2.9e3}, false},
-        {Eigen::Vector3d{0, 0, 3.1e3}, true},
-        {Eigen::Vector3d{3.1e4, 0, 0}, true},
+    const std::array<std::pair<Eigen::Vector3f, bool>, 4> cases{{
+        {Eigen::Vector3f{2.9e4F, 2.9e4F, 0.0F}, false},
+        {Eigen::Vector3f{0.0F, 0.0F, 2.9e3F}, false},
+        {Eigen::Vector3f{0.0F, 0.0F, 3.1e3F}, true},
+        {Eigen::Vector3f{3.1e4F, 0.0F, 0.0F}, true},
     }};
     for (size_t i = 0; i < cases.size(); ++i) {
         SCOPED_TRACE("case " + std::to_string(i));
@@ -307,7 +308,7 @@ TEST(FlybyPointTest, CancellingVelocitiesMakeNoAttempt) {
 
 // A re-read is attempted every filterReadPeriods periods, also for an inexact control period.
 TEST(FlybyPointTest, ReReadsOnEveryFilterReadPeriod) {
-    FlybyPointAlgorithm alg(makeConfig(withPositionSigma(1.0, {.controlPeriod = 0.1, .filterReadPeriods = 3U})));
+    FlybyPointAlgorithm alg(makeConfig(withPositionSigma(1e3, {.controlPeriod = 0.1F, .filterReadPeriods = 3U})));
     for (int k = 0; k < 30; ++k) {
         SCOPED_TRACE("period " + std::to_string(k));
         const AttGuideOutput out = alg.updateState(kR0 + kPositionOffset, kV);
@@ -318,10 +319,10 @@ TEST(FlybyPointTest, ReReadsOnEveryFilterReadPeriod) {
 
 // A rejected average starts a new window; the next window's good average is accepted.
 TEST(FlybyPointTest, RejectedAverageRestartsWindow) {
-    FlybyPointAlgorithm alg(makeConfig(withPositionSigma(1.0, {.filterReadPeriods = 3U})));
+    FlybyPointAlgorithm alg(makeConfig(withPositionSigma(1e3, {.filterReadPeriods = 3U})));
     for (int k = 0; k <= 5; ++k) {
         SCOPED_TRACE("period " + std::to_string(k));
-        const Eigen::Vector3d sample = k <= 2 ? Eigen::Vector3d(truthAt(k) + kPositionOffset) : truthAt(k);
+        const Eigen::Vector3f sample = k <= 2 ? Eigen::Vector3f(truthAt(k) + kPositionOffset) : truthAt(k);
         const AttGuideOutput out = alg.updateState(sample, kV);
         expectFlags(out, {.stateKnowledge = k == 2});
         expectReference(out, straightLineReference(kR0, kV, k));
@@ -332,33 +333,52 @@ TEST(FlybyPointTest, RejectedAverageRestartsWindow) {
 // Zero reference fallback
 // ---------------------------------------------------------------------------
 
-// A reference that overflows float or double is output as zero, and recovers once finite.
+// A reference that overflows float is output as zero, and the output recovers at the next accepted re-read.
 TEST(FlybyPointTest, UnrepresentableReferenceFallsBackToZero) {
-    const Eigen::Vector3d r{1, 0, 0};
-    const Eigen::Vector3d direction = Eigen::Vector3d{-1, 1, 0}.stableNormalized();
+    // Ground state with f0 = |v| / |r| = 1.5e19 1/s: f0^2 fits in float, so it is usable, but 2 f0^2 in the
+    // acceleration overflows. Its wide velocity covariance lets the re-read of the test trajectory pass the state
+    // check.
+    const Eigen::Vector3f r{1.0F, 0.0F, 0.0F};
+    const Eigen::Vector3f v = 1.5e19F * Eigen::Vector3f{-1.0F, 1.0F, 0.0F}.stableNormalized();
     for (const int sign : {1, -1}) {
         SCOPED_TRACE("sign " + std::to_string(sign));
-        const Eigen::Vector3d v = 1e20 * direction;
-        FlybyPointAlgorithm recovering(makeConfig({.filterReadPeriods = 4U,
-                                                   .signOfOrbitNormalFrameVector = sign,
-                                                   .groundPosition_BN_N = r,
-                                                   .groundVelocity_BN_N = v}));
-        expectZeroGuidance(recovering.updateState(r, v));
-        const AttGuideOutput next = recovering.updateState(r + v, v);
-        expectFlags(next);
-        expectReference(next, straightLineReference(r, v, 1.0, sign));
-
-        const Eigen::Vector3d vHuge = 1e150 * direction;
-        FlybyPointAlgorithm overflowing(makeConfig({.filterReadPeriods = 4U,
-                                                    .signOfOrbitNormalFrameVector = sign,
-                                                    .groundPosition_BN_N = r,
-                                                    .groundVelocity_BN_N = vHuge}));
+        FlybyPointAlgorithm alg(makeConfig({.filterReadPeriods = 3U,
+                                            .signOfOrbitNormalFrameVector = sign,
+                                            .groundPosition_BN_N = r,
+                                            .groundVelocity_BN_N = v,
+                                            .groundVelocityCovarianceDiag_N = Eigen::Vector3f::Constant(5e37F)}));
         for (int k = 0; k <= 2; ++k) {
-            const AttGuideOutput out = overflowing.updateState(r, vHuge);
-            expectZeroGuidance(out);
+            SCOPED_TRACE("period " + std::to_string(k));
+            const AttGuideOutput out = alg.updateState(truthAt(k), kV);
             expectFlags(out);
+            if (k < 2) {
+                expectZeroGuidance(out);
+            } else {
+                expectReference(out, straightLineReference(kR0, kV, 2.0, sign));
+            }
         }
     }
+}
+
+// At a near-head-on closest approach (sine of the r-v angle 4.5e-5) the rate denominator doesn't cancel in float: the
+// output is the finite peak rate |v| / d, not the zero fallback.
+TEST(FlybyPointTest, NearHeadOnClosestApproachIsFinite) {
+    const Eigen::Vector3f r0{-1e8F, 4.5e3F, 0.0F};  // [m] closest approach distance d = 4.5 km
+    const Eigen::Vector3f v{1e5F, 0.0F, 0.0F};      // [m/s] closest approach at t = 1000 s
+    FlybyPointAlgorithm alg(makeConfig({.filterReadPeriods = 2000U,
+                                        .toleranceForCollinearity = 1e-12F,
+                                        .groundPosition_BN_N = r0,
+                                        .groundVelocity_BN_N = v}));
+    AttGuideOutput out{};
+    for (int k = 0; k <= 1000; ++k) {
+        out = alg.updateState((r0.cast<double>() + static_cast<double>(k) * v.cast<double>()).cast<float>(), v);
+    }
+
+    EXPECT_FALSE(out.sigma_RN.isZero(0.0F) && out.omega_RN_N.isZero(0.0F));
+    const double peakRate = 1e5 / 4.5e3;  // [rad/s]
+    EXPECT_NEAR(out.omega_RN_N.cast<double>().stableNorm(), peakRate, 1e-2 * peakRate);
+    const Eigen::Matrix3d RN = mrpToDcm(Eigen::Vector3d(out.sigma_RN.cast<double>()));
+    EXPECT_LT((RN - straightLineReference(r0, v, 1000.0).RN).cwiseAbs().maxCoeff(), 1e-2);
 }
 
 // ---------------------------------------------------------------------------
@@ -369,12 +389,12 @@ TEST(FlybyPointTest, UnrepresentableReferenceFallsBackToZero) {
 TEST(FlybyPointTest, ConfigRejectsInvalidValues) {
     EXPECT_NO_THROW((void)FlybyPointAlgorithm(makeConfig()));
     EXPECT_NO_THROW((void)makeConfig({.signOfOrbitNormalFrameVector = -1}));
-    EXPECT_NO_THROW((void)makeConfig({.groundPositionCovarianceDiag_N = Eigen::Vector3d{1e8, 1e-6, 4e8},
-                                      .groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, 1e-6, 4.0}}));
+    EXPECT_NO_THROW((void)makeConfig({.groundPositionCovarianceDiag_N = Eigen::Vector3f{1e8F, 1e-6F, 4e8F},
+                                      .groundVelocityCovarianceDiag_N = Eigen::Vector3f{1.0F, 1e-6F, 4.0F}}));
 
     const std::array<ConfigParams, 28> invalid{{
-        {.controlPeriod = 0.0},
-        {.controlPeriod = -1.0},
+        {.controlPeriod = 0.0F},
+        {.controlPeriod = -1.0F},
         {.controlPeriod = kNaN},
         {.controlPeriod = kInf},
         {.filterReadPeriods = 0U},
@@ -388,19 +408,19 @@ TEST(FlybyPointTest, ConfigRejectsInvalidValues) {
         {.maximumAccelerationThreshold = -1.0F},
         {.numberOfSigmas = 0.0F},
         {.numberOfSigmas = -1.0F},
-        {.numberOfSigmas = kNaNF},
-        {.groundPosition_BN_N = Eigen::Vector3d::Zero()},
-        {.groundPosition_BN_N = Eigen::Vector3d{0, kInf, 0}},
-        {.groundVelocity_BN_N = Eigen::Vector3d{kNaN, 0, 0}},
+        {.numberOfSigmas = kNaN},
+        {.groundPosition_BN_N = Eigen::Vector3f::Zero()},
+        {.groundPosition_BN_N = Eigen::Vector3f{0.0F, kInf, 0.0F}},
+        {.groundVelocity_BN_N = Eigen::Vector3f{kNaN, 0.0F, 0.0F}},
         {.groundVelocity_BN_N = kR0},
-        {.groundPositionCovarianceDiag_N = Eigen::Vector3d{1.0, 0.0, 1.0}},
-        {.groundPositionCovarianceDiag_N = Eigen::Vector3d{1.0, -1.0, 1.0}},
-        {.groundPositionCovarianceDiag_N = Eigen::Vector3d{kNaN, 1.0, 1.0}},
-        {.groundPositionCovarianceDiag_N = Eigen::Vector3d{1.0, 1.0, kInf}},
-        {.groundVelocityCovarianceDiag_N = Eigen::Vector3d{0.0, 1.0, 1.0}},
-        {.groundVelocityCovarianceDiag_N = Eigen::Vector3d{-1.0, 1.0, 1.0}},
-        {.groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, kNaN, 1.0}},
-        {.groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, 1.0, kInf}},
+        {.groundPositionCovarianceDiag_N = Eigen::Vector3f{1.0F, 0.0F, 1.0F}},
+        {.groundPositionCovarianceDiag_N = Eigen::Vector3f{1.0F, -1.0F, 1.0F}},
+        {.groundPositionCovarianceDiag_N = Eigen::Vector3f{kNaN, 1.0F, 1.0F}},
+        {.groundPositionCovarianceDiag_N = Eigen::Vector3f{1.0F, 1.0F, kInf}},
+        {.groundVelocityCovarianceDiag_N = Eigen::Vector3f{0.0F, 1.0F, 1.0F}},
+        {.groundVelocityCovarianceDiag_N = Eigen::Vector3f{-1.0F, 1.0F, 1.0F}},
+        {.groundVelocityCovarianceDiag_N = Eigen::Vector3f{1.0F, kNaN, 1.0F}},
+        {.groundVelocityCovarianceDiag_N = Eigen::Vector3f{1.0F, 1.0F, kInf}},
     }};
     for (size_t i = 0; i < invalid.size(); ++i) {
         EXPECT_ANY_THROW((void)makeConfig(invalid[i])) << "case " << i;
@@ -412,8 +432,8 @@ TEST(FlybyPointTest, ConfigStoresValues) {
     const ConfigParams params{.numberOfSigmas = 2.5F,
                               .groundPosition_BN_N = kR0,
                               .groundVelocity_BN_N = kV,
-                              .groundPositionCovarianceDiag_N = Eigen::Vector3d{1e8, 2e8, 3e8},
-                              .groundVelocityCovarianceDiag_N = Eigen::Vector3d{1.0, 2.0, 3.0}};
+                              .groundPositionCovarianceDiag_N = Eigen::Vector3f{1e8F, 2e8F, 3e8F},
+                              .groundVelocityCovarianceDiag_N = Eigen::Vector3f{1.0F, 2.0F, 3.0F}};
     const FlybyPointConfig cfg = makeConfig(params);
     EXPECT_EQ(cfg.getNumberOfSigmas(), params.numberOfSigmas);
     EXPECT_EQ(cfg.getGroundPosition_BN_N(), params.groundPosition_BN_N);
@@ -422,12 +442,12 @@ TEST(FlybyPointTest, ConfigStoresValues) {
     EXPECT_EQ(cfg.getGroundVelocityCovarianceDiag_N(), params.groundVelocityCovarianceDiag_N);
 }
 
-// The algorithm matches the double-precision reference model through accepted, rejected and unusable windows.
+// The algorithm matches the single-precision reference model through accepted, rejected and unusable windows.
 TEST(FlybyPointTest, MatchesReferenceModel) {
-    const ConfigParams params = withPositionSigma(1e5, {.controlPeriod = 0.3, .filterReadPeriods = 2U});
-    std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> samples;
+    const ConfigParams params = withPositionSigma(1e5, {.controlPeriod = 0.3F, .filterReadPeriods = 2U});
+    std::vector<std::pair<Eigen::Vector3f, Eigen::Vector3f>> samples;
     for (int k = 0; k <= 8; ++k) {
-        const Eigen::Vector3d r = truthAt(k * params.controlPeriod);
+        const Eigen::Vector3f r = truthAt(k * params.controlPeriod);
         if (k == 2 || k == 3) {
             samples.emplace_back(r + kPositionOffset, kV);
         } else if (k == 5) {
