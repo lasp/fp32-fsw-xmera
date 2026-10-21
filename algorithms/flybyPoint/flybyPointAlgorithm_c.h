@@ -15,7 +15,8 @@ extern "C" {
 typedef struct FlybyPointAlgorithmHandle FlybyPointAlgorithmHandle;
 
 /**
- * @brief Construct a new FlybyPointAlgorithm instance with the supplied configuration.
+ * @brief Construct a new FlybyPointAlgorithm instance with the supplied configuration, and seed its pointing profile
+ *        from the configuration's ground-based position and velocity.
  * @param config Pointer to the configuration (validated; throws on invalid input).
  * @return Pointer to a new FlybyPointAlgorithm (must be destroyed).
  */
@@ -28,14 +29,16 @@ FlybyPointAlgorithmHandle* FlybyPointAlgorithm_create(const FlybyPointConfig_c* 
 void FlybyPointAlgorithm_destroy(FlybyPointAlgorithmHandle* self);
 
 /**
- * @brief Replace the algorithm's configuration at runtime.
+ * @brief Replace the algorithm's configuration at runtime, and re-seed the pointing profile from its ground-based
+ *        position and velocity.
  * @param self   Pointer to the instance.
  * @param config Pointer to the new configuration (validated; throws on invalid input).
  */
 void FlybyPointAlgorithm_setConfig(FlybyPointAlgorithmHandle* self, const FlybyPointConfig_c* config);
 
 /**
- * @brief Reset the algorithm state.
+ * @brief Re-seed the pointing profile from the configuration's ground-based position and velocity, and discard the
+ *        partial averaging window.
  * @param self Pointer to the instance.
  */
 void FlybyPointAlgorithm_reset(FlybyPointAlgorithmHandle* self);
@@ -48,7 +51,7 @@ void FlybyPointAlgorithm_reset(FlybyPointAlgorithmHandle* self);
  * @param v_BN_N           Spacecraft velocity relative to the body in inertial frame [m/s].
  * @return AttGuideOutput_c  Reference attitude, rate, acceleration, and validity flags.
  */
-AttGuideOutput_c FlybyPointAlgorithm_updateState(FlybyPointAlgorithmHandle* self, Vector3d_c r_BN_N, Vector3d_c v_BN_N);
+AttGuideOutput_c FlybyPointAlgorithm_updateState(FlybyPointAlgorithmHandle* self, Vector3f_c r_BN_N, Vector3f_c v_BN_N);
 
 #ifdef __cplusplus
 }  // extern "C"

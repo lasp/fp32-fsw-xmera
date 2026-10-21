@@ -6,13 +6,18 @@ void FlybyPoint::reset(uint64_t currentSimNanos) {
     if (!this->filterInMsg.isLinked()) {
         throw std::runtime_error("flybyPoint.filterInMsg wasn't connected.");
     }
-    auto config = FlybyPointConfig::create(this->controlPeriod,
+    // The algorithm is single precision: the double module properties are cast to float here.
+    auto config = FlybyPointConfig::create(static_cast<float>(this->controlPeriod),
                                            this->filterReadPeriods,
                                            this->toleranceForCollinearity,
                                            this->signOfOrbitNormalFrameVector,
                                            this->maximumRateThreshold,
                                            this->maximumAccelerationThreshold,
-                                           this->positionKnowledgeSigma);
+                                           this->numberOfSigmas,
+                                           this->groundPosition_BN_N.cast<float>(),
+                                           this->groundVelocity_BN_N.cast<float>(),
+                                           this->groundPositionCovarianceDiag_N.cast<float>(),
+                                           this->groundVelocityCovarianceDiag_N.cast<float>());
     this->algorithm = std::make_unique<FlybyPointAlgorithm>(config);
 }
 
@@ -31,17 +36,18 @@ void FlybyPoint::updateState(uint64_t currentSimNanos) {
     flybyDiagnosticMsgBuffer.collinearityTrigger = algo_output.collinearityTrigger;
     flybyDiagnosticMsgBuffer.maxRateTrigger = algo_output.maxRateTrigger;
     flybyDiagnosticMsgBuffer.maxAccelerationTrigger = algo_output.maxAccelerationTrigger;
-    flybyDiagnosticMsgBuffer.positionKnowledgeExceedTrigger = algo_output.positionKnowledgeExceedTrigger;
+    flybyDiagnosticMsgBuffer.stateKnowledgeExceedTrigger = algo_output.stateKnowledgeExceedTrigger;
     flybyDiagnosticMsgBuffer.inputSampleRejected = algo_output.inputSampleRejected;
     flybyDiagnosticMsgBuffer.rejectedSamplesInWindow = algo_output.rejectedSamplesInWindow;
     this->flybyDiagnosticOutMsg.write(flybyDiagnosticMsgBuffer, this->moduleID, currentSimNanos);
 }
 
-std::tuple<Eigen::Vector3d, Eigen::Vector3d> FlybyPoint::readRelativeState() {
+std::tuple<Eigen::Vector3f, Eigen::Vector3f> FlybyPoint::readRelativeState() {
     const NavTransMsgF32Payload relativeState = this->filterInMsg();
 
-    Eigen::Vector3d r_BN_N(relativeState.r_BN_N[0], relativeState.r_BN_N[1], relativeState.r_BN_N[2]);
-    Eigen::Vector3d v_BN_N(relativeState.v_BN_N[0], relativeState.v_BN_N[1], relativeState.v_BN_N[2]);
+    // The message carries double vectors; the single-precision algorithm takes them cast to float.
+    const Eigen::Vector3d r_BN_N(relativeState.r_BN_N[0], relativeState.r_BN_N[1], relativeState.r_BN_N[2]);
+    const Eigen::Vector3d v_BN_N(relativeState.v_BN_N[0], relativeState.v_BN_N[1], relativeState.v_BN_N[2]);
 
-    return {r_BN_N, v_BN_N};
+    return {r_BN_N.cast<float>(), v_BN_N.cast<float>()};
 }
