@@ -68,15 +68,16 @@ class DvGuidanceAlgorithm final {
     /// Constructs the algorithm from a validated configuration.
     explicit DvGuidanceAlgorithm(const DvGuidanceConfig& config);
 
-    /// Installs the configuration parameters.
+    /// Installs the configuration parameters and computes the inertially fixed burn frame.
     void setConfig(const DvGuidanceConfig& config);
 
-    /// Computes the burn-frame attitude reference.
+    /// Returns the burn-frame attitude reference computed by setConfig().
     /// @return The burn-frame attitude reference with zero rates.
     DvGuidanceOutput update() const;
 
    private:
-    DvGuidanceConfig cfg;  ///< validated configuration
+    DvGuidanceConfig cfg;                  ///< validated configuration
+    DvGuidanceOutput attitudeReference{};  ///< burn-frame attitude reference computed by setConfig()
 };
 
 #endif
