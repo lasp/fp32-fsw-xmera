@@ -17,7 +17,7 @@ namespace filtering::flybyFilter {
  *  `timeTag` > 0 flags that the adapter saw a fresh reading this cycle. */
 struct HeadingData {
     double timeTag = 0;
-    Eigen::Vector3d rhat_BN_N = Eigen::Vector3d::Zero();
+    Eigen::Vector3f rhat_BN_N = Eigen::Vector3f::Zero();
 };
 
 /*! Snapshot returned by FlybyFilterAlgorithm::update(). Bundles the filter state with the
@@ -38,13 +38,13 @@ class FlybyFilterConfig final {
     // Reuse the framework SRuKF's static validators so filter-parameter checks live in one place.
     using Srukf = SRuKF<FlybyState, FlybyDynamics>;
 
-    static FlybyFilterConfig create(double alpha,
-                                    double beta,
-                                    double mu,
+    static FlybyFilterConfig create(float alpha,
+                                    float beta,
+                                    float mu,
                                     StateMatrix const& processNoise,
                                     FlybyState const& initialState,
                                     StateMatrix const& initialCovariance,
-                                    double headingMeasurementNoiseStd) {
+                                    float headingMeasurementNoiseStd) {
         if (!Srukf::alphaIsValid(alpha)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: alpha must be in (0, 1]");
         }
@@ -69,7 +69,7 @@ class FlybyFilterConfig final {
         return {alpha, beta, mu, processNoise, initialState, initialCovariance, headingMeasurementNoiseStd};
     }
 
-    static bool isValidMu(double mu) { return mu > 0.0; }
+    static bool isValidMu(float mu) { return mu > 0.0F; }
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
         return isPositiveSemiDefinite<FlybyState::size>(processNoise);
     }
@@ -77,24 +77,24 @@ class FlybyFilterConfig final {
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
         return covariance.allFinite() && isPositiveSemiDefinite<FlybyState::size>(covariance);
     }
-    static bool isValidHeadingMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
+    static bool isValidHeadingMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
 
-    double getAlpha() const { return this->alpha; }
-    double getBeta() const { return this->beta; }
-    double getMu() const { return this->mu; }
+    float getAlpha() const { return this->alpha; }
+    float getBeta() const { return this->beta; }
+    float getMu() const { return this->mu; }
     StateMatrix const& getProcessNoise() const { return this->processNoise; }
     FlybyState const& getInitialState() const { return this->initialState; }
     StateMatrix const& getInitialCovariance() const { return this->initialCovariance; }
-    double getHeadingMeasurementNoiseStd() const { return this->headingMeasNoiseStd; }
+    float getHeadingMeasurementNoiseStd() const { return this->headingMeasNoiseStd; }
 
    private:
-    FlybyFilterConfig(double alpha,
-                      double beta,
-                      double mu,
+    FlybyFilterConfig(float alpha,
+                      float beta,
+                      float mu,
                       StateMatrix const& processNoise,
                       FlybyState const& initialState,
                       StateMatrix const& initialCovariance,
-                      double headingMeasurementNoiseStd)
+                      float headingMeasurementNoiseStd)
         : alpha(alpha),
           beta(beta),
           mu(mu),
@@ -103,13 +103,13 @@ class FlybyFilterConfig final {
           initialCovariance(initialCovariance),
           headingMeasNoiseStd(headingMeasurementNoiseStd) {}
 
-    double alpha;
-    double beta;
-    double mu;
+    float alpha;
+    float beta;
+    float mu;
     StateMatrix processNoise;
     FlybyState initialState;
     StateMatrix initialCovariance;
-    double headingMeasNoiseStd;
+    float headingMeasNoiseStd;
 };
 
 /*! @brief Angles-only flyby navigation square-root UKF. Estimates the inertial spacecraft position
@@ -128,14 +128,14 @@ class FlybyFilterAlgorithm {
 
     void reInitializeExceptPersistentStates();
     void reInitialize();
-    bool timeUpdate(double dt);
+    bool timeUpdate(float dt);
     bool measurementUpdate(Measurement const& measurement);
     void clear();
 
     FilterStateOutput getFilterOutput() const;
     HeadingResidualsOutput const& getLastHeadingResiduals() const;
     State getState() const;
-    Eigen::Matrix<double, N, N> getCovariance() const;
+    Eigen::Matrix<float, N, N> getCovariance() const;
 
    private:
     bool applyMeasurement(HeadingMeasurement const& measurement);

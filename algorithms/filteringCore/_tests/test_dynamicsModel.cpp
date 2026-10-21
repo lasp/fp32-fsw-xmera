@@ -12,43 +12,49 @@
 
 #include <math.h>
 #include <cmath>
+#include <limits>
 
 namespace filtering {
+
+// Bound for comparing two float computations of the same quantity: a few operations of roundoff
+// with the 3-10x margin of docs/PRECISION_GUIDELINES.md (10 * epsilon ~ 1.2e-6).
+inline constexpr float kRoundoffTol = 10.0F * std::numeric_limits<float>::epsilon();
+
 namespace {
 
 // Basic state for testing dynamics integration
 struct ScalarState {
-    double v = 0.0;
+    float v = 0.0;
     ScalarState add(ScalarState const& other) const { return {v + other.v}; }
-    ScalarState scale(double k) const { return {v * k}; }
+    ScalarState scale(float k) const { return {v * k}; }
 };
 
 static_assert(LinearlyCombinable<ScalarState>);
 
 // Constant-rate dynamics for the simplest RK4 test.
 struct ConstantRate {
-    double c;
-    ScalarState operator()(double, ScalarState const&) const { return ScalarState{c}; }
+    float c;
+    ScalarState operator()(float, ScalarState const&) const { return ScalarState{c}; }
 };
 
 // dx/dt = a·t. Quadratic x(t); still in RK4's exactness range (degree ≤ 4).
 struct TimeRamp {
-    double a;
-    ScalarState operator()(double t, ScalarState const&) const { return ScalarState{a * t}; }
+    float a;
+    ScalarState operator()(float t, ScalarState const&) const { return ScalarState{a * t}; }
 };
 
 // Spring mass damper for harmonic oscillator testing. The analytic period is T = 2π;
 // conserved energy E = ½(x² + v²).
-constexpr double kSHOPeriod = 2.0 * M_PI;
+constexpr float kSHOPeriod = 2.0 * M_PI;
 
 using SpringMassState = StateVector<Position<1>, Velocity<1>>;
 
 struct SpringMassDyn {
-    SpringMassState operator()(double, SpringMassState const& s) const {
+    SpringMassState operator()(float, SpringMassState const& s) const {
         SpringMassState out;
-        Eigen::Vector<double, 1> dx;
+        Eigen::Vector<float, 1> dx;
         dx(0) = s.get<Velocity<1>>()(0);
-        Eigen::Vector<double, 1> dv;
+        Eigen::Vector<float, 1> dv;
         dv(0) = -s.get<Position<1>>()(0);
         out.set<Position<1>>(dx);
         out.set<Velocity<1>>(dv);
@@ -56,9 +62,9 @@ struct SpringMassDyn {
     }
 };
 
-double energy(SpringMassState const& s) {
-    double const x = s.get<Position<1>>()(0);
-    double const v = s.get<Velocity<1>>()(0);
+float energy(SpringMassState const& s) {
+    float const x = s.get<Position<1>>()(0);
+    float const v = s.get<Velocity<1>>()(0);
     return 0.5 * (x * x + v * v);
 }
 
@@ -67,8 +73,8 @@ double energy(SpringMassState const& s) {
 // Check zero propagation
 TEST(Rk4AndPropagate, ReturnInputUnchangedAtZeroTime) {
     SpringMassState s;
-    s.set<Position<1>>(Eigen::Vector<double, 1>(2.0));
-    Eigen::Vector<double, 1> v0;
+    s.set<Position<1>>(Eigen::Vector<float, 1>(2.0));
+    Eigen::Vector<float, 1> v0;
     v0(0) = -0.5;
     s.set<Velocity<1>>(v0);
     SpringMassDyn const d;
@@ -84,21 +90,21 @@ TEST(Rk4, IsExactForPolynomialDynamics) {
     {
         ScalarState const s0{10.0};
         ConstantRate const d{3.0};
-        EXPECT_NEAR(rk4(d, s0, 0.0, 2.0).v, 16.0, 1e-12) << "constant dx/dt = c";
+        EXPECT_NEAR(rk4(d, s0, 0.0, 2.0).v, 16.0, 16.0 * kRoundoffTol) << "constant dx/dt = c";
     }
     // dx/dt = a·t leads to x (t)= 0.5 a t*t
     {
         ScalarState const s0{0.0};
         TimeRamp const d{2.0};
-        EXPECT_NEAR(rk4(d, s0, 0.0, 3.0).v, 9.0, 1e-12) << "linear-in-t dx/dt = a·t";
+        EXPECT_NEAR(rk4(d, s0, 0.0, 3.0).v, 9.0, 9.0 * kRoundoffTol) << "linear-in-t dx/dt = a·t";
     }
 }
 
 // Test spring-mass (m, k =1 )
 TEST(Propagate, HarmonicOscillatorInvariants) {
     SpringMassState s0;
-    s0.set<Position<1>>(Eigen::Vector<double, 1>(1.0));  // x0 = 1, v0 = 0
-    double const E0 = energy(s0);
+    s0.set<Position<1>>(Eigen::Vector<float, 1>(1.0));  // x0 = 1, v0 = 0
+    float const E0 = energy(s0);
     SpringMassDyn const d;
 
     // (1) Energy conserved over one full period.
@@ -124,13 +130,13 @@ TEST(Propagate, HarmonicOscillatorInvariants) {
 // oscillator more accurately
 TEST(Propagate, IntegrationStepIsHonored) {
     SpringMassState s0;
-    s0.set<Position<1>>(Eigen::Vector<double, 1>(1.0));  // x0 = 1, v0 = 0
-    double const E0 = energy(s0);
+    s0.set<Position<1>>(Eigen::Vector<float, 1>(1.0));  // x0 = 1, v0 = 0
+    float const E0 = energy(s0);
     SpringMassDyn const d;
 
     // Steps stay under the kMaxNumberOfSteps cap over one period (T/0.1 ~ 63 < 100).
-    double const coarseDrift = std::abs(energy(propagate(d, s0, {0.0, kSHOPeriod}, 1.0)) - E0);
-    double const fineDrift = std::abs(energy(propagate(d, s0, {0.0, kSHOPeriod}, 0.1)) - E0);
+    float const coarseDrift = std::abs(energy(propagate(d, s0, {0.0, kSHOPeriod}, 1.0)) - E0);
+    float const fineDrift = std::abs(energy(propagate(d, s0, {0.0, kSHOPeriod}, 0.1)) - E0);
     EXPECT_LT(fineDrift, coarseDrift) << "smaller integration step should integrate more accurately";
 
     // Passing the default explicitly equals omitting the argument.

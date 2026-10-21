@@ -17,20 +17,20 @@ class HeadingMeasurementModel {
    public:
     static constexpr int size = 3;
 
-    HeadingMeasurementModel(Eigen::Vector3d observation, Eigen::Matrix3d noise)
+    HeadingMeasurementModel(Eigen::Vector3f observation, Eigen::Matrix3f noise)
         : observed(std::move(observation)), measNoise(std::move(noise)) {}
 
-    Eigen::Vector3d observation() const { return this->observed; }
-    static Eigen::Vector3d model(State const& state) {
-        Eigen::Vector3d const r = state.get<filtering::Position<3>>();
+    Eigen::Vector3f observation() const { return this->observed; }
+    static Eigen::Vector3f model(State const& state) {
+        Eigen::Vector3f const r = state.get<filtering::Position<3>>();
         return r / r.stableNorm();
     }
-    Eigen::Matrix3d noise() const { return this->measNoise; }
-    static Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) { return a - b; }
+    Eigen::Matrix3f noise() const { return this->measNoise; }
+    static Eigen::Vector3f subtract(Eigen::Vector3f const& a, Eigen::Vector3f const& b) { return a - b; }
 
    private:
-    Eigen::Vector3d observed;
-    Eigen::Matrix3d measNoise;
+    Eigen::Vector3f observed;
+    Eigen::Matrix3f measNoise;
 };
 
 static_assert(filtering::Measurement<HeadingMeasurementModel, State>);
@@ -96,7 +96,7 @@ FlybyFilterOutput FlybyFilterAlgorithm::update(double currentSeconds, HeadingDat
 /*! Propagate the state from the last-measurement anchor by dt.
  *  @return false if the propagated state/covariance is non-finite
  *  @param dt [s] elapsed time since the last measurement */
-bool FlybyFilterAlgorithm::timeUpdate(double dt) { return this->srukf.timeUpdate(dt); }
+bool FlybyFilterAlgorithm::timeUpdate(float dt) { return this->srukf.timeUpdate(dt); }
 
 /*! Fold a single heading measurement into the filter.
  *  @return false if the resulting state/covariance is non-finite
@@ -136,8 +136,8 @@ HeadingMeasurement FlybyFilterAlgorithm::packHeadingMeasurement(HeadingData cons
     HeadingMeasurement packed;
     packed.timeTag = headingData.timeTag;
     packed.rhat_BN_N = headingData.rhat_BN_N;
-    double const std = this->cfg.getHeadingMeasurementNoiseStd();
-    packed.covar = (std * std) * Eigen::Matrix3d::Identity();
+    float const std = this->cfg.getHeadingMeasurementNoiseStd();
+    packed.covar = (std * std) * Eigen::Matrix3f::Identity();
     packed.valid = true;
     return packed;
 }
@@ -156,7 +156,7 @@ HeadingResidualsOutput const& FlybyFilterAlgorithm::getLastHeadingResiduals() co
 
 FlybyFilterAlgorithm::State FlybyFilterAlgorithm::getState() const { return this->srukf.getState(); }
 
-Eigen::Matrix<double, FlybyFilterAlgorithm::N, FlybyFilterAlgorithm::N> FlybyFilterAlgorithm::getCovariance() const {
+Eigen::Matrix<float, FlybyFilterAlgorithm::N, FlybyFilterAlgorithm::N> FlybyFilterAlgorithm::getCovariance() const {
     return this->srukf.getCovariance();
 }
 
