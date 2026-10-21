@@ -176,6 +176,7 @@ def state_propagation_flyby(show_plots=False):
     np.testing.assert_allclose(state_data_log[:, 1:],
                                expected[:, 1:],
                                rtol=1E-8,
+                               atol=3E-5,
                                err_msg='state propagation error',
                                verbose=True)
     diff = np.copy(state_data_log)

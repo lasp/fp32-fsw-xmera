@@ -32,17 +32,17 @@ namespace {
 using TestState = StateVector<Position<3>, Velocity<3>, Bias<1>>;
 
 struct ZeroDynamics {
-    TestState operator()(double, TestState const& s) const { return s.scale(0.0); }
+    TestState operator()(float, TestState const& s) const { return s.scale(0.0); }
 };
 
 struct PositionMeasurement {
     static constexpr int size = 3;
-    Eigen::Vector3d observed = Eigen::Vector3d::Zero();
-    Eigen::Matrix3d noiseCov = Eigen::Matrix3d::Identity();
-    Eigen::Vector3d observation() const { return observed; }
-    Eigen::Vector3d model(TestState const& s) const { return s.get<Position<3>>(); }
-    Eigen::Matrix3d noise() const { return noiseCov; }
-    Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) const { return a - b; }
+    Eigen::Vector3f observed = Eigen::Vector3f::Zero();
+    Eigen::Matrix3f noiseCov = Eigen::Matrix3f::Identity();
+    Eigen::Vector3f observation() const { return observed; }
+    Eigen::Vector3f model(TestState const& s) const { return s.get<Position<3>>(); }
+    Eigen::Matrix3f noise() const { return noiseCov; }
+    Eigen::Vector3f subtract(Eigen::Vector3f const& a, Eigen::Vector3f const& b) const { return a - b; }
 };
 
 // add() but no scale() -> not LinearlyCombinable.
@@ -52,21 +52,21 @@ struct NotCombinable {
 
 // LinearlyCombinable, but no `size` / `raw()` -> not a FilterState.
 struct CombinableButNotState {
-    CombinableButNotState scale(double) const { return *this; }
+    CombinableButNotState scale(float) const { return *this; }
     CombinableButNotState add(CombinableButNotState const&) const { return *this; }
 };
 
 // Measurement missing noise() -> not a Measurement.
 struct MeasurementNoNoise {
     static constexpr int size = 3;
-    Eigen::Vector3d observation() const { return Eigen::Vector3d::Zero(); }
-    Eigen::Vector3d model(TestState const&) const { return Eigen::Vector3d::Zero(); }
-    Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) const { return a - b; }
+    Eigen::Vector3f observation() const { return Eigen::Vector3f::Zero(); }
+    Eigen::Vector3f model(TestState const&) const { return Eigen::Vector3f::Zero(); }
+    Eigen::Vector3f subtract(Eigen::Vector3f const& a, Eigen::Vector3f const& b) const { return a - b; }
 };
 
-// Returns double instead of State -> not Dynamics<.., TestState>.
+// Returns float instead of State -> not Dynamics<.., TestState>.
 struct NotDynamics {
-    double operator()(double, TestState const&) const { return 0.0; }
+    float operator()(float, TestState const&) const { return 0.0; }
 };
 
 // LinearlyCombinable

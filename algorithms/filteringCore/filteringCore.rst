@@ -69,6 +69,13 @@ Header-only interface library (``algorithms/filteringCore``). The headers
 sit at the top of that directory and are included as ``<filteringCore/...>``,
 which the parent ``algorithms/`` include path resolves.
 
+All filter math (states, covariances, sigma points, measurement models,
+dynamics, and the propagation step ``dt``) is single precision ``float``.
+Absolute times (measurement time tags, ``callTime``, the queue's
+time-of-last-measurement) stay ``double`` so they do not lose resolution over
+long runs; only their differences are narrowed to ``float`` before
+``timeUpdate(dt)``.
+
 ``state.hpp``
    ``StateVector<Components...>`` is a type-composed state vector laid
    out contiguously in a single fixed-size ``Eigen::Vector``. Components are
@@ -80,8 +87,8 @@ which the parent ``algorithms/`` include path resolves.
                                                   filtering::Velocity<3>,
                                                   filtering::Bias<1>>;  // size 7
       SunlineState s;
-      s.set<filtering::Position<3>>(Eigen::Vector3d{0, 0, 1});  // sun heading
-      Eigen::Vector3d omega = s.get<filtering::Velocity<3>>();  // body rate
+      s.set<filtering::Position<3>>(Eigen::Vector3f{0, 0, 1});  // sun heading
+      Eigen::Vector3f omega = s.get<filtering::Velocity<3>>();  // body rate
 
    Component tags (``Position``, ``Velocity``, ``Acceleration``, ``Bias``,
    ``MrpAttitude``, ``AngularRate``, ``Consider``) each carry a compile-time
@@ -96,7 +103,7 @@ which the parent ``algorithms/`` include path resolves.
    - ``FilterState<S>`` — ``LinearlyCombinable`` plus ``S::size`` and ``raw()``.
    - ``Measurement<M, State>`` — ``M::size``, ``observation()``,
      ``model(state)``, ``noise()``, ``subtract(a, b)``.
-   - ``Dynamics<D, State>`` — invocable ``(double, State) -> State``.
+   - ``Dynamics<D, State>`` — invocable ``(float, State) -> State``.
 
 ``dynamicsModel.hpp``
    ``DynamicsModel<State>`` (a ``std::function`` alias) plus ``rk4()`` and
@@ -377,7 +384,7 @@ xmera):
    SunlineFilterAlgorithm::State x0;
    x0.set<filtering::Position<3>>(sHat0);                       // sun heading (unit)
    x0.set<filtering::Velocity<3>>(omega0);                      // body rate
-   x0.set<filtering::Bias<1>>(Eigen::Vector<double, 1>{1.0});   // bias state
+   x0.set<filtering::Bias<1>>(Eigen::Vector<float, 1>{1.0F});  // bias state
 
    // Build a validated configuration (throws on invalid input). CSS geometry
    // (boresights, per-sensor scale factors, count) is latched from CSSConfig by

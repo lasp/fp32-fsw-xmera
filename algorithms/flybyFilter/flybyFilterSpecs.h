@@ -14,23 +14,23 @@ inline constexpr int BatchSize = 1;
 using FlybyState = filtering::StateVector<filtering::Position<3>, filtering::Velocity<3>>;
 
 // N x N filter matrix (process noise, covariance) where N = FlybyState::size.
-using StateMatrix = Eigen::Matrix<double, FlybyState::size, FlybyState::size>;
+using StateMatrix = Eigen::Matrix<float, FlybyState::size, FlybyState::size>;
 
-inline constexpr double MinGravityRange = 1e-3;
+inline constexpr float MinGravityRange = 1e-3F;
 // Two-body point-mass gravity: r_dot = v; v_dot = -mu/max(|r|, MinGravityRange)^3 r. The
 // gravitational parameter mu is carried by the functor (internal units km^3/s^2) and set from the
 // configuration. The denominator (range) is clamped to keep the acceleration
 // continuous and bounded.
 struct FlybyDynamics {
-    double mu = 0.0;
+    float mu = 0.0F;
 
-    FlybyState operator()(double /*t*/, FlybyState const& state) const {
-        Eigen::Vector3d const r = state.get<filtering::Position<3>>();
-        Eigen::Vector3d const v = state.get<filtering::Velocity<3>>();
+    FlybyState operator()(float /*t*/, FlybyState const& state) const {
+        Eigen::Vector3f const r = state.get<filtering::Position<3>>();
+        Eigen::Vector3f const v = state.get<filtering::Velocity<3>>();
 
-        double const norm = r.stableNorm();
-        double const range = norm < MinGravityRange ? MinGravityRange : norm;
-        double const rangeCubed = range * range * range;
+        float const norm = r.stableNorm();
+        float const range = norm < MinGravityRange ? MinGravityRange : norm;
+        float const rangeCubed = range * range * range;
 
         FlybyState xDot;
         xDot.set<filtering::Position<3>>(v);
@@ -43,8 +43,8 @@ struct FlybyDynamics {
 // frame). covar is the measurement noise (dimensionless, the unit vector is frame-only).
 struct HeadingMeasurement {
     double timeTag = 0;
-    Eigen::Vector3d rhat_BN_N = Eigen::Vector3d::Zero();
-    Eigen::Matrix3d covar = Eigen::Matrix3d::Identity();
+    Eigen::Vector3f rhat_BN_N = Eigen::Vector3f::Zero();
+    Eigen::Matrix3f covar = Eigen::Matrix3f::Identity();
     bool valid = false;
 };
 
@@ -53,15 +53,15 @@ using Measurement = HeadingMeasurement;
 
 struct FilterStateOutput {
     static constexpr int N = FlybyState::size;
-    Eigen::Matrix<double, N, 1> state = Eigen::Matrix<double, N, 1>::Zero();
-    Eigen::Matrix<double, N, N> covariance = Eigen::Matrix<double, N, N>::Zero();
+    Eigen::Matrix<float, N, 1> state = Eigen::Matrix<float, N, 1>::Zero();
+    Eigen::Matrix<float, N, N> covariance = Eigen::Matrix<float, N, N>::Zero();
 };
 
 struct HeadingResidualsOutput {
     bool valid = false;
-    Eigen::Vector3d observation = Eigen::Vector3d::Zero();
-    Eigen::Vector3d preFit = Eigen::Vector3d::Zero();
-    Eigen::Vector3d postFit = Eigen::Vector3d::Zero();
+    Eigen::Vector3f observation = Eigen::Vector3f::Zero();
+    Eigen::Vector3f preFit = Eigen::Vector3f::Zero();
+    Eigen::Vector3f postFit = Eigen::Vector3f::Zero();
 };
 
 }  // namespace filtering::flybyFilter

@@ -68,7 +68,7 @@ template <class... Components>
 class StateVector {
    public:
     static constexpr int size = (Components::size + ...);
-    using Storage = Eigen::Vector<double, size>;
+    using Storage = Eigen::Vector<float, size>;
 
     StateVector() : data(Storage::Zero()) {}
     explicit StateVector(Storage const& s) : data(s) {}
@@ -76,7 +76,7 @@ class StateVector {
     /*! @return component value addressed by its tag type */
     template <class Component>
         requires detail::contains<Component, Components...>
-    Eigen::Vector<double, Component::size> get() const {
+    Eigen::Vector<float, Component::size> get() const {
         constexpr int offset = detail::offsetOf<Component, Components...>::value;
         return this->data.template segment<Component::size>(offset);
     }
@@ -84,7 +84,7 @@ class StateVector {
     /*! Set the component addressed by its tag type. */
     template <class Component>
         requires detail::contains<Component, Components...>
-    void set(Eigen::Vector<double, Component::size> const& value) {
+    void set(Eigen::Vector<float, Component::size> const& value) {
         constexpr int offset = detail::offsetOf<Component, Components...>::value;
         this->data.template segment<Component::size>(offset) = value;
     }
@@ -96,7 +96,7 @@ class StateVector {
     bool allFinite() const { return this->data.allFinite(); }
 
     StateVector add(StateVector const& other) const { return StateVector(this->data + other.data); }
-    StateVector scale(double scalar) const { return StateVector(this->data * scalar); }
+    StateVector scale(float scalar) const { return StateVector(this->data * scalar); }
 
    private:
     Storage data;
