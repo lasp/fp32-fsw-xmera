@@ -123,8 +123,8 @@ void checkForceTorqueThrForceMapping() {
 }
 
 void checkInertialFilter() {
-    inf::StateMatrix const q = inf::StateMatrix::Identity() * 1e-6;
-    inf::StateMatrix const p = inf::StateMatrix::Identity() * 1e-2;
+    inf::StateMatrix const q = inf::StateMatrix::Identity() * 1e-6F;
+    inf::StateMatrix const p = inf::StateMatrix::Identity() * 1e-2F;
     inf::InertialState const x0{};
 
     begin();
@@ -138,10 +138,10 @@ void checkInertialFilter() {
         t += 0.1;
         inf::StAttData st{};
         st.timeTag = t;
-        st.sigma_BN = Eigen::Vector3d(0.01, 0.02, 0.03);
+        st.sigma_BN = Eigen::Vector3f(0.01F, 0.02F, 0.03F);
         inf::RateData rd{};
         rd.timeTag = t;
-        rd.rate = Eigen::Vector3d(0.001, 0.002, 0.003);
+        rd.rate = Eigen::Vector3f(0.001F, 0.002F, 0.003F);
         auto const out = filt.update(t, st, rd);
         (void)out.filterState.state.sum();
     }
@@ -149,14 +149,14 @@ void checkInertialFilter() {
 }
 
 void checkSunlineFilter() {
-    snf::StateMatrix const q = snf::StateMatrix::Identity() * 1e-6;
-    snf::StateMatrix const p = snf::StateMatrix::Identity() * 1e-2;
+    snf::StateMatrix const q = snf::StateMatrix::Identity() * 1e-6F;
+    snf::StateMatrix const p = snf::StateMatrix::Identity() * 1e-2F;
     snf::SunlineState const x0{};
-    Eigen::Matrix<double, snf::MaxCss, 3> nhat = Eigen::Matrix<double, snf::MaxCss, 3>::Zero();
+    Eigen::Matrix<float, snf::MaxCss, 3> nhat = Eigen::Matrix<float, snf::MaxCss, 3>::Zero();
     for (int i = 0; i < snf::MaxCss; ++i) {
-        nhat(i, i % 3) = 1.0;
+        nhat(i, i % 3) = 1.0F;
     }
-    Eigen::Vector<double, snf::MaxCss> const scale = Eigen::Vector<double, snf::MaxCss>::Ones();
+    Eigen::Vector<float, snf::MaxCss> const scale = Eigen::Vector<float, snf::MaxCss>::Ones();
 
     begin();
     auto const cfg = snf::SunlineFilterConfig::create(
@@ -171,11 +171,11 @@ void checkSunlineFilter() {
         snf::CssData css{};
         css.timeTag = t;
         for (int c = 0; c < snf::MaxCss; ++c) {
-            css.cosValues(c) = 0.3 + 0.01 * c;
+            css.cosValues(c) = 0.3F + (0.01F * static_cast<float>(c));
         }
         snf::RateData rd{};
         rd.timeTag = t;
-        rd.rate = Eigen::Vector3d(0.001, 0.002, 0.003);
+        rd.rate = Eigen::Vector3f(0.001F, 0.002F, 0.003F);
         auto const out = filt.update(t, css, rd);
         (void)out.filterState.state.sum();
     }
@@ -183,11 +183,11 @@ void checkSunlineFilter() {
 }
 
 void checkFlybyFilter() {
-    fbf::StateMatrix const q = fbf::StateMatrix::Identity() * 1e-6;
-    fbf::StateMatrix const p = fbf::StateMatrix::Identity() * 1e2;
+    fbf::StateMatrix const q = fbf::StateMatrix::Identity() * 1e-6F;
+    fbf::StateMatrix const p = fbf::StateMatrix::Identity() * 1e2F;
     fbf::FlybyState x0{};
-    x0.set<filtering::Position<3>>(Eigen::Vector3d(1.0e5, 2.0e5, 3.0e5));
-    x0.set<filtering::Velocity<3>>(Eigen::Vector3d(1.0, 0.5, -0.5));
+    x0.set<filtering::Position<3>>(Eigen::Vector3f(1.0e5F, 2.0e5F, 3.0e5F));
+    x0.set<filtering::Velocity<3>>(Eigen::Vector3f(1.0F, 0.5F, -0.5F));
 
     begin();
     auto const cfg = fbf::FlybyFilterConfig::create(0.1, 2.0, 3.986e14, q, x0, p, 1e-3);
@@ -200,7 +200,7 @@ void checkFlybyFilter() {
         t += 0.1;
         fbf::HeadingData hd{};
         hd.timeTag = t;
-        hd.rhat_BN_N = Eigen::Vector3d(0.267, 0.535, 0.802);
+        hd.rhat_BN_N = Eigen::Vector3f(0.267F, 0.535F, 0.802F);
         auto const out = filt.update(t, hd);
         (void)out.filterState.state.sum();
     }
