@@ -6,14 +6,6 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-/// Burn-frame attitude guidance output. The default (all-zero) value represents
-/// the identity R/N attitude with zero rates.
-struct DvGuidanceOutput {
-    Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();     ///< MRP of the reference frame w.r.t. inertial.
-    Eigen::Vector3f omega_RN_N = Eigen::Vector3f::Zero();   ///< Reference angular rate, inertial frame [rad/s].
-    Eigen::Vector3f domega_RN_N = Eigen::Vector3f::Zero();  ///< Reference angular acceleration, inertial frame.
-};
-
 /// Validated, immutable configuration for the delta-V burn reference frame. Construct via create(),
 /// which enforces the parameter constraints and throws fsw::invalid_argument on a violation.
 class DvGuidanceConfig final {
@@ -71,13 +63,12 @@ class DvGuidanceAlgorithm final {
     /// Installs the configuration parameters and computes the inertially fixed burn frame.
     void setConfig(const DvGuidanceConfig& config);
 
-    /// Returns the burn-frame attitude reference computed by setConfig().
-    /// @return The burn-frame attitude reference with zero rates.
-    DvGuidanceOutput update() const;
+    /// @return [-] The fixed burn-frame MRP sigma_RN computed by setConfig(); the reference rates are zero.
+    Eigen::Vector3f update() const;
 
    private:
-    DvGuidanceConfig cfg;                  ///< validated configuration
-    DvGuidanceOutput attitudeReference{};  ///< burn-frame attitude reference computed by setConfig()
+    DvGuidanceConfig cfg;                               ///< validated configuration
+    Eigen::Vector3f sigma_RN{Eigen::Vector3f::Zero()};  ///< [-] MRP of the burn frame R relative to N
 };
 
 #endif

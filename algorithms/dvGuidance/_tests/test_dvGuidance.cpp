@@ -55,8 +55,7 @@ TEST(DvGuidanceTest, DeltaVNormBoundary) {
 }
 
 TEST(DvGuidanceTest, OutputIsFinite) {
-    // A valid configuration is provided:
-    // all sigma_RN, omega_RN_N, and domega_RN_N components are expected to remain finite.
+    // all sigma_RN components are expected to remain finite.
     propertyOutputIsFinite(Eigen::Vector3f{2.0F, -1.0F, 4.0F}, Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 }
 
@@ -93,11 +92,11 @@ TEST(DvGuidanceTest, SetConfigAppliesNewDeltaV) {
     const Eigen::Vector3f cmdDv_N = Eigen::Vector3f::UnitZ();
     const Eigen::Vector3f rHatPref_N = Eigen::Vector3f::UnitY();
     DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};
-    EXPECT_TRUE(alg.update().sigma_RN.isZero());
+    EXPECT_TRUE(alg.update().isZero());
 
     const Eigen::Vector3f newCmdDv_N = Eigen::Vector3f::UnitX();
     alg.setConfig(DvGuidanceConfig::create(newCmdDv_N, rHatPref_N));
-    const Eigen::Matrix3f dcm_RN = mrpToDcm<float>(alg.update().sigma_RN);
+    const Eigen::Matrix3f dcm_RN = mrpToDcm<float>(alg.update());
     EXPECT_TRUE(dcm_RN.row(2).transpose().isApprox(newCmdDv_N, 1e-5F));
     EXPECT_TRUE(dcm_RN.row(1).transpose().isApprox(rHatPref_N, 1e-5F));
 }

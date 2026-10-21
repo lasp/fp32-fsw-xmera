@@ -25,12 +25,11 @@ void DvGuidance::updateState(const uint64_t callTime) {
         throw XmeraLifecycleException("DvGuidance reset() has not been called.");
     }
 
-    const DvGuidanceOutput out = this->algorithm->update();
+    const Eigen::Vector3f sigma_RN = this->algorithm->update();
 
-    AttRefMsgF32Payload attRefOut = AttRefMsgF32Payload();
-    eigenVectorToCArray(out.sigma_RN, attRefOut.sigma_RN);
-    eigenVectorToCArray(out.omega_RN_N, attRefOut.omega_RN_N);
-    eigenVectorToCArray(out.domega_RN_N, attRefOut.domega_RN_N);
+    // The burn frame is inertially fixed: the zero-initialized reference rate and acceleration are left at zero.
+    AttRefMsgF32Payload attRefOut{};
+    eigenVectorToCArray(sigma_RN, attRefOut.sigma_RN);
 
     this->attRefOutMsg.write(attRefOut, this->moduleID, callTime);
 }

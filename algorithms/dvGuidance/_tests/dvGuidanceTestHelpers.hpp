@@ -10,51 +10,36 @@
 #include <Eigen/Geometry>
 #include <cmath>
 
-struct ReferenceDvGuidanceOutput {
-    Eigen::Matrix3d dcm_RN;
-    Eigen::Vector3d omega_RN_N;
-    Eigen::Vector3d domega_RN_N;
-};
-
 // Independent reference implementation kept in pure double precision, used to verify the
 // algorithm's FP32 output to within float tolerance. Attitude is returned as a DCM (not an MRP)
 // so the test comparison is robust at the MRP shadow-set boundary (|sigma|=1 at 180 deg).
 // Only valid configurations reach the algorithm, so the reference has no degenerate-input guards.
-inline ReferenceDvGuidanceOutput referenceDvGuidance(const Eigen::Vector3d& cmdDv_N,
-                                                     const Eigen::Vector3d& rHatPref_N) {
+inline Eigen::Matrix3d referenceDvGuidance(const Eigen::Vector3d& cmdDv_N, const Eigen::Vector3d& rHatPref_N) {
     const Eigen::Vector3d dvHat_N = cmdDv_N.stableNormalized();
 
     Eigen::Matrix3d dcm_RN;
     dcm_RN.row(2) = dvHat_N;
     dcm_RN.row(0) = rHatPref_N.stableNormalized().cross(dvHat_N).stableNormalized();
     dcm_RN.row(1) = dcm_RN.row(2).cross(dcm_RN.row(0)).stableNormalized();
-
-    // The burn frame is inertially fixed: the reference rate and acceleration are zero.
-    return {
-        dcm_RN,
-        Eigen::Vector3d::Zero(),
-        Eigen::Vector3d::Zero(),
-    };
+    return dcm_RN;
 }
 
 inline void testDvGuidanceRegression(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N) {
     DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};
 
-    DvGuidanceOutput out;
-    EXPECT_NO_THROW(out = alg.update());
+    Eigen::Vector3f sigma_RN;
+    EXPECT_NO_THROW(sigma_RN = alg.update());
 
-    ReferenceDvGuidanceOutput ref;
-    EXPECT_NO_THROW(ref = referenceDvGuidance(cmdDv_N.cast<double>(), rHatPref_N.cast<double>()));
+    Eigen::Matrix3d refDcm_RN;
+    EXPECT_NO_THROW(refDcm_RN = referenceDvGuidance(cmdDv_N.cast<double>(), rHatPref_N.cast<double>()));
 
     constexpr float tol = 1e-4F;
-    const Eigen::Matrix3f outDcm = mrpToDcm<float>(out.sigma_RN);
-    const Eigen::Matrix3f refDcm = ref.dcm_RN.cast<float>();
+    const Eigen::Matrix3f outDcm = mrpToDcm<float>(sigma_RN);
+    const Eigen::Matrix3f refDcm = refDcm_RN.cast<float>();
     for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) {
             EXPECT_NEAR(outDcm(i, j), refDcm(i, j), tol);
         }
-        EXPECT_NEAR(out.omega_RN_N[i], static_cast<float>(ref.omega_RN_N[i]), tol);
-        EXPECT_NEAR(out.domega_RN_N[i], static_cast<float>(ref.domega_RN_N[i]), tol);
     }
 }
 
@@ -83,10 +68,10 @@ inline void testDvGuidanceDeltaVNormBoundary(const Eigen::Vector3f& rHatPref_N) 
 inline void propertyThirdAxisAlignedWithDeltaV(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N) {
     DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};
 
-    DvGuidanceOutput out;
-    EXPECT_NO_THROW(out = alg.update());
+    Eigen::Vector3f sigma_RN;
+    EXPECT_NO_THROW(sigma_RN = alg.update());
 
-    const Eigen::Vector3f r3_N = mrpToDcm<float>(out.sigma_RN).row(2).transpose();
+    const Eigen::Vector3f r3_N = mrpToDcm<float>(sigma_RN).row(2).transpose();
     EXPECT_NEAR((r3_N - cmdDv_N.stableNormalized()).stableNorm(), 0.0F, 1e-5F);
 }
 
@@ -94,10 +79,10 @@ inline void propertyThirdAxisAlignedWithDeltaV(const Eigen::Vector3f& cmdDv_N, c
 inline void propertySecondAxisTowardRHatPref(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N) {
     DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};
 
-    DvGuidanceOutput out;
-    EXPECT_NO_THROW(out = alg.update());
+    Eigen::Vector3f sigma_RN;
+    EXPECT_NO_THROW(sigma_RN = alg.update());
 
-    const Eigen::Vector3f r2_N = mrpToDcm<float>(out.sigma_RN).row(1).transpose();
+    const Eigen::Vector3f r2_N = mrpToDcm<float>(sigma_RN).row(1).transpose();
     EXPECT_GT(r2_N.dot(rHatPref_N), 0.0F);
 }
 
@@ -105,24 +90,20 @@ inline void propertySecondAxisTowardRHatPref(const Eigen::Vector3f& cmdDv_N, con
 inline void propertyOutputIsFinite(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N) {
     DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};
 
-    DvGuidanceOutput out;
-    EXPECT_NO_THROW(out = alg.update());
+    Eigen::Vector3f sigma_RN;
+    EXPECT_NO_THROW(sigma_RN = alg.update());
 
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(out.sigma_RN[i]));
-        EXPECT_TRUE(std::isfinite(out.omega_RN_N[i]));
-        EXPECT_TRUE(std::isfinite(out.domega_RN_N[i]));
-    }
+    EXPECT_TRUE(sigma_RN.allFinite());
 }
 
 // The MRP shadow-set switch keeps the attitude representation bounded to |sigma| <= 1.
 inline void propertySigmaNormBounded(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N) {
     DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};
 
-    DvGuidanceOutput out;
-    EXPECT_NO_THROW(out = alg.update());
+    Eigen::Vector3f sigma_RN;
+    EXPECT_NO_THROW(sigma_RN = alg.update());
 
-    EXPECT_LE(out.sigma_RN.stableNorm(), 1.0F + 1e-5F);
+    EXPECT_LE(sigma_RN.stableNorm(), 1.0F + 1e-5F);
 }
 
 #endif

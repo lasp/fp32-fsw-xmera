@@ -37,11 +37,10 @@ void DvGuidanceAlgorithm_setConfig(DvGuidanceAlgorithmHandle* self,
 }
 
 AttRefMsgF32Payload DvGuidanceAlgorithm_update(const DvGuidanceAlgorithmHandle* self) {
-    const DvGuidanceOutput out = fsw::fromHandle<const ::DvGuidanceAlgorithm>(self)->update();
+    const Eigen::Vector3f sigma_RN = fsw::fromHandle<const ::DvGuidanceAlgorithm>(self)->update();
 
+    // The burn frame is inertially fixed: the zero-initialized reference rate and acceleration are left at zero.
     AttRefMsgF32Payload payload{};
-    eigenVectorToCArray(out.sigma_RN, payload.sigma_RN);
-    eigenVectorToCArray(out.omega_RN_N, payload.omega_RN_N);
-    eigenVectorToCArray(out.domega_RN_N, payload.domega_RN_N);
+    eigenVectorToCArray(sigma_RN, payload.sigma_RN);
     return payload;
 }

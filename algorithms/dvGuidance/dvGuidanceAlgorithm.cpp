@@ -3,8 +3,8 @@
 #include <Eigen/Geometry>
 
 namespace {
-/// Computes the burn-frame attitude reference from a validated configuration.
-DvGuidanceOutput computeAttitudeReference(const DvGuidanceConfig& config) {
+/// Computes the burn-frame MRP sigma_RN from a validated configuration.
+Eigen::Vector3f computeAttitudeReference(const DvGuidanceConfig& config) {
     // Burn frame R: 3rd axis along the commanded delta-V direction, 1st axis perpendicular to {rHatPref_N, r3Hat_N},
     // 2nd axis completes the right-handed triad, i.e. the component of rHatPref_N perpendicular to r3Hat_N.
     // The config guarantees rHatPref_N is not (anti)parallel to r3Hat_N, so the frame is always well defined.
@@ -17,19 +17,15 @@ DvGuidanceOutput computeAttitudeReference(const DvGuidanceConfig& config) {
     dcm_RN.row(0) = r1Hat_N;
     dcm_RN.row(1) = r2Hat_N;
     dcm_RN.row(2) = r3Hat_N;
-
-    // The burn frame is inertially fixed: the reference rate and acceleration stay zero.
-    DvGuidanceOutput out{};
-    out.sigma_RN = dcmToMrp(dcm_RN);
-    return out;
+    return dcmToMrp(dcm_RN);
 }
 }  // namespace
 
 DvGuidanceAlgorithm::DvGuidanceAlgorithm(const DvGuidanceConfig& config) : cfg(config) { setConfig(config); }
 
 void DvGuidanceAlgorithm::setConfig(const DvGuidanceConfig& config) {
-    this->cfg = config;
-    this->attitudeReference = computeAttitudeReference(config);
+    this->cfg = config;                                 // copy of the config: cmdDv_N and rHatPref_N
+    this->sigma_RN = computeAttitudeReference(config);  // the computed burn-frame MRP
 }
 
-DvGuidanceOutput DvGuidanceAlgorithm::update() const { return this->attitudeReference; }
+Eigen::Vector3f DvGuidanceAlgorithm::update() const { return this->sigma_RN; }
