@@ -89,9 +89,18 @@ inline void regressionTestDvManeuver(uint64_t minTime,
     }
 }
 
+// Upper bound on the steps of one fuzz run, so a long burn at a short update period stays fast.
+constexpr uint64_t kMaxFuzzSteps = 100000U;
+
+// Number of fuzz steps: two steps past the latest possible completion, so both time gates are reachable, but at most
+// kMaxFuzzSteps.
+inline uint64_t fuzzStepCount(uint64_t maxTime, uint64_t stepNs) {
+    const uint64_t stepsPastMaxTime = maxTime / stepNs + 2U;
+    return stepsPastMaxTime < kMaxFuzzSteps ? stepsPastMaxTime : kMaxFuzzSteps;
+}
+
 // Fuzz-compatible regression helper: drives regressionTestDvManeuver with fuzz-supplied vectors and timing.
-// maxTime is minTime plus a positive offset, so every input is a valid configuration. The run lasts until two
-// steps past the latest possible completion, so both time gates are reachable.
+// maxTime is minTime plus a positive offset, so every input is a valid configuration.
 inline void fuzzRegressionDvManeuver(const Eigen::Vector3f& cmdForce_B,
                                      const Eigen::Vector3f& cmdDv_N,
                                      const Eigen::Vector3f& acceleration,
@@ -99,7 +108,7 @@ inline void fuzzRegressionDvManeuver(const Eigen::Vector3f& cmdForce_B,
                                      uint64_t maxTimeAboveMinTime,
                                      uint64_t stepNs) {
     const uint64_t maxTime = minTime + maxTimeAboveMinTime;
-    const auto numSteps = static_cast<int>(maxTime / stepNs + 2U);
+    const auto numSteps = static_cast<int>(fuzzStepCount(maxTime, stepNs));
     regressionTestDvManeuver(minTime, maxTime, stepNs, cmdForce_B, cmdDv_N, acceleration, numSteps);
 }
 
@@ -123,7 +132,7 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
         DvManeuverConfig::create(toSeconds(minTime), toSeconds(maxTime), toSeconds(stepNs), cmdForce_B, cmdDv_N);
     DvManeuverAlgorithm alg{config};
 
-    const uint64_t numSteps = maxTime / stepNs + 2U;
+    const uint64_t numSteps = fuzzStepCount(maxTime, stepNs);
     DvManeuverBurnState previousState = DvManeuverBurnState::Executing;
 
     for (uint64_t k = 0U; k < numSteps; ++k) {
