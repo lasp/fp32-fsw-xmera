@@ -79,11 +79,11 @@ void DvManeuverAlgorithm_reInitialize(DvManeuverAlgorithmHandle* self);
 
 /**
  * @brief Advance the burn state machine one step.
- * @param self          Pointer to the instance.
- * @param dvAccumulated Total accumulated delta-V from navigation [m/s].
+ * @param self            Pointer to the instance.
+ * @param dvAccumulated_B Total accumulated delta-V from navigation in body frame components [m/s].
  * @return DvManeuverOutput_c  Burn state and body force command.
  */
-DvManeuverOutput_c DvManeuverAlgorithm_update(DvManeuverAlgorithmHandle* self, const Vector3f_c* dvAccumulated);
+DvManeuverOutput_c DvManeuverAlgorithm_update(DvManeuverAlgorithmHandle* self, const Vector3f_c* dvAccumulated_B);
 
 #ifdef __cplusplus
 }  // extern "C"

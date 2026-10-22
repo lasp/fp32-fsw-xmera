@@ -62,13 +62,13 @@ TEST(DvManeuverTest, ReconfigureCannotReExecuteCompletedBurn) {
         dvCmd)};
 
     // Start the burn.
-    DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero());
+    DvManeuverOutput out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f::Zero());
 
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, kCmdForce_B);
 
     // Reach the commanded delta-V and complete the burn.
-    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+    out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
@@ -82,13 +82,13 @@ TEST(DvManeuverTest, ReconfigureCannotReExecuteCompletedBurn) {
         dvCmd));
 
     // Completion must remain latched.
-    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+    out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
 
     // A second update verifies the old burn cannot restart.
-    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+    out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
 
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
@@ -104,22 +104,22 @@ TEST(DvManeuverTest, ReInitializeStartsNewBurn) {
         kCmdForce_B,
         dvCmd)};
 
-    EXPECT_EQ(alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(alg.update(/* dvAccumulated_B = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing);
     EXPECT_EQ(alg.update(dvCmd).state, DvManeuverBurnState::Executing);
     EXPECT_EQ(alg.update(dvCmd).state, DvManeuverBurnState::Complete);
 
     // Start the next burn. The flight software also resets the accumulated delta-V at the start of the new burn.
     alg.reInitialize();
 
-    DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero());
+    DvManeuverOutput out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f::Zero());
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, kCmdForce_B);
 
     // 1.5 m/s meets the command, but only 0.5 s of the new burn has elapsed.
-    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.5F});
+    out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f{0.0F, 0.0F, 1.5F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
 
-    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F});
+    out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
 }
 
@@ -133,7 +133,7 @@ TEST(DvManeuverTest, SetConfigDuringBurnAppliesNextUpdate) {
         firstForce_B,
         /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F})};
 
-    DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero());
+    DvManeuverOutput out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f::Zero());
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, firstForce_B);
 
@@ -144,7 +144,7 @@ TEST(DvManeuverTest, SetConfigDuringBurnAppliesNextUpdate) {
         kControlPeriod,
         secondForce_B,
         /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F}));
-    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 0.5F});
+    out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f{0.0F, 0.0F, 0.5F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, secondForce_B);
 
@@ -155,7 +155,7 @@ TEST(DvManeuverTest, SetConfigDuringBurnAppliesNextUpdate) {
         kControlPeriod,
         secondForce_B,
         /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F}));
-    out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+    out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
 }
@@ -212,7 +212,7 @@ TEST(DvManeuverTest, EdgeZeroCommandedDvCompletesImmediately) {
                                                      kControlPeriod,
                                                      kCmdForce_B,
                                                      /* cmdDv_N = */ Eigen::Vector3f::Zero())};
-    const DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero());
+    const DvManeuverOutput out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f::Zero());
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
 }
@@ -221,7 +221,7 @@ TEST(DvManeuverTest, EdgeExecutesFromFirstUpdate) {
     // The burn has no start time: it executes and commands the force from the first update.
     DvManeuverAlgorithm alg{DvManeuverConfig::create(
         /* minTime = */ 0.0, /* maxTime = */ 10.0, kControlPeriod, kCmdForce_B, kCmdDv_N)};
-    const DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero());
+    const DvManeuverOutput out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f::Zero());
     EXPECT_EQ(out.state, DvManeuverBurnState::Executing);
     EXPECT_EQ(out.cmdForce_B, kCmdForce_B);
 }
@@ -236,10 +236,11 @@ TEST(DvManeuverTest, EdgeCompletionUsesDeltaVMagnitudeOnly) {
         kCmdForce_B,
         /* cmdDv_N = */ Eigen::Vector3f{1.0F, 0.0F, 0.0F})};
 
-    EXPECT_EQ(alg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing);
-    EXPECT_EQ(alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 0.5F}).state,
+    EXPECT_EQ(alg.update(/* dvAccumulated_B = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing);
+    EXPECT_EQ(alg.update(/* dvAccumulated_B = */ Eigen::Vector3f{0.0F, 0.0F, 0.5F}).state,
               DvManeuverBurnState::Executing);
-    EXPECT_EQ(alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F}).state, DvManeuverBurnState::Complete);
+    EXPECT_EQ(alg.update(/* dvAccumulated_B = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F}).state,
+              DvManeuverBurnState::Complete);
 }
 
 TEST(DvManeuverTest, EdgeAccumulatedDvCountsFromFirstUpdate) {
@@ -250,7 +251,7 @@ TEST(DvManeuverTest, EdgeAccumulatedDvCountsFromFirstUpdate) {
                                                      kControlPeriod,
                                                      kCmdForce_B,
                                                      /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F})};
-    const DvManeuverOutput out = alg.update(/* dvAccumulated = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
+    const DvManeuverOutput out = alg.update(/* dvAccumulated_B = */ Eigen::Vector3f{0.0F, 0.0F, 1.0F});
     EXPECT_EQ(out.state, DvManeuverBurnState::Complete);
     EXPECT_EQ(out.cmdForce_B, Eigen::Vector3f::Zero());
 }
@@ -323,10 +324,10 @@ TEST(DvManeuverTest, EdgeTimeGatesExactAtTenAndHundredHz) {
                                                         kCmdForce_B,
                                                         /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 100.0F})};
     for (uint64_t k = 0U; k < 100U; ++k) {
-        ASSERT_EQ(maxAlg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing)
+        ASSERT_EQ(maxAlg.update(/* dvAccumulated_B = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing)
             << k;
     }
-    EXPECT_EQ(maxAlg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Complete);
+    EXPECT_EQ(maxAlg.update(/* dvAccumulated_B = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Complete);
 
     // A zero delta-V command leaves only the minTime gate, which must pass at exactly 1 s at 100 Hz.
     constexpr double kHundredHzPeriod = 0.01;  // [s]
@@ -336,10 +337,10 @@ TEST(DvManeuverTest, EdgeTimeGatesExactAtTenAndHundredHz) {
                                                         kCmdForce_B,
                                                         /* cmdDv_N = */ Eigen::Vector3f::Zero())};
     for (uint64_t k = 0U; k < 100U; ++k) {
-        ASSERT_EQ(minAlg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing)
+        ASSERT_EQ(minAlg.update(/* dvAccumulated_B = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Executing)
             << k;
     }
-    EXPECT_EQ(minAlg.update(/* dvAccumulated = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Complete);
+    EXPECT_EQ(minAlg.update(/* dvAccumulated_B = */ Eigen::Vector3f::Zero()).state, DvManeuverBurnState::Complete);
 }
 
 // ---------------------------------------------------------------------------

@@ -34,7 +34,7 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
                                                  uint64_t maxTime,
                                                  const Eigen::Vector3f& cmdForce_B,
                                                  uint64_t callTime,
-                                                 const Eigen::Vector3f& dvAccumulated,
+                                                 const Eigen::Vector3f& dvAccumulated_B,
                                                  const Eigen::Vector3f& cmdDv_N) {
     if (state.burnComplete) {
         return {false, true, Eigen::Vector3f::Zero()};
@@ -47,7 +47,7 @@ inline DvManeuverReferenceOutput referenceUpdate(DvManeuverReferenceState& state
 
     const uint64_t burnTime = callTime - state.burnStartCallTime;
     const float dvMag = cmdDv_N.stableNorm();
-    const float dvExecuteMag = dvAccumulated.stableNorm();
+    const float dvExecuteMag = dvAccumulated_B.stableNorm();
 
     state.burnComplete = dvExecuteMag >= dvMag;
     state.burnComplete = state.burnComplete && burnTime >= minTime;
@@ -77,11 +77,11 @@ inline void regressionTestDvManeuver(uint64_t minTime,
 
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
-        const Eigen::Vector3f dvAccumulated = acceleration * (static_cast<float>(callTime) * 1e-9F);
+        const Eigen::Vector3f dvAccumulated_B = acceleration * (static_cast<float>(callTime) * 1e-9F);
 
         DvManeuverOutput algOut{};
-        EXPECT_NO_THROW(algOut = alg.update(dvAccumulated));
-        const auto refOut = referenceUpdate(refState, minTime, maxTime, cmdForce_B, callTime, dvAccumulated, cmdDv_N);
+        EXPECT_NO_THROW(algOut = alg.update(dvAccumulated_B));
+        const auto refOut = referenceUpdate(refState, minTime, maxTime, cmdForce_B, callTime, dvAccumulated_B, cmdDv_N);
 
         EXPECT_EQ(algOut.state == DvManeuverBurnState::Executing, refOut.burnExecuting);
         EXPECT_EQ(algOut.state == DvManeuverBurnState::Complete, refOut.burnComplete);
@@ -128,10 +128,10 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
 
     for (uint64_t k = 0U; k < numSteps; ++k) {
         const uint64_t burnTime = k * stepNs;
-        const Eigen::Vector3f dvAccumulated = acceleration * (static_cast<float>(burnTime) * 1e-9F);
+        const Eigen::Vector3f dvAccumulated_B = acceleration * (static_cast<float>(burnTime) * 1e-9F);
 
         DvManeuverOutput out{};
-        EXPECT_NO_THROW(out = alg.update(dvAccumulated));
+        EXPECT_NO_THROW(out = alg.update(dvAccumulated_B));
 
         if (out.state == DvManeuverBurnState::Complete) {
             EXPECT_GE(burnTime, minTime) << "burnTime " << burnTime;

@@ -41,9 +41,9 @@ void DvManeuver::updateState(const uint64_t callTime) {
 
     const NavTransMsgF32Payload navData = this->navDataInMsg();
 
-    const Eigen::Vector3f dvAccumulated = cArrayToEigenVector3<float>(navData.vehAccumDV);
+    const Eigen::Vector3f dvAccumulated_B = cArrayToEigenVector3<float>(navData.vehAccumDV);
 
-    const DvManeuverOutput out = this->algorithm->update(dvAccumulated);
+    const DvManeuverOutput out = this->algorithm->update(dvAccumulated_B);
 
     CmdForceBodyMsgF32Payload forceMsgOut{};
     eigenVectorToCArray(out.cmdForce_B, forceMsgOut.forceRequestBody);

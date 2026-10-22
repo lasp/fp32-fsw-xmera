@@ -112,9 +112,9 @@ class DvManeuverAlgorithm final {
     void reInitialize();
 
     /// Advances the burn state machine one step.
-    /// @param dvAccumulated  Total accumulated delta-V from navigation [m/s].
+    /// @param dvAccumulated_B  Total accumulated delta-V from navigation in body frame components [m/s].
     /// @return Burn state and body force command for this step.
-    DvManeuverOutput update(const Eigen::Vector3f& dvAccumulated);
+    DvManeuverOutput update(const Eigen::Vector3f& dvAccumulated_B);
 
    private:
     DvManeuverConfig cfg;

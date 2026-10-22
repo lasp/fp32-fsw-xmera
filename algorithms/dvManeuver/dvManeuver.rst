@@ -112,8 +112,8 @@ Algorithm Layer
 ~~~~~~~~~~~~~~~
 
 The algorithm is a burn state machine advanced one step per ``update()`` call. Let :math:`\Delta t` be the configured
-control period, :math:`\boldsymbol{v}_{\text{accum}}` the accumulated Delta-V from navigation, and
-:math:`\Delta\boldsymbol{v}_{\text{cmd}}` the configured ``cmdDv_N``.
+control period, :math:`\boldsymbol{v}_{\text{accum}}` the accumulated Delta-V from navigation in body frame
+components, and :math:`\Delta\boldsymbol{v}_{\text{cmd}}` the configured ``cmdDv_N``.
 
 The state machine has two states: executing and complete. The burn executes from the first update after ``reset()``
 or ``reInitialize()``. Only ``reInitialize()`` moves the burn out of the complete state.

@@ -18,9 +18,9 @@ void DvManeuverAlgorithm::reInitialize() {
     this->burnTime = 0U;
 }
 
-DvManeuverOutput DvManeuverAlgorithm::update(const Eigen::Vector3f& dvAccumulated) {
+DvManeuverOutput DvManeuverAlgorithm::update(const Eigen::Vector3f& dvAccumulated_B) {
     if (this->state == DvManeuverBurnState::Executing) {
-        const bool dvReached = dvAccumulated.stableNorm() >= this->cmdDvMagnitude;
+        const bool dvReached = dvAccumulated_B.stableNorm() >= this->cmdDvMagnitude;
         if ((dvReached && this->burnTime >= this->minTimeNs) || this->burnTime >= this->maxTimeNs) {
             this->state = DvManeuverBurnState::Complete;
         }
