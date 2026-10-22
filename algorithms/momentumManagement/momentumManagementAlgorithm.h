@@ -23,13 +23,14 @@ struct MomentumManagementRwArrayConfiguration {
 
 /*! @brief Dumping threshold, feedback gains and integration step of the momentum management control law. */
 struct MomentumManagementControlParameters {
-    float hsMin{};          //!< [Nms] RW cluster momentum below which no dumping is requested
-    float K{};              //!< [1/s] proportional gain mapping the stored wheel momentum onto the requested torque
-    float Ki{};             //!< [1/s2] integral gain on the accumulated stored momentum (0 disables the integral)
+    float hsMin{};          //!< [Nms] momentum difference magnitude below which no dumping is requested
+    float K{};              //!< [1/s] proportional gain mapping the momentum difference onto the requested torque
+    float Ki{};             //!< [1/s2] integral gain on the accumulated momentum difference (0 disables the integral)
     float integralLimit{};  //!< [Nms2] anti-windup clamp on each component of the momentum integral
     float controlPeriod{};  //!< [s] time between two update() calls, the integration step (only used when Ki > 0)
     Eigen::Matrix3f dumpableProjection_B{
         Eigen::Matrix3f::Identity()};  //!< [-] projector onto the directions the effectors can dump about
+    Eigen::Vector3f hsDesired_B{Eigen::Vector3f::Zero()};  //!< [Nms] RW cluster momentum the dump drives toward
 };
 
 /*! @brief Validated configuration for the RW momentum management algorithm. */
@@ -61,6 +62,9 @@ class MomentumManagementConfig final {
                 "momentumManagement: dumpableProjection_B must be a finite, symmetric and idempotent orthogonal "
                 "projector that leaves at least one direction dumpable; use the identity when the effectors can "
                 "dump about every direction.");
+        }
+        if (!isValidHsDesired(controlParameters.hsDesired_B)) {
+            FSW_THROW_INVALID_ARGUMENT("momentumManagement: hsDesired_B (desired RW cluster momentum) must be finite.");
         }
         if (!isValidRwArrayConfiguration(rwArrayConfig)) {
             FSW_THROW_INVALID_ARGUMENT(
@@ -112,6 +116,8 @@ class MomentumManagementConfig final {
         return dumpableProjection_B.trace() >= kMinRank;
     }
 
+    static bool isValidHsDesired(const Eigen::Vector3f& hsDesired_B) { return hsDesired_B.allFinite(); }
+
     static bool isValidRwArrayConfiguration(const MomentumManagementRwArrayConfiguration& rwArrayConfig) {
         if (!rwArrayConfig.GsMatrix_B.allFinite() || !rwArrayConfig.JsList.allFinite()) {
             return false;
@@ -142,10 +148,10 @@ class MomentumManagementConfig final {
 /*!
  * @brief Assesses the net reaction wheel momentum and computes the torque needed to dump it.
  *
- * The control law is proportional-integral on the stored momentum, gated by the dumping threshold, so the
- * algorithm carries the integrator state between updates. A momentum below the threshold ends the dump and
- * clears that state. Call reInitialize() to re-seed it directly. Only the momentum the effectors can dump
- * reaches the law; dumpableProjection_B says which directions those are.
+ * The control law is proportional-integral on the momentum difference, the stored momentum less hsDesired_B, gated by
+ * the dumping threshold, so the algorithm carries the integrator state between updates. A difference below the
+ * threshold ends the dump and clears that state. Call reInitialize() to re-seed it directly. Only the difference the
+ * effectors can dump reaches the law; dumpableProjection_B says which directions those are.
  */
 class MomentumManagementAlgorithm final {
    public:
@@ -162,9 +168,9 @@ class MomentumManagementAlgorithm final {
 
    private:
     MomentumManagementConfig cfg;  //!< [-] validated configuration (control parameters, RW array config)
-    Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};  //!< [Nms2] integral of the dumpable RW momentum, B frame
+    Eigen::Vector3f hsInt_B{Eigen::Vector3f::Zero()};  //!< [Nms2] integral of the dumpable momentum difference, B frame
     Eigen::Vector3f priorHsDumpable_B{
-        Eigen::Vector3f::Zero()};  //!< [Nms] dumpable RW cluster momentum from the previous update
+        Eigen::Vector3f::Zero()};  //!< [Nms] dumpable momentum difference from the previous update
 };
 
 #endif

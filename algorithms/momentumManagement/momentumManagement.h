@@ -26,13 +26,14 @@ class MomentumManagement : public SysModel {
     void reInitialize();
 
     /* declare module public variables */
-    float hsMin{};          //!< [Nms]  minimum RW cluster momentum for dumping
-    float K{};              //!< [1/s]  proportional gain on the stored momentum (0 disables it)
-    float Ki{};             //!< [1/s2] integral gain on the accumulated stored momentum (0 disables it)
+    float hsMin{};          //!< [Nms]  minimum momentum difference for dumping
+    float K{};              //!< [1/s]  proportional gain on the momentum difference (0 disables it)
+    float Ki{};             //!< [1/s2] integral gain on the accumulated momentum difference (0 disables it)
     float integralLimit{};  //!< [Nms2] anti-windup clamp on each integral component (must be > 0 if Ki > 0)
     float controlPeriod{};  //!< [s]    integration step between updates (must be > 0 if Ki > 0)
     Eigen::Matrix3f dumpableProjection_B{
         Eigen::Matrix3f::Identity()};  //!< [-] projector onto the directions the effectors can dump about
+    Eigen::Vector3f hsDesired_B{Eigen::Vector3f::Zero()};  //!< [Nms] RW cluster momentum the dump drives toward
 
     /* declare module IO interfaces */
     Message<CmdTorqueBodyMsgF32Payload> cmdTorqueOutMsg;        //!< [Nm] requested body-frame dumping torque

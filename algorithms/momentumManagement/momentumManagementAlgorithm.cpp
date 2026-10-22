@@ -43,19 +43,20 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
         }
     }
 
-    /*! - keep only the momentum the effectors can dump. Momentum they cannot remove must not reach the law: it
-     would hold the deadband open and wind the integral up along a direction no torque can act on */
+    /*! - keep only the momentum difference the effectors can dump. A difference they cannot remove must not reach the
+     law: it would hold the deadband open and wind the integral up along a direction no torque can act on */
     const MomentumManagementControlParameters& params = this->cfg.getControlParameters();
-    const Eigen::Vector3f hsDumpable_B = params.dumpableProjection_B * hs_B; /* [Nms] dumpable RW momentum */
-    const float hsDumpableNorm = hsDumpable_B.stableNorm();                  /* dumpable momentum magnitude */
+    const Eigen::Vector3f hsDumpable_B =
+        params.dumpableProjection_B * (hs_B - params.hsDesired_B); /* [Nms] dumpable momentum difference */
+    const float hsDumpableNorm = hsDumpable_B.stableNorm();        /* dumpable momentum difference magnitude */
 
     Eigen::Vector3f Lr_B = Eigen::Vector3f::Zero(); /* [Nm] requested body-frame torque */
 
-    /*! - the threshold gates the whole law: at or above it the entire dumpable momentum is dumped, below it
+    /*! - the threshold gates the whole law: at or above it the entire dumpable difference is dumped, below it
      the module requests nothing */
     if (hsDumpableNorm >= params.hsMin) {
-        /*! - advance the trapezoidal integral of the dumpable momentum, using the fixed control period as the
-         step */
+        /*! - advance the trapezoidal integral of the dumpable momentum difference, using the fixed control period as
+         the step */
         this->hsInt_B += 0.5F * params.controlPeriod * (this->priorHsDumpable_B + hsDumpable_B);
 
         /*! - anti-windup: clamp each integral component to the configured limit, preserving its sign */
@@ -68,7 +69,7 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
 
         this->priorHsDumpable_B = hsDumpable_B;
 
-        /*! - the requested torque opposes the dumpable momentum and its accumulation */
+        /*! - the requested torque opposes the dumpable momentum difference and its accumulation */
         Lr_B = -params.K * hsDumpable_B - params.Ki * this->hsInt_B;
     } else {
         /*! - below the threshold the dump is over: request no torque and clear the integrator, so the next

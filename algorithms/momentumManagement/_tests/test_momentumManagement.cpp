@@ -42,13 +42,15 @@ MomentumManagementControlParameters nominalParams(
     float Ki = 0.0F,
     float integralLimit = kLargeIntegralLimit,
     float controlPeriod = kControlPeriod,
-    const Eigen::Matrix3f& dumpableProjection_B = Eigen::Matrix3f::Identity()) {
+    const Eigen::Matrix3f& dumpableProjection_B = Eigen::Matrix3f::Identity(),
+    const Eigen::Vector3f& hsDesired_B = Eigen::Vector3f::Zero()) {
     return {.hsMin = hsMin,
             .K = K,
             .Ki = Ki,
             .integralLimit = integralLimit,
             .controlPeriod = controlPeriod,
-            .dumpableProjection_B = dumpableProjection_B};
+            .dumpableProjection_B = dumpableProjection_B,
+            .hsDesired_B = hsDesired_B};
 }
 
 }  // namespace
@@ -94,6 +96,18 @@ TEST(MomentumManagement, MatchesReferenceAcrossCases) {
                                                    kLargeIntegralLimit,
                                                    kControlPeriod,
                                                    makeDumpableProjection(Eigen::Vector3f{0.0F, 0.2716F, -0.9624F})),
+                                     kAccuracy,
+                                     20U);
+    // The same, driving toward a non-zero desired momentum.
+    regressionTestMomentumManagement(rwArrayConfig,
+                                     nominalSpeeds,
+                                     nominalParams(kNominalHsMin,
+                                                   kNominalK,
+                                                   kNominalKi,
+                                                   kLargeIntegralLimit,
+                                                   kControlPeriod,
+                                                   makeDumpableProjection(Eigen::Vector3f{0.0F, 0.2716F, -0.9624F}),
+                                                   Eigen::Vector3f{2.0F, -1.0F, 5.0F}),
                                      kAccuracy,
                                      20U);
 }
@@ -175,6 +189,116 @@ TEST(MomentumManagement, ConfigRoundTrips) {
     testMomentumManagementSetup(nominalParams(0.0F, 0.05F), makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.05F), kAccuracy);
     // Non-unit spin axes are normalized on construction rather than rejected outright at this scale.
     testMomentumManagementSetup(nominalParams(2.5F), makeRwArrayConfig({{3.0F, 4.0F, 0.0F}}, 0.1F), kAccuracy);
+    testMomentumManagementSetup(nominalParams(kNominalHsMin,
+                                              kNominalK,
+                                              0.0F,
+                                              kLargeIntegralLimit,
+                                              kControlPeriod,
+                                              Eigen::Matrix3f::Identity(),
+                                              Eigen::Vector3f{2.0F, -1.0F, 5.0F}),
+                                makeStandardRwArrayConfig(),
+                                kAccuracy);
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Desired momentum
+// ---------------------------------------------------------------------------------------------------
+
+// A cluster that already holds the desired momentum has nothing to dump, even with the deadband wide open.
+TEST(MomentumManagement, DesiredMomentumIsHeld) {
+    const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
+    // hs = 0.2 * 50 = 10 Nms about +z, which is exactly the desired momentum.
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(0.0F,
+                                                                                   kNominalK,
+                                                                                   kNominalKi,
+                                                                                   kLargeIntegralLimit,
+                                                                                   kControlPeriod,
+                                                                                   Eigen::Matrix3f::Identity(),
+                                                                                   Eigen::Vector3f{0.0F, 0.0F, 10.0F}),
+                                                                     rwArrayConfig)};
+
+    for (uint32_t cycle = 0U; cycle < 10U; ++cycle) {
+        EXPECT_TRUE(alg.update(makeWheelSpeeds({50.0F})).isZero(kAccuracy)) << "cycle " << cycle;
+    }
+}
+
+// The request opposes the momentum difference, so it drives the cluster toward the desired momentum.
+TEST(MomentumManagement, DumpsTowardDesiredMomentum) {
+    const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
+    // hs = (0, 0, 10) Nms against a desired (1, 0, 4) Nms leaves a difference of (-1, 0, 6) Nms.
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(1.0F,
+                                                                                   kNominalK,
+                                                                                   0.0F,
+                                                                                   kLargeIntegralLimit,
+                                                                                   kControlPeriod,
+                                                                                   Eigen::Matrix3f::Identity(),
+                                                                                   Eigen::Vector3f{1.0F, 0.0F, 4.0F}),
+                                                                     rwArrayConfig)};
+
+    const auto Lr_B = alg.update(makeWheelSpeeds({50.0F}));
+
+    EXPECT_NEAR(Lr_B[0], kNominalK * 1.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[1], 0.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[2], -kNominalK * 6.0F, kAccuracy);
+}
+
+// The threshold gates on the momentum difference, not on the cluster momentum: a large cluster momentum close to the
+// desired one requests nothing.
+TEST(MomentumManagement, ThresholdActsOnMomentumDifference) {
+    const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
+    // |hs| = 10 Nms is above hsMin = 5 Nms, but the 2 Nms difference to the desired (0, 0, 8) Nms is below it.
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(5.0F,
+                                                                                   kNominalK,
+                                                                                   0.0F,
+                                                                                   kLargeIntegralLimit,
+                                                                                   kControlPeriod,
+                                                                                   Eigen::Matrix3f::Identity(),
+                                                                                   Eigen::Vector3f{0.0F, 0.0F, 8.0F}),
+                                                                     rwArrayConfig)};
+
+    EXPECT_TRUE(alg.update(makeWheelSpeeds({50.0F})).isZero(kAccuracy));
+}
+
+// A desired momentum smaller than the threshold is valid. A cluster at rest is already inside the deadband about it,
+// and a cluster outside the deadband is driven all the way to the desired momentum, not just inside the threshold.
+TEST(MomentumManagement, DesiredMomentumSmallerThanThreshold) {
+    const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}}, 0.2F);
+    // |hsDesired| = 2 Nms is below hsMin = 5 Nms.
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(nominalParams(5.0F,
+                                                                                   kNominalK,
+                                                                                   0.0F,
+                                                                                   kLargeIntegralLimit,
+                                                                                   kControlPeriod,
+                                                                                   Eigen::Matrix3f::Identity(),
+                                                                                   Eigen::Vector3f{0.0F, 0.0F, 2.0F}),
+                                                                     rwArrayConfig)};
+
+    // hs = 0: the 2 Nms difference is inside the deadband.
+    EXPECT_TRUE(alg.update(makeWheelSpeeds({0.0F})).isZero(kAccuracy));
+
+    // hs = 0.2 * 50 = 10 Nms about +z: the 8 Nms difference to the desired momentum is dumped.
+    const auto Lr_B = alg.update(makeWheelSpeeds({50.0F}));
+    EXPECT_NEAR(Lr_B[0], 0.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[1], 0.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[2], -kNominalK * 8.0F, kAccuracy);
+}
+
+// The effectors cannot change the momentum along an undumpable direction, so the desired momentum along it is
+// out of reach and must not reach the law either.
+TEST(MomentumManagement, UndumpableDesiredMomentumIsIgnored) {
+    const auto rwArrayConfig = makeRwArrayConfig({{0.0F, 0.0F, 1.0F}, {0.0F, 1.0F, 0.0F}}, 0.2F);
+    // hs = (0, 4, 10) Nms against a desired (0, 1, -3) Nms; the projector removes z, leaving 3 Nms about +y.
+    const Eigen::Matrix3f projection = makeDumpableProjection(Eigen::Vector3f::UnitZ());
+    MomentumManagementAlgorithm alg{MomentumManagementConfig::create(
+        nominalParams(
+            1.0F, kNominalK, 0.0F, kLargeIntegralLimit, kControlPeriod, projection, Eigen::Vector3f{0.0F, 1.0F, -3.0F}),
+        rwArrayConfig)};
+
+    const auto Lr_B = alg.update(makeWheelSpeeds({50.0F, 20.0F}));
+
+    EXPECT_NEAR(Lr_B[0], 0.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[1], -kNominalK * 3.0F, kAccuracy);
+    EXPECT_NEAR(Lr_B[2], 0.0F, kAccuracy);
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -547,6 +671,25 @@ TEST(MomentumManagementConfigValidation, AcceptsProjections) {
                                                makeStandardRwArrayConfig()));
 }
 
+TEST(MomentumManagementConfigValidation, RejectsNonFiniteHsDesired) {
+    const Eigen::Vector3f nonFinite{0.0F, std::numeric_limits<float>::quiet_NaN(), 0.0F};
+    const Eigen::Vector3f infinite{std::numeric_limits<float>::infinity(), 0.0F, 0.0F};
+
+    EXPECT_FALSE(MomentumManagementConfig::isValidHsDesired(nonFinite));
+    EXPECT_FALSE(MomentumManagementConfig::isValidHsDesired(infinite));
+    EXPECT_TRUE(MomentumManagementConfig::isValidHsDesired(Eigen::Vector3f{2.0F, -1.0F, 5.0F}));
+
+    EXPECT_THROW((void)MomentumManagementConfig::create(nominalParams(kNominalHsMin,
+                                                                      kNominalK,
+                                                                      0.0F,
+                                                                      kLargeIntegralLimit,
+                                                                      kControlPeriod,
+                                                                      Eigen::Matrix3f::Identity(),
+                                                                      nonFinite),
+                                                        makeStandardRwArrayConfig()),
+                 fsw::invalid_argument);
+}
+
 TEST(MomentumManagementConfigValidation, AcceptsAFullyPopulatedArray) {
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
@@ -688,13 +831,24 @@ TEST(MomentumManagementProperties, TorqueActsOnStoredMomentumAboveTheThreshold) 
     }
 }
 
-// Reversing every wheel speed reverses the requested torque, with and without the integral engaged.
+// Reversing every wheel speed and the desired momentum reverses the requested torque, with and without the
+// integral engaged.
 TEST(MomentumManagementProperties, IsOddInWheelSpeeds) {
     const auto rwArrayConfig = makeStandardRwArrayConfig();
     const auto wheelSpeeds = makeWheelSpeeds({10.0F, -25.0F, 50.0F, 100.0F});
 
     testTorqueIsOddInWheelSpeeds(rwArrayConfig, wheelSpeeds, nominalParams());
     testTorqueIsOddInWheelSpeeds(rwArrayConfig, wheelSpeeds, nominalParams(kNominalHsMin, kNominalK, kNominalKi), 20U);
+    testTorqueIsOddInWheelSpeeds(rwArrayConfig,
+                                 wheelSpeeds,
+                                 nominalParams(kNominalHsMin,
+                                               kNominalK,
+                                               kNominalKi,
+                                               kLargeIntegralLimit,
+                                               kControlPeriod,
+                                               Eigen::Matrix3f::Identity(),
+                                               Eigen::Vector3f{2.0F, -1.0F, 5.0F}),
+                                 20U);
 }
 
 // The anti-windup bound holds over a long sustained momentum.
