@@ -29,39 +29,39 @@ using filtering::flybyFilter::Vector6;
 // guarantees that *non-finite* headings are skipped, not that arbitrarily large finite ones avoid
 // overflow.
 inline auto boundedOrNonFinite() {
-    return fuzztest::OneOf(fuzztest::InRange(-2.0, 2.0),
-                           fuzztest::ElementOf<double>({std::numeric_limits<double>::quiet_NaN(),
-                                                        std::numeric_limits<double>::infinity(),
-                                                        -std::numeric_limits<double>::infinity()}));
+    return fuzztest::OneOf(fuzztest::InRange(-2.0F, 2.0F),
+                           fuzztest::ElementOf<float>({std::numeric_limits<float>::quiet_NaN(),
+                                                       std::numeric_limits<float>::infinity(),
+                                                       -std::numeric_limits<float>::infinity()}));
 }
 
 // Thin free-function wrappers so FUZZ_TEST references an unqualified name (the property helpers
 // themselves live in namespace filtering::flybyFilter).
-inline void fuzzUpdateKeepsStateValidAndBounded(Eigen::Vector3d rOffset,
-                                                Eigen::Vector3d vOffset,
-                                                double mu,
+inline void fuzzUpdateKeepsStateValidAndBounded(Eigen::Vector3f rOffset,
+                                                Eigen::Vector3f vOffset,
+                                                float mu,
                                                 Vector6 covDiag,
-                                                double q,
-                                                Eigen::Vector3d rhat,
-                                                double dt) {
+                                                float q,
+                                                Eigen::Vector3f rhat,
+                                                float dt) {
     filtering::flybyFilter::propertyUpdateKeepsStateValidAndBounded(rOffset, vOffset, mu, covDiag, q, rhat, dt);
 }
 
-inline void fuzzArbitraryMeasurementsPreserveState(Eigen::Vector3d rOffset,
-                                                   Eigen::Vector3d vOffset,
-                                                   double mu,
+inline void fuzzArbitraryMeasurementsPreserveState(Eigen::Vector3f rOffset,
+                                                   Eigen::Vector3f vOffset,
+                                                   float mu,
                                                    Vector6 covDiag,
-                                                   double q,
-                                                   Eigen::Vector3d rhat,
-                                                   double dt) {
+                                                   float q,
+                                                   Eigen::Vector3f rhat,
+                                                   float dt) {
     filtering::flybyFilter::propertyArbitraryMeasurementsPreserveState(rOffset, vOffset, mu, covDiag, q, rhat, dt);
 }
 
-inline void fuzzMeasurementDoesNotIncreaseCovariance(Eigen::Vector3d rOffset,
-                                                     Eigen::Vector3d vOffset,
-                                                     double mu,
+inline void fuzzMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f rOffset,
+                                                     Eigen::Vector3f vOffset,
+                                                     float mu,
                                                      Vector6 covDiag,
-                                                     Eigen::Vector3d rhat) {
+                                                     Eigen::Vector3f rhat) {
     filtering::flybyFilter::propertyMeasurementDoesNotIncreaseCovariance(rOffset, vOffset, mu, covDiag, rhat);
 }
 
@@ -71,32 +71,32 @@ inline void fuzzMeasurementDoesNotIncreaseCovariance(Eigen::Vector3d rOffset,
 // finite inputs leaves the estimate finite, the covariance symmetric-PSD, and the returned snapshot
 // consistent with the accessors.
 FUZZ_TEST(FlybyFilterPropertyFuzz, fuzzUpdateKeepsStateValidAndBounded)
-    .WithDomains(xmera::fuzz::Vector3dInRange(-500.0, 500.0),                          // initial r offset [km]
-                 xmera::fuzz::Vector3dInRange(-1.0, 1.0),                              // initial v offset [km/s]
-                 fuzztest::InRange(1E3, 1E5),                                          // mu [km^3/s^2]
-                 xmera::fuzz::EigenVectorOf<double, 6>(fuzztest::InRange(-1E4, 1E4)),  // covariance diagonal
-                 fuzztest::InRange(0.0, 1E-4),                                         // process noise
-                 xmera::fuzz::Vector3dInRange(-1.0, 1.0),                              // heading observation
-                 fuzztest::InRange(0.0, 60.0));                                        // dt [s]
+    .WithDomains(xmera::fuzz::Vector3fInRange(-500.0F, 500.0F),                         // initial r offset [km]
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),                             // initial v offset [km/s]
+                 fuzztest::InRange(1E3F, 1E5F),                                         // mu [km^3/s^2]
+                 xmera::fuzz::EigenVectorOf<float, 6>(fuzztest::InRange(-1E4F, 1E4F)),  // covariance diagonal
+                 fuzztest::InRange(0.0F, 1E-4F),                                        // process noise
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),                             // heading observation
+                 fuzztest::InRange(0.0F, 60.0F));                                       // dt [s]
 
 // Same finite config inputs, but the heading is fully arbitrary (including NaN / Inf). A non-finite
 // measurement must be skipped, leaving the estimate finite and the covariance PSD.
 FUZZ_TEST(FlybyFilterPropertyFuzz, fuzzArbitraryMeasurementsPreserveState)
-    .WithDomains(xmera::fuzz::Vector3dInRange(-500.0, 500.0),
-                 xmera::fuzz::Vector3dInRange(-1.0, 1.0),
-                 fuzztest::InRange(1E3, 1E5),
-                 xmera::fuzz::EigenVectorOf<double, 6>(fuzztest::InRange(-1E4, 1E4)),
-                 fuzztest::InRange(0.0, 1E-4),
-                 xmera::fuzz::EigenVectorOf<double, 3>(boundedOrNonFinite()),
-                 fuzztest::InRange(0.0, 60.0));
+    .WithDomains(xmera::fuzz::Vector3fInRange(-500.0F, 500.0F),
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),
+                 fuzztest::InRange(1E3F, 1E5F),
+                 xmera::fuzz::EigenVectorOf<float, 6>(fuzztest::InRange(-1E4F, 1E4F)),
+                 fuzztest::InRange(0.0F, 1E-4F),
+                 xmera::fuzz::EigenVectorOf<float, 3>(boundedOrNonFinite()),
+                 fuzztest::InRange(0.0F, 60.0F));
 
 // A heading measurement folded in with no time propagation never increases the covariance trace.
 FUZZ_TEST(FlybyFilterPropertyFuzz, fuzzMeasurementDoesNotIncreaseCovariance)
-    .WithDomains(xmera::fuzz::Vector3dInRange(-500.0, 500.0),
-                 xmera::fuzz::Vector3dInRange(-1.0, 1.0),
-                 fuzztest::InRange(1E3, 1E5),
-                 xmera::fuzz::EigenVectorOf<double, 6>(fuzztest::InRange(-1E4, 1E4)),
-                 xmera::fuzz::Vector3dInRange(-1.0, 1.0));
+    .WithDomains(xmera::fuzz::Vector3fInRange(-500.0F, 500.0F),
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),
+                 fuzztest::InRange(1E3F, 1E5F),
+                 xmera::fuzz::EigenVectorOf<float, 6>(fuzztest::InRange(-1E4F, 1E4F)),
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F));
 
 namespace filtering::flybyFilter {
 
@@ -104,12 +104,12 @@ namespace filtering::flybyFilter {
 // Targeted: a time update advances the mean along the two-body flow and adds process noise to the
 // covariance (no smaller than a noise-free propagation; stays symmetric + PSD + finite).
 // ============================================================================
-void fuzzTimeUpdatePropagatesStateAndGrowsCovariance(Eigen::Vector3d rOffset,
-                                                     Eigen::Vector3d vOffset,
-                                                     double mu,
+void fuzzTimeUpdatePropagatesStateAndGrowsCovariance(Eigen::Vector3f rOffset,
+                                                     Eigen::Vector3f vOffset,
+                                                     float mu,
                                                      Vector6 covDiag,
-                                                     double q,
-                                                     double dt) {
+                                                     float q,
+                                                     float dt) {
     std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiag, q, kHeadingStd);
     if (!cfg) {
         return;
@@ -121,7 +121,7 @@ void fuzzTimeUpdatePropagatesStateAndGrowsCovariance(Eigen::Vector3d rOffset,
 
     // The central sigma point (== reported state) follows the same two-body propagation.
     TestState const predicted = filtering::propagate(FlybyDynamics{mu}, initial, {0.0, dt});
-    EXPECT_TRUE(algo.getState().raw().isApprox(predicted.raw(), 1E-9)) << "state must follow the two-body flow";
+    EXPECT_TRUE(algo.getState().raw().isApprox(predicted.raw(), 1E-5)) << "state must follow the two-body flow";
     EXPECT_TRUE(finiteSymmetricPsd(algo.getCovariance())) << "covariance after timeUpdate";
 
     // Compare against the same propagation with no process noise: P(withQ) >= P(noQ).
@@ -130,16 +130,17 @@ void fuzzTimeUpdatePropagatesStateAndGrowsCovariance(Eigen::Vector3d rOffset,
     ASSERT_TRUE(noiseFreeCfg.has_value());
     FlybyFilterAlgorithm noiseFree(*noiseFreeCfg);
     ASSERT_TRUE(noiseFree.timeUpdate(dt)) << "noise-free timeUpdate should be valid";
-    EXPECT_GE(algo.getCovariance().trace(), noiseFree.getCovariance().trace() - 1E-6)
+    float const noiseFreeTrace = noiseFree.getCovariance().trace();
+    EXPECT_GE(algo.getCovariance().trace(), noiseFreeTrace - 1E-5F * (1.0F + noiseFreeTrace))
         << "process noise should not shrink the covariance";
 }
 FUZZ_TEST(FlybyFilterFuzz, fuzzTimeUpdatePropagatesStateAndGrowsCovariance)
-    .WithDomains(xmera::fuzz::Vector3dInRange(-500.0, 500.0),
-                 xmera::fuzz::Vector3dInRange(-1.0, 1.0),
-                 fuzztest::InRange(1E3, 1E5),
-                 xmera::fuzz::EigenVectorOf<double, 6>(fuzztest::InRange(-1E4, 1E4)),
-                 fuzztest::InRange(0.0, 1E-4),
-                 fuzztest::InRange(0.0, 60.0));
+    .WithDomains(xmera::fuzz::Vector3fInRange(-500.0F, 500.0F),
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),
+                 fuzztest::InRange(1E3F, 1E5F),
+                 xmera::fuzz::EigenVectorOf<float, 6>(fuzztest::InRange(-1E4F, 1E4F)),
+                 fuzztest::InRange(0.0F, 1E-4F),
+                 fuzztest::InRange(0.0F, 60.0F));
 
 // ============================================================================
 // Targeted: reInitialize() restores exactly the configured seed, for any valid configuration and
@@ -151,13 +152,13 @@ FUZZ_TEST(FlybyFilterFuzz, fuzzTimeUpdatePropagatesStateAndGrowsCovariance)
 // ill-conditioned prior -- fuzzing found such a case immediately. The information-gain property
 // that does hold is covered by fuzzMeasurementDoesNotIncreaseCovariance above.
 // ============================================================================
-void fuzzReInitializeRestoresTheConfiguredSeed(Eigen::Vector3d rOffset,
-                                               Eigen::Vector3d vOffset,
-                                               double mu,
+void fuzzReInitializeRestoresTheConfiguredSeed(Eigen::Vector3f rOffset,
+                                               Eigen::Vector3f vOffset,
+                                               float mu,
                                                Vector6 covDiag,
-                                               double q,
-                                               Eigen::Vector3d rhatRaw,
-                                               double dt) {
+                                               float q,
+                                               Eigen::Vector3f rhatRaw,
+                                               float dt) {
     std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiag, q, kHeadingStd);
     if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3 || !std::isfinite(dt) || dt < 0.0) {
         return;
@@ -173,8 +174,8 @@ void fuzzReInitializeRestoresTheConfiguredSeed(Eigen::Vector3d rOffset,
     algo.update(dt, heading);
 
     algo.reInitialize();
-    EXPECT_TRUE(algo.getState().raw().isApprox(seed.raw(), 1E-9)) << "reInitialize must restore the configured state";
-    EXPECT_TRUE(algo.getCovariance().isApprox(seedCovariance, 1E-9))
+    EXPECT_TRUE(algo.getState().raw().isApprox(seed.raw(), 1E-5)) << "reInitialize must restore the configured state";
+    EXPECT_TRUE(algo.getCovariance().isApprox(seedCovariance, 1E-5))
         << "reInitialize must restore the configured covariance";
 
     // A second cycle after re-seeding still behaves: nothing is left in an inconsistent state.
@@ -183,12 +184,12 @@ void fuzzReInitializeRestoresTheConfiguredSeed(Eigen::Vector3d rOffset,
     EXPECT_TRUE(finiteSymmetricPsd(algo.getCovariance()));
 }
 FUZZ_TEST(FlybyFilterFuzz, fuzzReInitializeRestoresTheConfiguredSeed)
-    .WithDomains(xmera::fuzz::Vector3dInRange(-500.0, 500.0),
-                 xmera::fuzz::Vector3dInRange(-1.0, 1.0),
-                 fuzztest::InRange(1E3, 1E5),
-                 xmera::fuzz::EigenVectorOf<double, 6>(fuzztest::InRange(-1E4, 1E4)),
-                 fuzztest::InRange(0.0, 1E-4),
-                 xmera::fuzz::Vector3dInRange(-1.0, 1.0),
-                 fuzztest::InRange(0.0, 60.0));
+    .WithDomains(xmera::fuzz::Vector3fInRange(-500.0F, 500.0F),
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),
+                 fuzztest::InRange(1E3F, 1E5F),
+                 xmera::fuzz::EigenVectorOf<float, 6>(fuzztest::InRange(-1E4F, 1E4F)),
+                 fuzztest::InRange(0.0F, 1E-4F),
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),
+                 fuzztest::InRange(0.0F, 60.0F));
 
 }  // namespace filtering::flybyFilter

@@ -19,17 +19,17 @@ class StAttMeasurementModel {
    public:
     static constexpr int size = 3;
 
-    StAttMeasurementModel(Eigen::Vector3d observation, Eigen::Matrix3d noise)
+    StAttMeasurementModel(Eigen::Vector3f observation, Eigen::Matrix3f noise)
         : observed(std::move(observation)), measNoise(std::move(noise)) {}
 
-    Eigen::Vector3d observation() const { return this->observed; }
-    static Eigen::Vector3d model(State const& state) { return state.get<filtering::MrpAttitude<3>>(); }
-    Eigen::Matrix3d noise() const { return this->measNoise; }
-    static Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) { return subMrp(a, b); }
+    Eigen::Vector3f observation() const { return this->observed; }
+    static Eigen::Vector3f model(State const& state) { return state.get<filtering::MrpAttitude<3>>(); }
+    Eigen::Matrix3f noise() const { return this->measNoise; }
+    static Eigen::Vector3f subtract(Eigen::Vector3f const& a, Eigen::Vector3f const& b) { return subMrp(a, b); }
 
    private:
-    Eigen::Vector3d observed;
-    Eigen::Matrix3d measNoise;
+    Eigen::Vector3f observed;
+    Eigen::Matrix3f measNoise;
 };
 
 /*! Predicted rate observation = omega_BN_B. Satisfies the Measurement concept. */
@@ -37,17 +37,17 @@ class RateMeasurementModel {
    public:
     static constexpr int size = 3;
 
-    RateMeasurementModel(Eigen::Vector3d observation, Eigen::Matrix3d noise)
+    RateMeasurementModel(Eigen::Vector3f observation, Eigen::Matrix3f noise)
         : observed(std::move(observation)), measNoise(std::move(noise)) {}
 
-    Eigen::Vector3d observation() const { return this->observed; }
-    static Eigen::Vector3d model(State const& state) { return state.get<filtering::AngularRate<3>>(); }
-    Eigen::Matrix3d noise() const { return this->measNoise; }
-    static Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) { return a - b; }
+    Eigen::Vector3f observation() const { return this->observed; }
+    static Eigen::Vector3f model(State const& state) { return state.get<filtering::AngularRate<3>>(); }
+    Eigen::Matrix3f noise() const { return this->measNoise; }
+    static Eigen::Vector3f subtract(Eigen::Vector3f const& a, Eigen::Vector3f const& b) { return a - b; }
 
    private:
-    Eigen::Vector3d observed;
-    Eigen::Matrix3d measNoise;
+    Eigen::Vector3f observed;
+    Eigen::Matrix3f measNoise;
 };
 
 static_assert(filtering::Measurement<StAttMeasurementModel, State>);
@@ -124,7 +124,7 @@ InertialFilterOutput InertialFilterAlgorithm::update(double currentSeconds,
 /*! Propagate the state from the last-measurement anchor by dt.
  *  @return false if the propagated state/covariance is non-finite
  *  @param dt [s] elapsed time since the last measurement */
-bool InertialFilterAlgorithm::timeUpdate(double dt) { return this->srukf.timeUpdate(dt); }
+bool InertialFilterAlgorithm::timeUpdate(float dt) { return this->srukf.timeUpdate(dt); }
 
 /*! Fold a single measurement into the filter; dispatches per-kind.
  *  @return false if the resulting state/covariance is non-finite
@@ -182,8 +182,8 @@ StAttMeasurement InertialFilterAlgorithm::packStAttMeasurement(StAttData const& 
     StAttMeasurement packed;
     packed.timeTag = stAttData.timeTag;
     packed.sigma_BN = stAttData.sigma_BN;
-    double const stMeasNoiseStd = this->cfg.getStMeasurementNoiseStd();
-    packed.covar = (stMeasNoiseStd * stMeasNoiseStd) * Eigen::Matrix3d::Identity();
+    float const stMeasNoiseStd = this->cfg.getStMeasurementNoiseStd();
+    packed.covar = (stMeasNoiseStd * stMeasNoiseStd) * Eigen::Matrix3f::Identity();
     packed.valid = true;
     return packed;
 }
@@ -195,8 +195,8 @@ RateMeasurement InertialFilterAlgorithm::packRateMeasurement(RateData const& rat
     RateMeasurement packed;
     packed.timeTag = rateData.timeTag;
     packed.omega_BN_B = rateData.rate;
-    double const rateMeasNoiseStd = this->cfg.getRateMeasurementNoiseStd();
-    packed.covar = (rateMeasNoiseStd * rateMeasNoiseStd) * Eigen::Matrix3d::Identity();
+    float const rateMeasNoiseStd = this->cfg.getRateMeasurementNoiseStd();
+    packed.covar = (rateMeasNoiseStd * rateMeasNoiseStd) * Eigen::Matrix3f::Identity();
     packed.valid = true;
     return packed;
 }
@@ -206,7 +206,7 @@ RateMeasurement InertialFilterAlgorithm::packRateMeasurement(RateData const& rat
  *  @param state [-] state to regularize */
 InertialFilterAlgorithm::State InertialFilterAlgorithm::regularize(State const& state) {
     State outputState = state;
-    outputState.set<filtering::MrpAttitude<3>>(mrpSwitch(outputState.get<filtering::MrpAttitude<3>>(), 1.0));
+    outputState.set<filtering::MrpAttitude<3>>(mrpSwitch(outputState.get<filtering::MrpAttitude<3>>(), 1.0F));
     return outputState;
 }
 
@@ -227,7 +227,7 @@ RateResidualsOutput const& InertialFilterAlgorithm::getLastRateResiduals() const
 /*! @return current filter state (post-sanitization) */
 InertialFilterAlgorithm::State InertialFilterAlgorithm::getState() const { return this->srukf.getState(); }
 /*! @return current full covariance */
-Eigen::Matrix<double, InertialFilterAlgorithm::N, InertialFilterAlgorithm::N> InertialFilterAlgorithm::getCovariance()
+Eigen::Matrix<float, InertialFilterAlgorithm::N, InertialFilterAlgorithm::N> InertialFilterAlgorithm::getCovariance()
     const {
     return this->srukf.getCovariance();
 }

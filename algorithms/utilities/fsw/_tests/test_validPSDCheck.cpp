@@ -45,9 +45,21 @@ TEST(IsPositiveSemiDefinite, ToleranceIsTheRoundoffBand) {
         EXPECT_TRUE(isPositiveSemiDefinite<6>(Eigen::Matrix<double, 6, 6>(B * B.transpose()))) << "rank 2";
     }
     // Accepts the zero matrix (e.g. zero process noise): the band is zero and so are the eigenvalues.
-    EXPECT_TRUE(isPositiveSemiDefinite<3>(Eigen::Matrix3d::Zero()));
+    EXPECT_TRUE(isPositiveSemiDefinite<3>(Eigen::Matrix3d(Eigen::Matrix3d::Zero())));
     // Rejects tiny but genuinely negative eigenvalues: there is no absolute floor.
     EXPECT_FALSE(isPositiveSemiDefinite<3>(Eigen::Matrix3d(Eigen::Vector3d(-1e-14, 0.0, 0.0).asDiagonal())));
     EXPECT_FALSE(isPositiveSemiDefinite<3>(Eigen::Matrix3d(Eigen::Vector3d(1.0, 1.0, -1e-14).asDiagonal())));
     EXPECT_FALSE(isPositiveSemiDefinite<3>(Eigen::Matrix3d(Eigen::Vector3d(3e7, 1.0, -1e-3).asDiagonal())));
+}
+
+// The float overload accepts the same PSD matrix and rejects a negative eigenvalue.
+TEST(IsPositiveSemiDefinite, FloatContractChecks) {
+    Eigen::Matrix3f L;
+    L << 1.0F, 0.0F, 0.0F, 0.5F, 1.0F, 0.0F, 0.3F, 0.4F, 1.0F;
+    Eigen::Matrix3f const P = L * L.transpose();
+    EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "L·L^T should be PSD";
+
+    Eigen::Matrix3f N = Eigen::Matrix3f::Identity();
+    N(0, 0) = -1.0F;
+    EXPECT_FALSE(isPositiveSemiDefinite<3>(N)) << "negative eigenvalue should fail";
 }

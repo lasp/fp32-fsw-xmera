@@ -176,6 +176,7 @@ def state_propagation_flyby(show_plots=False):
     np.testing.assert_allclose(state_data_log[:, 1:],
                                expected[:, 1:],
                                rtol=1E-8,
+                               atol=3E-5,
                                err_msg='state propagation error',
                                verbose=True)
     diff = np.copy(state_data_log)
@@ -518,6 +519,236 @@ def state_update_outlier_recovery(show_plots=False):
                                  err_msg='covariance not low at the last step', verbose=True)
 
 
+# Timing of the delayed-gyro test, sized for the sunline BatchSize of 5. A reading with time tag k is written at loop
+# step k and reaches the filter at call k + 1. The late gyro reading reaches it GYRO_EXTRA_STEPS = 2 calls later, at
+# call k + 3, after the CSS reading k + 1 has moved the anchor past it. (One call late is not enough to drop it: it
+# arrives with CSS reading k + 1 and the queue applies it first.) With MEASUREMENT_DELAY, reading k is due at call
+# ceil(k + MEASUREMENT_DELAY) = k + 3, the call where the late gyro arrives. Before that call pops, the queue holds the
+# CSS readings k .. k + 2 and the gyro reading k: 4 measurements. A gyro on time with the same delay would add the
+# gyro readings k + 1 and k + 2 (6 measurements); the full queue would drop its oldest, due, reading.
+GYRO_EXTRA_STEPS = 2      # [-] calls the late gyro reading arrives after the CSS reading of the same time tag
+MEASUREMENT_DELAY = 2.5   # [s] processing delay of the delayed filter
+
+
+def applied_time_tags(residual_log, readings, time_tags):
+    """Identify the reading applied at each filter call from the observation in its residual message.
+
+    Every reading carries its own noise, so its observation identifies it. A residual message reports only the last
+    reading of its kind applied during the call.
+    @return [call time (s), time tag (s)] of each call that applied a reading of this kind
+    @param residual_log recorder of a filter residual message
+    @param readings     [num_readings, n] float32 readings as the filter packs them (active CSS first)
+    @param time_tags    [num_readings] time tag of each reading"""
+    call_times = residual_log.times() * 1E-9
+    applied = []
+    for call_time, valid, size, observation in zip(call_times, residual_log.valid, residual_log.sizeOfObservations,
+                                                   residual_log.observation):
+        if not valid:
+            continue
+        mismatch = np.max(np.abs(readings[:, :size] - observation[:size]), axis=1)
+        k = int(np.argmin(mismatch))
+        assert mismatch[k] == 0.0, f'the observation applied at t = {call_time} s matches no reading'
+        applied.append([call_time, time_tags[k]])
+    return np.array(applied).reshape(-1, 2)
+
+
+def test_delayed_gyro_kf(show_plots):
+    state_update_delayed_gyro(show_plots)
+
+
+def state_update_delayed_gyro(show_plots=False):
+    """Run the filter with a gyro that lags behind the CSS, with and without a measurement delay.
+
+    At step i the CSS and gyro readings sampled at time[i] are generated once. The filters run at time[i + 1], so
+    a reading written at step i reaches them 1 s after its time tag. Three filters see the same readings:
+
+    * gyro on time, no delay: the gyro is written with the CSS reading (latency 1 s) -- the normal cycle and the
+      performance reference;
+    * late gyro, no delay: the same gyro reading is written GYRO_EXTRA_STEPS later (latency 3 s). A newer CSS
+      reading has already moved the anchor past it, so it is dropped;
+    * late gyro, delayed: the late gyro with the delay. Every reading is applied once, in time-tag order, at the
+      first call where it is due.
+    """
+    unit_task_name = "unitTask"  # arbitrary name (don't change)
+    unit_process_name = "TestProcess"  # arbitrary name (don't change)
+
+    unit_test_sim = SimulationBaseClass.SimBaseClass()
+
+    dt = 1.0
+    test_process_rate = macros.sec2nano(dt)
+    test_process = unit_test_sim.CreateNewProcess(unit_process_name)
+    test_process.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
+
+    CSSOrientationList = [
+        [0.70710678118654746, -0.5, 0.5],
+        [0.70710678118654746, -0.5, -0.5],
+        [0.70710678118654746, 0.5, -0.5],
+        [0.70710678118654746, 0.5, 0.5],
+        [-0.70710678118654746, 0, 0.70710678118654757],
+        [-0.70710678118654746, 0.70710678118654757, 0.0],
+        [-0.70710678118654746, 0, -0.70710678118654757],
+        [-0.70710678118654746, -0.70710678118654757, 0.0],
+    ]
+    num_css = len(CSSOrientationList)
+    cssConfigMsg = messaging.CSSConfigMsgF32()
+    setup_css_config_msg(CSSOrientationList, cssConfigMsg)
+
+    cssDataMsg = messaging.CSSArraySensorMsgF32Payload()
+    cssMsg = messaging.CSSArraySensorMsgF32()
+    gyro_msgs = {}
+    for stream in ('on time', 'late'):
+        payload = messaging.NavAttMsgF32Payload()
+        payload.timeTag = -1
+        gyro_msgs[stream] = messaging.NavAttMsgF32().write(payload)
+
+    # label: (gyro stream, measurement delay)
+    configurations = {
+        'gyro on time, no delay': ('on time', 0.0),
+        'late gyro, no delay': ('late', 0.0),
+        'late gyro, delayed': ('late', MEASUREMENT_DELAY),
+    }
+    filters = {}
+    for label, (stream, delay) in configurations.items():
+        sunHeadingFilter = sunlineFilterF32.SunlineFilter()
+        setup_filter_data(sunHeadingFilter)
+        sunHeadingFilter.measurementDelay = delay
+        sunHeadingFilter.navAttInMsg.subscribeTo(gyro_msgs[stream])
+        sunHeadingFilter.cssDataInMsg.subscribeTo(cssMsg)
+        sunHeadingFilter.cssConfigInMsg.subscribeTo(cssConfigMsg)
+        unit_test_sim.AddModelToTask(unit_task_name, sunHeadingFilter)
+        logs = {'state': sunHeadingFilter.filterOutMsg.recorder(),
+                'css': sunHeadingFilter.filterCssResOutMsg.recorder(),
+                'gyro': sunHeadingFilter.filterGyroResOutMsg.recorder()}
+        for log in logs.values():
+            unit_test_sim.AddModelToTask(unit_task_name, log)
+        filters[label] = logs
+
+    reference_filter = sunlineFilterF32.SunlineFilter()
+    setup_filter_data(reference_filter)
+    initState = np.array(reference_filter.initialState).reshape(7)
+    cssSigma = reference_filter.cssMeasurementNoiseStd
+    gyroSigma = reference_filter.gyroMeasurementNoiseStd
+    sensorThreshold = reference_filter.sensorThreshold
+
+    num_steps = 600
+    np.random.seed(0)
+    time = np.linspace(0, num_steps, num_steps + 1)
+    expected = np.zeros([len(time), 8])
+    expected[0, 1:] = initState
+    expected = rk4(sunline_dynamics, time, expected[0, 1:], normalizeState=True)
+
+    bodyFrame = np.zeros([len(time), 8])
+    bodyFrame[0, 1:] = np.array([0.0, 0.0, 0.0, expected[0, 4], expected[0, 5], expected[0, 6], expected[0, 7]])
+    bodyFrame = rk4(mrp_integration, time, bodyFrame[0, 1:], mrpShadow=True)
+
+    # Gyro reading sampled at time[i]: the body rate is constant, so it is the truth rate plus noise. Generated
+    # once so the on-time and late streams carry the same values and time tags.
+    gyro_readings = expected[0, 4:7] + np.random.normal(0, gyroSigma, [num_steps, 3])
+    # CSS readings as the filter packs them: float32, active sensors first. Used to identify the applied readings.
+    css_packed = np.zeros([num_steps, num_css], dtype=np.float32)
+
+    gyro_time_tags_sent = {'on time': [], 'late': []}
+
+    def write_gyro(stream, k):
+        payload = messaging.NavAttMsgF32Payload()
+        payload.timeTag = time[k]
+        payload.omega_BN_B = gyro_readings[k]
+        gyro_msgs[stream].write(payload)
+        gyro_time_tags_sent[stream].append(time[k])
+
+    unit_test_sim.InitializeSimulation()
+    for i in range(num_steps):
+        BN = rbk.MRP2C(bodyFrame[i, 1:4])
+        sunHeading_B = np.matmul(BN, [0, 0, 1])
+        clean = np.array([np.dot(CSSOrientationList[j], sunHeading_B) for j in range(num_css)])
+        cssDataMsg.CosValue = (clean + np.random.normal(0, cssSigma, num_css)) * expected[i, 7]
+        cssDataMsg.timeTag = time[i]
+        cssMsg.write(cssDataMsg)
+        cos_values = np.array(cssDataMsg.CosValue[:num_css], dtype=np.float32)
+        active = cos_values[cos_values > sensorThreshold]
+        css_packed[i, :len(active)] = active
+
+        if i > 0:  # a time tag of 0 is read as "no measurement"
+            write_gyro('on time', i)
+        if i - GYRO_EXTRA_STEPS > 0:
+            write_gyro('late', i - GYRO_EXTRA_STEPS)
+
+        unit_test_sim.ConfigureStopTime(macros.sec2nano(time[i + 1]))
+        unit_test_sim.ExecuteSimulation()
+
+    gyro_packed = gyro_readings.astype(np.float32)
+    num_states = 7
+    results = {}
+    for label, logs in filters.items():
+        state_log = logs['state']
+        state_all = add_time_column(state_log.times(), state_log.state[:, :num_states])
+        covar_all = add_time_column(state_log.times(), state_log.covar[:, :num_states ** 2])
+        # Log row 0 is the seeded estimate at t = 0; row k + 1 is the output of loop step k, at time[k + 1].
+        states = state_all[1:]
+        heading_err = np.linalg.norm(states[:, 1:4] - expected[1:num_steps + 1, 1:4], axis=1)
+        rate_err = np.linalg.norm(states[:, 4:7] - expected[1:num_steps + 1, 4:7], axis=1)
+        results[label] = {
+            'states': states,
+            'covariance': covar_all[1:],
+            'heading_err': np.column_stack([states[:, 0], heading_err]),
+            'rate_err': np.column_stack([states[:, 0], rate_err]),
+            'css_applied': applied_time_tags(logs['css'], css_packed, time[:num_steps]),
+            'gyro_applied': applied_time_tags(logs['gyro'], gyro_packed, time[:num_steps]),
+        }
+
+    reference = results['gyro on time, no delay']
+    undelayed = results['late gyro, no delay']
+    delayed = results['late gyro, delayed']
+
+    if show_plots:
+        filter_plots.delay_comparison({label: r['rate_err'] for label, r in results.items()},
+                                      '|rate error| (rad/s)', 'Late gyro: rate error').show()
+        filter_plots.delay_comparison({label: r['heading_err'] for label, r in results.items()},
+                                      '|heading error|', 'Late gyro: heading error').show()
+        filter_plots.state_covar(delayed['states'], delayed['covariance'], 'Late gyro, delayed').show()
+
+    # Order. With the delay, a reading with time tag t is due at the first call at or after t + MEASUREMENT_DELAY.
+    # The late gyro has arrived by then, so every reading must be applied once, in time-tag order, at that call.
+    final_time = time[num_steps]
+    # The CSS reading at t = 0 is never enqueued: a time tag of 0 is read as "no measurement".
+    for kind, sent_tags in (('css', time[1:num_steps]), ('gyro', gyro_time_tags_sent['late'])):
+        applied = delayed[f'{kind}_applied']
+        due_tags = np.array([t for t in sent_tags if t <= final_time - MEASUREMENT_DELAY])
+        assert np.all(np.diff(applied[:, 1]) > 0), f'{kind} readings applied out of time-tag order'
+        np.testing.assert_array_equal(applied[:, 1], due_tags,
+                                      err_msg=f'{kind}: the applied readings are not exactly the due readings')
+        np.testing.assert_allclose(applied[:, 0], np.ceil(applied[:, 1] + MEASUREMENT_DELAY), rtol=0, atol=1E-9,
+                                   err_msg=f'{kind}: a reading was not applied at the first call where it is due')
+
+    # Without the delay, each late gyro reading arrives behind the anchor set by a newer CSS reading and is dropped.
+    np.testing.assert_array_equal(reference['gyro_applied'][:, 1], gyro_time_tags_sent['on time'],
+                                  err_msg='every on-time gyro reading is applied without a delay')
+    assert len(undelayed['gyro_applied']) == 0, 'without a delay, every late gyro reading is behind the anchor'
+
+    # Performance against the normal cycle. With the delay, the filter applies the same readings, only later, so its
+    # rate estimate is as good (measured ratio 1.01). Its output is a prediction over the delay, which costs some
+    # heading accuracy (measured ratio 1.24). Without the delay, the rate comes from the CSS heading alone
+    # (measured ratio 77).
+    second_half = slice(num_steps // 2, None)
+
+    def rms_error(result, key):
+        return float(np.sqrt(np.mean(result[key][second_half, 1] ** 2)))
+
+    reference_rate = rms_error(reference, 'rate_err')
+    reference_heading = rms_error(reference, 'heading_err')
+    assert rms_error(delayed, 'rate_err') < 1.1 * reference_rate, \
+        f"rate RMS with the delay {rms_error(delayed, 'rate_err')} vs reference {reference_rate}"
+    assert rms_error(delayed, 'heading_err') < 1.6 * reference_heading, \
+        f"heading RMS with the delay {rms_error(delayed, 'heading_err')} vs reference {reference_heading}"
+    assert rms_error(undelayed, 'rate_err') > 10 * reference_rate, \
+        f"rate RMS without the delay {rms_error(undelayed, 'rate_err')} vs reference {reference_rate}"
+    np.testing.assert_allclose(delayed['states'][-1, 4:7], expected[-1, 4:7], atol=5 * gyroSigma,
+                               err_msg='rate not converged at the last step', verbose=True)
+    np.testing.assert_allclose(delayed['states'][-1, 1:4], expected[-1, 1:4], atol=5 * cssSigma,
+                               err_msg='heading not converged at the last step', verbose=True)
+
+
 if __name__ == "__main__":
     state_update_flyby(True, True)
     state_update_outlier_recovery(True)
+    state_update_delayed_gyro(True)

@@ -19,27 +19,27 @@ class CssMeasurementModel {
    public:
     static constexpr int size = MaxCss;
 
-    CssMeasurementModel(Eigen::Vector<double, size> observation,
-                        Eigen::Matrix<double, size, 3> hMatrix,
-                        Eigen::Matrix<double, size, size> noise)
+    CssMeasurementModel(Eigen::Vector<float, size> observation,
+                        Eigen::Matrix<float, size, 3> hMatrix,
+                        Eigen::Matrix<float, size, size> noise)
         : observed(std::move(observation)), hMatrix(std::move(hMatrix)), measNoise(std::move(noise)) {}
 
-    Eigen::Vector<double, size> observation() const { return this->observed; }
-    Eigen::Vector<double, size> model(State const& state) const {
-        double const bias = state.get<filtering::Bias<1>>()(0);
-        Eigen::Vector3d const sHat = state.get<filtering::Position<3>>();
+    Eigen::Vector<float, size> observation() const { return this->observed; }
+    Eigen::Vector<float, size> model(State const& state) const {
+        float const bias = state.get<filtering::Bias<1>>()(0);
+        Eigen::Vector3f const sHat = state.get<filtering::Position<3>>();
         return bias * (this->hMatrix * sHat);
     }
-    Eigen::Matrix<double, size, size> noise() const { return this->measNoise; }
-    static Eigen::Vector<double, size> subtract(Eigen::Vector<double, size> const& a,
-                                                Eigen::Vector<double, size> const& b) {
+    Eigen::Matrix<float, size, size> noise() const { return this->measNoise; }
+    static Eigen::Vector<float, size> subtract(Eigen::Vector<float, size> const& a,
+                                               Eigen::Vector<float, size> const& b) {
         return a - b;
     }
 
    private:
-    Eigen::Vector<double, size> observed;
-    Eigen::Matrix<double, size, 3> hMatrix;
-    Eigen::Matrix<double, size, size> measNoise;
+    Eigen::Vector<float, size> observed;
+    Eigen::Matrix<float, size, 3> hMatrix;
+    Eigen::Matrix<float, size, size> measNoise;
 };
 
 /*! Predicted gyro observation = omega_BN_B. Satisfies the Measurement concept. */
@@ -47,17 +47,17 @@ class RateMeasurementModel {
    public:
     static constexpr int size = 3;
 
-    RateMeasurementModel(Eigen::Vector3d observation, Eigen::Matrix3d noise)
+    RateMeasurementModel(Eigen::Vector3f observation, Eigen::Matrix3f noise)
         : observed(std::move(observation)), measNoise(std::move(noise)) {}
 
-    Eigen::Vector3d observation() const { return this->observed; }
-    static Eigen::Vector3d model(State const& state) { return state.get<filtering::Velocity<3>>(); }
-    Eigen::Matrix3d noise() const { return this->measNoise; }
-    static Eigen::Vector3d subtract(Eigen::Vector3d const& a, Eigen::Vector3d const& b) { return a - b; }
+    Eigen::Vector3f observation() const { return this->observed; }
+    static Eigen::Vector3f model(State const& state) { return state.get<filtering::Velocity<3>>(); }
+    Eigen::Matrix3f noise() const { return this->measNoise; }
+    static Eigen::Vector3f subtract(Eigen::Vector3f const& a, Eigen::Vector3f const& b) { return a - b; }
 
    private:
-    Eigen::Vector3d observed;
-    Eigen::Matrix3d measNoise;
+    Eigen::Vector3f observed;
+    Eigen::Matrix3f measNoise;
 };
 
 static_assert(filtering::Measurement<CssMeasurementModel, State>);
@@ -83,6 +83,7 @@ void SunlineFilterAlgorithm::setConfig(SunlineFilterConfig const& config) {
     this->srukf.setInitialCovariance(config.getInitialCovariance());
     this->srukf.dynamics = SunlineDynamics{};
     this->srukf.configure();
+    this->measurements.setDelay(config.getMeasurementDelay());
 }
 
 /*! Clear the internal runtime state (pending measurements and residual snapshots); the filter state
@@ -134,7 +135,7 @@ SunlineFilterOutput SunlineFilterAlgorithm::update(double currentSeconds,
 /*! Propagate the state from the last-measurement anchor by dt.
  *  @return false if the propagated state/covariance is non-finite
  *  @param dt [s] elapsed time since the last measurement */
-bool SunlineFilterAlgorithm::timeUpdate(double dt) { return this->srukf.timeUpdate(dt); }
+bool SunlineFilterAlgorithm::timeUpdate(float dt) { return this->srukf.timeUpdate(dt); }
 
 /*! Fold a single measurement into the filter; dispatches per-kind.
  *  @return false if the resulting state/covariance is non-finite
@@ -191,10 +192,10 @@ bool SunlineFilterAlgorithm::applyMeasurement(RateMeasurement const& measurement
  *  @return CssMeasurement (valid = active > 0)
  *  @param cssData [-] raw CSS cos-values and time tag */
 CssMeasurement SunlineFilterAlgorithm::packCssMeasurement(CssData const& cssData) const {
-    double const cssMeasNoiseStd = this->cfg.getCssMeasurementNoiseStd();
+    float const cssMeasNoiseStd = this->cfg.getCssMeasurementNoiseStd();
     CssMeasurement packed;
     packed.timeTag = cssData.timeTag;
-    packed.covar = (cssMeasNoiseStd * cssMeasNoiseStd) * Eigen::Matrix<double, MaxCss, MaxCss>::Identity();
+    packed.covar = (cssMeasNoiseStd * cssMeasNoiseStd) * Eigen::Matrix<float, MaxCss, MaxCss>::Identity();
 
     int active = 0;
     for (uint32_t i = 0; i < this->cfg.getNumberOfCss() && active < MaxCss; ++i) {
@@ -217,8 +218,8 @@ RateMeasurement SunlineFilterAlgorithm::packRateMeasurement(RateData const& rate
     RateMeasurement packed;
     packed.timeTag = rateData.timeTag;
     packed.omega_BN_B = rateData.rate;
-    double const gyroMeasNoiseStd = this->cfg.getGyroMeasurementNoiseStd();
-    packed.covar = (gyroMeasNoiseStd * gyroMeasNoiseStd) * Eigen::Matrix3d::Identity();
+    float const gyroMeasNoiseStd = this->cfg.getGyroMeasurementNoiseStd();
+    packed.covar = (gyroMeasNoiseStd * gyroMeasNoiseStd) * Eigen::Matrix3f::Identity();
     packed.valid = true;
     return packed;
 }
@@ -229,7 +230,7 @@ RateMeasurement SunlineFilterAlgorithm::packRateMeasurement(RateData const& rate
 SunlineFilterAlgorithm::State SunlineFilterAlgorithm::regularize(State const& state) const {
     State outputState = state;
     outputState.set<filtering::Position<3>>(outputState.get<filtering::Position<3>>().stableNormalized());
-    Eigen::Vector<double, 1> biasVec;
+    Eigen::Vector<float, 1> biasVec;
     biasVec(0) = std::clamp(
         outputState.get<filtering::Bias<1>>()(0), this->cfg.getBiasLowerBound(), this->cfg.getBiasUpperBound());
     outputState.set<filtering::Bias<1>>(biasVec);
@@ -253,7 +254,7 @@ RateResidualsOutput const& SunlineFilterAlgorithm::getLastRateResiduals() const 
 /*! @return current filter state (post-sanitization) */
 SunlineFilterAlgorithm::State SunlineFilterAlgorithm::getState() const { return this->srukf.getState(); }
 /*! @return current full covariance */
-Eigen::Matrix<double, SunlineFilterAlgorithm::N, SunlineFilterAlgorithm::N> SunlineFilterAlgorithm::getCovariance()
+Eigen::Matrix<float, SunlineFilterAlgorithm::N, SunlineFilterAlgorithm::N> SunlineFilterAlgorithm::getCovariance()
     const {
     return this->srukf.getCovariance();
 }
