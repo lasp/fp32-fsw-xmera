@@ -23,25 +23,25 @@ InertialFilterConfig configFromC(const double alpha,
                                  const InertialFilterStateMatrix_c& initialCovarianceC,
                                  const double stMeasurementNoiseStd,
                                  const double rateMeasurementNoiseStd) {
-    Eigen::Matrix<double, INERTIAL_FILTER_NUM_STATES, 1> initialStateVec;
+    Eigen::Matrix<float, INERTIAL_FILTER_NUM_STATES, 1> initialStateVec;
     for (int i = 0; i < INERTIAL_FILTER_NUM_STATES; ++i) {
-        initialStateVec(i) = initialStateC.data[i];
+        initialStateVec(i) = static_cast<float>(initialStateC.data[i]);
     }
     StateMatrix processNoise;
     StateMatrix initialCovariance;
     for (int i = 0; i < INERTIAL_FILTER_NUM_STATES; ++i) {
         for (int j = 0; j < INERTIAL_FILTER_NUM_STATES; ++j) {
-            processNoise(i, j) = processNoiseC.data[(i * INERTIAL_FILTER_NUM_STATES) + j];
-            initialCovariance(i, j) = initialCovarianceC.data[(i * INERTIAL_FILTER_NUM_STATES) + j];
+            processNoise(i, j) = static_cast<float>(processNoiseC.data[(i * INERTIAL_FILTER_NUM_STATES) + j]);
+            initialCovariance(i, j) = static_cast<float>(initialCovarianceC.data[(i * INERTIAL_FILTER_NUM_STATES) + j]);
         }
     }
-    return InertialFilterConfig::create(alpha,
-                                        beta,
+    return InertialFilterConfig::create(static_cast<float>(alpha),
+                                        static_cast<float>(beta),
                                         processNoise,
                                         InertialState(initialStateVec),
                                         initialCovariance,
-                                        stMeasurementNoiseStd,
-                                        rateMeasurementNoiseStd);
+                                        static_cast<float>(stMeasurementNoiseStd),
+                                        static_cast<float>(rateMeasurementNoiseStd));
 }
 
 // StAttResidualsOutput and RateResidualsOutput are distinct C++ types with identical fields; one
@@ -139,11 +139,11 @@ InertialFilterOutput_c InertialFilterAlgorithm_update(InertialFilterAlgorithmHan
                                                       const InertialRateData_c* rate) {
     StAttData stIn{};
     stIn.timeTag = stAtt->timeTag;
-    stIn.sigma_BN = Eigen::Vector3d(stAtt->sigma_BN[0], stAtt->sigma_BN[1], stAtt->sigma_BN[2]);
+    stIn.sigma_BN = Eigen::Vector3d(stAtt->sigma_BN[0], stAtt->sigma_BN[1], stAtt->sigma_BN[2]).cast<float>();
 
     RateData rateIn{};
     rateIn.timeTag = rate->timeTag;
-    rateIn.rate = Eigen::Vector3d(rate->rate[0], rate->rate[1], rate->rate[2]);
+    rateIn.rate = Eigen::Vector3d(rate->rate[0], rate->rate[1], rate->rate[2]).cast<float>();
 
     auto* algo = fsw::fromHandle<InertialFilterAlgorithm>(self);
     const InertialFilterOutput out = algo->update(currentSeconds, stIn, rateIn);

@@ -53,7 +53,7 @@ relative to the central body. It is composed from filteringCore state tags as
     \boldsymbol{v}_{B/N} \end{matrix} \right\}.
 
 The measurement queue holds a single entry (``BatchSize = 1``), so the filter processes at most one
-heading per cycle. A reading whose time tag is not newer than the last accepted one, or whose
+heading per cycle. A full queue drops its oldest measurement: a newer heading replaces the queued one. A reading whose time tag is not newer than the last accepted one, or whose
 ``valid`` flag is clear, is ignored by the adapter; a reading older than the filter's measurement
 anchor is dropped by the scheduler. A reading stamped in the past but still newer than the anchor is
 applied **at its own time tag**, and the estimate is then propagated forward to the call time.

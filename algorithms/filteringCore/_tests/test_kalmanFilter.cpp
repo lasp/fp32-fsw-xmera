@@ -5,6 +5,8 @@
 // measurement_queue in chronological order, interleaving timeUpdate / measurementUpdate
 // calls then a final timeUpdate to callTime. applySequentialRobust additionally reads each
 // update's bool result and, on a failed update, calls clear() and holds the anchor.
+// The first call on a queue that is not synchronized only sets the anchor to callTime, so the
+// scheduling tests start with a queue synchronized at t = 0.
 
 #include <filteringCore/measurementQueue.h>
 #include <filteringCore/kalmanFilter.hpp>
@@ -85,6 +87,7 @@ TEST(ApplySequential, MeasurementsProcessesInAscendingTimeOrder) {
     CallLog log;
     RecordingFilter filter{&log};
     measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(0.0);
     q.enqueue(5.0, 0.5);  // enqueued out of order
     q.enqueue(3.0, 0.3);
 
@@ -130,6 +133,7 @@ TEST(ApplySequential, SkipsMeasurementsBeforeStoredAnchor) {
 // Filter updates the time of last measurement
 TEST(ApplySequential, AdvancesAnchorToLatestMeasurementTime) {
     measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(0.0);
     q.enqueue(5.0, 1.0);
     q.enqueue(7.0, 2.0);
 
@@ -153,6 +157,7 @@ TEST(ApplySequential, NoFinalTimeUpdateWhenAnchorReachesCallTime) {
         CallLog log;
         RecordingFilter filter{&log};
         measurement_queue<double, 4> q;
+        q.setTimeOfLastMeasurement(0.0);
         q.enqueue(10.0, 0.5);
         applySequential(q, filter, 10.0);
         // Expected: timeUpdate(10), meas(0.5) — NO trailing timeUpdate(0).
@@ -170,6 +175,7 @@ TEST(ApplySequentialRobust, AllValidUpdatesAdvanceAnchorAndNeverClear) {
     CallLog log;
     RecordingFilter filter{&log};
     measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(0.0);
     q.enqueue(5.0, 1.0);
     q.enqueue(7.0, 2.0);
 
@@ -188,6 +194,7 @@ TEST(ApplySequentialRobust, FailedMeasurementClearsAndHoldsAnchor) {
     RecordingFilter filter{&log};
     filter.failOnNegativeMeasurement = true;
     measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(0.0);
     q.enqueue(2.0, 0.5);   // good
     q.enqueue(4.0, -1.0);  // bad: measurementUpdate reports invalid
 
@@ -216,6 +223,7 @@ TEST(ApplySequentialRobust, FailedTimeUpdateShortCircuitsMeasurementAndClears) {
     RecordingFilter filter{&log};
     filter.timeUpdatesFail = true;
     measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(0.0);
     q.enqueue(2.0, 0.5);
 
     applySequentialRobust(q, filter, 10.0);
@@ -226,6 +234,233 @@ TEST(ApplySequentialRobust, FailedTimeUpdateShortCircuitsMeasurementAndClears) {
     EXPECT_EQ(count(log, CallLog::Kind::TimeUpdate), 2);
     EXPECT_EQ(count(log, CallLog::Kind::Clear), 2);
     EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 0.0);
+}
+
+// Processing-delay tests. Timeline: one call per second; at call t a fast sensor delivers a sample taken at t - 0.2 and
+// a slow sensor a sample taken at t - 2.5. A slow sample is identified by a measurement value offset by kSlow.
+
+namespace {
+
+constexpr double kSlow = 1000.0;
+
+// Enqueue the samples that arrive at callTime: fast at callTime - 0.2 and slow at callTime - 2.5.
+template <std::size_t Capacity>
+void enqueueArrivals(measurement_queue<double, Capacity>& q, double callTime) {
+    q.enqueue(callTime - 0.2, callTime - 0.2);
+    q.enqueue(callTime - 2.5, kSlow + callTime - 2.5);
+}
+
+// Measurement values applied, in call order.
+std::vector<double> appliedMeasurements(CallLog const& log) {
+    std::vector<double> values;
+    for (auto const& [k, v] : log.entries) {
+        if (k == CallLog::Kind::MeasurementUpdate) values.push_back(v);
+    }
+    return values;
+}
+
+}  // namespace
+
+// Without a delay, the fast sensor moves the anchor ahead of every later slow sample, so the slow sensor is dropped
+// from the second call on.
+TEST(ApplySequentialDelay, WithoutDelayTheSlowSensorFallsBehindTheAnchor) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 8> q;
+    q.setTimeOfLastMeasurement(0.0);
+    for (double callTime = 10.0; callTime <= 15.0; callTime += 1.0) {
+        enqueueArrivals(q, callTime);
+        applySequential(q, filter, callTime);
+    }
+
+    int slowApplied = 0;
+    for (double const v : appliedMeasurements(log)) {
+        if (v >= kSlow) ++slowApplied;
+    }
+    EXPECT_EQ(slowApplied, 1) << "only the first slow sample, which arrives with the first fast one, is applied";
+}
+
+// With a 3 s delay, measurements are processed up to callTime - 3, so the slow samples (2.5 s late) are applied
+// with the fast ones, in time order, and none is dropped.
+TEST(ApplySequentialDelay, DelayAppliesTheSlowSensorInTimeOrder) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 8> q;
+    q.setTimeOfLastMeasurement(0.0);
+    double const delay = 3.0;
+    q.setDelay(delay);
+    for (double callTime = 10.0; callTime <= 15.0; callTime += 1.0) {
+        enqueueArrivals(q, callTime);
+        applySequential(q, filter, callTime);
+        EXPECT_LE(q.getTimeOfLastMeasurement(), callTime - delay) << "the anchor stays at or behind callTime - delay";
+    }
+
+    // Every sample up to 15 - 3 = 12 is applied: slow 7.5 ... 11.5 and fast 9.8 ... 11.8, in time order.
+    std::vector<double> const expected = {
+        kSlow + 7.5, kSlow + 8.5, kSlow + 9.5, 10.0 - 0.2, kSlow + 10.5, 11.0 - 0.2, kSlow + 11.5, 12.0 - 0.2};
+    EXPECT_EQ(appliedMeasurements(log), expected);
+    EXPECT_FALSE(q.isEmpty()) << "the samples after 12 stay queued for a later call";
+}
+
+// The delayed measurements stay queued, and the filter is still propagated from the anchor to callTime.
+TEST(ApplySequentialDelay, DelayedMeasurementsStayQueuedAndTheFilterReachesCallTime) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(5.0);
+    q.setDelay(3.0);
+    q.enqueue(9.8, 9.8);
+
+    applySequential(q, filter, 10.0);
+
+    ASSERT_EQ(log.entries.size(), 1u);
+    EXPECT_EQ(log.entries[0].first, CallLog::Kind::TimeUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[0].second, 5.0) << "propagated from the anchor (5) to callTime (10)";
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 5.0);
+    auto const delayed = q.popEarliest();
+    ASSERT_TRUE(delayed.has_value());
+    EXPECT_DOUBLE_EQ(delayed->first, 9.8);
+}
+
+// A sample with a latency larger than the delay is behind the anchor: it is dropped.
+TEST(ApplySequentialDelay, SampleWithALatencyAboveTheDelayIsDropped) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(10.0);
+    q.setDelay(3.0);
+    q.enqueue(6.5, kSlow + 6.5);  // latency of 7.5 s at call 14, more than the 3 s delay
+    q.enqueue(10.5, 10.5);
+
+    applySequential(q, filter, 14.0);
+
+    EXPECT_EQ(appliedMeasurements(log), std::vector<double>{10.5});
+    EXPECT_TRUE(q.isEmpty()) << "the late sample is not kept";
+}
+
+// The robust scheduler delays measurements the same way.
+TEST(ApplySequentialDelay, RobustSchedulerDelaysTheSameWay) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 8> q;
+    q.setTimeOfLastMeasurement(0.0);
+    q.setDelay(3.0);
+    for (double callTime = 10.0; callTime <= 15.0; callTime += 1.0) {
+        enqueueArrivals(q, callTime);
+        applySequentialRobust(q, filter, callTime);
+    }
+
+    std::vector<double> const expected = {
+        kSlow + 7.5, kSlow + 8.5, kSlow + 9.5, 10.0 - 0.2, kSlow + 10.5, 11.0 - 0.2, kSlow + 11.5, 12.0 - 0.2};
+    EXPECT_EQ(appliedMeasurements(log), expected);
+    EXPECT_EQ(count(log, CallLog::Kind::Clear), 0);
+}
+
+// Time synchronization tests
+
+// The first call on a new queue does nothing but set the anchor to callTime: no update and no measurement is popped.
+TEST(ApplySequentialSynchronization, FirstCallOnlySetsTheAnchorToCallTime) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    EXPECT_FALSE(q.isTimeSynchronized());
+    q.enqueue(95.0, 0.5);
+    q.enqueue(100.0, 1.0);
+
+    applySequential(q, filter, 100.0);
+
+    EXPECT_TRUE(log.entries.empty());
+    EXPECT_TRUE(q.isTimeSynchronized());
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 100.0);
+    EXPECT_FALSE(q.isEmpty()) << "the measurements stay queued for the next call";
+}
+
+// After the synchronization, the next call propagates from the synchronized anchor and processes the measurements at or
+// after it; the measurements before it are dropped.
+TEST(ApplySequentialSynchronization, NextCallProcessesFromTheSynchronizedAnchor) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    q.enqueue(95.0, 0.5);
+    q.enqueue(100.0, 1.0);
+    applySequential(q, filter, 100.0);
+
+    q.enqueue(100.5, 2.0);
+    applySequential(q, filter, 101.0);
+
+    // Expected: timeUpdate(0), meas(1.0), timeUpdate(0.5), meas(2.0), timeUpdate(0.5)
+    ASSERT_EQ(log.entries.size(), 5u);
+    EXPECT_DOUBLE_EQ(log.entries[0].second, 0.0);
+    EXPECT_DOUBLE_EQ(log.entries[1].second, 1.0);
+    EXPECT_DOUBLE_EQ(log.entries[2].second, 0.5);
+    EXPECT_DOUBLE_EQ(log.entries[3].second, 2.0);
+    EXPECT_EQ(log.entries[4].first, CallLog::Kind::TimeUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[4].second, 0.5);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 100.5);
+}
+
+// A first call well ahead of 0 moves the filter time to that call time: the next call propagates only from there.
+TEST(ApplySequentialSynchronization, FirstCallFarAheadOfZeroMovesTheFilterTime) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 0.0);
+
+    applySequentialRobust(q, filter, 1.0E5);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 1.0E5) << "the filter time moved from 0 to the call time";
+    EXPECT_TRUE(log.entries.empty());
+
+    applySequentialRobust(q, filter, 1.0E5 + 2.0);
+    ASSERT_EQ(log.entries.size(), 1u);
+    EXPECT_EQ(log.entries[0].first, CallLog::Kind::TimeUpdate);
+    EXPECT_DOUBLE_EQ(log.entries[0].second, 2.0) << "propagated from the call time, not from 0";
+}
+
+// A first call at t = 0 also only synchronizes; the anchor then stays synchronized even though its value is still 0.
+TEST(ApplySequentialSynchronization, FirstCallAtZeroSynchronizesOnce) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+
+    applySequential(q, filter, 0.0);
+    EXPECT_TRUE(log.entries.empty());
+
+    q.enqueue(0.5, 1.0);
+    applySequential(q, filter, 1.0);
+
+    EXPECT_EQ(count(log, CallLog::Kind::MeasurementUpdate), 1);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 0.5);
+}
+
+// clear() makes the next call synchronize again.
+TEST(ApplySequentialSynchronization, ClearMakesTheNextCallSynchronizeAgain) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    q.setTimeOfLastMeasurement(10.0);
+    q.clear();
+
+    applySequential(q, filter, 50.0);
+
+    EXPECT_TRUE(log.entries.empty());
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 50.0);
+}
+
+// The robust scheduler synchronizes the same way.
+TEST(ApplySequentialSynchronization, RobustSchedulerSynchronizesTheSameWay) {
+    CallLog log;
+    RecordingFilter filter{&log};
+    measurement_queue<double, 4> q;
+    q.enqueue(100.0, 1.0);
+
+    applySequentialRobust(q, filter, 100.0);
+    EXPECT_TRUE(log.entries.empty());
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 100.0);
+
+    applySequentialRobust(q, filter, 101.0);
+    EXPECT_EQ(count(log, CallLog::Kind::MeasurementUpdate), 1);
+    EXPECT_EQ(count(log, CallLog::Kind::Clear), 0);
+    EXPECT_DOUBLE_EQ(q.getTimeOfLastMeasurement(), 100.0);
 }
 
 }  // namespace filtering

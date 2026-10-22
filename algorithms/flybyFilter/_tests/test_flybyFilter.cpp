@@ -53,12 +53,12 @@ TEST(FlybyFilterConfig, ValidInputsDoNotThrow) { EXPECT_NO_THROW(buildConfig({})
 TEST(FlybyFilterConfig, RejectsNonFiniteInitialState) {
     ConfigInputs in;
     in.initialState =
-        makeState(Eigen::Vector3d(std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0), Eigen::Vector3d::Zero());
+        makeState(Eigen::Vector3f(std::numeric_limits<float>::quiet_NaN(), 0.0, 0.0), Eigen::Vector3f::Zero());
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
 }
 
 TEST(FlybyFilterConfig, RejectsAlphaOutsideHalfOpenUnitInterval) {
-    for (double bad : {0.0, -0.1, 1.5}) {  // (0, 1]: zero and anything above one are rejected
+    for (float bad : {0.0, -0.1, 1.5}) {  // (0, 1]: zero and anything above one are rejected
         ConfigInputs in;
         in.alpha = bad;
         EXPECT_THROW(buildConfig(in), fsw::invalid_argument) << "alpha=" << bad;
@@ -71,7 +71,7 @@ TEST(FlybyFilterConfig, RejectsAlphaOutsideHalfOpenUnitInterval) {
 }
 
 TEST(FlybyFilterConfig, RejectsBetaOutsideRange) {
-    for (double bad : {-0.1, 2.5}) {  // [0, 2] closed interval
+    for (float bad : {-0.1, 2.5}) {  // [0, 2] closed interval
         ConfigInputs in;
         in.beta = bad;
         EXPECT_THROW(buildConfig(in), fsw::invalid_argument) << "beta=" << bad;
@@ -79,7 +79,7 @@ TEST(FlybyFilterConfig, RejectsBetaOutsideRange) {
 }
 
 TEST(FlybyFilterConfig, RejectsNonPositiveMu) {
-    for (double bad : {0.0, -1.0}) {
+    for (float bad : {0.0, -1.0}) {
         ConfigInputs in;
         in.mu = bad;
         EXPECT_THROW(buildConfig(in), fsw::invalid_argument) << "mu=" << bad;
@@ -128,10 +128,10 @@ TEST(FlybyFilterConfig, GettersRoundTrip) {
     in.initialState = makeState({3100.0, 900.0, 450.0}, {1.1, -1.9, 0.4});
     FlybyFilterConfig const cfg = buildConfig(in);
 
-    EXPECT_DOUBLE_EQ(cfg.getAlpha(), kAlpha);
-    EXPECT_DOUBLE_EQ(cfg.getBeta(), kBeta);
-    EXPECT_DOUBLE_EQ(cfg.getMu(), kMu);
-    EXPECT_DOUBLE_EQ(cfg.getHeadingMeasurementNoiseStd(), kHeadingStd);
+    EXPECT_FLOAT_EQ(cfg.getAlpha(), kAlpha);
+    EXPECT_FLOAT_EQ(cfg.getBeta(), kBeta);
+    EXPECT_FLOAT_EQ(cfg.getMu(), kMu);
+    EXPECT_FLOAT_EQ(cfg.getHeadingMeasurementNoiseStd(), kHeadingStd);
     EXPECT_TRUE(cfg.getProcessNoise().isApprox(in.processNoise, 1E-12));
     EXPECT_TRUE(cfg.getInitialCovariance().isApprox(in.initialCovariance, 1E-12));
     EXPECT_TRUE(cfg.getInitialState().raw().isApprox(in.initialState.raw(), 1E-12));
@@ -154,6 +154,7 @@ TEST(FlybyFilterAlgorithmLifecycle, ReInitializeExceptPersistentStatesPreservesE
     State const initial = nominalTruth();
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
 
     HeadingData heading;
     heading.timeTag = 10.0;
@@ -178,7 +179,7 @@ TEST(FlybyFilterAlgorithmLifecycle, ReInitializeExceptPersistentStatesPreservesE
 TEST(FlybyFilterAlgorithmLifecycle, SetConfigReDerivesMu) {
     State const initial = nominalTruth();
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
-    constexpr double dt = 30.0;
+    constexpr float dt = 30.0;
 
     // A reference filter using a larger mu propagates to a different state.
     FlybyFilterAlgorithm reference(
@@ -196,19 +197,25 @@ TEST(FlybyFilterAlgorithmLifecycle, SetConfigReDerivesProcessNoise) {
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     Matrix6 const smallQ = Matrix6::Identity() * 1E-12;
     Matrix6 const largeQ = Matrix6::Identity() * 1E-4;
-    constexpr double dt = 10.0;
+    constexpr float dt = 10.0;
 
     FlybyFilterAlgorithm reference(configWithProcessNoise(initial, P0, largeQ));
     EXPECT_TRUE(reference.timeUpdate(dt));
 
+    // Q is below float resolution of the position variances, so the velocity block carries the difference.
+    auto const velocityBlock = [](FlybyFilterAlgorithm const& a) -> Eigen::Matrix3f {
+        return a.getCovariance().bottomRightCorner<3, 3>();
+    };
+
     FlybyFilterAlgorithm smallOnly(configWithProcessNoise(initial, P0, smallQ));
     EXPECT_TRUE(smallOnly.timeUpdate(dt));
-    ASSERT_FALSE(smallOnly.getCovariance().isApprox(reference.getCovariance()));
+    ASSERT_FALSE(velocityBlock(smallOnly).isApprox(velocityBlock(reference)));
 
     FlybyFilterAlgorithm algo(configWithProcessNoise(initial, P0, smallQ));
     algo.setConfig(configWithProcessNoise(initial, P0, largeQ));
     EXPECT_TRUE(algo.timeUpdate(dt));
     EXPECT_TRUE(algo.getCovariance().isApprox(reference.getCovariance()));
+    EXPECT_TRUE(velocityBlock(algo).isApprox(velocityBlock(reference)));
 }
 
 TEST(FlybyFilterAlgorithmLifecycle, SetConfigPreservesTheCurrentEstimate) {
@@ -239,6 +246,7 @@ TEST(FlybyFilterAlgorithmLifecycle, ClearRevertsToTheLastMeasurementAnchor) {
     TestState const initial = nominalTruth();
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
 
     // A measurement stamped at the call time leaves the filter sitting exactly on its anchor.
     HeadingData heading;
@@ -306,6 +314,7 @@ TEST(FlybyFilterAlgorithmOutput, UpdateSnapshotMatchesTheAccessors) {
 namespace {
 TestState propagateOnly(TestState const& initial, Matrix6 const& P, double callTime) {
     FlybyFilterAlgorithm algo(baseConfig(initial, P));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
     algo.update(callTime, HeadingData{});
     return algo.getState();
 }
@@ -315,6 +324,7 @@ TEST(FlybyFilterAlgorithmScheduler, NoMeasurementCyclePropagatesToTheCallTime) {
     TestState const initial = nominalTruth();
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
 
     constexpr double callTime = 40.0;
     FlybyFilterOutput const out = algo.update(callTime, HeadingData{});
@@ -333,11 +343,12 @@ TEST(FlybyFilterAlgorithmScheduler, NonPositiveTimeTagIsNotEnqueued) {
     // timeTag <= 0 is the adapter's "no fresh reading this cycle" sentinel; both 0 and a negative
     // tag must behave exactly like an empty HeadingData.
     TestState const reference = propagateOnly(initial, P0, callTime);
-    for (double staleTag : {0.0, -5.0}) {
+    for (float staleTag : {0.0, -5.0}) {
         FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+        algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
         HeadingData heading;
         heading.timeTag = staleTag;
-        heading.rhat_BN_N = Eigen::Vector3d(0.0, 0.0, 1.0);  // deliberately far from the prior
+        heading.rhat_BN_N = Eigen::Vector3f(0.0, 0.0, 1.0);  // deliberately far from the prior
         FlybyFilterOutput const out = algo.update(callTime, heading);
 
         EXPECT_FALSE(out.headingResiduals.valid) << "timeTag=" << staleTag;
@@ -349,6 +360,7 @@ TEST(FlybyFilterAlgorithmScheduler, MeasurementOlderThanTheAnchorIsDropped) {
     TestState const initial = nominalTruth();
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
 
     // Anchor the filter at t = 100 with a good measurement.
     HeadingData fresh;
@@ -361,12 +373,62 @@ TEST(FlybyFilterAlgorithmScheduler, MeasurementOlderThanTheAnchorIsDropped) {
     // equivalent to a pure propagation.
     HeadingData stale;
     stale.timeTag = 50.0;
-    stale.rhat_BN_N = Eigen::Vector3d(0.0, 0.0, 1.0);
+    stale.rhat_BN_N = Eigen::Vector3f(0.0, 0.0, 1.0);
     FlybyFilterOutput const out = algo.update(110.0, stale);
 
     EXPECT_FALSE(out.headingResiduals.valid) << "a measurement older than the anchor must be dropped";
     TestState const expected = filtering::propagate(FlybyDynamics{kMu}, anchor, {0.0, 10.0});
     EXPECT_TRUE(algo.getState().raw().isApprox(expected.raw(), 1E-9));
+}
+
+// The first update() synchronizes the filter time with a call time well ahead of 0: the initial state and covariance
+// are taken to be the estimate at that call time, so the filter does not propagate over the gap from 0.
+TEST(FlybyFilterAlgorithmSynchronization, FirstCallFarAheadOfZeroDoesNotPropagate) {
+    TestState const initial = nominalTruth();
+    Matrix6 const P0 = diagCovariance(100.0, 0.1);
+    FlybyFilterAlgorithm algo(configWithProcessNoise(initial, P0, Matrix6::Identity() * 1E-6));
+
+    FlybyFilterOutput const out = algo.update(1000.0, HeadingData{});
+
+    EXPECT_FALSE(out.headingResiduals.valid);
+    EXPECT_TRUE(algo.getState().raw().isApprox(initial.raw(), 1E-12)) << "the state must not move on the first call";
+    EXPECT_TRUE(algo.getCovariance().isApprox(P0, 1E-12)) << "the covariance must not grow on the first call";
+}
+
+// After synchronizing at t = 1000, the next call propagates only the time elapsed since 1000, not since 0.
+TEST(FlybyFilterAlgorithmSynchronization, NextCallPropagatesFromTheSynchronizedTime) {
+    TestState const initial = nominalTruth();
+    Matrix6 const P0 = diagCovariance(100.0, 0.1);
+    FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+
+    algo.update(1000.0, HeadingData{});
+    algo.update(1040.0, HeadingData{});
+
+    TestState const fromSync = filtering::propagate(FlybyDynamics{kMu}, initial, {0.0, 40.0});
+    TestState const fromZero = filtering::propagate(FlybyDynamics{kMu}, initial, {0.0, 1040.0});
+    EXPECT_TRUE(algo.getState().raw().isApprox(fromSync.raw(), 1E-9)) << "propagated over 40 s from the sync time";
+    EXPECT_FALSE(algo.getState().raw().isApprox(fromZero.raw(), 1E-3)) << "not propagated over 1040 s from 0";
+}
+
+// A measurement handed over on the first call stays queued: it is applied on the next call when its time tag is at the
+// synchronized time, and dropped when its time tag is before it.
+TEST(FlybyFilterAlgorithmSynchronization, MeasurementsAreProcessedRelativeToTheSynchronizedTime) {
+    TestState const initial = nominalTruth();
+    Matrix6 const P0 = diagCovariance(100.0, 0.1);
+
+    auto nextCallAppliesHeadingTaggedAt = [&](double timeTag) {
+        FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+        HeadingData heading;
+        heading.timeTag = timeTag;
+        heading.rhat_BN_N = headingOf(initial);
+        FlybyFilterOutput const first = algo.update(1000.0, heading);
+        EXPECT_FALSE(first.headingResiduals.valid) << "the first call only synchronizes";
+        EXPECT_TRUE(algo.getState().raw().isApprox(initial.raw(), 1E-12));
+        return algo.update(1010.0, HeadingData{}).headingResiduals.valid;
+    };
+
+    EXPECT_TRUE(nextCallAppliesHeadingTaggedAt(1000.0)) << "a heading at the sync time is applied";
+    EXPECT_FALSE(nextCallAppliesHeadingTaggedAt(990.0)) << "a heading before the sync time is dropped";
 }
 
 TEST(FlybyFilterAlgorithmScheduler, DelayedButNewerMeasurementIsAppliedAtItsOwnTimeTag) {
@@ -405,6 +467,7 @@ TEST(FlybyFilterAlgorithmScheduler, BadMeasurementIsRolledBackAndTheCycleStillPr
 
     auto anchored = [&]() {
         auto algo = std::make_unique<FlybyFilterAlgorithm>(baseConfig(initial, P0));
+        algo->update(0.0, HeadingData{});  // synchronize the filter time at t = 0
         HeadingData good;
         good.timeTag = 100.0;
         good.rhat_BN_N = headingOf(initial);
@@ -418,7 +481,7 @@ TEST(FlybyFilterAlgorithmScheduler, BadMeasurementIsRolledBackAndTheCycleStillPr
     auto poisoned = anchored();
     HeadingData bad;
     bad.timeTag = 110.0;
-    bad.rhat_BN_N = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+    bad.rhat_BN_N = Eigen::Vector3f::Constant(std::numeric_limits<float>::quiet_NaN());
     FlybyFilterOutput const out = poisoned->update(110.0, bad);
 
     auto untouched = anchored();
@@ -437,15 +500,22 @@ TEST(FlybyFilterAlgorithmScheduler, BadMeasurementIsRolledBackAndTheCycleStillPr
     EXPECT_TRUE(poisoned->update(120.0, recovery).headingResiduals.valid);
 }
 
-TEST(FlybyFilterAlgorithmScheduler, QueueAdmitsOneMeasurementPerCycle) {
-    // BatchSize == 1: the flyby filter takes at most one heading per cycle, and a second enqueue in
-    // the same cycle is refused rather than silently overwriting the first.
+TEST(FlybyFilterAlgorithmScheduler, FullQueueKeepsTheNewestHeading) {
+    // BatchSize == 1: the flyby filter holds one heading. A full queue drops its oldest measurement, so a newer
+    // heading replaces the queued one, and a heading older than the queued one is the one dropped.
     static_assert(BatchSize == 1, "flybyFilter processes a single heading measurement per cycle");
 
     filtering::measurement_queue<Measurement, BatchSize> queue;
-    EXPECT_TRUE(queue.enqueue(1.0, makeHeadingMeasurement(1.0, Eigen::Vector3d::UnitX(), kHeadingStd)));
-    EXPECT_FALSE(queue.enqueue(2.0, makeHeadingMeasurement(2.0, Eigen::Vector3d::UnitY(), kHeadingStd)))
-        << "the queue is full at BatchSize measurements";
+    EXPECT_TRUE(queue.enqueue(1.0, makeHeadingMeasurement(1.0, Eigen::Vector3f::UnitX(), kHeadingStd)));
+    EXPECT_TRUE(queue.enqueue(2.0, makeHeadingMeasurement(2.0, Eigen::Vector3f::UnitY(), kHeadingStd)))
+        << "a newer heading replaces the queued one";
+    EXPECT_FALSE(queue.enqueue(0.5, makeHeadingMeasurement(0.5, Eigen::Vector3f::UnitZ(), kHeadingStd)))
+        << "a heading older than the queued one is dropped";
+
+    auto const kept = queue.popEarliest();
+    ASSERT_TRUE(kept.has_value());
+    EXPECT_DOUBLE_EQ(kept->first, 2.0) << "only the newest heading is kept";
+    EXPECT_TRUE(queue.isEmpty());
 }
 
 // ============================================================================
@@ -453,15 +523,15 @@ TEST(FlybyFilterAlgorithmScheduler, QueueAdmitsOneMeasurementPerCycle) {
 // ============================================================================
 
 TEST(FlybyFilterAlgorithmDynamics, DerivativeMatchesTwoBody) {
-    Eigen::Vector3d const r(3000.0, 1000.0, 500.0);
-    Eigen::Vector3d const v(1.0, -2.0, 0.5);
+    Eigen::Vector3f const r(3000.0, 1000.0, 500.0);
+    Eigen::Vector3f const v(1.0, -2.0, 0.5);
     State const s = makeState(r, v);
 
     State const dot = FlybyDynamics{kMu}(0.0, s);
 
-    Eigen::Vector3d const expectedVDot = -kMu / std::pow(r.stableNorm(), 3) * r;
+    Eigen::Vector3f const expectedVDot = -kMu / std::pow(r.stableNorm(), 3) * r;
     EXPECT_TRUE(dot.get<filtering::Position<3>>().isApprox(v, 1E-12));
-    EXPECT_TRUE(dot.get<filtering::Velocity<3>>().isApprox(expectedVDot, 1E-12));
+    EXPECT_TRUE(dot.get<filtering::Velocity<3>>().isApprox(expectedVDot, kRoundoffTol));
 }
 
 // ============================================================================
@@ -483,7 +553,7 @@ TEST(FlybyFilterAlgorithmTimeUpdate, PropagatesAlongTwoBodyOrbit) {
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));
 
-    constexpr double dt = 30.0;
+    constexpr float dt = 30.0;
     EXPECT_TRUE(algo.timeUpdate(dt));
 
     // The central sigma point (== the reported state) follows the two-body flow exactly.
@@ -496,7 +566,7 @@ TEST(FlybyFilterAlgorithmTimeUpdate, GrowsCovarianceWithProcessNoise) {
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
     FlybyFilterAlgorithm algo(configWithProcessNoise(initial, P0, Matrix6::Identity() * 1E-4));
 
-    double const tracePrior = algo.getCovariance().trace();
+    float const tracePrior = algo.getCovariance().trace();
     ASSERT_TRUE(algo.timeUpdate(10.0));
 
     // Compare against a noise-free propagation: process noise can only add uncertainty.
@@ -504,10 +574,11 @@ TEST(FlybyFilterAlgorithmTimeUpdate, GrowsCovarianceWithProcessNoise) {
     ASSERT_TRUE(noiseFree.timeUpdate(10.0));
 
     Matrix6 const P = algo.getCovariance();
-    EXPECT_GE(P.trace(), noiseFree.getCovariance().trace() - 1E-9) << "process noise should not shrink covariance";
+    EXPECT_GE(P.trace(), noiseFree.getCovariance().trace() * (1.0F - kRoundoffTol))
+        << "process noise should not shrink covariance";
     EXPECT_GT(P.trace(), 0.0);
     EXPECT_GT(P.trace(), tracePrior) << "process noise should grow the covariance over a finite dt";
-    EXPECT_TRUE(P.isApprox(P.transpose(), 1E-8)) << "covariance not symmetric";
+    EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(P)) << "covariance not PSD";
 }
 
@@ -526,13 +597,13 @@ TEST(FlybyFilterAlgorithmMeasurementUpdate, HeadingMeasurementShrinksCovariance)
     HeadingMeasurement m;
     m.timeTag = 0.0;
     m.rhat_BN_N = headingOf(initial);  // consistent heading
-    m.covar = (kHeadingStd * kHeadingStd) * Eigen::Matrix3d::Identity();
+    m.covar = (kHeadingStd * kHeadingStd) * Eigen::Matrix3f::Identity();
     m.valid = true;
     EXPECT_TRUE(algo.measurementUpdate(m));
 
     Matrix6 const covarN = algo.getCovariance();
     EXPECT_LT(covarN.trace(), covar0.trace()) << "a heading update should reduce total uncertainty";
-    EXPECT_TRUE(covarN.isApprox(covarN.transpose(), 1E-8)) << "covariance not symmetric";
+    EXPECT_TRUE(covarN.isApprox(covarN.transpose(), kRoundoffTol)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(covarN)) << "covariance not PSD";
     EXPECT_TRUE(algo.getLastHeadingResiduals().valid);
 }
@@ -545,8 +616,8 @@ TEST(FlybyFilterAlgorithmMeasurementUpdate, HighMeasurementNoiseLeavesStateNearl
 
     HeadingMeasurement m;
     m.timeTag = 0.0;
-    m.rhat_BN_N = Eigen::Vector3d(0.0, 0.0, 1.0);  // far from the prior heading
-    m.covar = 1E8 * Eigen::Matrix3d::Identity();   // R >> P
+    m.rhat_BN_N = Eigen::Vector3f(0.0, 0.0, 1.0);  // far from the prior heading
+    m.covar = 1E8 * Eigen::Matrix3f::Identity();   // R >> P
     m.valid = true;
     EXPECT_TRUE(algo.measurementUpdate(m));
 
@@ -562,8 +633,8 @@ TEST(FlybyFilterAlgorithmMeasurementUpdate, BadMeasurementReturnsFalseAndLeavesR
 
     HeadingMeasurement m;
     m.timeTag = 0.0;
-    m.rhat_BN_N = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-    m.covar = (kHeadingStd * kHeadingStd) * Eigen::Matrix3d::Identity();
+    m.rhat_BN_N = Eigen::Vector3f::Constant(std::numeric_limits<float>::quiet_NaN());
+    m.covar = (kHeadingStd * kHeadingStd) * Eigen::Matrix3f::Identity();
     m.valid = true;
 
     EXPECT_FALSE(algo.measurementUpdate(m)) << "a non-finite measurement update must report false";
@@ -592,9 +663,10 @@ TEST(FlybyFilterAlgorithmMeasurements, HeadingDataFiresResidualOnlyWhenFresh) {
 TEST(FlybyFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual) {
     // Seed with a heading error so the measurement has something to correct.
     TestState const truth = nominalTruth();
-    TestState const initial = makeState(truth.get<filtering::Position<3>>() + Eigen::Vector3d(200.0, -150.0, 90.0),
+    TestState const initial = makeState(truth.get<filtering::Position<3>>() + Eigen::Vector3f(200.0, -150.0, 90.0),
                                         truth.get<filtering::Velocity<3>>());
     FlybyFilterAlgorithm algo(baseConfig(initial, diagCovariance(300.0, 0.1)));
+    algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
 
     HeadingData heading;
     heading.timeTag = 10.0;
@@ -612,8 +684,9 @@ TEST(FlybyFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovarianc
 
     // The noise covariance is built inside packHeadingMeasurement() from the configured std, so a
     // larger configured std must yield a smaller correction for the same reading.
-    auto traceAfterUpdate = [&](double headingStd) {
+    auto traceAfterUpdate = [&](float headingStd) {
         FlybyFilterAlgorithm algo(configWithHeadingStd(initial, P0, headingStd));
+        algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
         HeadingData heading;
         heading.timeTag = 10.0;
         heading.rhat_BN_N = headingOf(initial);
@@ -621,8 +694,8 @@ TEST(FlybyFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovarianc
         return algo.getCovariance().trace();
     };
 
-    double const tight = traceAfterUpdate(1E-5);
-    double const loose = traceAfterUpdate(1E-1);
+    float const tight = traceAfterUpdate(1E-5);
+    float const loose = traceAfterUpdate(1E-1);
     EXPECT_LT(tight, loose) << "a tighter measurement std should shrink the covariance more";
     EXPECT_LT(loose, P0.trace()) << "even a loose measurement should not grow the covariance";
 }
@@ -634,11 +707,11 @@ TEST(FlybyFilterAlgorithmMeasurements, WithoutMeasurementsGrowsCovarianceMonoton
 
     // Three measurement-free cycles: total uncertainty must be non-decreasing at each step.
     algo.update(10.0, HeadingData{});
-    double const trace1 = algo.getCovariance().trace();
+    float const trace1 = algo.getCovariance().trace();
     algo.update(40.0, HeadingData{});
-    double const trace2 = algo.getCovariance().trace();
+    float const trace2 = algo.getCovariance().trace();
     algo.update(90.0, HeadingData{});
-    double const trace3 = algo.getCovariance().trace();
+    float const trace3 = algo.getCovariance().trace();
 
     EXPECT_GT(trace2, trace1);
     EXPECT_GT(trace3, trace2);
@@ -650,19 +723,20 @@ TEST(FlybyFilterAlgorithmMeasurements, NearlySingularPropagatedCovarianceStaysPs
     // variance, a 1e4 velocity variance and zero process noise propagate to a covariance with
     // eigenvalues from ~0 to 3e7. The near-zero ones come back as -1e-10, which is roundoff and must
     // pass the PSD check.
-    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig({500.0, 0.0, 1.0},
-                                                               {-0.93489308376760782, 0.0, 1.0},
-                                                               1000.0,
-                                                               (Vector6() << 0.0, 0.0, 0.0, -1.0, 1.0, 1E4).finished(),
-                                                               0.0,
-                                                               kHeadingStd);
+    std::optional<FlybyFilterConfig> const cfg =
+        tryFuzzConfig({500.0F, 0.0F, 1.0F},
+                      {-0.93489308376760782F, 0.0F, 1.0F},
+                      1000.0F,
+                      (Vector6() << 0.0F, 0.0F, 0.0F, -1.0F, 1.0F, 1E4F).finished(),
+                      0.0F,
+                      kHeadingStd);
     ASSERT_TRUE(cfg);
     double const dt = 54.035677089711527;
     FlybyFilterAlgorithm algo(*cfg);
 
     HeadingData heading;
     heading.timeTag = dt;
-    heading.rhat_BN_N = Eigen::Vector3d(0.43308985833708125, -0.092944800406123296, 0.0).normalized();
+    heading.rhat_BN_N = Eigen::Vector3f(0.43308985833708125F, -0.092944800406123296F, 0.0F).normalized();
     algo.update(dt, heading);
     algo.reInitialize();
     algo.update(dt + 1.0, HeadingData{});
@@ -679,7 +753,7 @@ TEST(FlybyFilterAlgorithmDegenerate, ZeroPositionKeepsTheDynamicsFinite) {
     // The MinGravityRange floor removes the 1/|r|^3 singularity at the central body. With the
     // denominator clamped, v_dot stays linear in r all the way in, so it is finite everywhere and
     // vanishes at the origin rather than producing Inf/NaN.
-    TestState const atOrigin = makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d(1.0, -2.0, 0.5));
+    TestState const atOrigin = makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f(1.0, -2.0, 0.5));
     TestState const dot = FlybyDynamics{kMu}(0.0, atOrigin);
 
     EXPECT_TRUE(dot.get<filtering::Position<3>>().allFinite()) << "r_dot = v stays finite";
@@ -691,26 +765,26 @@ TEST(FlybyFilterAlgorithmDegenerate, GravityFloorIsContinuousAtTheBoundary) {
     // The clamp only engages strictly below the floor: exactly at |r| = MinGravityRange the guarded
     // derivative still equals the unguarded -mu/|r|^3 r, so nothing at or above the floor is
     // perturbed and the acceleration has no jump there.
-    Eigen::Vector3d const rAtFloor = Eigen::Vector3d(1.0, -2.0, 0.5).stableNormalized() * MinGravityRange;
-    TestState const dot = FlybyDynamics{kMu}(0.0, makeState(rAtFloor, Eigen::Vector3d::Zero()));
+    Eigen::Vector3f const rAtFloor = Eigen::Vector3f(1.0, -2.0, 0.5).stableNormalized() * MinGravityRange;
+    TestState const dot = FlybyDynamics{kMu}(0.0, makeState(rAtFloor, Eigen::Vector3f::Zero()));
 
-    Eigen::Vector3d const expected = -kMu / std::pow(rAtFloor.stableNorm(), 3) * rAtFloor;
-    EXPECT_TRUE(dot.get<filtering::Velocity<3>>().isApprox(expected, 1E-12));
+    Eigen::Vector3f const expected = -kMu / std::pow(rAtFloor.stableNorm(), 3) * rAtFloor;
+    EXPECT_TRUE(dot.get<filtering::Velocity<3>>().isApprox(expected, kRoundoffTol));
 }
 
 TEST(FlybyFilterAlgorithmDegenerate, GravityStaysBoundedBelowTheFloor) {
     // Below the floor the acceleration decays linearly to zero instead of diverging, so its
     // magnitude can never exceed the value reached at the floor itself.
-    double const maxAccel = kMu / (MinGravityRange * MinGravityRange);
-    Eigen::Vector3d const direction = Eigen::Vector3d(1.0, -2.0, 0.5).stableNormalized();
+    float const maxAccel = kMu / (MinGravityRange * MinGravityRange);
+    Eigen::Vector3f const direction = Eigen::Vector3f(1.0, -2.0, 0.5).stableNormalized();
 
-    for (double scale : {1.0, 1E-1, 1E-3, 1E-9, 0.0}) {
+    for (float scale : {1.0, 1E-1, 1E-3, 1E-9, 0.0}) {
         TestState const dot =
-            FlybyDynamics{kMu}(0.0, makeState(direction * (MinGravityRange * scale), Eigen::Vector3d::Zero()));
-        Eigen::Vector3d const vDot = dot.get<filtering::Velocity<3>>();
+            FlybyDynamics{kMu}(0.0, makeState(direction * (MinGravityRange * scale), Eigen::Vector3f::Zero()));
+        Eigen::Vector3f const vDot = dot.get<filtering::Velocity<3>>();
 
         EXPECT_TRUE(vDot.allFinite()) << "scale=" << scale;
-        EXPECT_LE(vDot.stableNorm(), maxAccel * (1.0 + 1E-12)) << "scale=" << scale;
+        EXPECT_LE(vDot.stableNorm(), maxAccel * (1.0F + kRoundoffTol)) << "scale=" << scale;
     }
 }
 
@@ -718,7 +792,7 @@ TEST(FlybyFilterAlgorithmDegenerate, ZeroPositionSeedPropagatesToAFiniteEstimate
     // A filter seeded at the central body used to poison its covariance with NaN and make
     // timeUpdate report failure. With the floor in place the propagation is bounded, so the update
     // succeeds and the estimate stays finite -- unphysical, but recoverable by later measurements.
-    TestState const atOrigin = makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d(1.0, -2.0, 0.5));
+    TestState const atOrigin = makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f(1.0, -2.0, 0.5));
     FlybyFilterAlgorithm algo(baseConfig(atOrigin, diagCovariance(1.0, 1E-3)));
 
     EXPECT_TRUE(algo.timeUpdate(10.0)) << "the guarded dynamics propagate from r = 0 without diverging";
@@ -731,30 +805,30 @@ TEST(FlybyFilterAlgorithmDegenerate, ZeroPositionSeedPropagatesToAFiniteEstimate
 // ============================================================================
 
 TEST(SrukfDetail, ForwardSubstitutionSolvesLowerTriangular) {
-    Eigen::Matrix3d L;
+    Eigen::Matrix3f L;
     L << 2.0, 0.0, 0.0, 1.0, 3.0, 0.0, 0.5, 1.0, 4.0;
-    Eigen::Vector3d const xTruth(1.0, 2.0, 3.0);
-    Eigen::Matrix<double, 3, 1> const b = L * xTruth;
+    Eigen::Vector3f const xTruth(1.0, 2.0, 3.0);
+    Eigen::Matrix<float, 3, 1> const b = L * xTruth;
 
-    Eigen::Matrix<double, 3, 1> const x = SRuKF::forwardSubstitution<3, 1>(L, b);
-    EXPECT_TRUE(x.col(0).isApprox(xTruth, 1E-12));
+    Eigen::Matrix<float, 3, 1> const x = SRuKF::forwardSubstitution<3, 1>(L, b);
+    EXPECT_TRUE(x.col(0).isApprox(xTruth, kRoundoffTol));
 }
 
 TEST(SrukfDetail, BackSubstitutionSolvesUpperTriangular) {
-    Eigen::Matrix3d U;
+    Eigen::Matrix3f U;
     U << 2.0, 1.0, 0.5, 0.0, 3.0, 1.0, 0.0, 0.0, 4.0;
-    Eigen::Vector3d const xTruth(1.0, 2.0, 3.0);
-    Eigen::Matrix<double, 3, 1> const b = U * xTruth;
+    Eigen::Vector3f const xTruth(1.0, 2.0, 3.0);
+    Eigen::Matrix<float, 3, 1> const b = U * xTruth;
 
-    Eigen::Matrix<double, 3, 1> const x = SRuKF::backSubstitution<3, 1>(U, b);
-    EXPECT_TRUE(x.col(0).isApprox(xTruth, 1E-12));
+    Eigen::Matrix<float, 3, 1> const x = SRuKF::backSubstitution<3, 1>(U, b);
+    EXPECT_TRUE(x.col(0).isApprox(xTruth, kRoundoffTol));
 }
 
 TEST(SrukfDetail, CholeskyDecompositionReconstructsP) {
-    Eigen::Matrix3d P;
+    Eigen::Matrix3f P;
     P << 4.0, 2.0, 0.5, 2.0, 5.0, 1.0, 0.5, 1.0, 6.0;
-    Eigen::Matrix3d const L = SRuKF::choleskyDecomposition<3>(P);
-    EXPECT_TRUE((L * L.transpose()).isApprox(P, 1E-10));
+    Eigen::Matrix3f const L = SRuKF::choleskyDecomposition<3>(P);
+    EXPECT_TRUE((L * L.transpose()).isApprox(P, kRoundoffTol));
 
     // Returned factor should be lower-triangular.
     for (int i = 0; i < L.rows(); ++i) {
@@ -768,39 +842,39 @@ TEST(SrukfDetail, CholeskyDecompositionReconstructsP) {
 // square N×N factor such that R * R^T == A * A^T. The function transposes its
 // internal R, so the returned matrix is lower-triangular.
 TEST(SrukfDetail, QrDecompositionJustRPreservesNormalEquations) {
-    Eigen::Matrix<double, 3, 9> A;
+    Eigen::Matrix<float, 3, 9> A;
     A << 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 2.0, -1.0, 0.0, 1.0,
         2.0, 3.0, 4.0, 5.0, 6.0;
 
-    Eigen::Matrix3d const R = SRuKF::qrDecompositionJustR<3, 9>(A);
+    Eigen::Matrix3f const R = SRuKF::qrDecompositionJustR<3, 9>(A);
 
     for (int i = 0; i < R.rows(); ++i) {
         for (int j = i + 1; j < R.cols(); ++j) {
             EXPECT_NEAR(R(i, j), 0.0, 1E-10) << "(" << i << "," << j << ")";
         }
     }
-    EXPECT_TRUE((R * R.transpose()).isApprox(A * A.transpose(), 1E-9));
+    EXPECT_TRUE((R * R.transpose()).isApprox(A * A.transpose(), kRoundoffTol));
 }
 
 TEST(SrukfDetail, CholeskyUpDownDateMatchesExplicitUpdate) {
-    Eigen::Matrix3d P0;
+    Eigen::Matrix3f P0;
     P0 << 4.0, 1.0, 0.0, 1.0, 3.0, 0.5, 0.0, 0.5, 2.0;
-    Eigen::Matrix3d const S0 = SRuKF::choleskyDecomposition<3>(P0);
+    Eigen::Matrix3f const S0 = SRuKF::choleskyDecomposition<3>(P0);
 
-    Eigen::Vector3d const v(0.1, -0.2, 0.3);
+    Eigen::Vector3f const v(0.1, -0.2, 0.3);
 
     // Up-date with +coef and down-date with -coef must reconstruct P0 ± coef v vᵀ.
     {
-        double const coef = 0.5;
-        Eigen::Matrix3d const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef);
-        Eigen::Matrix3d const P1 = P0 + coef * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, 1E-9));
+        float const coef = 0.5;
+        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
+        Eigen::Matrix3f const P1 = P0 + coef * v * v.transpose();
+        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
     }
     {
-        double const coef = -0.5;
-        Eigen::Matrix3d const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef);
-        Eigen::Matrix3d const P1 = P0 - 0.5 * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, 1E-9));
+        float const coef = -0.5;
+        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
+        Eigen::Matrix3f const P1 = P0 - 0.5 * v * v.transpose();
+        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
     }
 }
 
@@ -812,16 +886,16 @@ TEST(FlybyFilterAlgorithmConvergence, TracksHeadingAndShrinksCovarianceOverAnArc
     State const truth0 = nominalTruth();
 
     // Seed the filter with a position/velocity error from truth.
-    State const initial = makeState(truth0.get<filtering::Position<3>>() + Eigen::Vector3d(60.0, -40.0, 30.0),
-                                    truth0.get<filtering::Velocity<3>>() + Eigen::Vector3d(0.02, 0.03, -0.01));
+    State const initial = makeState(truth0.get<filtering::Position<3>>() + Eigen::Vector3f(60.0, -40.0, 30.0),
+                                    truth0.get<filtering::Velocity<3>>() + Eigen::Vector3f(0.02, 0.03, -0.01));
     Matrix6 const P0 = diagCovariance(150.0, 0.1);
     FlybyFilterAlgorithm algo(configWithProcessNoise(initial, P0, Matrix6::Identity() * 1E-10));
 
-    double const initialPosErr =
+    float const initialPosErr =
         (algo.getState().get<filtering::Position<3>>() - truth0.get<filtering::Position<3>>()).stableNorm();
-    double const initialTrace = algo.getCovariance().trace();
+    float const initialTrace = algo.getCovariance().trace();
 
-    constexpr double dt = 10.0;
+    constexpr float dt = 10.0;
     State truth = truth0;
     for (int i = 1; i <= 80; ++i) {
         truth = filtering::propagate(FlybyDynamics{kMu}, truth, {0.0, dt});
@@ -834,8 +908,8 @@ TEST(FlybyFilterAlgorithmConvergence, TracksHeadingAndShrinksCovarianceOverAnArc
     // The observed heading is tracked tightly, total uncertainty shrinks, and the position estimate
     // has moved toward truth (angles-only range is only weakly observable, so we assert improvement
     // rather than a tight absolute bound).
-    double const headingErr = (headingOf(algo.getState()) - headingOf(truth)).stableNorm();
-    double const finalPosErr =
+    float const headingErr = (headingOf(algo.getState()) - headingOf(truth)).stableNorm();
+    float const finalPosErr =
         (algo.getState().get<filtering::Position<3>>() - truth.get<filtering::Position<3>>()).stableNorm();
     EXPECT_LT(headingErr, 1E-2) << "heading error " << headingErr;
     EXPECT_LT(algo.getCovariance().trace(), initialTrace) << "covariance should shrink over the arc";
@@ -845,21 +919,21 @@ TEST(FlybyFilterAlgorithmConvergence, TracksHeadingAndShrinksCovarianceOverAnArc
 
 TEST(FlybyFilterAlgorithmConvergence, TracksHeadingUnderNoisyMeasurements) {
     State const truth0 = nominalTruth();
-    State const initial = makeState(truth0.get<filtering::Position<3>>() + Eigen::Vector3d(60.0, -40.0, 30.0),
-                                    truth0.get<filtering::Velocity<3>>() + Eigen::Vector3d(0.02, 0.03, -0.01));
+    State const initial = makeState(truth0.get<filtering::Position<3>>() + Eigen::Vector3f(60.0, -40.0, 30.0),
+                                    truth0.get<filtering::Velocity<3>>() + Eigen::Vector3f(0.02, 0.03, -0.01));
     Matrix6 const P0 = diagCovariance(150.0, 0.1);
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));
 
     std::mt19937 gen(7);
-    std::normal_distribution<double> noise(0.0, 1.0);
+    std::normal_distribution<float> noise(0.0, 1.0);
 
-    double const initialTrace = algo.getCovariance().trace();
+    float const initialTrace = algo.getCovariance().trace();
 
-    constexpr double dt = 10.0;
+    constexpr float dt = 10.0;
     State truth = truth0;
     for (int i = 1; i <= 80; ++i) {
         truth = filtering::propagate(FlybyDynamics{kMu}, truth, {0.0, dt});
-        Eigen::Vector3d rhat = headingOf(truth) + kHeadingStd * Eigen::Vector3d(noise(gen), noise(gen), noise(gen));
+        Eigen::Vector3f rhat = headingOf(truth) + kHeadingStd * Eigen::Vector3f(noise(gen), noise(gen), noise(gen));
         rhat.stableNormalize();
         HeadingData heading;
         heading.timeTag = i * dt;
@@ -867,7 +941,7 @@ TEST(FlybyFilterAlgorithmConvergence, TracksHeadingUnderNoisyMeasurements) {
         algo.update(i * dt, heading);
     }
 
-    double const headingErr = (headingOf(algo.getState()) - headingOf(truth)).stableNorm();
+    float const headingErr = (headingOf(algo.getState()) - headingOf(truth)).stableNorm();
     EXPECT_LT(headingErr, 5E-2) << "heading error " << headingErr;  // generous, seeded
     EXPECT_LT(algo.getCovariance().trace(), initialTrace);
     EXPECT_TRUE(algo.getState().raw().allFinite());

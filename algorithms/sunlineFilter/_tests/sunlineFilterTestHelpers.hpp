@@ -14,30 +14,35 @@
 #include <gtest/gtest.h>
 #include <Eigen/Dense>
 #include <cmath>
+#include <limits>
 #include <optional>
 
 namespace filtering::sunlineFilter {
 
+// Bound for comparing two float computations of the same quantity: a few operations of roundoff
+// with the 3-10x margin of docs/PRECISION_GUIDELINES.md section 7 (10 * epsilon ~ 1.2e-6).
+inline constexpr float kRoundoffTol = 10.0F * std::numeric_limits<float>::epsilon();
+
 using TestState = SunlineFilterAlgorithm::State;
-using Vector7 = Eigen::Matrix<double, 7, 1>;
-using Matrix7 = Eigen::Matrix<double, 7, 7>;
+using Vector7 = Eigen::Matrix<float, 7, 1>;
+using Matrix7 = Eigen::Matrix<float, 7, 7>;
 
-inline constexpr double kAlpha = 0.02;
-inline constexpr double kBeta = 2.0;
-inline constexpr double kBiasLowerBound = 0.5;
-inline constexpr double kBiasUpperBound = 1.5;
+inline constexpr float kAlpha = 0.02;
+inline constexpr float kBeta = 2.0;
+inline constexpr float kBiasLowerBound = 0.5;
+inline constexpr float kBiasUpperBound = 1.5;
 
-inline TestState makeState(Eigen::Vector3d const& sHat, Eigen::Vector3d const& omega, double bias) {
+inline TestState makeState(Eigen::Vector3f const& sHat, Eigen::Vector3f const& omega, float bias) {
     TestState s;
     s.set<filtering::Position<3>>(sHat);
     s.set<filtering::Velocity<3>>(omega);
-    Eigen::Vector<double, 1> b;
+    Eigen::Vector<float, 1> b;
     b(0) = bias;
     s.set<filtering::Bias<1>>(b);
     return s;
 }
 
-inline Matrix7 diagCovariance(double posStd, double velStd, double biasStd) {
+inline Matrix7 diagCovariance(float posStd, float velStd, float biasStd) {
     Vector7 d;
     d << posStd * posStd, posStd * posStd, posStd * posStd, velStd * velStd, velStd * velStd, velStd * velStd,
         biasStd * biasStd;
@@ -45,26 +50,26 @@ inline Matrix7 diagCovariance(double posStd, double velStd, double biasStd) {
 }
 
 inline Matrix7 smallProcessNoise() {
-    double const q = 1E-10;
+    float const q = 1E-5;
     Vector7 d;
     d << q, q, q, q, q, q, q;
     return d.asDiagonal();
 }
 
 // Three-CSS geometry (unit boresights in rows 0..2; remaining rows unused/zero).
-inline Eigen::Matrix<double, MaxCss, 3> threeCssNHat() {
-    Eigen::Matrix<double, MaxCss, 3> nHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
-    nHat.row(0) = Eigen::RowVector3d(0.707, -0.5, 0.5);
-    nHat.row(1) = Eigen::RowVector3d(0.707, 0.5, 0.5);
-    nHat.row(2) = Eigen::RowVector3d(-0.707, 0.0, 0.707);
+inline Eigen::Matrix<float, MaxCss, 3> threeCssNHat() {
+    Eigen::Matrix<float, MaxCss, 3> nHat = Eigen::Matrix<float, MaxCss, 3>::Zero();
+    nHat.row(0) = Eigen::RowVector3f(0.707, -0.5, 0.5);
+    nHat.row(1) = Eigen::RowVector3f(0.707, 0.5, 0.5);
+    nHat.row(2) = Eigen::RowVector3f(-0.707, 0.0, 0.707);
     return nHat;
 }
 
 // Single-boresight CSS geometry for rate-only tests. numberOfCss must be >= 1, but
 // these tests never feed a CSS measurement, so the lone boresight is inert.
-inline Eigen::Matrix<double, MaxCss, 3> oneCssNHat() {
-    Eigen::Matrix<double, MaxCss, 3> nHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
-    nHat.row(0) = Eigen::RowVector3d(0.0, 0.0, 1.0);
+inline Eigen::Matrix<float, MaxCss, 3> oneCssNHat() {
+    Eigen::Matrix<float, MaxCss, 3> nHat = Eigen::Matrix<float, MaxCss, 3>::Zero();
+    nHat.row(0) = Eigen::RowVector3f(0.0, 0.0, 1.0);
     return nHat;
 }
 
@@ -78,7 +83,7 @@ inline SunlineFilterConfig rateOnlyConfig(TestState const& initial, Matrix7 cons
                                        kBiasLowerBound,
                                        kBiasUpperBound,
                                        oneCssNHat(),
-                                       Eigen::Vector<double, MaxCss>::Ones(),
+                                       Eigen::Vector<float, MaxCss>::Ones(),
                                        1,
                                        0.0,
                                        1E-2,
@@ -97,7 +102,7 @@ inline SunlineFilterConfig rateOnlyConfigWithProcessNoise(TestState const& initi
                                        kBiasLowerBound,
                                        kBiasUpperBound,
                                        oneCssNHat(),
-                                       Eigen::Vector<double, MaxCss>::Ones(),
+                                       Eigen::Vector<float, MaxCss>::Ones(),
                                        1,
                                        0.0,
                                        1E-2,
@@ -105,7 +110,7 @@ inline SunlineFilterConfig rateOnlyConfigWithProcessNoise(TestState const& initi
 }
 
 // Validated config with the three-CSS geometry, scale factor = 1, and the given sensor threshold.
-inline SunlineFilterConfig threeCssConfig(TestState const& initial, Matrix7 const& P, double sensorThreshold) {
+inline SunlineFilterConfig threeCssConfig(TestState const& initial, Matrix7 const& P, float sensorThreshold) {
     return SunlineFilterConfig::create(kAlpha,
                                        kBeta,
                                        smallProcessNoise(),
@@ -114,7 +119,7 @@ inline SunlineFilterConfig threeCssConfig(TestState const& initial, Matrix7 cons
                                        kBiasLowerBound,
                                        kBiasUpperBound,
                                        threeCssNHat(),
-                                       Eigen::Vector<double, MaxCss>::Ones(),
+                                       Eigen::Vector<float, MaxCss>::Ones(),
                                        3,
                                        sensorThreshold,
                                        1E-2,
@@ -124,19 +129,20 @@ inline SunlineFilterConfig threeCssConfig(TestState const& initial, Matrix7 cons
 // A complete set of valid Config inputs; individual validation tests override one field to
 // drive a specific validation branch.
 struct ConfigInputs {
-    double alpha = kAlpha;
-    double beta = kBeta;
+    float alpha = kAlpha;
+    float beta = kBeta;
     Matrix7 processNoise = smallProcessNoise();
-    TestState initialState = makeState(Eigen::Vector3d(0.0, 0.0, 1.0), Eigen::Vector3d::Zero(), 1.0);
+    TestState initialState = makeState(Eigen::Vector3f(0.0, 0.0, 1.0), Eigen::Vector3f::Zero(), 1.0);
     Matrix7 initialCovariance = diagCovariance(1E-2, 1E-3, 1E-2);
-    double biasLowerBound = kBiasLowerBound;
-    double biasUpperBound = kBiasUpperBound;
-    Eigen::Matrix<double, MaxCss, 3> cssNHat = threeCssNHat();
-    Eigen::Vector<double, MaxCss> cssScaleFactor = Eigen::Vector<double, MaxCss>::Ones();
+    float biasLowerBound = kBiasLowerBound;
+    float biasUpperBound = kBiasUpperBound;
+    Eigen::Matrix<float, MaxCss, 3> cssNHat = threeCssNHat();
+    Eigen::Vector<float, MaxCss> cssScaleFactor = Eigen::Vector<float, MaxCss>::Ones();
     uint32_t numberOfCss = 3;
-    double sensorThreshold = 0.0;
-    double cssMeasStd = 1E-2;
-    double gyroStd = 1E-3;
+    float sensorThreshold = 0.0;
+    float cssMeasStd = 1E-2;
+    float gyroStd = 1E-3;
+    float measurementDelay = 0.0;
 };
 
 inline SunlineFilterConfig buildConfig(ConfigInputs const& in) {
@@ -152,7 +158,8 @@ inline SunlineFilterConfig buildConfig(ConfigInputs const& in) {
                                        in.numberOfCss,
                                        in.sensorThreshold,
                                        in.cssMeasStd,
-                                       in.gyroStd);
+                                       in.gyroStd,
+                                       in.measurementDelay);
 }
 
 // ---------------------------------------------------------------------------
@@ -162,9 +169,9 @@ inline SunlineFilterConfig buildConfig(ConfigInputs const& in) {
 // keeps the remaining parameters at fixed valid constants. Returns nullopt for
 // unusable inputs so the fuzz harness skips them.
 // ---------------------------------------------------------------------------
-inline std::optional<SunlineFilterConfig> tryFuzzConfig(Eigen::Vector3d const& sHatRaw,
-                                                        Eigen::Vector3d const& omega,
-                                                        double bias,
+inline std::optional<SunlineFilterConfig> tryFuzzConfig(Eigen::Vector3f const& sHatRaw,
+                                                        Eigen::Vector3f const& omega,
+                                                        float bias,
                                                         Vector7 const& covDiagRaw) {
     if (!sHatRaw.allFinite() || sHatRaw.stableNorm() < 1E-3 || !omega.allFinite() || !std::isfinite(bias) ||
         !covDiagRaw.allFinite()) {
@@ -178,9 +185,9 @@ inline std::optional<SunlineFilterConfig> tryFuzzConfig(Eigen::Vector3d const& s
 // Drives one update() with the given (possibly non-finite) CSS cos-values and rate at a shared
 // measurement time, propagating dt to the output time.
 inline void driveUpdate(SunlineFilterAlgorithm& algo,
-                        Eigen::Vector<double, MaxCss> const& cssCos,
-                        Eigen::Vector3d const& rate,
-                        double dt) {
+                        Eigen::Vector<float, MaxCss> const& cssCos,
+                        Eigen::Vector3f const& rate,
+                        float dt) {
     CssData css;
     css.timeTag = 1.0;
     css.cosValues = cssCos;
@@ -198,13 +205,13 @@ inline void driveUpdate(SunlineFilterAlgorithm& algo,
 // meaningful: the state and covariance are finite, the heading is a unit vector (regularize
 // renormalizes it), the CSS bias is inside its configured bounds (regularize clamps it), and the
 // covariance stays symmetric.
-inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3d sHatRaw,
-                                                    Eigen::Vector3d omega,
-                                                    double bias,
+inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3f sHatRaw,
+                                                    Eigen::Vector3f omega,
+                                                    float bias,
                                                     Vector7 covDiagRaw,
-                                                    Eigen::Vector<double, MaxCss> cssCos,
-                                                    Eigen::Vector3d rate,
-                                                    double dt) {
+                                                    Eigen::Vector<float, MaxCss> cssCos,
+                                                    Eigen::Vector3f rate,
+                                                    float dt) {
     std::optional<SunlineFilterConfig> const cfg = tryFuzzConfig(sHatRaw, omega, bias, covDiagRaw);
     if (!cfg || !cssCos.allFinite() || !rate.allFinite() || !std::isfinite(dt) || dt < 0.0) {
         return;
@@ -217,22 +224,22 @@ inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3d sHatRaw,
     EXPECT_TRUE(s.raw().allFinite());
     EXPECT_TRUE(P.allFinite());
     EXPECT_NEAR(s.get<filtering::Position<3>>().stableNorm(), 1.0, 1E-6);
-    double const biasOut = s.get<filtering::Bias<1>>()(0);
+    float const biasOut = s.get<filtering::Bias<1>>()(0);
     EXPECT_GE(biasOut, kBiasLowerBound - 1E-6);
     EXPECT_LE(biasOut, kBiasUpperBound + 1E-6);
-    EXPECT_LE((P - P.transpose()).norm(), 1E-9 * (1.0 + P.norm()));
+    EXPECT_LE((P - P.transpose()).norm(), 1E-5 * (1.0 + P.norm()));
 }
 
 // A bad measurement can never corrupt the estimate: even with non-finite CSS cos-values or rate,
 // the SRUKF skips the update (its finite-input guard) so the state stays finite and the heading
 // stays a unit vector. The config inputs are finite; only the measurement data is arbitrary.
-inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3d sHatRaw,
-                                                       Eigen::Vector3d omega,
-                                                       double bias,
+inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3f sHatRaw,
+                                                       Eigen::Vector3f omega,
+                                                       float bias,
                                                        Vector7 covDiagRaw,
-                                                       Eigen::Vector<double, MaxCss> cssCos,
-                                                       Eigen::Vector3d rate,
-                                                       double dt) {
+                                                       Eigen::Vector<float, MaxCss> cssCos,
+                                                       Eigen::Vector3f rate,
+                                                       float dt) {
     std::optional<SunlineFilterConfig> const cfg = tryFuzzConfig(sHatRaw, omega, bias, covDiagRaw);
     if (!cfg || !std::isfinite(dt) || dt < 0.0) {
         return;
@@ -249,28 +256,28 @@ inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3d sHatRaw,
 // Folding in a measurement never increases the total uncertainty: with no time propagation between
 // them (timeUpdate(0) adds no process noise), the covariance trace after a rate measurementUpdate is
 // no larger than before. This is the defining information-gain property of a Kalman-family update.
-inline void propertyRateMeasurementDoesNotIncreaseCovariance(Eigen::Vector3d sHatRaw,
-                                                             Eigen::Vector3d omega,
-                                                             double bias,
+inline void propertyRateMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f sHatRaw,
+                                                             Eigen::Vector3f omega,
+                                                             float bias,
                                                              Vector7 covDiagRaw,
-                                                             Eigen::Vector3d rate) {
+                                                             Eigen::Vector3f rate) {
     std::optional<SunlineFilterConfig> const cfg = tryFuzzConfig(sHatRaw, omega, bias, covDiagRaw);
     if (!cfg || !rate.allFinite()) {
         return;
     }
     SunlineFilterAlgorithm algo(*cfg);
-    double const traceBefore = algo.getCovariance().trace();
+    float const traceBefore = algo.getCovariance().trace();
 
     algo.timeUpdate(0.0);
     RateMeasurement r;
     r.timeTag = 0.0;
     r.omega_BN_B = rate;
-    r.covar = (1E-3 * 1E-3) * Eigen::Matrix3d::Identity();
+    r.covar = (1E-3 * 1E-3) * Eigen::Matrix3f::Identity();
     r.valid = true;
     algo.measurementUpdate(r);
 
-    double const traceAfter = algo.getCovariance().trace();
-    EXPECT_LE(traceAfter, traceBefore + 1E-9 * (1.0 + traceBefore));
+    float const traceAfter = algo.getCovariance().trace();
+    EXPECT_LE(traceAfter, traceBefore + 1E-5 * (1.0 + traceBefore));
 }
 
 }  // namespace filtering::sunlineFilter

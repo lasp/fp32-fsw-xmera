@@ -22,20 +22,25 @@ FlybyFilterConfig configFromC(const double alpha,
                               const FlybyFilterStateVector_c& initialStateC,
                               const FlybyFilterStateMatrix_c& initialCovarianceC,
                               const double headingMeasurementNoiseStd) {
-    Eigen::Matrix<double, FLYBY_FILTER_NUM_STATES, 1> initialStateVec;
+    Eigen::Matrix<float, FLYBY_FILTER_NUM_STATES, 1> initialStateVec;
     for (int i = 0; i < FLYBY_FILTER_NUM_STATES; ++i) {
-        initialStateVec(i) = initialStateC.data[i];
+        initialStateVec(i) = static_cast<float>(initialStateC.data[i]);
     }
     StateMatrix processNoise;
     StateMatrix initialCovariance;
     for (int i = 0; i < FLYBY_FILTER_NUM_STATES; ++i) {
         for (int j = 0; j < FLYBY_FILTER_NUM_STATES; ++j) {
-            processNoise(i, j) = processNoiseC.data[(i * FLYBY_FILTER_NUM_STATES) + j];
-            initialCovariance(i, j) = initialCovarianceC.data[(i * FLYBY_FILTER_NUM_STATES) + j];
+            processNoise(i, j) = static_cast<float>(processNoiseC.data[(i * FLYBY_FILTER_NUM_STATES) + j]);
+            initialCovariance(i, j) = static_cast<float>(initialCovarianceC.data[(i * FLYBY_FILTER_NUM_STATES) + j]);
         }
     }
-    return FlybyFilterConfig::create(
-        alpha, beta, mu, processNoise, FlybyState(initialStateVec), initialCovariance, headingMeasurementNoiseStd);
+    return FlybyFilterConfig::create(static_cast<float>(alpha),
+                                     static_cast<float>(beta),
+                                     static_cast<float>(mu),
+                                     processNoise,
+                                     FlybyState(initialStateVec),
+                                     initialCovariance,
+                                     static_cast<float>(headingMeasurementNoiseStd));
 }
 
 FlybyFilterOutput_c outputToC(const FlybyFilterOutput& out) {
@@ -115,7 +120,9 @@ FlybyFilterOutput_c FlybyFilterAlgorithm_update(FlybyFilterAlgorithmHandle* self
                                                 const FlybyHeadingData_c* heading) {
     HeadingData in{};
     in.timeTag = heading->timeTag;
-    in.rhat_BN_N = Eigen::Vector3d(heading->rhat_BN_N[0], heading->rhat_BN_N[1], heading->rhat_BN_N[2]);
+    for (int i = 0; i < 3; ++i) {
+        in.rhat_BN_N(i) = static_cast<float>(heading->rhat_BN_N[i]);
+    }
 
     auto* algo = fsw::fromHandle<FlybyFilterAlgorithm>(self);
     const FlybyFilterOutput out = algo->update(currentSeconds, in);
