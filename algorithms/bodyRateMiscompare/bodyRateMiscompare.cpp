@@ -1,7 +1,7 @@
 #include "bodyRateMiscompare.h"
 
 #include "utilities/fsw/eigenSupport.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 /*! This method performs a complete reset of the module. Validates that input messages are linked and resets the
@@ -54,7 +54,7 @@ void BodyRateMiscompare::updateState(uint64_t const callTime) {
 
     NavAttMsgF32Payload navAttMsgPayload{};
     eigenVectorToCArray(omega_BN_B, navAttMsgPayload.omega_BN_B);
-    navAttMsgPayload.timeTag = static_cast<double>(callTime) * kNano2Sec;
+    navAttMsgPayload.timeTag = fsw::nanosToSeconds(callTime);
 
     BodyRateFaultMsgPayload bodyRateFaultPayload{};
     bodyRateFaultPayload.faultDetected = bodyRateFaultDetected;
