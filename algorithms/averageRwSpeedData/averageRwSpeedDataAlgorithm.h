@@ -3,8 +3,8 @@
 
 #include "msgPayloadDef/definitions.h"
 #include <utilities/fsw/freestandingInvalidArgument.h>
-#include <utilities/fsw/timeConstants.h>
 #include <utilities/fsw/validDcmCheck.h>
+#include <utilities/fsw/timeConversion.hpp>
 
 #include <Eigen/Core>
 #include <array>
@@ -36,7 +36,8 @@ constexpr std::size_t ringCapacityFor(double rateHz, float windowSec) {
 
 constexpr std::size_t kRingCapacity = ringCapacityFor(kRwSpeedSampleRateHz, kMaxAveragingWindowSec);
 
-constexpr std::uint64_t kMaxAveragingWindowNs = static_cast<std::uint64_t>(kMaxAveragingWindowSec * kSec2Nano);
+constexpr std::uint64_t kMaxAveragingWindowNs = fsw::secondsToNanos(kMaxAveragingWindowSec).value_or(0U);
+static_assert(kMaxAveragingWindowNs > 0U, "kMaxAveragingWindowSec must give a representable, non-zero ns window");
 }  // namespace average_rw_speed_detail
 
 /*! @brief Validated configuration for AverageRwSpeedDataAlgorithm. Constructed via create(), which
