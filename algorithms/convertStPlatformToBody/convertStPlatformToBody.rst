@@ -81,7 +81,7 @@ The adapter (``ConvertStPlatformToBody``) provides the Xmera-facing interface an
 - Reading the input message ``stSensorInMsg``
 - Reordering the scalar-first inertial-to-case quaternion on the incoming message to the scalar-last
   ``Eigen::Vector4f`` the algorithm takes
-- Converting the message time tag from seconds (``double``) to nanoseconds (``uint64_t``) for the output message
+- Copying the input message time tag (``double`` seconds) to the output message, with no unit conversion
 - Converting the case-frame angular velocity on the incoming message to a unit delta quaternion ``dq_CN``
   (``Eigen::Vector4f``) before handing it to the algorithm
 - Calling the algorithm layer ``ConvertStPlatformToBodyAlgorithm::update``
