@@ -11,6 +11,11 @@ body force or a commanded body torque. The adapter property ``vectorType`` selec
 The module does no arithmetic on the vector. When the gate is on, the output is equal to the input. The gate applies
 the same state to all three components. Thus, the output is always the input or zero.
 
+A value of zero for ``onPeriods`` sets the force or the torque to zero. This value needs an ``offPeriods`` of one or
+more. The output vector is then zero at each update, for all input vectors. The module continues to write the
+selected output message. Thus, the modules that read this message receive a zero vector. Refer to
+`Set a Force or a Torque to Zero`_.
+
 The neighbor modules of this module do all numeric calculations in single precision (``float`` / fp32). The message
 payloads of this module are ``float`` arrays.
 
@@ -135,7 +140,9 @@ of the update after the last restart. The output is then equal to the input when
 
     n \bmod (N_\text{on} + N_\text{off}) < N_\text{on}
 
-In all other updates, the output vector is zero. Let :math:`\boldsymbol{v}` be the input vector. The output is then
+In all other updates, the output vector is zero. The cycle has one or more control periods, so the modulo is always
+possible. When :math:`N_\text{on}` is zero, the output vector is zero at each update. Let :math:`\boldsymbol{v}` be the
+input vector. The output is then
 
 .. math::
 
@@ -181,16 +188,18 @@ the valid range causes an exception, and the module does not make the algorithm.
       - Description
     * - onPeriods
       - uint32
-      - :math:`\ge 1`
-      - [-] Number of sequential control periods at the start of each cycle in which the output is equal to the
-        input vector. The module rejects zero. With zero, the output vector is always zero, and the module stops
-        the input without an indication.
+      - all values with :math:`1 \le` ``onPeriods + offPeriods`` :math:`\le` ``UINT32_MAX``
+      - [-] Number of control periods at the start of each cycle in which the output is equal to the input vector.
+        Zero is permitted when ``offPeriods`` is one or more. When the value is zero, the output vector is always
+        zero. A value of zero sets the force or the torque to zero.
     * - offPeriods
       - uint32
-      - all values with ``onPeriods + offPeriods`` :math:`\le` ``UINT32_MAX``
-      - [-] Number of sequential control periods in which the output vector is zero. Zero is permitted. With zero,
-        the gate is always on, and the duty cycle is disabled. The module rejects only the values that cause an
-        overflow of the sum with ``onPeriods``. An overflow gives a cycle that is shorter than its on window.
+      - all values with :math:`1 \le` ``onPeriods + offPeriods`` :math:`\le` ``UINT32_MAX``
+      - [-] Number of sequential control periods in which the output vector is zero. Zero is permitted. When the value
+        is zero and ``onPeriods`` is one or more, the gate is always on, and the module does not apply a duty cycle.
+        The module rejects a sum of zero with ``onPeriods``, because a cycle of zero control periods has no position.
+        The module also rejects the values that cause an overflow of the sum. An overflow gives a cycle that is
+        shorter than its on window.
     * - vectorType
       - ``VectorType``
       - ``Force`` or ``Torque``
@@ -236,6 +245,23 @@ exception. The other input message is not necessary.
 To give changed ``onPeriods`` and ``offPeriods`` values to a running algorithm, call ``reconfigure()``. The position
 in the cycle does not change. To start the cadence again at its on window, call ``reInitialize()``. If you call one
 of these functions before ``reset()``, it causes an ``XmeraLifecycleException``.
+
+Set a Force or a Torque to Zero
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To set the force or the torque to zero, set ``onPeriods`` to zero. Set ``offPeriods`` to one or more, because the
+module rejects a cycle of zero control periods. If the module operates, call ``reconfigure()`` to apply the change.
+The output vector is zero from the next update.
+
+.. code-block:: python
+
+    module.onPeriods = 0    # [-] the output vector is zero at each update
+    module.offPeriods = 1   # [-] necessary, because onPeriods = offPeriods = 0 is not valid
+    module.reconfigure()
+
+To make the output vector equal to the input vector again, set ``onPeriods`` to one or more. Then call
+``reconfigure()``. ``reconfigure()`` does not start the cycle again. Thus, the next update can be in the off window. To
+make sure that the next update is at the start of the on window, also call ``reInitialize()``.
 
 Module Assumptions and Limitations
 ----------------------------------

@@ -196,10 +196,45 @@ TEST(VectorDutyCycleConfigTest, GettersRoundTrip) {
     expectCadenceRoundTrips(UINT32_MAX, 0U);
 }
 
-// A cycle that is never on would hold the vector at zero forever, silently disabling the input.
-TEST(VectorDutyCycleConfigTest, RejectsZeroOnPeriods) {
-    EXPECT_THROW((void)VectorDutyCycleConfig::create(0U, 5U), fsw::invalid_argument);
+// Zero on periods with one or more off periods are a valid way to zero the vector.
+TEST(VectorDutyCycleConfigTest, AcceptsZeroOnPeriods) {
+    expectCadenceRoundTrips(0U, 1U);
+    expectCadenceRoundTrips(0U, 5U);
+    expectCadenceRoundTrips(0U, UINT32_MAX);
+}
+
+// A cycle with no periods at all has no position, so zero on periods need at least one off period.
+TEST(VectorDutyCycleConfigTest, RejectsZeroCycleLength) {
     EXPECT_THROW((void)VectorDutyCycleConfig::create(0U, 0U), fsw::invalid_argument);
+}
+
+// With zero on periods the output is zero at every update, also across a restart and a cycle wrap.
+TEST(VectorDutyCycle, ZeroOnPeriodsGiveZeroOutput) {
+    const Eigen::Vector3f inputVector = makeInputVector({1.5F, -2.0F, 0.25F});
+    for (const uint32_t offPeriods : {1U, 3U}) {
+        VectorDutyCycleAlgorithm alg{VectorDutyCycleConfig::create(/* onPeriods = */ 0U, offPeriods)};
+        for (uint32_t update = 0U; update < 10U; ++update) {
+            if (update == 5U) {
+                alg.reInitialize();
+            }
+            EXPECT_EQ(alg.update(inputVector), Eigen::Vector3f::Zero())
+                << "offPeriods " << offPeriods << " update " << update;
+        }
+    }
+}
+
+// A running gate set to zero on periods gives zero at once, and a later non-zero cadence passes the vector again.
+TEST(VectorDutyCycle, SetConfigToZeroOnPeriodsAndBack) {
+    const Eigen::Vector3f inputVector = makeInputVector({1.5F, -2.0F, 0.25F});
+    VectorDutyCycleAlgorithm alg{VectorDutyCycleConfig::create(/* onPeriods = */ 1U, /* offPeriods = */ 0U)};
+    EXPECT_EQ(alg.update(inputVector), inputVector);
+
+    alg.setConfig(VectorDutyCycleConfig::create(/* onPeriods = */ 0U, /* offPeriods = */ 1U));
+    EXPECT_EQ(alg.update(inputVector), Eigen::Vector3f::Zero());
+    EXPECT_EQ(alg.update(inputVector), Eigen::Vector3f::Zero());
+
+    alg.setConfig(VectorDutyCycleConfig::create(/* onPeriods = */ 1U, /* offPeriods = */ 0U));
+    EXPECT_EQ(alg.update(inputVector), inputVector);
 }
 
 // A cycle length that wrapped around would come out shorter than its own on window.
@@ -211,10 +246,9 @@ TEST(VectorDutyCycleConfigTest, RejectsCycleLengthOverflow) {
 // The public predicates must agree with create() exactly at the boundaries, since callers (the C shim's
 // validateConfig, and Ada through it) use them to pre-check a cadence before constructing.
 TEST(VectorDutyCycleConfigTest, StaticValidatorsCheckBoundaries) {
-    EXPECT_FALSE(VectorDutyCycleConfig::isValidOnPeriods(0U));
-    EXPECT_TRUE(VectorDutyCycleConfig::isValidOnPeriods(1U));
-    EXPECT_TRUE(VectorDutyCycleConfig::isValidOnPeriods(UINT32_MAX));
-
+    EXPECT_FALSE(VectorDutyCycleConfig::isValidOffPeriods(0U, 0U));
+    EXPECT_TRUE(VectorDutyCycleConfig::isValidOffPeriods(1U, 0U));
+    EXPECT_TRUE(VectorDutyCycleConfig::isValidOffPeriods(UINT32_MAX, 0U));
     EXPECT_TRUE(VectorDutyCycleConfig::isValidOffPeriods(0U, 1U));
     EXPECT_TRUE(VectorDutyCycleConfig::isValidOffPeriods(UINT32_MAX - 1U, 1U));
     EXPECT_FALSE(VectorDutyCycleConfig::isValidOffPeriods(UINT32_MAX, 1U));
