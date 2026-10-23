@@ -18,6 +18,8 @@ NOMINAL_VECTOR = [1.2e-2, -3.5e-3, 7.0e-4]
         (1, 2),  # on for one period in three
         (2, 1),  # on for two periods in three
         (1, 20),  # off window longer than the run, so the gate passes through once and stays shut
+        (0, 1),  # no on period, so the output is zero at every update
+        (0, 3),  # no on period with a longer off window, so the output is also zero at every update
     ],
 )
 def test_vector_duty_cycle(on_periods, off_periods, vector_type):

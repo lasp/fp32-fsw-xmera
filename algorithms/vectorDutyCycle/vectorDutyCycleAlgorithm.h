@@ -9,29 +9,27 @@
 /*!
  * @brief Validated configuration for the vector duty-cycle gate.
  *
- * An instance has at least one on period, and its full cycle length is not more than UINT32_MAX. Use
- * VectorDutyCycleConfig::create(...) to make an instance.
+ * The full cycle length of an instance is at least one and not more than UINT32_MAX. Zero on periods are permitted
+ * with one or more off periods, and keep the output vector at zero. Use VectorDutyCycleConfig::create(...) to make an
+ * instance.
  */
 class VectorDutyCycleConfig final {
    public:
     static VectorDutyCycleConfig create(uint32_t onPeriods, uint32_t offPeriods) {
-        if (!isValidOnPeriods(onPeriods)) {
-            FSW_THROW_INVALID_ARGUMENT("vectorDutyCycle: onPeriods must be >= 1.");
-        }
         if (!isValidOffPeriods(offPeriods, onPeriods)) {
-            FSW_THROW_INVALID_ARGUMENT("vectorDutyCycle: onPeriods + offPeriods must not exceed the uint32_t maximum.");
+            FSW_THROW_INVALID_ARGUMENT(
+                "vectorDutyCycle: onPeriods + offPeriods must be at least 1 and must not exceed the uint32_t maximum.");
         }
         return {onPeriods, offPeriods};
     }
 
-    /*! With no on period, the gate keeps the vector at zero for all time. Thus, one on period is the minimum. */
-    static bool isValidOnPeriods(uint32_t onPeriods) { return onPeriods >= 1U; }
-
-    /*! All off-period values are permitted, zero included, if the full cycle length is not more than UINT32_MAX.
-     An overflow of the cycle length gives a cycle that is shorter than the on window. The check adds the two
-     values in a uint64_t, so the check itself cannot overflow. */
+    /*! All off-period values are permitted, zero included, if the full cycle length is at least one and not more
+     than UINT32_MAX. Thus, zero on periods need one or more off periods. A cycle length of zero has no position, and
+     an overflow of the cycle length gives a cycle that is shorter than the on window. The check adds the two values
+     in a uint64_t, so the check itself cannot overflow. */
     static bool isValidOffPeriods(uint32_t offPeriods, uint32_t onPeriods) {
-        return static_cast<uint64_t>(onPeriods) + static_cast<uint64_t>(offPeriods) <= UINT32_MAX;
+        const uint64_t cycleLength = static_cast<uint64_t>(onPeriods) + static_cast<uint64_t>(offPeriods);
+        return cycleLength >= 1U && cycleLength <= UINT32_MAX;
     }
 
     /*! @return [-] number of control periods at the start of each cycle in which the output vector is equal to the

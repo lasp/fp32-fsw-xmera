@@ -11,8 +11,8 @@ VectorDutyCycleAlgorithm::VectorDutyCycleAlgorithm(const VectorDutyCycleConfig& 
  */
 void VectorDutyCycleAlgorithm::setConfig(const VectorDutyCycleConfig& config) {
     this->cfg = config;
-    /*! - the configuration has at least one on period, and its full cycle length is not more than UINT32_MAX.
-     Thus, the sum is at least one and cannot overflow. */
+    /*! - the full cycle length of the configuration is at least one and not more than UINT32_MAX. Thus, the sum
+     cannot overflow, and the modulo in update() never divides by zero. */
     this->cycleLength = config.getOnPeriods() + config.getOffPeriods();
 }
 
