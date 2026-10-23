@@ -193,7 +193,9 @@ On every update the residual maneuver angle is fed forward at the configured rat
 
    \Phi_r(t) = \max\!\big(0,\ \Phi - \dot\Phi\,(t - t_0)\big)
 
-where :math:`t_0` is the time the maneuver began. The adjusted reference attitude is the input reference rotated
+where :math:`t_0` is the time the maneuver began. The elapsed time :math:`t - t_0` is the integer nanosecond
+difference, converted with ``fsw::elapsedSecondsF``. If the call time is earlier than :math:`t_0`, the elapsed time
+is zero and the full maneuver angle stays. The adjusted reference attitude is the input reference rotated
 *back* along the slew axis by the residual angle, so that at :math:`t_0` it coincides with the body attitude and
 decays onto :math:`\mathcal R`. While the maneuver is active a feed-forward rate along the slew axis is added; the
 reference acceleration is passed through:
