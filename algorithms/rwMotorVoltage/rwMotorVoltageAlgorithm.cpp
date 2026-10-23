@@ -1,5 +1,5 @@
 #include "rwMotorVoltageAlgorithm.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include <algorithm>
@@ -55,12 +55,14 @@ RwMotorVoltageData RwMotorVoltageAlgorithm::update(const uint64_t callTime,
     if (rwSpeedMsgIsLinked) {
         /* make sure the clock didn't just initialize, or the module was recently reset */
         if (this->priorTime != 0) {
-            const float dt =
-                static_cast<float>(callTime - this->priorTime) * kNano2SecF; /*!< [s]   control update period */
+            /* [s] control update period. A repeated or backwards clock gives 0 s. */
+            const float dt = fsw::elapsedSecondsF(callTime, this->priorTime).value_or(0.0F);
+            const bool dtValid = dt > 0.0F;
             Eigen::Vector<float, kMaxNumRw> OmegaDot{};
             OmegaDot.setZero();
             for (int32_t i = 0; i < this->rwConfigParams.numRW; i++) {
-                if (rwAvailability.wheelAvailability[i] == RW_MOTOR_VOLTAGE_AVAILABLE && !this->resetFlag) {
+                /* if dt is not more than zero, do not apply the rate feedback, but latch the latest speed */
+                if (dtValid && rwAvailability.wheelAvailability[i] == RW_MOTOR_VOLTAGE_AVAILABLE && !this->resetFlag) {
                     OmegaDot(i) = (rwSpeed.wheelSpeeds[i] - this->rwSpeedOld(i)) / dt;
                     torqueCmd.motorTorque[i] -=
                         this->K * (this->rwConfigParams.JsList[i] * OmegaDot(i) - torqueCmd.motorTorque[i]);
