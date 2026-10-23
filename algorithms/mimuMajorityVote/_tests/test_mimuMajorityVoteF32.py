@@ -178,6 +178,8 @@ def run_test(
 
     rate_data_log = module.imuSensorBodyOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, rate_data_log)
+    nav_att_data_log = module.navAttOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, nav_att_data_log)
     fault_data_log = module.mimuFaultMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, fault_data_log)
 
@@ -195,6 +197,14 @@ def run_test(
         module_output_angular_velocity[-1], expected_angular_velocity, rtol=0, atol=1e-7, verbose=True
     )
     np.testing.assert_allclose(module_output_fault[-1], expected_output_fault, verbose=True)
+
+    # The navAtt output carries the same voted rate and leaves every other field zero.
+    np.testing.assert_allclose(
+        nav_att_data_log.omega_BN_B[-1], expected_angular_velocity, rtol=0, atol=1e-7, verbose=True
+    )
+    np.testing.assert_array_equal(nav_att_data_log.sigma_BN[-1], np.zeros(3))
+    np.testing.assert_array_equal(nav_att_data_log.vehSunPntBdy[-1], np.zeros(3))
+    np.testing.assert_array_equal(nav_att_data_log.timeTag[-1], 0.0)
     np.testing.assert_array_equal(module_output_valid_imus[-1], expected_valid_imus)
     np.testing.assert_allclose(module.omegaThreshold, omega_threshold_rad_per_sec, rtol=0, atol=1e-7, verbose=True)
     np.testing.assert_array_equal(module.gyroFaultPersistenceLimit, fault_persistence_limit)

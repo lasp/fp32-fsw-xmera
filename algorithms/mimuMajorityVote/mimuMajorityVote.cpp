@@ -40,6 +40,9 @@ void MimuMajorityVote::updateState(uint64_t const callTime) {
     eigenVectorToCArray(output.gyro.average, imuOutPayload.AngVelBody);
     eigenVectorToCArray(output.accel.average, imuOutPayload.AccelBody);
 
+    NavAttMsgF32Payload navAttPayload{};
+    eigenVectorToCArray(output.gyro.average, navAttPayload.omega_BN_B);
+
     MimuFaultMsgPayload faultPayload{};
     faultPayload.gyroFaultDetected = output.gyro.faultDetected;
     faultPayload.accelFaultDetected = output.accel.faultDetected;
@@ -51,6 +54,7 @@ void MimuMajorityVote::updateState(uint64_t const callTime) {
     }
 
     this->imuSensorBodyOutMsg.write(imuOutPayload, this->moduleID, callTime);
+    this->navAttOutMsg.write(navAttPayload, this->moduleID, callTime);
     this->mimuFaultMsg.write(faultPayload, this->moduleID, callTime);
 }
 
