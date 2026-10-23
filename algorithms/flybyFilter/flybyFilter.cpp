@@ -20,9 +20,9 @@ using filtering::flybyFilter::StateMatrix;
 
 FlybyFilter::FlybyFilter() {
     constexpr int n = FlybyFilterAlgorithm::N;
-    this->processNoise = Eigen::MatrixXd::Zero(n, n);
-    this->initialState = Eigen::VectorXd::Zero(n);
-    this->initialCovariance = Eigen::MatrixXd::Identity(n, n);
+    this->processNoise = Eigen::MatrixXf::Zero(n, n);
+    this->initialState = Eigen::VectorXf::Zero(n);
+    this->initialCovariance = Eigen::MatrixXf::Identity(n, n);
 }
 
 FlybyFilter::~FlybyFilter() = default;
@@ -38,17 +38,17 @@ void FlybyFilter::reset(uint64_t /*currentSimNanos*/) {
     // Guarded here rather than in the Config: unitConversion never reaches the algorithm, but
     // writeOutputMessages() divides by it, so a zero or negative scale would silently publish
     // infinities instead of failing at reset().
-    if (!fsw::is_finite(this->unitConversion) || this->unitConversion <= 0.0) {
+    if (!fsw::is_finite(this->unitConversion) || this->unitConversion <= 0.0F) {
         throw std::invalid_argument("flybyFilter.unitConversion must be positive.");
     }
 
     constexpr int n = FlybyFilterAlgorithm::N;
-    double const uc = this->unitConversion;
-    double const uc2 = uc * uc;
-    double const uc3 = uc2 * uc;
+    float const uc = this->unitConversion;
+    float const uc2 = uc * uc;
+    float const uc3 = uc2 * uc;
 
     // SI -> internal: state x uc, covariance / process-noise x uc^2, mu x uc^3.
-    Eigen::Vector<double, n> const internalStateVec = Eigen::Vector<double, n>(this->initialState) * uc;
+    Eigen::Vector<float, n> const internalStateVec = Eigen::Vector<float, n>(this->initialState) * uc;
     FlybyState const internalState{internalStateVec};
     StateMatrix const internalCovariance = StateMatrix(this->initialCovariance) * uc2;
     StateMatrix const internalProcessNoise = StateMatrix(this->processNoise) * uc2;
@@ -96,7 +96,7 @@ void FlybyFilter::updateState(uint64_t currentSimNanos) {
     HeadingData headingData{};
     if (auto const payload = this->opNavHeadingMsg(); payload.valid && payload.timeTag > this->lastHeadingTimeTag) {
         headingData.timeTag = payload.timeTag;
-        headingData.rhat_BN_N = cArrayToEigenVector(payload.rhat_BN_N).cast<double>();
+        headingData.rhat_BN_N = cArrayToEigenVector(payload.rhat_BN_N).cast<float>();
         this->lastHeadingTimeTag = payload.timeTag;
     }
 
@@ -115,13 +115,14 @@ void FlybyFilter::writeOutputMessages(uint64_t currentSimNanos, FlybyFilterOutpu
     FilterResidualsMsgF32Payload resBuf{};
 
     double const timeTag = static_cast<double>(currentSimNanos) * kNano2Sec;
-    double const invUc = 1.0 / this->unitConversion;
+    double const invUc = 1.0 / static_cast<double>(this->unitConversion);
     double const invUc2 = invUc * invUc;
 
     // internal -> SI: state x (1/uc), covariance x (1/uc^2).
-    Eigen::Matrix<double, FlybyFilterAlgorithm::N, 1> const stateSI = filterOutput.filterState.state * invUc;
+    Eigen::Matrix<double, FlybyFilterAlgorithm::N, 1> const stateSI =
+        filterOutput.filterState.state.cast<double>() * invUc;
     Eigen::Matrix<double, FlybyFilterAlgorithm::N, FlybyFilterAlgorithm::N> const covarSI =
-        filterOutput.filterState.covariance * invUc2;
+        filterOutput.filterState.covariance.cast<double>() * invUc2;
 
     navTransBuf.timeTag = timeTag;
     eigenMatrixXToCArray(stateSI.head<3>().eval(), navTransBuf.r_BN_N);
@@ -137,9 +138,9 @@ void FlybyFilter::writeOutputMessages(uint64_t currentSimNanos, FlybyFilterOutpu
         resBuf.valid = true;
         resBuf.numberOfObservations = 1;
         resBuf.sizeOfObservations = 3;
-        eigenMatrixXToCArray(filterOutput.headingResiduals.observation, resBuf.observation);
-        eigenMatrixXToCArray(filterOutput.headingResiduals.preFit, resBuf.preFits);
-        eigenMatrixXToCArray(filterOutput.headingResiduals.postFit, resBuf.postFits);
+        eigenMatrixXToCArray(filterOutput.headingResiduals.observation.cast<double>().eval(), resBuf.observation);
+        eigenMatrixXToCArray(filterOutput.headingResiduals.preFit.cast<double>().eval(), resBuf.preFits);
+        eigenMatrixXToCArray(filterOutput.headingResiduals.postFit.cast<double>().eval(), resBuf.postFits);
     }
 
     this->navTransOutMsg.write(navTransBuf, this->moduleID, currentSimNanos);

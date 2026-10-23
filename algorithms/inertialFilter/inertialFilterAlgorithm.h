@@ -19,14 +19,14 @@ namespace filtering::inertialFilter {
  *  `timeTag` > 0 flags that the adapter saw a fresh reading this cycle. */
 struct StAttData {
     double timeTag = 0;
-    Eigen::Vector3d sigma_BN = Eigen::Vector3d::Zero();
+    Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();
 };
 
 /*! Raw rate reading consumed by InertialFilterAlgorithm::update(). `timeTag` > 0
  *  flags that the adapter saw a fresh reading this cycle. */
 struct RateData {
     double timeTag = 0;
-    Eigen::Vector3d rate = Eigen::Vector3d::Zero();
+    Eigen::Vector3f rate = Eigen::Vector3f::Zero();
 };
 
 /*! Snapshot returned by InertialFilterAlgorithm::update(). Bundles the filter
@@ -46,13 +46,13 @@ class InertialFilterConfig final {
     // Reuse the framework SRuKF's static validators so filter-parameter checks live in one place.
     using Srukf = SRuKF<InertialState, InertialDynamics>;
 
-    static InertialFilterConfig create(double alpha,
-                                       double beta,
+    static InertialFilterConfig create(float alpha,
+                                       float beta,
                                        StateMatrix const& processNoise,
                                        InertialState const& initialState,
                                        StateMatrix const& initialCovariance,
-                                       double stMeasurementNoiseStd,
-                                       double rateMeasurementNoiseStd) {
+                                       float stMeasurementNoiseStd,
+                                       float rateMeasurementNoiseStd) {
         if (!Srukf::alphaIsValid(alpha)) {
             FSW_THROW_INVALID_ARGUMENT("inertialFilter: alpha must be in (0, 1]");
         }
@@ -85,25 +85,25 @@ class InertialFilterConfig final {
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
         return covariance.allFinite() && isPositiveSemiDefinite<InertialState::size>(covariance);
     }
-    static bool isValidStMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
-    static bool isValidRateMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
+    static bool isValidStMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
+    static bool isValidRateMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
 
-    double getAlpha() const { return this->alpha; }
-    double getBeta() const { return this->beta; }
+    float getAlpha() const { return this->alpha; }
+    float getBeta() const { return this->beta; }
     StateMatrix const& getProcessNoise() const { return this->processNoise; }
     InertialState const& getInitialState() const { return this->initialState; }
     StateMatrix const& getInitialCovariance() const { return this->initialCovariance; }
-    double getStMeasurementNoiseStd() const { return this->stMeasNoiseStd; }
-    double getRateMeasurementNoiseStd() const { return this->rateMeasNoiseStd; }
+    float getStMeasurementNoiseStd() const { return this->stMeasNoiseStd; }
+    float getRateMeasurementNoiseStd() const { return this->rateMeasNoiseStd; }
 
    private:
-    InertialFilterConfig(double alpha,
-                         double beta,
+    InertialFilterConfig(float alpha,
+                         float beta,
                          StateMatrix const& processNoise,
                          InertialState const& initialState,
                          StateMatrix const& initialCovariance,
-                         double stMeasurementNoiseStd,
-                         double rateMeasurementNoiseStd)
+                         float stMeasurementNoiseStd,
+                         float rateMeasurementNoiseStd)
         : alpha(alpha),
           beta(beta),
           processNoise(processNoise),
@@ -112,13 +112,13 @@ class InertialFilterConfig final {
           stMeasNoiseStd(stMeasurementNoiseStd),
           rateMeasNoiseStd(rateMeasurementNoiseStd) {}
 
-    double alpha;
-    double beta;
+    float alpha;
+    float beta;
     StateMatrix processNoise;
     InertialState initialState;
     StateMatrix initialCovariance;
-    double stMeasNoiseStd;
-    double rateMeasNoiseStd;
+    float stMeasNoiseStd;
+    float rateMeasNoiseStd;
 };
 
 /*! @brief Inertial attitude square-root UKF. Estimates the inertial-to-body MRP attitude and the body
@@ -136,7 +136,7 @@ class InertialFilterAlgorithm {
 
     void reInitializeExceptPersistentStates();
     void reInitialize();
-    bool timeUpdate(double dt);
+    bool timeUpdate(float dt);
     bool measurementUpdate(Measurement const& measurement);
     void clear();
 
@@ -144,7 +144,7 @@ class InertialFilterAlgorithm {
     StAttResidualsOutput const& getLastStAttResiduals() const;
     RateResidualsOutput const& getLastRateResiduals() const;
     State getState() const;
-    Eigen::Matrix<double, N, N> getCovariance() const;
+    Eigen::Matrix<float, N, N> getCovariance() const;
 
    private:
     bool applyMeasurement(StAttMeasurement const& measurement);

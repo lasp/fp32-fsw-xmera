@@ -21,14 +21,14 @@ namespace filtering::sunlineFilter {
  *  whether the adapter saw a fresh reading this cycle. */
 struct CssData {
     double timeTag = 0;
-    Eigen::Vector<double, MaxCss> cosValues = Eigen::Vector<double, MaxCss>::Zero();
+    Eigen::Vector<float, MaxCss> cosValues = Eigen::Vector<float, MaxCss>::Zero();
 };
 
 /*! Raw gyro reading consumed by SunlineFilterAlgorithm::update(). `valid`
  *  flags whether the adapter saw a fresh reading this cycle. */
 struct RateData {
     double timeTag = 0;
-    Eigen::Vector3d rate = Eigen::Vector3d::Zero();
+    Eigen::Vector3f rate = Eigen::Vector3f::Zero();
 };
 
 /*! Snapshot returned by SunlineFilterAlgorithm::update(). Bundles the filter
@@ -49,19 +49,19 @@ class SunlineFilterConfig final {
     // Reuse the framework SRuKF's static validators so filter-parameter checks live in one place.
     using Srukf = SRuKF<SunlineState, SunlineDynamics>;
 
-    static SunlineFilterConfig create(double alpha,
-                                      double beta,
+    static SunlineFilterConfig create(float alpha,
+                                      float beta,
                                       StateMatrix const& processNoise,
                                       SunlineState const& initialState,
                                       StateMatrix const& initialCovariance,
-                                      double biasLowerBound,
-                                      double biasUpperBound,
-                                      Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
-                                      Eigen::Vector<double, MaxCss> const& cssScaleFactor,
+                                      float biasLowerBound,
+                                      float biasUpperBound,
+                                      Eigen::Matrix<float, MaxCss, 3> const& cssNHat,
+                                      Eigen::Vector<float, MaxCss> const& cssScaleFactor,
                                       uint32_t numberOfCss,
-                                      double sensorThreshold,
-                                      double cssMeasurementNoiseStd,
-                                      double gyroMeasurementNoiseStd) {
+                                      float sensorThreshold,
+                                      float cssMeasurementNoiseStd,
+                                      float gyroMeasurementNoiseStd) {
         if (!Srukf::alphaIsValid(alpha)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: alpha must be in (0, 1]");
         }
@@ -127,55 +127,55 @@ class SunlineFilterConfig final {
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
         return covariance.allFinite() && isPositiveSemiDefinite<SunlineState::size>(covariance);
     }
-    static bool isValidBiasLowerBound(double bound) { return bound > 0.0; }
-    static bool isValidBiasUpperBound(double bound) { return bound > 0.0; }
-    static bool isValidBiasBounds(double lowerBound, double upperBound) { return lowerBound < upperBound; }
-    static bool isValidCssNHat(Eigen::Matrix<double, MaxCss, 3> const& cssNHat, uint32_t numberOfCss) {
-        constexpr double normTolerance = 1e-3;
+    static bool isValidBiasLowerBound(float bound) { return bound > 0.0F; }
+    static bool isValidBiasUpperBound(float bound) { return bound > 0.0F; }
+    static bool isValidBiasBounds(float lowerBound, float upperBound) { return lowerBound < upperBound; }
+    static bool isValidCssNHat(Eigen::Matrix<float, MaxCss, 3> const& cssNHat, uint32_t numberOfCss) {
+        constexpr float normTolerance = 1e-3F;
         for (uint32_t i = 0; i < numberOfCss; ++i) {
-            Eigen::Vector3d const row = cssNHat.row(i).transpose();
-            if (fabs(row.stableNorm() - 1.0) > normTolerance) {
+            Eigen::Vector3f const row = cssNHat.row(i).transpose();
+            if (fabsf(row.stableNorm() - 1.0F) > normTolerance) {
                 return false;
             }
         }
         return true;
     }
-    static bool isValidCssScaleFactor(Eigen::Vector<double, MaxCss> const& cssScaleFactor) {
-        return (cssScaleFactor.array() >= 0.0).all();
+    static bool isValidCssScaleFactor(Eigen::Vector<float, MaxCss> const& cssScaleFactor) {
+        return (cssScaleFactor.array() >= 0.0F).all();
     }
     static bool isValidNumberOfCss(uint32_t count) { return count > 0 && count <= static_cast<uint32_t>(MaxCss); }
-    static bool isValidSensorThreshold(double threshold) { return threshold >= 0.0; }
-    static bool isValidCssMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
-    static bool isValidGyroMeasurementNoiseStd(double noiseStd) { return noiseStd >= 0.0; }
+    static bool isValidSensorThreshold(float threshold) { return threshold >= 0.0F; }
+    static bool isValidCssMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
+    static bool isValidGyroMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
 
-    double getAlpha() const { return this->alpha; }
-    double getBeta() const { return this->beta; }
+    float getAlpha() const { return this->alpha; }
+    float getBeta() const { return this->beta; }
     StateMatrix const& getProcessNoise() const { return this->processNoise; }
     SunlineState const& getInitialState() const { return this->initialState; }
     StateMatrix const& getInitialCovariance() const { return this->initialCovariance; }
-    double getBiasLowerBound() const { return this->biasLowerBound; }
-    double getBiasUpperBound() const { return this->biasUpperBound; }
-    Eigen::Matrix<double, MaxCss, 3> const& getCssNHat() const { return this->cssNHat; }
-    Eigen::Vector<double, MaxCss> const& getCssScaleFactor() const { return this->cssScaleFactor; }
+    float getBiasLowerBound() const { return this->biasLowerBound; }
+    float getBiasUpperBound() const { return this->biasUpperBound; }
+    Eigen::Matrix<float, MaxCss, 3> const& getCssNHat() const { return this->cssNHat; }
+    Eigen::Vector<float, MaxCss> const& getCssScaleFactor() const { return this->cssScaleFactor; }
     uint32_t getNumberOfCss() const { return this->numberOfCss; }
-    double getSensorThreshold() const { return this->sensorThreshold; }
-    double getCssMeasurementNoiseStd() const { return this->cssMeasNoiseStd; }
-    double getGyroMeasurementNoiseStd() const { return this->gyroMeasNoiseStd; }
+    float getSensorThreshold() const { return this->sensorThreshold; }
+    float getCssMeasurementNoiseStd() const { return this->cssMeasNoiseStd; }
+    float getGyroMeasurementNoiseStd() const { return this->gyroMeasNoiseStd; }
 
    private:
-    SunlineFilterConfig(double alpha,
-                        double beta,
+    SunlineFilterConfig(float alpha,
+                        float beta,
                         StateMatrix const& processNoise,
                         SunlineState const& initialState,
                         StateMatrix const& initialCovariance,
-                        double biasLowerBound,
-                        double biasUpperBound,
-                        Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
-                        Eigen::Vector<double, MaxCss> const& cssScaleFactor,
+                        float biasLowerBound,
+                        float biasUpperBound,
+                        Eigen::Matrix<float, MaxCss, 3> const& cssNHat,
+                        Eigen::Vector<float, MaxCss> const& cssScaleFactor,
                         uint32_t numberOfCss,
-                        double sensorThreshold,
-                        double cssMeasurementNoiseStd,
-                        double gyroMeasurementNoiseStd)
+                        float sensorThreshold,
+                        float cssMeasurementNoiseStd,
+                        float gyroMeasurementNoiseStd)
         : alpha(alpha),
           beta(beta),
           processNoise(processNoise),
@@ -190,29 +190,29 @@ class SunlineFilterConfig final {
           cssMeasNoiseStd(cssMeasurementNoiseStd),
           gyroMeasNoiseStd(gyroMeasurementNoiseStd) {}
 
-    static Eigen::Matrix<double, MaxCss, 3> normalizeCssNHat(Eigen::Matrix<double, MaxCss, 3> const& cssNHat,
-                                                             uint32_t numberOfCss) {
-        Eigen::Matrix<double, MaxCss, 3> normalized = Eigen::Matrix<double, MaxCss, 3>::Zero();
+    static Eigen::Matrix<float, MaxCss, 3> normalizeCssNHat(Eigen::Matrix<float, MaxCss, 3> const& cssNHat,
+                                                            uint32_t numberOfCss) {
+        Eigen::Matrix<float, MaxCss, 3> normalized = Eigen::Matrix<float, MaxCss, 3>::Zero();
         for (uint32_t i = 0; i < numberOfCss; ++i) {
-            Eigen::Vector3d const row = cssNHat.row(i).transpose();
+            Eigen::Vector3f const row = cssNHat.row(i).transpose();
             normalized.row(i) = row.stableNormalized().transpose();
         }
         return normalized;
     }
 
-    double alpha;
-    double beta;
+    float alpha;
+    float beta;
     StateMatrix processNoise;
     SunlineState initialState;
     StateMatrix initialCovariance;
-    double biasLowerBound;
-    double biasUpperBound;
-    Eigen::Matrix<double, MaxCss, 3> cssNHat;
-    Eigen::Vector<double, MaxCss> cssScaleFactor;
+    float biasLowerBound;
+    float biasUpperBound;
+    Eigen::Matrix<float, MaxCss, 3> cssNHat;
+    Eigen::Vector<float, MaxCss> cssScaleFactor;
     uint32_t numberOfCss;
-    double sensorThreshold;
-    double cssMeasNoiseStd;
-    double gyroMeasNoiseStd;
+    float sensorThreshold;
+    float cssMeasNoiseStd;
+    float gyroMeasNoiseStd;
 };
 
 /*! @brief Sunline square-root UKF. Estimates sun-heading direction, body rate,
@@ -230,7 +230,7 @@ class SunlineFilterAlgorithm {
 
     void reInitializeExceptPersistentStates();
     void reInitialize();
-    bool timeUpdate(double dt);
+    bool timeUpdate(float dt);
     bool measurementUpdate(Measurement const& measurement);
     void clear();
 
@@ -238,7 +238,7 @@ class SunlineFilterAlgorithm {
     CssResidualsOutput const& getLastCssResiduals() const;
     RateResidualsOutput const& getLastRateResiduals() const;
     State getState() const;
-    Eigen::Matrix<double, N, N> getCovariance() const;
+    Eigen::Matrix<float, N, N> getCovariance() const;
 
    private:
     bool applyMeasurement(CssMeasurement const& measurement);

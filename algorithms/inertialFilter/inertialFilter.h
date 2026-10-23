@@ -29,13 +29,13 @@ class InertialFilter : public SysModel {
 
     // Public config properties -- set before reset(). The matrix/vector
     // properties are sized to their defaults (zero / identity) in the constructor.
-    double alpha = 0.0;                    //!< [-] sigma-point spread tunable
-    double beta = 0.0;                     //!< [-] prior-knowledge tunable
-    Eigen::MatrixXd processNoise;          //!< [-] N x N process noise Q (defaults to zero)
-    Eigen::VectorXd initialState;          //!< [-] N-element initial state seed (defaults to zero)
-    Eigen::MatrixXd initialCovariance;     //!< [-] N x N initial covariance P0 (defaults to identity)
-    double stMeasurementNoiseStd = 0.0;    //!< [-] star-tracker attitude measurement noise std (>= 0)
-    double rateMeasurementNoiseStd = 0.0;  //!< [rad/s] rate measurement noise std (>= 0)
+    float alpha = 0.0F;                    //!< [-] sigma-point spread tunable
+    float beta = 0.0F;                     //!< [-] prior-knowledge tunable
+    Eigen::MatrixXf processNoise;          //!< [-] N x N process noise Q (defaults to zero)
+    Eigen::VectorXf initialState;          //!< [-] N-element initial state seed (defaults to zero)
+    Eigen::MatrixXf initialCovariance;     //!< [-] N x N initial covariance P0 (defaults to identity)
+    float stMeasurementNoiseStd = 0.0F;    //!< [-] star-tracker attitude measurement noise std (>= 0)
+    float rateMeasurementNoiseStd = 0.0F;  //!< [rad/s] rate measurement noise std (>= 0)
 
     ReadFunctor<STAttMsgF32Payload> stAttInMsg;  //!< star-tracker attitude and rate input (required)
 

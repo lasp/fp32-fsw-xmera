@@ -20,9 +20,9 @@ using filtering::sunlineFilter::SunlineState;
 
 SunlineFilter::SunlineFilter() {
     constexpr int n = SunlineFilterAlgorithm::N;
-    this->processNoise = Eigen::MatrixXd::Zero(n, n);
-    this->initialState = Eigen::VectorXd::Zero(n);
-    this->initialCovariance = Eigen::MatrixXd::Identity(n, n);
+    this->processNoise = Eigen::MatrixXf::Zero(n, n);
+    this->initialState = Eigen::VectorXf::Zero(n);
+    this->initialCovariance = Eigen::MatrixXf::Identity(n, n);
 }
 
 SunlineFilter::~SunlineFilter() = default;
@@ -45,8 +45,8 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
 
     auto const cssConfig = this->cssConfigInMsg();
     uint32_t const numCss = cssConfig.nCSS;
-    Eigen::Matrix<double, MaxCss, 3> nHat = Eigen::Matrix<double, MaxCss, 3>::Zero();
-    Eigen::Vector<double, MaxCss> cssScaleFactor = Eigen::Vector<double, MaxCss>::Zero();
+    Eigen::Matrix<float, MaxCss, 3> nHat = Eigen::Matrix<float, MaxCss, 3>::Zero();
+    Eigen::Vector<float, MaxCss> cssScaleFactor = Eigen::Vector<float, MaxCss>::Zero();
     for (uint32_t i = 0; i < numCss; ++i) {
         cssScaleFactor(i) = cssConfig.cssVals[i].CBias;
         for (int j = 0; j < 3; ++j) {
@@ -59,7 +59,7 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
     auto const config = SunlineFilterConfig::create(this->alpha,
                                                     this->beta,
                                                     StateMatrix(this->processNoise),
-                                                    SunlineState{Eigen::Vector<double, n>(this->initialState)},
+                                                    SunlineState{Eigen::Vector<float, n>(this->initialState)},
                                                     StateMatrix(this->initialCovariance),
                                                     this->biasLowerBound,
                                                     this->biasUpperBound,
@@ -109,12 +109,12 @@ void SunlineFilter::updateState(uint64_t currentSimNanos) {
 
     if (auto const navMsgPayload = this->navAttInMsg(); navMsgPayload.timeTag > this->lastNavAttTimeTag) {
         rateData.timeTag = navMsgPayload.timeTag;
-        rateData.rate = cArrayToEigenVector(navMsgPayload.omega_BN_B).cast<double>();
+        rateData.rate = cArrayToEigenVector(navMsgPayload.omega_BN_B);
         this->lastNavAttTimeTag = navMsgPayload.timeTag;
     }
 
     if (auto const [timeTag, CosValue] = this->cssDataInMsg(); timeTag > this->lastCssTimeTag) {
-        Eigen::Vector<double, MaxCss> sensorMeasurements{};
+        Eigen::Vector<float, MaxCss> sensorMeasurements{};
         for (uint32_t i = 0; i < this->numberOfCss; ++i) {
             sensorMeasurements[i] = CosValue[i];
         }
@@ -139,30 +139,30 @@ void SunlineFilter::writeOutputMessages(uint64_t currentSimNanos, SunlineFilterO
 
     double const timeTag = static_cast<double>(currentSimNanos) * NANO2SEC;
 
-    eigenVectorToCArray(filterOutput.filterState.state.head<3>().cast<float>().eval(), navAttBuf.vehSunPntBdy);
+    eigenVectorToCArray(filterOutput.filterState.state.head<3>().eval(), navAttBuf.vehSunPntBdy);
 
     filterBuf.timeTag = timeTag;
     filterBuf.numberOfStates = SunlineFilterAlgorithm::N;
-    eigenMatrixXToCArray(filterOutput.filterState.state, filterBuf.state);
-    eigenMatrixXToCArray(filterOutput.filterState.covariance, filterBuf.covar);
+    eigenMatrixXToCArray(filterOutput.filterState.state.cast<double>().eval(), filterBuf.state);
+    eigenMatrixXToCArray(filterOutput.filterState.covariance.cast<double>().eval(), filterBuf.covar);
 
     if (filterOutput.cssResiduals.valid) {
         cssResBuf.timeTag = timeTag;
         cssResBuf.valid = true;
         cssResBuf.numberOfObservations = 1;
         cssResBuf.sizeOfObservations = filterOutput.cssResiduals.numberOfActiveCss;
-        eigenMatrixXToCArray(filterOutput.cssResiduals.observation, cssResBuf.observation);
-        eigenMatrixXToCArray(filterOutput.cssResiduals.preFit, cssResBuf.preFits);
-        eigenMatrixXToCArray(filterOutput.cssResiduals.postFit, cssResBuf.postFits);
+        eigenMatrixXToCArray(filterOutput.cssResiduals.observation.cast<double>().eval(), cssResBuf.observation);
+        eigenMatrixXToCArray(filterOutput.cssResiduals.preFit.cast<double>().eval(), cssResBuf.preFits);
+        eigenMatrixXToCArray(filterOutput.cssResiduals.postFit.cast<double>().eval(), cssResBuf.postFits);
     }
     if (filterOutput.rateResiduals.valid) {
         gyroResBuf.timeTag = timeTag;
         gyroResBuf.valid = true;
         gyroResBuf.numberOfObservations = 1;
         gyroResBuf.sizeOfObservations = 3;
-        eigenMatrixXToCArray(filterOutput.rateResiduals.observation, gyroResBuf.observation);
-        eigenMatrixXToCArray(filterOutput.rateResiduals.preFit, gyroResBuf.preFits);
-        eigenMatrixXToCArray(filterOutput.rateResiduals.postFit, gyroResBuf.postFits);
+        eigenMatrixXToCArray(filterOutput.rateResiduals.observation.cast<double>().eval(), gyroResBuf.observation);
+        eigenMatrixXToCArray(filterOutput.rateResiduals.preFit.cast<double>().eval(), gyroResBuf.preFits);
+        eigenMatrixXToCArray(filterOutput.rateResiduals.postFit.cast<double>().eval(), gyroResBuf.postFits);
     }
 
     this->navAttOutMsg.write(navAttBuf, this->moduleID, currentSimNanos);
