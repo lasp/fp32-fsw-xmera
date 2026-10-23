@@ -7,12 +7,12 @@ void ConvertStPlatformToBody::reset(uint64_t callTime) {
     if (!this->stSensorInMsg.isLinked()) {
         throw std::invalid_argument("convertStPlatformToBody.stSensorInMsg wasn't connected.");
     }
-    auto config = ConvertStPlatformToBodyConfig::create(this->dcm_CB);
+    auto config = ConvertStPlatformToBodyConfig::create(this->sigma_CB);
     this->algorithm = std::make_unique<ConvertStPlatformToBodyAlgorithm>(config);
 }
 
 ConvertStPlatformToBodyConfig ConvertStPlatformToBody::toConfig() const {
-    return ConvertStPlatformToBodyConfig::create(this->dcm_CB);
+    return ConvertStPlatformToBodyConfig::create(this->sigma_CB);
 }
 
 void ConvertStPlatformToBody::reconfigure() const {
