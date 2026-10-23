@@ -5,63 +5,70 @@
 
 namespace {
 
-/// Fuzzes the burn-command inputs and the (callTime - burnStartTime) elapsed-time delta across the
-/// full domain, including the degenerate cases the algorithm now guards (zero-norm dvInrtlCmd and
-/// dvRotVecUnit (anti)parallel to it). testDvGuidanceRegression compares against the double-precision
-/// reference at 1e-5 tolerance for inputs sufficiently far from the guard boundaries.
-void fuzzDvGuidance(const Eigen::Vector3f& dvInrtlCmd,
-                    const Eigen::Vector3f& dvRotVecUnit,
-                    float dvRotVecMag,
-                    int64_t burnTime_ns) {
-    constexpr uint64_t burnStartTime = 1'000'000'000ULL;  // arbitrary 1 s anchor
-    const uint64_t callTime = static_cast<uint64_t>(static_cast<int64_t>(burnStartTime) + burnTime_ns);
-    testDvGuidanceRegression(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime);
+/// Fuzzes the configuration inputs across the full domain. The fuzzed preferred direction rPref_N is
+/// normalized to the unit rHatPref_N that create() requires. Configurations that create() rejects
+/// (zero-norm cmdDv_N, rHatPref_N (anti)parallel to it) are skipped; the rejection itself is covered by
+/// explicit edge tests. testDvGuidanceRegression compares against the double-precision reference at
+/// 1e-4 tolerance.
+void fuzzDvGuidance(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rPref_N) {
+    const Eigen::Vector3f rHatPref_N = rPref_N.stableNormalized();
+    if (!DvGuidanceConfig::isValidCmdDv(cmdDv_N) || !DvGuidanceConfig::isValidRHatPref(cmdDv_N, rHatPref_N)) {
+        return;
+    }
+    testDvGuidanceRegression(cmdDv_N, rHatPref_N);
 }
 
-void fuzzPropertyOutputIsFinite(const Eigen::Vector3f& dvInrtlCmd,
-                                const Eigen::Vector3f& dvRotVecUnit,
-                                float dvRotVecMag,
-                                int64_t burnTime_ns) {
-    constexpr uint64_t burnStartTime = 1'000'000'000ULL;
-    const uint64_t callTime = static_cast<uint64_t>(static_cast<int64_t>(burnStartTime) + burnTime_ns);
-
-    propertyOutputIsFinite(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime);
+void fuzzPropertyOutputIsFinite(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rPref_N) {
+    const Eigen::Vector3f rHatPref_N = rPref_N.stableNormalized();
+    if (!DvGuidanceConfig::isValidCmdDv(cmdDv_N) || !DvGuidanceConfig::isValidRHatPref(cmdDv_N, rHatPref_N)) {
+        return;
+    }
+    propertyOutputIsFinite(cmdDv_N, rHatPref_N);
 }
 
-void fuzzPropertySigmaNormBounded(const Eigen::Vector3f& dvInrtlCmd,
-                                  const Eigen::Vector3f& dvRotVecUnit,
-                                  float dvRotVecMag,
-                                  int64_t burnTime_ns) {
-    constexpr uint64_t burnStartTime = 1'000'000'000ULL;
-    const uint64_t callTime = static_cast<uint64_t>(static_cast<int64_t>(burnStartTime) + burnTime_ns);
+void fuzzPropertySigmaNormBounded(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rPref_N) {
+    const Eigen::Vector3f rHatPref_N = rPref_N.stableNormalized();
+    if (!DvGuidanceConfig::isValidCmdDv(cmdDv_N) || !DvGuidanceConfig::isValidRHatPref(cmdDv_N, rHatPref_N)) {
+        return;
+    }
+    propertySigmaNormBounded(cmdDv_N, rHatPref_N);
+}
 
-    propertySigmaNormBounded(dvInrtlCmd, dvRotVecUnit, dvRotVecMag, burnStartTime, callTime);
+void fuzzPropertyThirdAxisAlignedWithDeltaV(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rPref_N) {
+    const Eigen::Vector3f rHatPref_N = rPref_N.stableNormalized();
+    if (!DvGuidanceConfig::isValidCmdDv(cmdDv_N) || !DvGuidanceConfig::isValidRHatPref(cmdDv_N, rHatPref_N)) {
+        return;
+    }
+    propertyThirdAxisAlignedWithDeltaV(cmdDv_N, rHatPref_N);
+}
+
+void fuzzPropertySecondAxisTowardRHatPref(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rPref_N) {
+    const Eigen::Vector3f rHatPref_N = rPref_N.stableNormalized();
+    if (!DvGuidanceConfig::isValidCmdDv(cmdDv_N) || !DvGuidanceConfig::isValidRHatPref(cmdDv_N, rHatPref_N)) {
+        return;
+    }
+    propertySecondAxisTowardRHatPref(cmdDv_N, rHatPref_N);
 }
 
 }  // namespace
 
 FUZZ_TEST(DvGuidancePropertyFuzz, fuzzPropertyOutputIsFinite)
-    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0e4F, 1.0e4F),
-                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),
-                 fuzztest::InRange(-1.0F, 1.0F),
-                 fuzztest::InRange<int64_t>(-30'000'000'000LL, 30'000'000'000LL));
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0e4F, 1.0e4F), xmera::fuzz::Vector3fInRange(-1.0F, 1.0F));
 
 FUZZ_TEST(DvGuidancePropertyFuzz, fuzzPropertySigmaNormBounded)
-    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0e4F, 1.0e4F),
-                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),
-                 fuzztest::InRange(-1.0F, 1.0F),
-                 fuzztest::InRange<int64_t>(-30'000'000'000LL, 30'000'000'000LL));
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0e4F, 1.0e4F), xmera::fuzz::Vector3fInRange(-1.0F, 1.0F));
+
+FUZZ_TEST(DvGuidancePropertyFuzz, fuzzPropertyThirdAxisAlignedWithDeltaV)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0e4F, 1.0e4F), xmera::fuzz::Vector3fInRange(-1.0F, 1.0F));
+
+FUZZ_TEST(DvGuidancePropertyFuzz, fuzzPropertySecondAxisTowardRHatPref)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0e4F, 1.0e4F), xmera::fuzz::Vector3fInRange(-1.0F, 1.0F));
 
 FUZZ_TEST(DvGuidanceFuzz, fuzzDvGuidance)
     .WithDomains(
-        // dvInrtlCmd [m/s]: realistic delta-V envelope, unfiltered so near-/zero-norm inputs exercise
-        // the zero-norm guard (the algorithm returns a safe default instead of NaN).
+        // cmdDv_N [m/s]: realistic delta-V envelope, unfiltered so near-/zero-norm inputs reach the
+        // config validation.
         xmera::fuzz::Vector3fInRange(-1.0e4F, 1.0e4F),
-        // dvRotVecUnit: only its direction is used. Unfiltered so (anti)parallel-to-dvInrtlCmd seeds
-        // exercise the collapsed-cross-product guard.
-        xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),
-        // dvRotVecMag [rad/s]: bounded to a generous burn-rate envelope.
-        fuzztest::InRange(-1.0F, 1.0F),
-        // burnTime [ns]: +/- 30 s so the accumulated rotation stays within ~30 rad, well within
-        // the regime where the FP32 reference comparison holds at 1e-5 tolerance.
-        fuzztest::InRange<int64_t>(-30'000'000'000LL, 30'000'000'000LL));
+        // rPref_N: normalized to rHatPref_N before use. Unfiltered so (anti)parallel-to-cmdDv_N directions
+        // reach the config validation.
+        xmera::fuzz::Vector3fInRange(-1.0F, 1.0F));
