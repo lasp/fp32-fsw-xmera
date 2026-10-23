@@ -7,14 +7,40 @@ from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
 
-@pytest.mark.parametrize("hs_min_check, undumpable_axis", [
-    (0, None),
-    (1, None),
+# Double-precision RW cluster momentum for the wheel speeds and spin axes configured below.
+CLUSTER_MOMENTUM = np.array([6.773502691896258, 3.273502691896258, 10.773502691896258])  # [Nms]
+
+NOMINAL_HS_MIN = 100.0 / 6000.0 * 100.0  # [Nms]
+HIGH_HS_MIN = 1000.0 / 6000.0 * 100.0  # [Nms] above the cluster momentum
+
+
+def plane_projector(undumpable_axis):
+    """Orthogonal projector onto the plane perpendicular to ``undumpable_axis``."""
+    axis = np.array(undumpable_axis) / np.linalg.norm(undumpable_axis)
+    return np.identity(3) - np.outer(axis, axis)
+
+
+# Every case sets each configuration property explicitly, so every value is passed through the Python interface.
+@pytest.mark.parametrize("hs_min, dumpable_projection, hs_desired", [
+    # The whole cluster momentum is dumped.
+    (NOMINAL_HS_MIN, np.identity(3), [0.0, 0.0, 0.0]),
+    # The threshold is above the cluster momentum, so no dumping is requested.
+    (HIGH_HS_MIN, np.identity(3), [0.0, 0.0, 0.0]),
     # A direction the effectors cannot dump about, off a body axis as a gimbaled thruster's moment arm is.
     # The whole cluster momentum lies in that direction, so nothing is left to dump.
-    (0, [0.515479924649808, 0.24912146605897753, 0.819889591610757]),
+    (0.0, plane_projector(CLUSTER_MOMENTUM), [0.0, 0.0, 0.0]),
+    # A part of the cluster momentum is undumpable; the rest is dumped.
+    (NOMINAL_HS_MIN, plane_projector([0.0, 0.2716, -0.9624]), [0.0, 0.0, 0.0]),
+    # The cluster momentum is dumped toward a non-zero desired momentum rather than toward zero.
+    (NOMINAL_HS_MIN, np.identity(3), [2.0, -1.0, 5.0]),
+    # A desired momentum and an undumpable direction together.
+    (NOMINAL_HS_MIN, plane_projector([0.0, 0.2716, -0.9624]), [2.0, -1.0, 5.0]),
+    # A desired momentum smaller than the threshold: the cluster is still driven all the way to it.
+    (NOMINAL_HS_MIN, np.identity(3), [1.0, 0.0, 0.0]),
+    # The cluster momentum is above the threshold, but its difference to the desired momentum is not.
+    (5.0, np.identity(3), [6.0, 3.0, 10.0]),
 ])
-def test_momentum_management(hs_min_check, undumpable_axis):
+def test_momentum_management(hs_min, dumpable_projection, hs_desired):
     """Module Unit Test"""
     task_name = "unitTask"
     process_name = "TestProcess"
@@ -29,11 +55,7 @@ def test_momentum_management(hs_min_check, undumpable_axis):
     module.modelTag = "momentumManagement"
     sim.AddModelToTask(task_name, module)
 
-    # hs_min_check == 1 puts the threshold above the RW cluster momentum, so no dumping is requested
-    if hs_min_check:
-        module.hsMin = 1000.0 / 6000.0 * 100.0  # Nms
-    else:
-        module.hsMin = 100.0 / 6000.0 * 100.0  # Nms
+    module.hsMin = hs_min  # [Nms]
 
     # [1/s] feedback gain mapping the stored momentum onto the requested torque. Sized so the ~13 Nms
     # cluster momentum is dumped over a few hundred seconds, i.e. a torque of order 0.5 Nm.
@@ -49,11 +71,10 @@ def test_momentum_management(hs_min_check, undumpable_axis):
     module.controlPeriod = macros.NANO2SEC * test_process_rate
 
     # The projector keeps only the momentum the effectors can dump; the identity keeps all of it.
-    if undumpable_axis is None:
-        module.dumpableProjection_B = np.identity(3)
-    else:
-        axis = np.array(undumpable_axis) / np.linalg.norm(undumpable_axis)
-        module.dumpableProjection_B = np.identity(3) - np.outer(axis, axis)
+    module.dumpableProjection_B = dumpable_projection
+
+    # The momentum the dump drives toward; zero dumps the whole cluster momentum.
+    module.hsDesired_B = hs_desired
 
     # wheelSpeeds message
     rw_speed_message = messaging.RWSpeedMsgF32Payload()
@@ -83,15 +104,15 @@ def test_momentum_management(hs_min_check, undumpable_axis):
     sim.ConfigureStopTime(macros.sec2nano(0.5))
     sim.ExecuteSimulation()
 
-    # The threshold gates the law: above it the whole stored momentum is dumped, below it nothing is. The
-    # cluster momentum below is computed in double precision from the wheel speeds and the spin axes, and the
-    # requested torque is that momentum scaled by -K. The module writes the request every update; the wheel
-    # speeds are constant, so both logged steps carry the same value.
-    if hs_min_check == 1 or undumpable_axis is not None:
-        true_vector = [0.0, 0.0, 0.0]
+    # The threshold gates the law: above it the whole dumpable momentum difference is dumped, below it nothing
+    # is. The requested torque is the dumpable difference between the double-precision cluster momentum and the
+    # desired momentum, scaled by -K. The module writes the request every update; the wheel speeds are constant,
+    # so both logged steps carry the same value.
+    dumpable_difference = dumpable_projection @ (CLUSTER_MOMENTUM - np.array(hs_desired))
+    if np.linalg.norm(dumpable_difference) >= hs_min:
+        true_vector = -k_gain * dumpable_difference
     else:
-        cluster_momentum = [6.773502691896258, 3.273502691896258, 10.773502691896258]
-        true_vector = [-k_gain * component for component in cluster_momentum]
+        true_vector = np.zeros(3)
 
     # FP32 tolerance: the observed error against the double truth is ~4e-7 on cluster momenta of order 10,
     # i.e. at float epsilon. The absolute error scales with the gain; the relative error does not, and must

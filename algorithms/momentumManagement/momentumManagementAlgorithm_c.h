@@ -45,9 +45,9 @@ uint32_t MomentumManagementAlgorithm_getMaxNumRw(void);
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param hsMin         [Nms]  minimum RW cluster momentum for dumping; must be finite and non-negative.
- * @param K             [1/s]  proportional gain on the stored momentum; must be finite and non-negative.
- * @param Ki            [1/s2] integral gain on the accumulated stored momentum; must be finite and non-negative.
+ * @param hsMin         [Nms]  minimum momentum difference for dumping; must be finite and non-negative.
+ * @param K             [1/s]  proportional gain on the momentum difference; must be finite and non-negative.
+ * @param Ki            [1/s2] integral gain on the accumulated momentum difference; must be finite and non-negative.
  * @param integralLimit [Nms2] anti-windup clamp on each integral component; must be finite and non-negative,
  *                             and positive when Ki > 0.
  * @param controlPeriod [s]    integration step between update() calls; must be finite and non-negative,
@@ -55,6 +55,8 @@ uint32_t MomentumManagementAlgorithm_getMaxNumRw(void);
  * @param dumpableProjection_B [-] projector onto the directions the effectors can dump about; must be a
  *                             finite, symmetric and idempotent orthogonal projector. Pass the identity when
  *                             every direction can be dumped.
+ * @param hsDesired_B   [Nms]  RW cluster momentum the dump drives toward; must be finite. Pass zero to dump all
+ *                             dumpable momentum.
  * @param GsMatrix_B        [-]     RW spin axes, three per wheel in row major order; every axis must be a
  *                                  unit vector.
  * @param JsList            [kgm2]  per-wheel spin-axis inertia.
@@ -68,15 +70,16 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
                                                 float integralLimit,
                                                 float controlPeriod,
                                                 const Matrix3f_c* dumpableProjection_B,
+                                                const Vector3f_c* hsDesired_B,
                                                 const MomentumManagementRwSpinAxes_c* GsMatrix_B,
                                                 const MomentumManagementRwInertias_c* JsList,
                                                 const MomentumManagementRwAvailability_c* wheelAvailability);
 
 /**
  * @brief Construct a new MomentumManagementAlgorithm instance from the supplied configuration.
- * @param hsMin         [Nms]  minimum RW cluster momentum for dumping; must be finite and non-negative.
- * @param K             [1/s]  proportional gain on the stored momentum; must be finite and non-negative.
- * @param Ki            [1/s2] integral gain on the accumulated stored momentum; must be finite and non-negative.
+ * @param hsMin         [Nms]  minimum momentum difference for dumping; must be finite and non-negative.
+ * @param K             [1/s]  proportional gain on the momentum difference; must be finite and non-negative.
+ * @param Ki            [1/s2] integral gain on the accumulated momentum difference; must be finite and non-negative.
  * @param integralLimit [Nms2] anti-windup clamp on each integral component; must be finite and non-negative,
  *                             and positive when Ki > 0.
  * @param controlPeriod [s]    integration step between update() calls; must be finite and non-negative,
@@ -84,6 +87,8 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
  * @param dumpableProjection_B [-] projector onto the directions the effectors can dump about; must be a
  *                             finite, symmetric and idempotent orthogonal projector. Pass the identity when
  *                             every direction can be dumped.
+ * @param hsDesired_B   [Nms]  RW cluster momentum the dump drives toward; must be finite. Pass zero to dump all
+ *                             dumpable momentum.
  * @param GsMatrix_B        [-]     RW spin axes, three per wheel in row major order; every axis must be a
  *                                  unit vector.
  * @param JsList            [kgm2]  per-wheel spin-axis inertia.
@@ -98,6 +103,7 @@ MomentumManagementAlgorithmHandle* MomentumManagementAlgorithm_create(
     float integralLimit,
     float controlPeriod,
     const Matrix3f_c* dumpableProjection_B,
+    const Vector3f_c* hsDesired_B,
     const MomentumManagementRwSpinAxes_c* GsMatrix_B,
     const MomentumManagementRwInertias_c* JsList,
     const MomentumManagementRwAvailability_c* wheelAvailability);
@@ -111,9 +117,9 @@ void MomentumManagementAlgorithm_destroy(MomentumManagementAlgorithmHandle* self
 /**
  * @brief Replace the algorithm's configuration at runtime without disturbing its runtime state.
  * @param self          Pointer to the instance.
- * @param hsMin         [Nms]  minimum RW cluster momentum for dumping; must be finite and non-negative.
- * @param K             [1/s]  proportional gain on the stored momentum; must be finite and non-negative.
- * @param Ki            [1/s2] integral gain on the accumulated stored momentum; must be finite and non-negative.
+ * @param hsMin         [Nms]  minimum momentum difference for dumping; must be finite and non-negative.
+ * @param K             [1/s]  proportional gain on the momentum difference; must be finite and non-negative.
+ * @param Ki            [1/s2] integral gain on the accumulated momentum difference; must be finite and non-negative.
  * @param integralLimit [Nms2] anti-windup clamp on each integral component; must be finite and non-negative,
  *                             and positive when Ki > 0.
  * @param controlPeriod [s]    integration step between update() calls; must be finite and non-negative,
@@ -121,6 +127,8 @@ void MomentumManagementAlgorithm_destroy(MomentumManagementAlgorithmHandle* self
  * @param dumpableProjection_B [-] projector onto the directions the effectors can dump about; must be a
  *                             finite, symmetric and idempotent orthogonal projector. Pass the identity when
  *                             every direction can be dumped.
+ * @param hsDesired_B   [Nms]  RW cluster momentum the dump drives toward; must be finite. Pass zero to dump all
+ *                             dumpable momentum.
  * @param GsMatrix_B        [-]     RW spin axes, three per wheel in row major order; every axis must be a
  *                                  unit vector.
  * @param JsList            [kgm2]  per-wheel spin-axis inertia.
@@ -134,6 +142,7 @@ void MomentumManagementAlgorithm_setConfig(MomentumManagementAlgorithmHandle* se
                                            float integralLimit,
                                            float controlPeriod,
                                            const Matrix3f_c* dumpableProjection_B,
+                                           const Vector3f_c* hsDesired_B,
                                            const MomentumManagementRwSpinAxes_c* GsMatrix_B,
                                            const MomentumManagementRwInertias_c* JsList,
                                            const MomentumManagementRwAvailability_c* wheelAvailability);
@@ -145,7 +154,7 @@ void MomentumManagementAlgorithm_setConfig(MomentumManagementAlgorithmHandle* se
 void MomentumManagementAlgorithm_reInitialize(MomentumManagementAlgorithmHandle* self);
 
 /**
- * @brief Assess the RW cluster momentum and compute the torque that dumps it.
+ * @brief Assess the RW cluster momentum and compute the torque that drives it to the desired momentum.
  * Advances the integrator state, so the handle is non-const.
  * @param self        Pointer to the instance.
  * @param wheelSpeeds Pointer to the current reaction-wheel speeds.

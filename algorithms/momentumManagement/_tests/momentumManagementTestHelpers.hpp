@@ -58,9 +58,9 @@ inline Eigen::Vector<float, kMaxNumRw> makeWheelSpeeds(const std::vector<float>&
 }
 
 // Independent reference implementation of the momentum dumping law, written directly from the module
-// description rather than from the algorithm source: accumulate the net RW momentum, keep only the part the
-// effectors can dump, drop that when it sits below the threshold, and oppose what is left with the
-// proportional and integral gains.
+// description rather than from the algorithm source: accumulate the net RW momentum, subtract the desired
+// momentum, keep only the part of that difference the effectors can dump, drop it when it sits below the threshold,
+// and oppose what is left with the proportional and integral gains.
 //
 // The integral is evaluated in closed form rather than by replaying the algorithm's recurrence. For a wheel
 // speed set held constant the momentum to dump d is constant, so the trapezoidal integral after numCycles
@@ -75,7 +75,7 @@ inline Eigen::Vector3f referenceTorque(const MomentumManagementRwArrayConfigurat
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         hs_B += rwArrayConfig.JsList[i] * wheelSpeeds[i] * rwArrayConfig.GsMatrix_B.col(i);
     }
-    const Eigen::Vector3f hsDumpable_B = params.dumpableProjection_B * hs_B;
+    const Eigen::Vector3f hsDumpable_B = params.dumpableProjection_B * (hs_B - params.hsDesired_B);
     const float hsDumpableNorm = hsDumpable_B.stableNorm();
 
     const Eigen::Vector3f hsToDump_B = (hsDumpableNorm >= params.hsMin) ? hsDumpable_B : Eigen::Vector3f::Zero();
@@ -100,6 +100,9 @@ inline void testMomentumManagementSetup(const MomentumManagementControlParameter
     EXPECT_NEAR(cfg.getControlParameters().Ki, params.Ki, accuracy);
     EXPECT_NEAR(cfg.getControlParameters().integralLimit, params.integralLimit, accuracy);
     EXPECT_NEAR(cfg.getControlParameters().controlPeriod, params.controlPeriod, accuracy);
+    for (Eigen::Index k = 0; k < 3; ++k) {
+        EXPECT_NEAR(cfg.getControlParameters().hsDesired_B[k], params.hsDesired_B[k], accuracy) << "component " << k;
+    }
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         EXPECT_NEAR(cfg.getRwArrayConfiguration().JsList[i], rwArrayConfig.JsList[i], accuracy) << "wheel " << i;
         // Spin axes are normalized on construction, so the stored axis is the unit direction of the input.
@@ -121,13 +124,20 @@ inline Eigen::Vector3f clusterMomentum(const MomentumManagementRwArrayConfigurat
     return hs_B;
 }
 
+// The part of the momentum difference (cluster momentum less the desired momentum) the effectors can dump.
+inline Eigen::Vector3f dumpableMomentumDifference(const MomentumManagementRwArrayConfiguration& rwArrayConfig,
+                                                  const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds,
+                                                  const MomentumManagementControlParameters& params) {
+    return params.dumpableProjection_B * (clusterMomentum(rwArrayConfig, wheelSpeeds) - params.hsDesired_B);
+}
+
 // ---------------------------------------------------------------------------
 // Properties taking any admissible configuration: the unit tests drive these with the four-wheel pyramid, the
 // property*/regressionFuzz* adapters below with generated three-wheel geometries.
 // ---------------------------------------------------------------------------
 
-// Above the threshold the request opposes the stored momentum with magnitude K * |hs|, below it there is no
-// request at all. Requires Ki == 0.
+// Above the threshold the request opposes the dumpable momentum difference with magnitude K * |difference|, below it
+// there is no request at all. Requires Ki == 0.
 inline void testProportionalTorqueOpposesStoredMomentum(const MomentumManagementRwArrayConfiguration& rwArrayConfig,
                                                         const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds,
                                                         const MomentumManagementControlParameters& params) {
@@ -137,7 +147,7 @@ inline void testProportionalTorqueOpposesStoredMomentum(const MomentumManagement
     const Eigen::Vector3f Lr_B = alg.update(wheelSpeeds);
     ASSERT_TRUE(Lr_B.allFinite());
 
-    const Eigen::Vector3f hsDumpable_B = params.dumpableProjection_B * clusterMomentum(rwArrayConfig, wheelSpeeds);
+    const Eigen::Vector3f hsDumpable_B = dumpableMomentumDifference(rwArrayConfig, wheelSpeeds, params);
     const float hsDumpableNorm = hsDumpable_B.stableNorm();
 
     // The zero-momentum carve-out is pinned by the edge-case unit tests instead.
@@ -152,7 +162,7 @@ inline void testProportionalTorqueOpposesStoredMomentum(const MomentumManagement
 
     EXPECT_LE(Lr_B.stableNorm(), (params.K * hsDumpableNorm) + tol);
 
-    // Clear of the threshold either way the request is unambiguous: the whole stored momentum or nothing.
+    // Clear of the threshold either way the request is unambiguous: the whole dumpable difference or nothing.
     // Within the margin the reference norm here and the algorithm's own can land on opposite sides of it.
     if (hsDumpableNorm > params.hsMin + deadbandMargin) {
         EXPECT_NEAR(Lr_B.stableNorm(), params.K * hsDumpableNorm, tol);
@@ -164,15 +174,17 @@ inline void testProportionalTorqueOpposesStoredMomentum(const MomentumManagement
     }
 }
 
-// Reversing every wheel speed reverses the requested torque. Every step is odd in the speeds (|hs| is even, so
-// the deadband gate is unchanged; the integral and its sign-preserving clamp are odd), so this holds with the
-// integral engaged.
+// Reversing every wheel speed together with the desired momentum reverses the requested torque. Every step is
+// odd in the pair (the difference flips sign, its norm is even, so the deadband gate is unchanged; the integral and
+// its sign-preserving clamp are odd), so this holds with the integral engaged.
 inline void testTorqueIsOddInWheelSpeeds(const MomentumManagementRwArrayConfiguration& rwArrayConfig,
                                          const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds,
                                          const MomentumManagementControlParameters& params,
                                          uint32_t numCycles = 1U) {
+    MomentumManagementControlParameters reversedParams = params;
+    reversedParams.hsDesired_B = -params.hsDesired_B;
     MomentumManagementAlgorithm forwardAlg{MomentumManagementConfig::create(params, rwArrayConfig)};
-    MomentumManagementAlgorithm reversedAlg{MomentumManagementConfig::create(params, rwArrayConfig)};
+    MomentumManagementAlgorithm reversedAlg{MomentumManagementConfig::create(reversedParams, rwArrayConfig)};
     const Eigen::Vector<float, kMaxNumRw> reversedSpeeds = -wheelSpeeds;
 
     Eigen::Vector3f forward = Eigen::Vector3f::Zero();
@@ -182,9 +194,9 @@ inline void testTorqueIsOddInWheelSpeeds(const MomentumManagementRwArrayConfigur
         reversed = reversedAlg.update(reversedSpeeds);
     }
 
-    // Negating the speeds negates every intermediate exactly: hs_B flips sign componentwise, its norm
-    // depends only on the component magnitudes so it is unchanged, and the clamp preserves sign. Hence this
-    // holds bit-for-bit and needs no error budget.
+    // Negating the speeds and the desired momentum negates every intermediate exactly: the difference flips sign
+    // componentwise, its norm depends only on the component magnitudes so it is unchanged, and the clamp
+    // preserves sign. Hence the results match exactly and need no error budget.
     for (Eigen::Index i = 0; i < 3; ++i) {
         EXPECT_EQ(reversed[i], -forward[i]) << "component " << i;
     }
@@ -210,7 +222,7 @@ inline void testIntegralTermStaysBounded(const MomentumManagementRwArrayConfigur
                                          uint32_t numCycles = 50U) {
     MomentumManagementAlgorithm alg{MomentumManagementConfig::create(params, rwArrayConfig)};
 
-    const Eigen::Vector3f hsDumpable_B = params.dumpableProjection_B * clusterMomentum(rwArrayConfig, wheelSpeeds);
+    const Eigen::Vector3f hsDumpable_B = dumpableMomentumDifference(rwArrayConfig, wheelSpeeds, params);
     const float hsDumpableNorm = hsDumpable_B.stableNorm();
     const Eigen::Vector3f hsToDump_B = (hsDumpableNorm >= params.hsMin) ? hsDumpable_B : Eigen::Vector3f::Zero();
 
@@ -281,6 +293,7 @@ inline void propertyProportionalTorqueOpposesStoredMomentum(const Eigen::Vector3
                                                             const Eigen::Vector3f& axis2,
                                                             const Eigen::Vector3f& speeds,
                                                             const Eigen::Vector3f& undumpableAxis,
+                                                            const Eigen::Vector3f& hsDesired,
                                                             float js,
                                                             float hsMin,
                                                             float K) {
@@ -289,7 +302,8 @@ inline void propertyProportionalTorqueOpposesStoredMomentum(const Eigen::Vector3
                                                      .Ki = 0.0F,
                                                      .integralLimit = 0.0F,
                                                      .controlPeriod = 0.0F,
-                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis)};
+                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis),
+                                                     .hsDesired_B = hsDesired};
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds;
     if (!detail::makeFuzzCase(axis0, axis1, axis2, speeds, js, params, rwArrayConfig, wheelSpeeds)) {
@@ -303,6 +317,7 @@ inline void propertyTorqueIsOddInWheelSpeeds(const Eigen::Vector3f& axis0,
                                              const Eigen::Vector3f& axis2,
                                              const Eigen::Vector3f& speeds,
                                              const Eigen::Vector3f& undumpableAxis,
+                                             const Eigen::Vector3f& hsDesired,
                                              float js,
                                              float hsMin,
                                              float K,
@@ -315,7 +330,8 @@ inline void propertyTorqueIsOddInWheelSpeeds(const Eigen::Vector3f& axis0,
                                                      .Ki = Ki,
                                                      .integralLimit = integralLimit,
                                                      .controlPeriod = controlPeriod,
-                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis)};
+                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis),
+                                                     .hsDesired_B = hsDesired};
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds;
     if (!detail::makeFuzzCase(axis0, axis1, axis2, speeds, js, params, rwArrayConfig, wheelSpeeds)) {
@@ -329,6 +345,7 @@ inline void propertyTorqueStaysFinite(const Eigen::Vector3f& axis0,
                                       const Eigen::Vector3f& axis2,
                                       const Eigen::Vector3f& speeds,
                                       const Eigen::Vector3f& undumpableAxis,
+                                      const Eigen::Vector3f& hsDesired,
                                       float js,
                                       float hsMin,
                                       float K,
@@ -341,7 +358,8 @@ inline void propertyTorqueStaysFinite(const Eigen::Vector3f& axis0,
                                                      .Ki = Ki,
                                                      .integralLimit = integralLimit,
                                                      .controlPeriod = controlPeriod,
-                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis)};
+                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis),
+                                                     .hsDesired_B = hsDesired};
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds;
     if (!detail::makeFuzzCase(axis0, axis1, axis2, speeds, js, params, rwArrayConfig, wheelSpeeds)) {
@@ -355,6 +373,7 @@ inline void propertyIntegralTermStaysBounded(const Eigen::Vector3f& axis0,
                                              const Eigen::Vector3f& axis2,
                                              const Eigen::Vector3f& speeds,
                                              const Eigen::Vector3f& undumpableAxis,
+                                             const Eigen::Vector3f& hsDesired,
                                              float js,
                                              float hsMin,
                                              float K,
@@ -366,7 +385,8 @@ inline void propertyIntegralTermStaysBounded(const Eigen::Vector3f& axis0,
                                                      .Ki = Ki,
                                                      .integralLimit = integralLimit,
                                                      .controlPeriod = controlPeriod,
-                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis)};
+                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis),
+                                                     .hsDesired_B = hsDesired};
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds;
     if (!detail::makeFuzzCase(axis0, axis1, axis2, speeds, js, params, rwArrayConfig, wheelSpeeds)) {
@@ -380,6 +400,7 @@ inline void regressionFuzzMomentumManagement(const Eigen::Vector3f& axis0,
                                              const Eigen::Vector3f& axis2,
                                              const Eigen::Vector3f& speeds,
                                              const Eigen::Vector3f& undumpableAxis,
+                                             const Eigen::Vector3f& hsDesired,
                                              float js,
                                              float hsMin,
                                              float K,
@@ -392,15 +413,15 @@ inline void regressionFuzzMomentumManagement(const Eigen::Vector3f& axis0,
                                                      .Ki = Ki,
                                                      .integralLimit = integralLimit,
                                                      .controlPeriod = controlPeriod,
-                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis)};
+                                                     .dumpableProjection_B = makeDumpableProjection(undumpableAxis),
+                                                     .hsDesired_B = hsDesired};
     MomentumManagementRwArrayConfiguration rwArrayConfig;
     Eigen::Vector<float, kMaxNumRw> wheelSpeeds;
     if (!detail::makeFuzzCase(axis0, axis1, axis2, speeds, js, params, rwArrayConfig, wheelSpeeds)) {
         return;
     }
     // The integral accumulates rounding once per cycle, so allow the error to grow with the cycle count.
-    const float hsDumpableNorm =
-        (params.dumpableProjection_B * clusterMomentum(rwArrayConfig, wheelSpeeds)).eval().stableNorm();
+    const float hsDumpableNorm = dumpableMomentumDifference(rwArrayConfig, wheelSpeeds, params).stableNorm();
     const float scale = K * std::max(1.0F, hsDumpableNorm) + Ki * integralLimit;
     const float tol = 1e-4F * static_cast<float>(numCycles) * std::max(1.0F, scale);
 

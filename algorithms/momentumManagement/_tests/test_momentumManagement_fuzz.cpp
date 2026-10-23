@@ -13,6 +13,7 @@ FUZZ_TEST(MomentumManagementPropertyFuzz, propertyProportionalTorqueOpposesStore
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),      // spin axis 2 (normalized in helper)
                  xmera::fuzz::Vector3fInRange(-600.0F, 600.0F),  // [r/s] per-wheel speeds
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),      // undumpable axis (projector built in helper)
+                 xmera::fuzz::Vector3fInRange(-50.0F, 50.0F),    // [Nms] desired RW cluster momentum
                  fuzztest::InRange(1e-3F, 0.2F),                 // [kgm2] common spin-axis inertia
                  fuzztest::InRange(0.0F, 100.0F),                // [Nms] dumping threshold
                  fuzztest::InRange(0.0F, 0.2F));                 // [1/s] proportional gain
@@ -23,6 +24,7 @@ FUZZ_TEST(MomentumManagementPropertyFuzz, propertyTorqueIsOddInWheelSpeeds)
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),      // spin axis 2 (normalized in helper)
                  xmera::fuzz::Vector3fInRange(-600.0F, 600.0F),  // [r/s] per-wheel speeds
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),      // undumpable axis (projector built in helper)
+                 xmera::fuzz::Vector3fInRange(-50.0F, 50.0F),    // [Nms] desired RW cluster momentum
                  fuzztest::InRange(1e-3F, 0.2F),                 // [kgm2] common spin-axis inertia
                  fuzztest::InRange(0.0F, 100.0F),                // [Nms] dumping threshold
                  fuzztest::InRange(0.0F, 0.2F),                  // [1/s] proportional gain
@@ -37,6 +39,7 @@ FUZZ_TEST(MomentumManagementPropertyFuzz, propertyIntegralTermStaysBounded)
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),      // spin axis 2 (normalized in helper)
                  xmera::fuzz::Vector3fInRange(-600.0F, 600.0F),  // [r/s] per-wheel speeds
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),      // undumpable axis (projector built in helper)
+                 xmera::fuzz::Vector3fInRange(-50.0F, 50.0F),    // [Nms] desired RW cluster momentum
                  fuzztest::InRange(1e-3F, 0.2F),                 // [kgm2] common spin-axis inertia
                  fuzztest::InRange(0.0F, 100.0F),                // [Nms] dumping threshold
                  fuzztest::InRange(0.0F, 0.2F),                  // [1/s] proportional gain
@@ -53,6 +56,7 @@ FUZZ_TEST(MomentumManagementPropertyFuzz, propertyTorqueStaysFinite)
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // spin axis 2 (normalized in helper)
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // [r/s] per-wheel speeds
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // undumpable axis (projector built in helper)
+                 xmera::fuzz::Vector3fInRange(-1e4F, 1e4F),  // [Nms] desired RW cluster momentum
                  fuzztest::InRange(1e-3F, 1e3F),             // [kgm2] common spin-axis inertia
                  fuzztest::InRange(0.0F, 1e4F),              // [Nms] dumping threshold
                  fuzztest::InRange(0.0F, 1e3F),              // [1/s] proportional gain
@@ -67,6 +71,7 @@ FUZZ_TEST(MomentumManagementRegressionFuzz, regressionFuzzMomentumManagement)
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),      // spin axis 2 (normalized in helper)
                  xmera::fuzz::Vector3fInRange(-600.0F, 600.0F),  // [r/s] per-wheel speeds
                  xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),      // undumpable axis (projector built in helper)
+                 xmera::fuzz::Vector3fInRange(-50.0F, 50.0F),    // [Nms] desired RW cluster momentum
                  fuzztest::InRange(1e-3F, 0.2F),                 // [kgm2] common spin-axis inertia
                  fuzztest::InRange(0.0F, 100.0F),                // [Nms] dumping threshold
                  fuzztest::InRange(0.0F, 0.2F),                  // [1/s] proportional gain
