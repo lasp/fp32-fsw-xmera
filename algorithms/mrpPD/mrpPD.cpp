@@ -20,7 +20,7 @@ void MrpPD::reset(uint64_t callTime) {
         inertia = cArrayToEigenMatrix3(this->vehConfigInMsg().ISCPntB_B);
     }
 
-    auto config = MrpPDConfig::create(this->K, this->P, this->knownTorquePntB_B, inertia);
+    auto config = MrpPDConfig::create(this->K, this->P, inertia);
     this->algorithm = std::make_unique<MrpPDAlgorithm>(config);
 }
 
@@ -30,7 +30,7 @@ MrpPDConfig MrpPD::toConfig() {
         inertia = cArrayToEigenMatrix3(this->vehConfigInMsg().ISCPntB_B);
     }
 
-    return MrpPDConfig::create(this->K, this->P, this->knownTorquePntB_B, inertia);
+    return MrpPDConfig::create(this->K, this->P, inertia);
 }
 
 void MrpPD::reconfigure() {
