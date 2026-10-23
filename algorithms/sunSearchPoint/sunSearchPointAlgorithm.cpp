@@ -2,7 +2,6 @@
 
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
-#include "utilities/fsw/timeConstants.h"
 
 #include <Eigen/Geometry>
 #include <algorithm>
@@ -20,16 +19,18 @@ SunSearchPointAlgorithm::SunSearchPointAlgorithm(const SunSearchPointConfig& con
 */
 void SunSearchPointAlgorithm::setConfig(const SunSearchPointConfig& config) {
     this->cfg = config;
-    this->controlPeriodNs = static_cast<uint64_t>(static_cast<double>(config.getControlPeriod()) * kSec2Nano);
+    // The config sets a minimum of 1 ns for the period. Thus the conversion always gives a value.
+    this->controlPeriodNs = fsw::secondsToNanos(config.getControlPeriod()).value_or(0U);
     this->precomputeEndTimes();
 }
 
-/*! Precompute the cumulative end time (in nanoseconds) of each rotation in the search sequence. */
+/*! Calculate the cumulative end time (in nanoseconds) of each rotation in the search sequence. The
+ config makes sure that each duration and the sum of the durations are in the uint64_t range. Thus
+ the conversion and the cumulative sum cannot fail. */
 void SunSearchPointAlgorithm::precomputeEndTimes() {
     uint64_t cumulativeEndTimeNs = 0U;
     for (uint32_t i = 0U; i < kNumSunSearchRotations; ++i) {
-        cumulativeEndTimeNs +=
-            static_cast<uint64_t>(static_cast<double>(this->cfg.getRotations().at(i).rotationDuration) * kSec2Nano);
+        cumulativeEndTimeNs += fsw::secondsToNanos(this->cfg.getRotations().at(i).rotationDuration).value_or(0U);
         this->rotationEndTimes.at(i) = cumulativeEndTimeNs;
     }
 }
