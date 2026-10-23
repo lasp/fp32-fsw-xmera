@@ -4,7 +4,7 @@
 #include "averageMimuDataTypes.h"
 #include <utilities/fsw/freestandingInvalidArgument.h>
 #include <utilities/fsw/timeConstants.h>
-#include <utilities/fsw/validDcmCheck.h>
+#include <utilities/fsw/rigidBodyKinematics.hpp>
 
 #include <Eigen/Core>
 #include <array>
@@ -63,12 +63,12 @@ constexpr std::size_t kRingCapacity =
 }  // namespace average_mimu_detail
 
 /*! @brief Validated configuration for AverageMimuDataAlgorithm. Constructed via create(), which
- *         enforces the averaging-window bounds and DCM orthonormality before freezing the values. */
+ *         enforces the averaging-window bounds and a finite CHU-frame MRP before freezing the values. */
 class AverageMimuDataConfig final {
    public:
     static AverageMimuDataConfig create(float gyroAveragingWindow,
                                         float accelAveragingWindow,
-                                        const Eigen::Matrix3f& dcm_BC) {
+                                        const Eigen::Vector3f& sigma_CB) {
         if (!isValidGyroAveragingWindow(gyroAveragingWindow)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "averageMimuData: gyroAveragingWindow must be in [0, kMaxAveragingWindowSec] seconds");
@@ -77,10 +77,11 @@ class AverageMimuDataConfig final {
             FSW_THROW_INVALID_ARGUMENT(
                 "averageMimuData: accelAveragingWindow must be in [0, kMaxAveragingWindowSec] seconds");
         }
-        if (!isValidDcmChuToBody(dcm_BC)) {
-            FSW_THROW_INVALID_ARGUMENT("averageMimuData: dcm_BC must be orthonormal with det=+1");
+        if (!isValidSigma_CB(sigma_CB)) {
+            FSW_THROW_INVALID_ARGUMENT("averageMimuData: sigma_CB must be finite");
         }
-        return {gyroAveragingWindow, accelAveragingWindow, dcm_BC};
+        // The shadow set describes the same rotation, so store the principal one (norm <= 1).
+        return {gyroAveragingWindow, accelAveragingWindow, mrpSwitch(sigma_CB)};
     }
 
     static bool isValidGyroAveragingWindow(const float window) {
@@ -89,19 +90,19 @@ class AverageMimuDataConfig final {
     static bool isValidAccelAveragingWindow(const float window) {
         return window >= 0.0F && window <= average_mimu_detail::kMaxAveragingWindowSec;
     }
-    static bool isValidDcmChuToBody(const Eigen::Matrix3f& dcm_BC) { return isValidDcm(dcm_BC); }
+    static bool isValidSigma_CB(const Eigen::Vector3f& sigma_CB) { return sigma_CB.allFinite(); }
 
     float getGyroAveragingWindow() const { return this->gyroAveragingWindow; }
     float getAccelAveragingWindow() const { return this->accelAveragingWindow; }
-    const Eigen::Matrix3f& getDcmChuToBody() const { return this->dcm_BC; }
+    const Eigen::Vector3f& getSigma_CB() const { return this->sigma_CB; }
 
    private:
-    AverageMimuDataConfig(float gyroAveragingWindow, float accelAveragingWindow, const Eigen::Matrix3f& dcm_BC)
-        : gyroAveragingWindow(gyroAveragingWindow), accelAveragingWindow(accelAveragingWindow), dcm_BC(dcm_BC) {}
+    AverageMimuDataConfig(float gyroAveragingWindow, float accelAveragingWindow, const Eigen::Vector3f& sigma_CB)
+        : gyroAveragingWindow(gyroAveragingWindow), accelAveragingWindow(accelAveragingWindow), sigma_CB(sigma_CB) {}
 
     float gyroAveragingWindow;
     float accelAveragingWindow;
-    Eigen::Matrix3f dcm_BC;
+    Eigen::Vector3f sigma_CB;
 };
 
 class AverageMimuDataAlgorithm final {
@@ -128,8 +129,9 @@ class AverageMimuDataAlgorithm final {
     AverageMimuDataConfig cfg;
     // Config-derived: window seconds converted to nanoseconds once in setConfig()
     // so the per-sample staleness comparison in update() stays in integer math.
-    std::uint64_t gyroAveragingWindowNs{0U};        //!< [ns] Gyro: allowable time difference from "latest"
-    std::uint64_t accelAveragingWindowNs{0U};       //!< [ns] Accel: allowable time difference from "latest"
+    std::uint64_t gyroAveragingWindowNs{0U};              //!< [ns] Gyro: allowable time difference from "latest"
+    std::uint64_t accelAveragingWindowNs{0U};             //!< [ns] Accel: allowable time difference from "latest"
+    Eigen::Matrix3f dcm_BC{Eigen::Matrix3f::Identity()};  //!< [-] DCM from the CHU frame C to the body frame B
     std::array<InputPacket, kRingCapacity> ring{};  //!< Internal ring of recent packets (overwrites oldest on insert)
     std::size_t insertIdx{0U};                      //!< Next ring slot to overwrite
 };

@@ -30,24 +30,26 @@ uint32_t AverageMimuDataAlgorithm_getMaxMimuSamplesPerPkt(void);
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param gyroAveragingWindow  [s] gyro averaging window.
  * @param accelAveragingWindow [s] accel averaging window.
- * @param dcm_BC               CHU-to-body rotation, row-major.
+ * @param sigma_CB             MRP of the CHU frame relative to the body frame; must be finite.
  * @return true if the configuration is valid. Never throws, so it can guard the
  *         throwing create/setConfig from an invalid configuration.
  * @note The accepted value ranges are defined by AverageMimuDataConfig::create; this predicate
  *       reports whether a candidate set would be accepted, without throwing.
  */
-bool AverageMimuDataAlgorithm_validateConfig(float gyroAveragingWindow, float accelAveragingWindow, Matrix3f_c dcm_BC);
+bool AverageMimuDataAlgorithm_validateConfig(float gyroAveragingWindow,
+                                             float accelAveragingWindow,
+                                             Vector3f_c sigma_CB);
 
 /**
  * @brief Construct a new AverageMimuDataAlgorithm instance from a validated config.
  * @param gyroAveragingWindow  [s] gyro averaging window.
  * @param accelAveragingWindow [s] accel averaging window.
- * @param dcm_BC               CHU-to-body rotation, row-major.
+ * @param sigma_CB             MRP of the CHU frame relative to the body frame; must be finite.
  * @return Pointer to a new AverageMimuDataAlgorithm (must be destroyed). Validated; throws on invalid input.
  */
 AverageMimuDataAlgorithmHandle* AverageMimuDataAlgorithm_create(float gyroAveragingWindow,
                                                                 float accelAveragingWindow,
-                                                                Matrix3f_c dcm_BC);
+                                                                Vector3f_c sigma_CB);
 
 /**
  * @brief Destroy a previously created AverageMimuDataAlgorithm.
@@ -60,13 +62,13 @@ void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self);
  * @param self                 Pointer to the instance.
  * @param gyroAveragingWindow  [s] gyro averaging window.
  * @param accelAveragingWindow [s] accel averaging window.
- * @param dcm_BC               CHU-to-body rotation, row-major.
+ * @param sigma_CB             MRP of the CHU frame relative to the body frame; must be finite.
  * Validated; throws on invalid input.
  */
 void AverageMimuDataAlgorithm_setConfig(AverageMimuDataAlgorithmHandle* self,
                                         float gyroAveragingWindow,
                                         float accelAveragingWindow,
-                                        Matrix3f_c dcm_BC);
+                                        Vector3f_c sigma_CB);
 
 /**
  * @brief Clear the internal ring and new-packet tracking of an existing instance.
