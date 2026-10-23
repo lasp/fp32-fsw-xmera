@@ -209,6 +209,20 @@ if(XMERA_ENABLE_FUZZTESTS)
       LABELS "fuzz\;fuzz-smoke"
   )
 
+  add_executable(test_timeConversion_fuzz
+    test_timeConversion_fuzz.cpp
+  )
+
+  target_link_libraries(test_timeConversion_fuzz PRIVATE
+    fuzztest::fuzztest
+    fuzztest::fuzztest_gtest_main
+  )
+
+  gtest_discover_tests(test_timeConversion_fuzz
+    PROPERTIES
+      LABELS "fuzz\;fuzz-smoke"
+  )
+
   gtest_discover_tests(test_orbitalMotion_fuzz
     PROPERTIES
       LABELS "fuzz\;fuzz-smoke"
