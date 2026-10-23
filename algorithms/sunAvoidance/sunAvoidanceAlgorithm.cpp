@@ -1,7 +1,7 @@
 #include "sunAvoidanceAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 #include <Eigen/Geometry>
 #include <numbers>
 
@@ -115,8 +115,9 @@ SunAvoidanceAttRef SunAvoidanceAlgorithm::computeAdjustedReference(const Eigen::
     // pass-through) maneuver as a defined fallback if it is somehow unset.
     const Maneuver maneuver = this->maneuver.value_or(Maneuver{});
 
-    // Residual maneuver angle, fed forward at the configured rate and clamped at zero.
-    const float dtSeconds = static_cast<float>(callTime - maneuver.startTime) * kNano2SecF;
+    // Residual maneuver angle, fed forward at the configured rate and clamped at zero. If the clock is
+    // earlier than the maneuver start, the elapsed time is zero and the full residual angle stays.
+    const float dtSeconds = fsw::elapsedSecondsF(callTime, maneuver.startTime).value_or(0.0F);
     float remainingManeuverAngle = maneuver.angle - (this->cfg.getSlewRate() * dtSeconds);
     remainingManeuverAngle = remainingManeuverAngle < 0.0F ? 0.0F : remainingManeuverAngle;
 
