@@ -119,8 +119,8 @@ where float's ~7 decimal digits are insufficient:
 
 1. **Time tags and time arithmetic.** Epoch times in seconds since J2000 can exceed 1e9, and
    sub-millisecond resolution requires >12 significant digits. Examples: `NavAttMsgF32Payload.timeTag`,
-   `TDBVehicleClockCorrelationMsgF32Payload.ephemerisTime`, the `kNano2Sec` conversion chain in
-   `timeConstants.h`.
+   `TDBVehicleClockCorrelationMsgF32Payload.ephemerisTime`, and `fsw::nanosToSeconds` in
+   `utilities/fsw/timeConversion.hpp` (see Section 3.6).
 
 2. **Position and velocity in meters.** LEO position magnitudes (~7e6 m) need better than 1 m
    resolution for orbit propagation. Examples: `NavTransMsgF32Payload.r_BN_N`,
@@ -149,11 +149,11 @@ To add a new use of `double` in flight code:
 
 ```cpp
 // Good: explicit cast with rationale
-auto dt = static_cast<float>(static_cast<double>(callTime - priorTime) * kNano2Sec);
-// Time delta is small enough (<~1000 s) that float precision suffices
+// The ephemeris position stays less than 1e9 m. Thus the ~7 digits of float keep the km value to < 0.1 km
+const auto range_km = static_cast<float>(r_BN_N.norm() / 1000.0);
 
 // Bad: implicit narrowing
-float dt = static_cast<double>(callTime - priorTime) * kNano2Sec;  // implicit double->float
+float range_km = r_BN_N.norm() / 1000.0;  // implicit double->float
 ```
 
 ### 3.5 Literal Suffix Convention
@@ -168,6 +168,43 @@ inline constexpr float kToleranceF = 1.0e-5F;
 // Incorrect (validInertiaCheck.h:6) -- missing F suffix
 constexpr float tolerance = 1e-6;   // 1e-6 is double, implicitly narrowed to float
 ```
+
+### 3.6 Time Unit Conversions
+
+**Hard rule:** Use `utilities/fsw/timeConversion.hpp` for all conversions between integer
+nanoseconds (`uint64_t` clock values, for example `callTime`) and floating-point seconds. Do not
+multiply or divide by `1e9` / `1e-9` inline. Do not cast a time value directly between integer and
+floating point.
+
+| Need | Use | Failure handling |
+|------|-----|------------------|
+| Absolute time tag, ns -> s | `fsw::nanosToSeconds(ns)` -> `double` | Total. No float variant (Section 5.7) |
+| Elapsed time `later - earlier` | `fsw::elapsedSeconds` / `fsw::elapsedSecondsF` | `std::nullopt` if the clock moved backwards |
+| Seconds -> ns (periods, windows) | `fsw::secondsToNanos(seconds)` | `std::nullopt` for NaN, Inf, negative, or overflow |
+| Compile-time ns constants | `fsw::kNanosPerSecond` integer arithmetic | -- |
+
+The utilities have these properties:
+
+- **Subtract, then convert.** The utilities calculate elapsed time as an exact integer difference
+  and then convert it one time. Thus a large absolute clock value causes no loss of precision.
+- **Correct rounding.** ns -> s divides by `1e9`, which has an exact double value. This division is
+  correctly rounded. A multiplication by the inexact `1e-9` can have a 1 ulp error.
+- **Round to nearest.** s -> ns rounds to the nearest nanosecond (ties away from zero) and does not
+  truncate. Thus `0.01F` s is `10'000'000` ns, not `9'999'999` ns.
+- **No silent wrap.** A backwards clock can wrap an unsigned subtraction. A float-to-integer
+  conversion can overflow. The utilities report these two conditions through `std::optional`, not
+  as a very large or undefined value.
+
+Each call site gives its own meaning to a `std::nullopt`. If a config validator makes sure that the
+value converts, write this at the call site. Then use `.value_or()` with the unreachable fallback.
+If the validator must have a successful conversion (for example, a period of at least 1 ns), use
+the utility in the validator. For example: `fsw::secondsToNanos(period).value_or(0U) > 0U`.
+
+The timeConversion tests check the utilities against independent values: literal values, and a
+fuzz property that calculates `seconds * 1e9` without the utility. Algorithm tests and their
+reference models use the utilities. Do not write a second conversion in a test. To check how an
+algorithm converts time at a boundary, use literal expected values. For example, a `0.01F` s window
+includes a sample that is exactly `10'000'000` ns old.
 
 ---
 
@@ -820,6 +857,10 @@ Before submitting a new algorithm for code review, verify each item:
 
 - [ ] **Mixed-precision boundaries marked.** Every `double`-to-`float` transition uses
       `static_cast<float>()` with a comment. All float literals use the `F` suffix.
+
+- [ ] **Time conversions use `timeConversion.hpp`.** The code has no inline multiplication or
+      division by `1e9` / `1e-9`, and no direct integer/floating casts of time values. Each
+      `std::nullopt` case has a defined result (Section 3.6).
 
 - [ ] **Fuzz test plan.** Identified which strategy (double-reference or property-based) applies.
       Defined three domain layers (physical range, edge-case bands, singularity stress). Derived
