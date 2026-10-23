@@ -1,5 +1,6 @@
 #include "regionsOfInterestPrune.h"
 
+#include "utilities/fsw/timeConversion.hpp"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
@@ -44,7 +45,7 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
 
     RegionsIdentifiedMsgF32Payload output{};
     const uint32_t numPublished = std::min(candidates.numCandidates, static_cast<uint32_t>(MAX_NUMBER_REGIONS));
-    const double timeTagSec = static_cast<double>(callTime) * NANO2SEC;
+    const double timeTagSec = fsw::nanosToSeconds(callTime);
     for (uint32_t k = 0; k < numPublished; ++k) {
         const auto& cand = candidates.candidates[k];
         output.timeTag[k] = timeTagSec;
