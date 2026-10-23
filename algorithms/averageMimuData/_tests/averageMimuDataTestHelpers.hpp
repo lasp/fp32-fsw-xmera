@@ -5,6 +5,7 @@
 #include <utilities/fsw/eigenSupport.h>
 #include <utilities/fsw/freestandingInvalidArgument.h>
 #include <utilities/fsw/rigidBodyKinematics.hpp>
+#include <utilities/fsw/timeConversion.hpp>
 
 #include <gtest/gtest.h>
 
@@ -34,11 +35,9 @@ class ReferenceAverager {
         }
 
         // Phase 2: max-tail-time + per-modality window filter, derived sample
-        // schedule. Convert each window to ns once and compare in integer.
-        const std::uint64_t gyroAveragingWindowNs =
-            static_cast<std::uint64_t>(this->cfg.getGyroAveragingWindow() * 1.0e9);
-        const std::uint64_t accelAveragingWindowNs =
-            static_cast<std::uint64_t>(this->cfg.getAccelAveragingWindow() * 1.0e9);
+        // schedule. Convert each window to ns one time and compare in integer.
+        const std::uint64_t gyroAveragingWindowNs = fsw::secondsToNanos(this->cfg.getGyroAveragingWindow()).value();
+        const std::uint64_t accelAveragingWindowNs = fsw::secondsToNanos(this->cfg.getAccelAveragingWindow()).value();
 
         std::uint64_t maxSlotMeasTime = 0U;
         for (auto const& slot : this->ring) {
