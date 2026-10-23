@@ -10,6 +10,7 @@ void AverageMimuDataAlgorithm::setConfig(const AverageMimuDataConfig& config) {
     this->cfg = config;
     this->gyroAveragingWindowNs = static_cast<std::uint64_t>(config.getGyroAveragingWindow() * kSec2Nano);
     this->accelAveragingWindowNs = static_cast<std::uint64_t>(config.getAccelAveragingWindow() * kSec2Nano);
+    this->dcm_BC = mrpToDcm(config.getSigma_CB()).transpose();
 }
 
 void AverageMimuDataAlgorithm::reInitialize() {
@@ -33,7 +34,7 @@ void AverageMimuDataAlgorithm::reInitialize() {
  *  the gyro mean when its age relative to maxTimeTag is within
  *  `gyroAveragingWindowNs`, and to the accel mean when within
  *  `accelAveragingWindowNs`. Each mean is rotated to the body frame via
- *  `dcm_BC`. Components with no in-window samples (or an empty ring) stay zero.
+ *  the transpose of the DCM of `sigma_CB`. Components with no in-window samples (or an empty ring) stay zero.
  *
  *  @param localPkts InputPktsData: 4-packet snapshot from the caller.
  *  @return OutputAverageAccelAngleVel: body-frame rolling average.
@@ -94,11 +95,11 @@ OutputAverageAccelAngleVel AverageMimuDataAlgorithm::update(InputPktsData const&
     OutputAverageAccelAngleVel out{};
     if (gyroAvgCount > 0U) {
         gyroSum_C /= static_cast<float>(gyroAvgCount);
-        out.gyroOmega_B = this->cfg.getDcmChuToBody() * gyroSum_C;
+        out.gyroOmega_B = this->dcm_BC * gyroSum_C;
     }
     if (accelAvgCount > 0U) {
         accelSum_C /= static_cast<float>(accelAvgCount);
-        out.accel_B = this->cfg.getDcmChuToBody() * accelSum_C;
+        out.accel_B = this->dcm_BC * accelSum_C;
     }
 
     return out;

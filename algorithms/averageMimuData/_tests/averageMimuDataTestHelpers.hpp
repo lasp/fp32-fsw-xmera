@@ -4,6 +4,7 @@
 #include "averageMimuDataAlgorithm.h"
 #include <utilities/fsw/eigenSupport.h>
 #include <utilities/fsw/freestandingInvalidArgument.h>
+#include <utilities/fsw/rigidBodyKinematics.hpp>
 
 #include <gtest/gtest.h>
 
@@ -13,7 +14,7 @@
 /*! @brief Independent reimplementation of AverageMimuDataAlgorithm's two-phase
  *  update used by the regression and fuzz harnesses. Holds its own ring with
  *  the same capacity as the algorithm so cross-cycle behavior matches
- *  bit-for-bit. The gyroAveragingWindow and dcm_BC are read from the same
+ *  exactly. The averaging windows and sigma_CB are read from the same
  *  config the algorithm was constructed with. */
 class ReferenceAverager {
    public:
@@ -78,13 +79,14 @@ class ReferenceAverager {
             }
         }
 
+        const Eigen::Matrix3f dcm_BC = mrpToDcm(this->cfg.getSigma_CB()).transpose();
         if (gyroAvgCount > 0U) {
             gyroSum_C /= static_cast<float>(gyroAvgCount);
-            out.gyroOmega_B = this->cfg.getDcmChuToBody() * gyroSum_C;
+            out.gyroOmega_B = dcm_BC * gyroSum_C;
         }
         if (accelAvgCount > 0U) {
             accelSum_C /= static_cast<float>(accelAvgCount);
-            out.accel_B = this->cfg.getDcmChuToBody() * accelSum_C;
+            out.accel_B = dcm_BC * accelSum_C;
         }
 
         return out;
@@ -118,8 +120,7 @@ inline void fillPacket(InputPktsData& in,
 }
 
 inline void regressionTestAverageMimuDataWindows(float gyroWindow, float accelWindow, InputPktsData const& in) {
-    const AverageMimuDataConfig cfg =
-        AverageMimuDataConfig::create(gyroWindow, accelWindow, Eigen::Matrix3f::Identity());
+    const AverageMimuDataConfig cfg = AverageMimuDataConfig::create(gyroWindow, accelWindow, Eigen::Vector3f::Zero());
     AverageMimuDataAlgorithm alg(cfg);
 
     ReferenceAverager ref(cfg);
@@ -142,8 +143,7 @@ inline void regressionTestAverageMimuData(const float window, InputPktsData cons
 inline void sequencedRegressionTestAverageMimuDataWindows(float gyroWindow,
                                                           float accelWindow,
                                                           std::vector<InputPktsData> const& frames) {
-    const AverageMimuDataConfig cfg =
-        AverageMimuDataConfig::create(gyroWindow, accelWindow, Eigen::Matrix3f::Identity());
+    const AverageMimuDataConfig cfg = AverageMimuDataConfig::create(gyroWindow, accelWindow, Eigen::Vector3f::Zero());
     AverageMimuDataAlgorithm alg(cfg);
 
     ReferenceAverager ref(cfg);

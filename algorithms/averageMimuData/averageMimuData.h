@@ -16,9 +16,9 @@ class AverageMimuData final : public SysModel {
     void reInitialize();       //!< Re-seed the algorithm's runtime state from the configured values
 
     // Phase 1: public configuration properties -- set before reset().
-    double gyroAveragingWindow = 0.0;                      //!< [s] Gyro averaging window
-    double accelAveragingWindow = 0.0;                     //!< [s] Accel averaging window
-    Eigen::Matrix3f dcm_BC = Eigen::Matrix3f::Identity();  //!< [-] Transformation from the CHU frame to body
+    double gyroAveragingWindow = 0.0;                    //!< [s] Gyro averaging window
+    double accelAveragingWindow = 0.0;                   //!< [s] Accel averaging window
+    Eigen::Vector3f sigma_CB = Eigen::Vector3f::Zero();  //!< [-] MRP of the CHU frame relative to the body frame
 
     Message<IMUSensorBodyMsgF32Payload> imuOutMsg;
     ReadFunctor<MimuPacketF32Payload> mimuPacketInMsg;
