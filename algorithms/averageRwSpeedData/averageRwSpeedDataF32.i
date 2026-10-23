@@ -1,7 +1,6 @@
 %module averageRwSpeedDataF32
 %{
    #include "averageRwSpeedData.h"
-   #include "utilities/fsw/timeConstants.h"
 %}
 
 %include <std_string.i>

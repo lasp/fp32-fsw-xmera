@@ -4,7 +4,6 @@
 #include "mrpRotationAlgorithm.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
-#include "utilities/fsw/timeConstants.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
