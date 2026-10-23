@@ -5,6 +5,7 @@
 #include "mimuMajorityVoteAlgorithm.h"
 #include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
 #include "msgPayloadDef/MimuFaultMsgPayload.h"
+#include "msgPayloadDef/NavAttMsgF32Payload.h"
 
 #include <Eigen/Core>
 #include <array>
@@ -35,6 +36,7 @@ class MimuMajorityVote final : public SysModel {
     uint32_t accelFaultPersistenceLimit{};  //!< [-] consecutive accel faults needed to trigger accelFaultDetected (> 0)
 
     Message<IMUSensorBodyMsgF32Payload> imuSensorBodyOutMsg;
+    Message<NavAttMsgF32Payload> navAttOutMsg;
     Message<MimuFaultMsgPayload> mimuFaultMsg;
 
    private:
