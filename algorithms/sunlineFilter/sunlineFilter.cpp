@@ -4,8 +4,7 @@
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <utilities/fsw/eigenSupport.h>
 #include <stdexcept>
-
-#include <architecture/utilities/macroDefinitions.h>
+#include <utilities/fsw/timeConversion.hpp>
 
 #include <Eigen/Core>
 
@@ -104,7 +103,7 @@ void SunlineFilter::updateState(uint64_t currentSimNanos) {
         throw XmeraLifecycleException("SunlineFilter reset() has not been called.");
     }
 
-    double const currentSeconds = static_cast<double>(currentSimNanos) * NANO2SEC;
+    double const currentSeconds = fsw::nanosToSeconds(currentSimNanos);
 
     RateData rateData{};
     CssData cssData{};
@@ -139,7 +138,7 @@ void SunlineFilter::writeOutputMessages(uint64_t currentSimNanos, SunlineFilterO
     FilterResidualsMsgF32Payload gyroResBuf{};
     FilterResidualsMsgF32Payload cssResBuf{};
 
-    double const timeTag = static_cast<double>(currentSimNanos) * NANO2SEC;
+    double const timeTag = fsw::nanosToSeconds(currentSimNanos);
 
     eigenVectorToCArray(filterOutput.filterState.state.head<3>().eval(), navAttBuf.vehSunPntBdy);
 
