@@ -153,6 +153,26 @@ TEST(averageMimuDataTest, PropertyZeroAveragingWindow) {
     }
 }
 
+TEST(averageMimuDataTest, WindowRoundsToNearestNanosecond) {
+    // 0.01F s is 0.0099999997... s. Rounded to the nearest ns, the window is 10'000'000 ns, so it includes
+    // sample 8, which is exactly 10 ms older than sample 9. A truncated window (9'999'999 ns) includes only
+    // sample 9. All values are small integers, so the means are exact.
+    AverageMimuDataAlgorithm alg(AverageMimuDataConfig::create(0.01F, 0.01F, Eigen::Vector3f::Zero()));
+
+    std::array<Eigen::Vector3f, kSamplesPerPkt> gyros{};
+    std::array<Eigen::Vector3f, kSamplesPerPkt> accels{};
+    for (std::size_t s = 0; s < kSamplesPerPkt; ++s) {
+        gyros[s] = Eigen::Vector3f{static_cast<float>(s), 2.0F * static_cast<float>(s), 3.0F * static_cast<float>(s)};
+        accels[s] = Eigen::Vector3f{4.0F, static_cast<float>(s), -static_cast<float>(s)};
+    }
+    InputPktsData in{};
+    fillPacket(in, 0, /* measTime = */ 1'000'000'000U, gyros, accels);
+
+    const auto [accel_B, gyroOmega_B] = alg.update(in);
+    EXPECT_EQ(gyroOmega_B, Eigen::Vector3f(8.5F, 17.0F, 25.5F));
+    EXPECT_EQ(accel_B, Eigen::Vector3f(4.0F, 8.5F, -8.5F));
+}
+
 TEST(averageMimuDataTest, EmptyRingReturnsZero) {
     // No valid packets in the snapshot -> ring stays empty -> zero output.
     AverageMimuDataAlgorithm alg(AverageMimuDataConfig::create(0.5, 0.5, Eigen::Vector3f::Zero()));
