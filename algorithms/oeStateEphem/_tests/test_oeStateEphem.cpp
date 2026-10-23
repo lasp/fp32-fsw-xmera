@@ -108,9 +108,10 @@ TEST(OEStateEphemConfigTest, NonFiniteInactiveCoefficientIsAccepted) {
 }
 
 TEST(OEStateEphemConfigTest, ArcCoefficientCountAboveMaxThrows) {
-    // An unbounded count would index past the coefficient arrays inside
-    // calculateChebyValue, raising std::out_of_range out of update() rather than
-    // fsw::invalid_argument -- past the C shim's catch and across the FFI boundary.
+    // An unbounded count must be rejected at config time: the finiteness sweep would index past
+    // the coefficient arrays and raise std::out_of_range rather than fsw::invalid_argument --
+    // past the C shim's catch and across the FFI boundary -- and calculateChebyValue would
+    // return 0 for every element of the arc instead of evaluating it.
     auto arcs = singleValidArcTable();
     arcs[0].numberChebCoefficients = static_cast<unsigned int>(kMaxOeCoeff) + 1U;
     EXPECT_THROW(OEStateEphemConfig::create(EARTH_MU, 1, 0.0, 0.0, arcs), fsw::invalid_argument);
