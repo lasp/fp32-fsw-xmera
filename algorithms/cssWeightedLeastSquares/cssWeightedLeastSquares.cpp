@@ -3,7 +3,7 @@
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <utilities/fsw/eigenSupport.h>
 
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 
 #include <memory>
 #include <stdexcept>
@@ -97,7 +97,7 @@ void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
     const CssWeightedLeastSquaresOutput out = this->algorithm->update(cArrayToEigenVector(cssData.CosValue));
     this->numCssViewingSun = out.numCssViewingSun;
 
-    const double timeTag = static_cast<double>(callTime) * kNano2Sec;
+    const double timeTag = fsw::nanosToSeconds(callTime);
 
     /*! - If the estimator state output message is set, then store the sun heading in it */
     if (this->filterOutMsg.isLinked()) {
