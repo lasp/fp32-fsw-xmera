@@ -350,7 +350,7 @@ inline void searchConfigValidationChecks() {
         SunSearchPointAlgorithm alg{cfg};
     });
 
-    // rotationDuration must be finite and > 0.
+    // rotationDuration must be finite and convert to at least 1 ns.
     EXPECT_ANY_THROW({
         auto rotations = makeValidRotations();
         rotations[0].rotationDuration = 0.0F;
@@ -369,6 +369,31 @@ inline void searchConfigValidationChecks() {
     EXPECT_ANY_THROW({
         auto rotations = makeValidRotations();
         rotations[3].rotationDuration = std::numeric_limits<float>::infinity();
+        (void)makeSearchConfig(rotations);
+    });
+    EXPECT_ANY_THROW({
+        auto rotations = makeValidRotations();
+        rotations[0].rotationDuration = 4e-10F;  // rounds to 0 ns
+        (void)makeSearchConfig(rotations);
+    });
+    EXPECT_NO_THROW({
+        auto rotations = makeValidRotations();
+        rotations[0].rotationDuration = 6e-10F;  // rounds to 1 ns
+        (void)makeSearchConfig(rotations);
+    });
+    EXPECT_ANY_THROW({
+        auto rotations = makeValidRotations();
+        rotations[0].rotationDuration = 2e10F;  // approximately 2e19 ns, too large for uint64_t
+        (void)makeSearchConfig(rotations);
+    });
+
+    // The sum of the rotation durations plus one control period must be in the uint64_t ns range.
+    // One 5e9 s rotation (5e18 ns) is in the range, but four of them (2e19 ns) are not.
+    EXPECT_ANY_THROW({
+        auto rotations = makeValidRotations();
+        for (auto& r : rotations) {
+            r.rotationDuration = 5e9F;
+        }
         (void)makeSearchConfig(rotations);
     });
 
@@ -415,11 +440,12 @@ inline void searchConfigValidationChecks() {
     EXPECT_ANY_THROW(
         (void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), kMaxNumCssSensors + 1U));
 
-    // controlPeriod must be finite and > 0.
+    // controlPeriod must be finite and convert to at least 1 ns.
     EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, 0.0F));
     EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, -0.5F));
     EXPECT_ANY_THROW((void)makeSearchConfig(
         makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, std::numeric_limits<float>::infinity()));
+    EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, 4e-10F));
     EXPECT_NO_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, 0.25F));
 
     // deadbandAngle must be finite and >= 0; zero disables the band.

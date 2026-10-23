@@ -30,7 +30,7 @@ typedef enum RotationAxis_c {
 /**
  * @brief Plain-old-data mirror of the C++ RotationProperties fields.
  *
- *  - rotationDuration must be finite and > 0
+ *  - rotationDuration must be finite and convert to at least 1 ns
  *  - rotationRate must be finite (sign selects rotation direction)
  *  - rotationAxis must be one of the RotationAxis_c values
  *
