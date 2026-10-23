@@ -7,5 +7,4 @@ FUZZ_TEST(MrpPDAlgorithmFuzz, regressionTestMrpPD)
                  fuzztest::InRange(0.0F, 1e6F),
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
-                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F));

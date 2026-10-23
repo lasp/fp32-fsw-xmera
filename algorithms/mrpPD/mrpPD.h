@@ -27,8 +27,6 @@ class MrpPD : public SysModel {
 
     float K{};  //!< [rad/s] proportional gain applied to MRP errors
     float P{};  //!< [N*m*s] rate-error feedback (derivative) gain
-    Eigen::Vector3f knownTorquePntB_B =
-        Eigen::Vector3f::Zero();  //!< [N*m] known external torque in body-frame components
 
     ReadFunctor<AttGuidMsgF32Payload> guidInMsg;             //!< Attitude guidance input message
     ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< Vehicle configuration input message
