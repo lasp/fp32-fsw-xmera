@@ -1,5 +1,4 @@
 #include "averageRwSpeedDataAlgorithm.h"
-#include <utilities/fsw/timeConstants.h>
 
 #include <algorithm>
 
@@ -10,7 +9,9 @@ AverageRwSpeedDataAlgorithm::AverageRwSpeedDataAlgorithm(const AverageRwSpeedDat
 
 void AverageRwSpeedDataAlgorithm::setConfig(const AverageRwSpeedDataConfig& config) {
     this->cfg = config;
-    this->rwSpeedAveragingWindowNs = static_cast<std::uint64_t>(config.getRwSpeedAveragingWindow() * kSec2Nano);
+    // The config limits the window to (0, kMaxAveragingWindowSec]. Thus the conversion always gives
+    // a value, and the code never uses the 0 fallback.
+    this->rwSpeedAveragingWindowNs = fsw::secondsToNanos(config.getRwSpeedAveragingWindow()).value_or(0U);
 }
 
 void AverageRwSpeedDataAlgorithm::reInitialize() {

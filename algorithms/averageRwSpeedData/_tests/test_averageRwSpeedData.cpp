@@ -101,6 +101,16 @@ TEST(averageRwSpeedDataTest, WindowEdgeIsInclusive) {
               meanOf({/* base = */ 1.0F, /* base = */ 3.0F}));
 }
 
+TEST(averageRwSpeedDataTest, WindowRoundsToNearestNanosecond) {
+    // 0.01F s is 0.0099999997... s. Rounded to the nearest ns, the window is 10'000'000 ns, so it includes a
+    // sample that is exactly 10 ms older. A truncated window (9'999'999 ns) does not include that sample.
+    AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(/* rwSpeedAveragingWindow = */ 0.01F));
+
+    (void)alg.update(makeSample(kT0, /* base = */ 1.0F));
+    EXPECT_EQ(alg.update(makeSample(kT0 + (10U * kMsToNs), /* base = */ 3.0F)),
+              meanOf({/* base = */ 1.0F, /* base = */ 3.0F}));
+}
+
 TEST(averageRwSpeedDataTest, OutOfOrderSampleIngested) {
     AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(/* rwSpeedAveragingWindow = */ 0.5F));
 
