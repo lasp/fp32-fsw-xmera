@@ -4,8 +4,8 @@
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <architecture/utilities/eigenSupport.h>
-#include <utilities/fsw/timeConstants.h>
 #include <utilities/fsw/freestandingIsFinite.hpp>
+#include <utilities/fsw/timeConversion.hpp>
 
 #include <Eigen/Core>
 
@@ -88,7 +88,7 @@ void FlybyFilter::updateState(uint64_t currentSimNanos) {
         throw XmeraLifecycleException("FlybyFilter reset() has not been called.");
     }
 
-    double const currentSeconds = static_cast<double>(currentSimNanos) * kNano2Sec;
+    double const currentSeconds = fsw::nanosToSeconds(currentSimNanos);
 
     HeadingData headingData{};
     if (auto const payload = this->opNavHeadingMsg(); payload.valid && payload.timeTag > this->lastHeadingTimeTag) {
@@ -111,7 +111,7 @@ void FlybyFilter::writeOutputMessages(uint64_t currentSimNanos, FlybyFilterOutpu
     FilterMsgF32Payload filterBuf{};
     FilterResidualsMsgF32Payload resBuf{};
 
-    double const timeTag = static_cast<double>(currentSimNanos) * kNano2Sec;
+    double const timeTag = fsw::nanosToSeconds(currentSimNanos);
     double const invUc = 1.0 / static_cast<double>(this->unitConversion);
     double const invUc2 = invUc * invUc;
 
