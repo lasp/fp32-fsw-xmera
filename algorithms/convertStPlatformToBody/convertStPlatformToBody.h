@@ -25,7 +25,7 @@ class ConvertStPlatformToBody : public SysModel {
 
     void reconfigure() const;
 
-    Eigen::Matrix3f dcm_CB = Eigen::Matrix3f::Identity();  //!< [-] body-to-case mounting DCM (orthonormal, det +1)
+    Eigen::Vector3f sigma_CB = Eigen::Vector3f::Zero();  //!< [-] MRP of the case frame relative to the body frame
 
     ReadFunctor<STSensorMsgF32Payload> stSensorInMsg;  //!< Input msg
     Message<STAttMsgF32Payload> stAttOutMsg;           //!< Output msg

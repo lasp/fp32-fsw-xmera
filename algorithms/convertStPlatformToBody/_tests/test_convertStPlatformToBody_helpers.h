@@ -60,24 +60,25 @@ inline Eigen::Vector4f omegaToDeltaQuaternion(const Eigen::Vector3d& omega_CN_C)
 /*!
  * @brief Compute the expected output of ConvertStPlatformToBodyAlgorithm in double precision.
  *
- * Given a star tracker sensor input (quaternion, omega) and a mounting DCM,
+ * Given a star tracker sensor input (quaternion, omega) and a mounting MRP,
  * compute the expected body-frame attitude (MRP) and angular velocity.
  *
  * @param ep_CN       Quaternion from inertial to case frame [q0, q1, q2, q3]
  * @param omega_CN_C  Angular velocity of case frame w.r.t. inertial, in case frame [rad/s]
- * @param dcm_CB      DCM from body to case frame
+ * @param sigma_CB    MRP of the case frame relative to the body frame
  * @param sigma_BN    [out] Expected MRP from inertial to body
  * @param omega_BN_B  [out] Expected angular velocity of body w.r.t. inertial, in body frame
  */
 inline void computeTruthValues(const Eigen::Vector4d& ep_CN,
                                const Eigen::Vector3d& omega_CN_C,
-                               const Eigen::Matrix3d& dcm_CB,
+                               const Eigen::Vector3d& sigma_CB,
                                Eigen::Vector3d& sigma_BN,
                                Eigen::Vector3d& omega_BN_B) {
     // Case-frame attitude as MRP
     Eigen::Vector3d sigma_CN = epToMrp(ep_CN);
 
-    // Body-to-case offset as MRP
+    // Case-to-body offset as MRP, through the mounting DCM
+    const Eigen::Matrix3d dcm_CB = mrpToDcm(sigma_CB);
     Eigen::Vector3d sigma_BC = dcmToMrp<double>(dcm_CB.transpose());
 
     // Compose: sigma_BN = sigma_CN + sigma_BC
@@ -97,18 +98,18 @@ inline void computeTruthValues(const Eigen::Vector4d& ep_CN,
  */
 inline void testConvertStPlatformToBody(const Eigen::Vector4d& ep_CN,
                                         const Eigen::Vector3d& omega_CN_C,
-                                        const Eigen::Matrix3d& dcm_CB) {
+                                        const Eigen::Vector3d& sigma_CB) {
     // Compute truth in double precision
     Eigen::Vector3d sigma_BN_truth;
     Eigen::Vector3d omega_BN_B_truth;
-    computeTruthValues(ep_CN, omega_CN_C, dcm_CB, sigma_BN_truth, omega_BN_B_truth);
+    computeTruthValues(ep_CN, omega_CN_C, sigma_CB, sigma_BN_truth, omega_BN_B_truth);
 
     // Build float-precision Eigen inputs
     const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
     const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
 
     // Configure and run algorithm
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(dcm_CB.cast<float>())};
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB.cast<float>())};
     StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
 
     // Verify MRP (account for shadow set ambiguity near |σ|=1)

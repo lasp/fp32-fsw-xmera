@@ -7,8 +7,8 @@ from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
 
 
-def test_identity_dcm():
-    """With identity mounting DCM the output MRP and omega should match the case-frame values."""
+def test_identity_mounting():
+    """With identity mounting the output MRP and omega should match the case-frame values."""
     task_name = "unitTask"
     process_name = "TestProcess"
 
@@ -21,7 +21,7 @@ def test_identity_dcm():
     module.modelTag = "convertStPlatformToBody"
     sim.AddModelToTask(task_name, module)
 
-    # Identity DCM (default)
+    # Zero mounting MRP (default)
 
     # Build a star tracker sensor input: 30-deg rotation about z, small omega
     angle = np.pi/6.0
@@ -43,7 +43,7 @@ def test_identity_dcm():
     sim.ConfigureStopTime(macros.sec2nano(0.3))
     sim.ExecuteSimulation()
 
-    # With identity DCM, sigma_BN == sigma_CN and omega_BN_B == omega_CN_C
+    # With identity mounting, sigma_BN == sigma_CN and omega_BN_B == omega_CN_C
     sigma_CN = rbk.EP2MRP(ep_CN)
     sigma_BN = att_log.MRP_BdyInrtl[0]
     omega_BN_B = att_log.omega_BN_B[0]
@@ -52,13 +52,13 @@ def test_identity_dcm():
     np.testing.assert_allclose(att_log.timeTag[0], 100.0, atol=accuracy,
                                err_msg="timeTag must be passed through in seconds")
     np.testing.assert_allclose(sigma_BN, sigma_CN, atol=accuracy,
-                               err_msg="MRP mismatch with identity DCM")
+                               err_msg="MRP mismatch with identity mounting")
     np.testing.assert_allclose(omega_BN_B, omega_CN_C, atol=accuracy,
-                               err_msg="omega mismatch with identity DCM")
+                               err_msg="omega mismatch with identity mounting")
 
 
-def test_rotated_dcm():
-    """With a non-trivial mounting DCM, verify the full attitude + omega transformation."""
+def test_rotated_mounting():
+    """With a non-trivial mounting orientation, verify the full attitude + omega transformation."""
     task_name = "unitTask"
     process_name = "TestProcess"
 
@@ -71,11 +71,11 @@ def test_rotated_dcm():
     module.modelTag = "convertStPlatformToBody"
     sim.AddModelToTask(task_name, module)
 
-    # 45-degree rotation about z for mounting DCM
+    # 45-degree rotation about z for the mounting orientation
     mount_angle = np.pi/4.0
     ep_mount = np.array([np.cos(mount_angle/2), 0, 0, np.sin(mount_angle/2)])
-    dcm_CB = rbk.EP2C(ep_mount)
-    module.dcm_CB = dcm_CB
+    sigma_CB = rbk.EP2MRP(ep_mount)
+    module.sigma_CB = sigma_CB
 
     # Star tracker reports 60-degree rotation about x, with some angular velocity
     st_angle = np.pi/3.0
@@ -99,7 +99,7 @@ def test_rotated_dcm():
 
     # Compute truth: sigma_BN = addMRP(sigma_CN, sigma_BC)
     sigma_CN = rbk.EP2MRP(ep_CN)
-    dcm_BC = dcm_CB.T
+    dcm_BC = rbk.MRP2C(sigma_CB).T
     sigma_BC = rbk.C2MRP(dcm_BC)
     sigma_BN_truth = rbk.addMRP(sigma_CN, sigma_BC)
     omega_BN_B_truth = dcm_BC @ omega_CN_C
@@ -109,9 +109,9 @@ def test_rotated_dcm():
 
     accuracy = 1e-6
     np.testing.assert_allclose(sigma_BN, sigma_BN_truth, atol=accuracy,
-                               err_msg="MRP mismatch with rotated DCM")
+                               err_msg="MRP mismatch with rotated mounting")
     np.testing.assert_allclose(omega_BN_B, omega_BN_B_truth, atol=accuracy,
-                               err_msg="omega mismatch with rotated DCM")
+                               err_msg="omega mismatch with rotated mounting")
 
 
 def test_zero_input():
@@ -146,23 +146,23 @@ def test_zero_input():
     assert np.all(np.isfinite(omega_BN_B)), "omega output is not finite"
 
 
-def test_dcm_pass_through():
-    """Verify the DCM setter/getter round-trips correctly through the wrapper."""
+def test_sigma_pass_through():
+    """Verify the mounting MRP setter/getter round-trips correctly through the wrapper."""
     module = convertStPlatformToBodyF32.ConvertStPlatformToBody()
 
     # Set a 30-degree rotation about z
     angle = np.pi/6.0
     ep = np.array([np.cos(angle/2), 0, 0, np.sin(angle/2)])
-    dcm_CB = rbk.EP2C(ep)
-    module.dcm_CB = dcm_CB
+    sigma_CB = rbk.EP2MRP(ep)
+    module.sigma_CB = sigma_CB
 
-    dcm_out = np.array(module.dcm_CB)
-    np.testing.assert_allclose(dcm_out, dcm_CB, atol=1e-6,
-                               err_msg="DCM round-trip mismatch")
+    sigma_out = np.ravel(module.sigma_CB)
+    np.testing.assert_allclose(sigma_out, sigma_CB, atol=1e-6,
+                               err_msg="MRP round-trip mismatch")
 
 
 if __name__ == "__main__":
-    test_identity_dcm()
-    test_rotated_dcm()
+    test_identity_mounting()
+    test_rotated_mounting()
     test_zero_input()
-    test_dcm_pass_through()
+    test_sigma_pass_through()

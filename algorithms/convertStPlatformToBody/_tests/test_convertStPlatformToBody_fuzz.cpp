@@ -27,16 +27,16 @@ static Eigen::Vector4d makeUnitQuaternion(double q0, double q1, double q2, doubl
 }
 
 /*!
- * @brief Build a proper rotation matrix from three Euler angles (3-2-1 sequence).
+ * @brief Build a mounting MRP from three Euler angles (3-2-1 sequence).
  */
-static Eigen::Matrix3d makeDcm(double yaw, double pitch, double roll) {
+static Eigen::Vector3d makeSigma(double yaw, double pitch, double roll) {
     Eigen::Matrix3d dcm;
     dcm = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) * Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
           Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX());
-    return dcm;
+    return dcmToMrp<double>(dcm);
 }
 
-/*! @brief Fuzz the algorithm across a wide range of quaternions, angular velocities, and DCMs */
+/*! @brief Fuzz the algorithm across a wide range of quaternions, angular velocities, and mounting orientations */
 void fuzzConvertStPlatformToBody(double q0,
                                  double q1,
                                  double q2,
@@ -49,9 +49,9 @@ void fuzzConvertStPlatformToBody(double q0,
                                  double roll) {
     Eigen::Vector4d ep_CN = makeUnitQuaternion(q0, q1, q2, q3);
     Eigen::Vector3d omega_CN_C(wx, wy, wz);
-    Eigen::Matrix3d dcm_CB = makeDcm(yaw, pitch, roll);
+    Eigen::Vector3d sigma_CB = makeSigma(yaw, pitch, roll);
 
-    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, dcm_CB));
+    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB));
 }
 
 // Keep ‖ω‖ < π so the helper's ω→δq conversion stays single-valued:
@@ -82,9 +82,9 @@ void fuzzConvertStPlatformToBodyEdgeCases(double angle,
     }
     Eigen::Vector4d ep_CN = axisAngleToEp(axis, angle);
     Eigen::Vector3d omega_CN_C(wx, wy, wz);
-    Eigen::Matrix3d dcm_CB = Eigen::Matrix3d::Identity();
+    Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
 
-    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, dcm_CB));
+    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB));
 }
 
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyEdgeCases)
@@ -98,16 +98,16 @@ FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyEdgeCases)
                  fuzztest::InRange(-0.5, 0.5),                          // wy
                  fuzztest::InRange(-0.5, 0.5));                         // wz
 
-/*! @brief Fuzz the DCM with extreme mounting rotations */
-void fuzzConvertStPlatformToBodyDcmEdges(double yaw, double pitch, double roll) {
+/*! @brief Fuzz extreme mounting rotations */
+void fuzzConvertStPlatformToBodyMountingEdges(double yaw, double pitch, double roll) {
     Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitZ(), 0.5);
     Eigen::Vector3d omega_CN_C(0.01, -0.02, 0.03);
-    Eigen::Matrix3d dcm_CB = makeDcm(yaw, pitch, roll);
+    Eigen::Vector3d sigma_CB = makeSigma(yaw, pitch, roll);
 
-    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, dcm_CB));
+    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB));
 }
 
-FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyDcmEdges)
+FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyMountingEdges)
     .WithDomains(fuzztest::OneOf(fuzztest::InRange(0.0, 0.01),                           // Near-zero yaw
                                  fuzztest::InRange(M_PI - 0.01, M_PI)),                  // Near-180 yaw
                  fuzztest::OneOf(fuzztest::InRange(-0.01, 0.01),                         // Near-zero pitch
@@ -139,7 +139,7 @@ void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
     }
 
     ConvertStPlatformToBodyAlgorithm algorithm{
-        ConvertStPlatformToBodyConfig::create(makeDcm(yaw, pitch, roll).cast<float>())};
+        ConvertStPlatformToBodyConfig::create(makeSigma(yaw, pitch, roll).cast<float>())};
 
     const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);  // identity inertial attitude (scalar-last) — isolate δq path
     const Eigen::Vector4f dq_CN(
