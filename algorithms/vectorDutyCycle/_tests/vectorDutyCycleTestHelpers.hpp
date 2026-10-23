@@ -176,15 +176,13 @@ inline void regressionTestVectorDutyCycle(const Eigen::Vector3f& inputVector,
 namespace detail {
 
 // Returns false when the generated values describe a cadence the config validation rejects, so the caller skips
-// the case. The domains below stay inside the valid region, so this is a guard against the domains and the
-// validators drifting apart rather than an expected outcome.
+// the case. The only rejected cadence the fuzz domains can generate is zero on periods with zero off periods.
 inline bool makeFuzzCase(const std::vector<float>& components,
                          float watchedComponent,
                          uint32_t onPeriods,
                          uint32_t offPeriods,
                          Eigen::Vector3f& inputVector) {
-    if (!VectorDutyCycleConfig::isValidOnPeriods(onPeriods) ||
-        !VectorDutyCycleConfig::isValidOffPeriods(offPeriods, onPeriods)) {
+    if (!VectorDutyCycleConfig::isValidOffPeriods(offPeriods, onPeriods)) {
         return false;
     }
 

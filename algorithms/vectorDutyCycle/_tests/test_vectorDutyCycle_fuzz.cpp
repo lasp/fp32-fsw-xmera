@@ -15,14 +15,14 @@
 FUZZ_TEST(VectorDutyCyclePropertyFuzz, propertyOutputIsInputOrZero)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [-] input vector
                  fuzztest::InRange(0.01F, 100.0F),                                    // [-] watched component
-                 fuzztest::InRange(1U, 20U),                                          // [-] on periods
+                 fuzztest::InRange(0U, 20U),                                          // [-] on periods
                  fuzztest::InRange(0U, 50U),                                          // [-] off periods
                  fuzztest::InRange(1U, 30U));                                         // [-] update count
 
 FUZZ_TEST(VectorDutyCyclePropertyFuzz, propertyGateActsOnTheWholeVector)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [-] input vector
                  fuzztest::InRange(0.01F, 100.0F),                                    // [-] watched component
-                 fuzztest::InRange(1U, 20U),                                          // [-] on periods
+                 fuzztest::InRange(0U, 20U),                                          // [-] on periods
                  fuzztest::InRange(0U, 50U),                                          // [-] off periods
                  fuzztest::InRange(1U, 30U));                                         // [-] update count
 
@@ -31,14 +31,14 @@ FUZZ_TEST(VectorDutyCyclePropertyFuzz, propertyGateActsOnTheWholeVector)
 FUZZ_TEST(VectorDutyCyclePropertyFuzz, propertyOnCountMatchesDutyRatio)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [-] input vector
                  fuzztest::InRange(0.01F, 100.0F),                                    // [-] watched component
-                 fuzztest::InRange(1U, 20U),                                          // [-] on periods
+                 fuzztest::InRange(0U, 20U),                                          // [-] on periods
                  fuzztest::InRange(0U, 50U),                                          // [-] off periods
                  fuzztest::InRange(1U, 8U));                                          // [-] whole cycles
 
 FUZZ_TEST(VectorDutyCyclePropertyFuzz, propertyCadenceIsIndependentOfInput)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [-] input vector
                  fuzztest::InRange(0.01F, 100.0F),                                    // [-] watched component
-                 fuzztest::InRange(1U, 20U),                                          // [-] on periods
+                 fuzztest::InRange(0U, 20U),                                          // [-] on periods
                  fuzztest::InRange(0U, 50U),                                          // [-] off periods
                  fuzztest::InRange(1U, 30U));                                         // [-] update count
 
@@ -47,7 +47,7 @@ FUZZ_TEST(VectorDutyCyclePropertyFuzz, propertyCadenceIsIndependentOfInput)
 FUZZ_TEST(VectorDutyCyclePropertyFuzz, propertyReInitializeRestartsCadence)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [-] input vector
                  fuzztest::InRange(0.01F, 100.0F),                                    // [-] watched component
-                 fuzztest::InRange(1U, 20U),                                          // [-] on periods
+                 fuzztest::InRange(0U, 20U),                                          // [-] on periods
                  fuzztest::InRange(0U, 50U),                                          // [-] off periods
                  fuzztest::InRange(1U, 20U),                                          // [-] update count
                  fuzztest::InRange(0U, 80U));                                         // [-] updates before restart
@@ -55,6 +55,6 @@ FUZZ_TEST(VectorDutyCyclePropertyFuzz, propertyReInitializeRestartsCadence)
 FUZZ_TEST(VectorDutyCycleRegressionFuzz, regressionFuzzVectorDutyCycle)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-100.0F, 100.0F)).WithSize(3),  // [-] input vector
                  fuzztest::InRange(0.01F, 100.0F),                                    // [-] watched component
-                 fuzztest::InRange(1U, 20U),                                          // [-] on periods
+                 fuzztest::InRange(0U, 20U),                                          // [-] on periods
                  fuzztest::InRange(0U, 50U),                                          // [-] off periods
                  fuzztest::InRange(1U, 20U));                                         // [-] update count
