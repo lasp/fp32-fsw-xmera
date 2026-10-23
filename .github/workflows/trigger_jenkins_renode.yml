@@ -25,7 +25,7 @@ on:
         required: false
         type: string
       adamant_xmera_components_ref:
-        description: "adamant-xmera-components ref (default: Jenkins job's hardcoded fallback)"
+        description: "adamant-xmera-components ref (default: main)"
         required: false
         type: string
       adamant_ref:
@@ -84,7 +84,7 @@ jobs:
           COMMIT_SHA: ${{ steps.sha.outputs.sha }}
           # FP32 has no PIN: PR builds must always test the PR head SHA.
           FP32_REF_OVERRIDE: ${{ inputs.fp32_fsw_xmera_ref || '' }}
-          AXC_REF_OVERRIDE: ${{ inputs.adamant_xmera_components_ref || env.ADAMANT_XMERA_COMPONENTS_REF_PIN || '' }}
+          AXC_REF_OVERRIDE: ${{ inputs.adamant_xmera_components_ref || env.ADAMANT_XMERA_COMPONENTS_REF_PIN || 'main' }}
           ADAMANT_REF_OVERRIDE: ${{ inputs.adamant_ref || env.ADAMANT_REF_PIN || '' }}
           ADAMANT_EXAMPLE_REF_OVERRIDE: ${{ inputs.adamant_example_ref || env.ADAMANT_EXAMPLE_REF_PIN || '' }}
           PROJECT_REF_OVERRIDE: ${{ inputs.project_ref || env.PROJECT_REF_PIN || '' }}
