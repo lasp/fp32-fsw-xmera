@@ -2,6 +2,7 @@
 #define TEST_AVERAGE_RW_SPEED_DATA_HELPERS_H
 
 #include "averageRwSpeedDataAlgorithm.h"
+#include <utilities/fsw/timeConversion.hpp>
 
 #include <gtest/gtest.h>
 
@@ -18,9 +19,9 @@ class ReferenceAverager {
     explicit ReferenceAverager(AverageRwSpeedDataConfig const& cfg) : cfg(cfg) {}
 
     std::array<float, kMaxNumRw> update(RwSpeedSample const& sample) {
-        constexpr auto kMaxWindowNs =
-            static_cast<std::uint64_t>(AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec * 1.0e9);
-        const auto windowNs = static_cast<std::uint64_t>(this->cfg.getRwSpeedAveragingWindow() * 1.0e9);
+        constexpr std::uint64_t kMaxWindowNs =
+            fsw::secondsToNanos(AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec).value();
+        const std::uint64_t windowNs = fsw::secondsToNanos(this->cfg.getRwSpeedAveragingWindow()).value();
 
         std::uint64_t maxTimeTag = 0U;
         for (auto const& slot : this->ring) {
