@@ -5,7 +5,7 @@
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 #include <gtest/gtest.h>
 #include <limits>
 #include <numbers>
@@ -273,7 +273,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 
     output.output.covar_N = covar_N.cast<float>();
     output.output.rhat_BN_N = rhatCOM_N.cast<float>();
-    output.output.unitVecTimeTag = static_cast<double>(cob.cobTimeTag) * kNano2Sec;
+    output.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
     // Mirrors updateState: finite COM, no outlier flag, and a converged COM undistortion.
     output.output.unitVecValid = validCom && goodOutlierCheck && comConverged;
 
@@ -321,8 +321,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 //     rtol by |reference| alone (as the xmera Python test still does) collapses back to the bare
 //     atol in exactly that case.
 //
-// unitVecTimeTag gets a tight 1e-9: it's `cobTimeTag * kNano2Sec` in double on both sides, so
-// there's no FP32 rounding to absorb -- just double round-off.
+// unitVecTimeTag has no tolerance. The two sides use fsw::nanosToSeconds in double, so the values are equal.
 inline void expectNear(float actual, float reference, float atol, float rtol, float noiseScale) {
     EXPECT_NEAR(actual, reference, atol + (rtol * std::max(std::abs(reference), noiseScale)));
 }
@@ -401,7 +400,7 @@ inline void expectOutputsNear(const CobConverterUpdateResult& out,
     EXPECT_TRUE(out.diagnostic.covar_C.allFinite());
     EXPECT_TRUE(out.diagnostic.covar_B.allFinite());
 
-    EXPECT_NEAR(out.output.unitVecTimeTag, ref.output.unitVecTimeTag, 1e-9);
+    EXPECT_EQ(out.output.unitVecTimeTag, ref.output.unitVecTimeTag);
     EXPECT_EQ(out.output.unitVecValid, ref.output.unitVecValid);
 
     const float pixelNoiseScale = static_cast<float>(
