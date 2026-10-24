@@ -53,6 +53,7 @@ uint32_t SunSearchPointAlgorithm_getMaxObservationThreshold(void);
  * @param omega_RN_B           [rad/s] fallback body rate when no sun direction is available.
  * @param observationThreshold [-] CSS count at or above which to transition to pointing.
  * @param controlPeriod        [s] per-update time step; advances the search timeline.
+ * @param deadbandAngle        [rad] attitude deadband; while pointing, control to the band edge, not to zero error.
  * @return true if the configuration is valid. Never throws, so it can guard the
  *         throwing create/setConfig from an invalid configuration.
  * @note The accepted value ranges are defined by SunSearchPointConfig::create; this predicate
@@ -63,7 +64,8 @@ bool SunSearchPointAlgorithm_validateConfig(const RotationPropertiesArray4_c* ro
                                             float sunAxisSpinRate,
                                             Vector3f_c omega_RN_B,
                                             uint32_t observationThreshold,
-                                            float controlPeriod);
+                                            float controlPeriod,
+                                            float deadbandAngle);
 
 /**
  * @brief Construct a new SunSearchPointAlgorithm instance from the supplied configuration.
@@ -74,6 +76,7 @@ bool SunSearchPointAlgorithm_validateConfig(const RotationPropertiesArray4_c* ro
  * @param omega_RN_B           [rad/s] fallback body rate when no sun direction is available.
  * @param observationThreshold [-] CSS count at or above which to transition to pointing.
  * @param controlPeriod        [s] per-update time step; advances the search timeline.
+ * @param deadbandAngle        [rad] attitude deadband; while pointing, control to the band edge, not to zero error.
  * @return Pointer to a new SunSearchPointAlgorithm (must be destroyed).
  */
 SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const RotationPropertiesArray4_c* rotations,
@@ -81,7 +84,8 @@ SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const RotationProp
                                                               float sunAxisSpinRate,
                                                               Vector3f_c omega_RN_B,
                                                               uint32_t observationThreshold,
-                                                              float controlPeriod);
+                                                              float controlPeriod,
+                                                              float deadbandAngle);
 
 /**
  * @brief Destroy a previously created SunSearchPointAlgorithm.
@@ -99,6 +103,7 @@ void SunSearchPointAlgorithm_destroy(SunSearchPointAlgorithmHandle* self);
  * @param omega_RN_B           [rad/s] fallback body rate when no sun direction is available.
  * @param observationThreshold [-] CSS count at or above which to transition to pointing.
  * @param controlPeriod        [s] per-update time step; advances the search timeline.
+ * @param deadbandAngle        [rad] attitude deadband; while pointing, control to the band edge, not to zero error.
  */
 void SunSearchPointAlgorithm_setConfig(SunSearchPointAlgorithmHandle* self,
                                        const RotationPropertiesArray4_c* rotations,
@@ -106,7 +111,8 @@ void SunSearchPointAlgorithm_setConfig(SunSearchPointAlgorithmHandle* self,
                                        float sunAxisSpinRate,
                                        Vector3f_c omega_RN_B,
                                        uint32_t observationThreshold,
-                                       float controlPeriod);
+                                       float controlPeriod,
+                                       float deadbandAngle);
 
 /**
  * @brief Re-arm the runtime state machine so the next update begins a fresh search sequence.

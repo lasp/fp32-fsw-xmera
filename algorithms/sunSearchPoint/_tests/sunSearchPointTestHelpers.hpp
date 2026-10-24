@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -82,9 +83,10 @@ inline SunSearchPointConfig makeSearchConfig(const std::array<RotationProperties
                                              float sunAxisSpinRate = 0.0F,
                                              const Eigen::Vector3f& omega_RN_B = Eigen::Vector3f::Zero(),
                                              uint32_t observationThreshold = 4U,
-                                             float controlPeriod = kTestControlPeriodSec) {
+                                             float controlPeriod = kTestControlPeriodSec,
+                                             float deadbandAngle = 0.0F) {
     return SunSearchPointConfig::create(
-        rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod);
+        rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod, deadbandAngle);
 }
 
 // A valid no-op search config (default pointing params); pointUpdate runs past its 4 s sequence to
@@ -127,6 +129,41 @@ inline SunSearchPointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
     output.omega_BR_B = omega_BN_B - output.omega_RN_B;
 
     return output;
+}
+
+// The deadband commands max(err - deadbandAngle, 0) about the undeadbanded axis and leaves
+// both rate terms untouched.
+inline void propertyDeadbandShrinksAttitudeError(std::vector<float> sunVector,
+                                                 std::vector<float> omega_BN_B_Vec,
+                                                 float deadbandAngle) {
+    const Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
+    const Eigen::Vector3f omega_BN_B(omega_BN_B_Vec[0], omega_BN_B_Vec[1], omega_BN_B_Vec[2]);
+    if (sunVec.stableNorm() == 0.0F) {
+        return;
+    }
+
+    SunSearchPointAlgorithm plain{defaultSearchConfig()};
+    SunSearchPointAlgorithm banded{makeSearchConfig(defaultRotations(),
+                                                    Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                                                    /* sunAxisSpinRate = */ 0.0F,
+                                                    Eigen::Vector3f::Zero(),
+                                                    /* observationThreshold = */ 4U,
+                                                    kTestControlPeriodSec,
+                                                    deadbandAngle)};
+    const SunSearchPointOutput ref = pointUpdate(plain, sunVec, omega_BN_B);
+    const SunSearchPointOutput out = pointUpdate(banded, sunVec, omega_BN_B);
+
+    const float refNorm = ref.sigma_BR.stableNorm();
+    const float sunAngleErr = 4.0F * std::atan(refNorm);
+    const float commandedAngle = std::max(sunAngleErr - deadbandAngle, 0.0F);
+    const Eigen::Vector3f axis = refNorm > 0.0F ? Eigen::Vector3f(ref.sigma_BR / refNorm) : Eigen::Vector3f::Zero();
+    const Eigen::Vector3f expected = std::tan(commandedAngle * 0.25F) * axis;
+    EXPECT_LT((out.sigma_BR - expected).norm(), 2e-5F)
+        << "out=" << out.sigma_BR.transpose() << " expected=" << expected.transpose();
+    EXPECT_LE(out.sigma_BR.norm(), refNorm + 1e-6F);
+
+    EXPECT_EQ(out.omega_BR_B, ref.omega_BR_B);
+    EXPECT_EQ(out.omega_RN_B, ref.omega_RN_B);
 }
 
 // ---------------------------------------------------------------------------
@@ -384,6 +421,22 @@ inline void searchConfigValidationChecks() {
     EXPECT_ANY_THROW((void)makeSearchConfig(
         makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, std::numeric_limits<float>::infinity()));
     EXPECT_NO_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, 0.25F));
+
+    // deadbandAngle must be finite and >= 0; zero disables the band.
+    const auto makeWithDeadband = [&](float deadbandAngle) {
+        return makeSearchConfig(makeValidRotations(),
+                                validSHat,
+                                /* sunAxisSpinRate = */ 0.0F,
+                                Eigen::Vector3f::Zero(),
+                                /* observationThreshold = */ 4U,
+                                kTestControlPeriodSec,
+                                deadbandAngle);
+    };
+    EXPECT_NO_THROW((void)makeWithDeadband(/* deadbandAngle = */ 0.0F));
+    EXPECT_NO_THROW((void)makeWithDeadband(/* deadbandAngle = */ 0.05F));
+    EXPECT_ANY_THROW((void)makeWithDeadband(/* deadbandAngle = */ -0.05F));
+    EXPECT_ANY_THROW((void)makeWithDeadband(std::numeric_limits<float>::quiet_NaN()));
+    EXPECT_ANY_THROW((void)makeWithDeadband(std::numeric_limits<float>::infinity()));
 }
 
 // Steps a fresh algorithm through the search sequence (observations below threshold, time range

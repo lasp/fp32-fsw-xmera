@@ -5,6 +5,7 @@
 #include "utilities/fsw/timeConstants.h"
 
 #include <Eigen/Geometry>
+#include <algorithm>
 #include <numbers>
 
 SunSearchPointAlgorithm::SunSearchPointAlgorithm(const SunSearchPointConfig& config) : cfg(config) {
@@ -126,7 +127,9 @@ SunSearchPointOutput SunSearchPointAlgorithm::computePointing(const Eigen::Vecto
             e_axis = rHatNormalized_SB_B.cross(this->cfg.getSHatBdyCmd());
         }
         Eigen::Vector3f const e_hat = e_axis.stableNormalized();
-        Eigen::Vector3f sigma_BR = safeTanf(sunAngleErr * 0.25F) * e_hat;
+        // Control to the band edge, not to zero error, so the error does not jump at the edge.
+        float const commandedAngleErr = std::max(sunAngleErr - this->cfg.getDeadbandAngle(), 0.0F);
+        Eigen::Vector3f sigma_BR = safeTanf(commandedAngleErr * 0.25F) * e_hat;
         sigma_BR = mrpSwitch(sigma_BR);
 
         output.sigma_BR = sigma_BR;

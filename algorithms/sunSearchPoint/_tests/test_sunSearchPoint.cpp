@@ -462,3 +462,117 @@ TEST(SunSearchPointTest, ForcedTransitionWithoutSunUsesFallbackRate) {
     EXPECT_NEAR(out.omega_RN_B[2], 0.1F, 1e-6F);  // fallback, not the 0.4 hold or zero
     EXPECT_TRUE(out.sunNotFound);                 // search failed (threshold never met) -> fault latched
 }
+
+// ---------------------------------------------------------------------------
+// Deadband tests
+// ---------------------------------------------------------------------------
+
+namespace {
+SunSearchPointConfig deadbandConfig(float deadbandAngle) {
+    return makeSearchConfig(defaultRotations(),
+                            Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                            /* sunAxisSpinRate = */ 0.0F,
+                            Eigen::Vector3f{0.0F, 0.0F, 0.1F},
+                            /* observationThreshold = */ 4U,
+                            kTestControlPeriodSec,
+                            deadbandAngle);
+}
+
+// Sun direction rotated by angle about b2 away from sHatBdyCmd = b3.
+Eigen::Vector3f sunAtAngle(float angle) { return Eigen::Vector3f{std::sin(angle), 0.0F, std::cos(angle)}; }
+
+float sigmaAngle(const Eigen::Vector3f& sigma) { return 4.0F * std::atan(sigma.stableNorm()); }
+}  // namespace
+
+TEST(SunSearchPointTest, DeadbandAngleZeroesAttitudeErrorInsideBand) {
+    SunSearchPointAlgorithm alg{deadbandConfig(/* deadbandAngle = */ 0.1F)};
+    const Eigen::Vector3f omega_BN_B{0.01F, 0.0F, 0.0F};
+
+    const SunSearchPointOutput out = pointUpdate(alg, sunAtAngle(0.05F), omega_BN_B);
+
+    EXPECT_TRUE(out.sigma_BR.isZero(0.0F));
+    EXPECT_TRUE(out.omega_BR_B.isApprox(omega_BN_B));
+}
+
+TEST(SunSearchPointTest, DeadbandAngleSubtractsBandOutsideBand) {
+    SunSearchPointAlgorithm alg{deadbandConfig(/* deadbandAngle = */ 0.1F)};
+    SunSearchPointAlgorithm plain{deadbandConfig(/* deadbandAngle = */ 0.0F)};
+
+    const SunSearchPointOutput out = pointUpdate(alg, sunAtAngle(0.3F), Eigen::Vector3f::Zero());
+    const SunSearchPointOutput ref = pointUpdate(plain, sunAtAngle(0.3F), Eigen::Vector3f::Zero());
+
+    EXPECT_NEAR(sigmaAngle(out.sigma_BR), 0.2F, 1e-5F);
+    EXPECT_NEAR(out.sigma_BR.normalized().dot(ref.sigma_BR.normalized()), 1.0F, 1e-6F);  // same axis
+}
+
+TEST(SunSearchPointTest, DeadbandAngleIsContinuousAtBandEdge) {
+    constexpr float kBand = 0.1F;
+    constexpr float kStep = 1e-3F;
+    for (const float angle : {kBand - kStep, kBand + kStep}) {
+        SunSearchPointAlgorithm alg{deadbandConfig(kBand)};
+        const SunSearchPointOutput out = pointUpdate(alg, sunAtAngle(angle), Eigen::Vector3f::Zero());
+        // Just outside the band the command is only the excess, not the full error.
+        EXPECT_LT(sigmaAngle(out.sigma_BR), 2.0F * kStep);
+    }
+}
+
+TEST(SunSearchPointTest, DeadbandAngleZeroMatchesNoDeadband) {
+    for (const float angle : {0.0F, 0.05F, 0.3F, 1.5F, 3.0F}) {
+        SunSearchPointAlgorithm alg{deadbandConfig(/* deadbandAngle = */ 0.0F)};
+        const Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
+        const SunSearchPointOutput out = pointUpdate(alg, sunAtAngle(angle), omega_BN_B);
+        const SunSearchPointOutput ref = referenceUpdate(sunAtAngle(angle),
+                                                         omega_BN_B,
+                                                         /* sunAxisSpinRate = */ 0.0F,
+                                                         Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                                                         Eigen::Vector3f{0.0F, 0.0F, 0.1F});
+        EXPECT_TRUE(out.sigma_BR.isApprox(ref.sigma_BR, 1e-5F) || (out.sigma_BR - ref.sigma_BR).norm() < 1e-6F);
+        EXPECT_TRUE(out.omega_BR_B.isApprox(ref.omega_BR_B));
+    }
+}
+
+TEST(SunSearchPointTest, DeadbandAngleDoesNotChangeRateError) {
+    SunSearchPointAlgorithm alg{deadbandConfig(/* deadbandAngle = */ 0.5F)};
+    SunSearchPointAlgorithm plain{deadbandConfig(/* deadbandAngle = */ 0.0F)};
+    const Eigen::Vector3f omega_BN_B{0.005F, 0.0F, 0.0F};
+
+    const SunSearchPointOutput out = pointUpdate(alg, sunAtAngle(0.2F), omega_BN_B);
+    const SunSearchPointOutput ref = pointUpdate(plain, sunAtAngle(0.2F), omega_BN_B);
+
+    EXPECT_EQ(out.omega_BR_B, ref.omega_BR_B);
+    EXPECT_EQ(out.omega_RN_B, ref.omega_RN_B);
+}
+
+TEST(SunSearchPointTest, DeadbandDoesNotApplyWithoutSun) {
+    SunSearchPointAlgorithm alg{deadbandConfig(/* deadbandAngle = */ 1.0F)};
+
+    const SunSearchPointOutput out = pointUpdate(alg, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
+
+    EXPECT_NEAR(out.omega_BR_B[2], -0.1F, 1e-6F);  // fallback rate still commanded
+}
+
+TEST(SunSearchPointTest, DeadbandDoesNotApplyDuringSearch) {
+    const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
+    SunSearchPointAlgorithm alg{makeSearchConfig(rotations,
+                                                 Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                                                 /* sunAxisSpinRate = */ 0.0F,
+                                                 Eigen::Vector3f::Zero(),
+                                                 /* observationThreshold = */ 4U,
+                                                 kTestControlPeriodSec,
+                                                 /* deadbandAngle = */ 1.0F)};
+
+    const Eigen::Vector3f sun{0.0F, 0.0F, 1.0F};
+    uint64_t nextElapsed = 0U;
+
+    const SunSearchPointOutput first = observeAt(alg, nextElapsed, secToNs(5.0), sun, Eigen::Vector3f::Zero(), 0);
+    EXPECT_NEAR(first.omega_BR_B[0], -0.1F, 1e-6F);  // first search rotation, about b1
+
+    const SunSearchPointOutput second = observeAt(alg, nextElapsed, secToNs(15.0), sun, Eigen::Vector3f::Zero(), 0);
+    EXPECT_NEAR(second.omega_BR_B[1], -0.2F, 1e-6F);  // second search rotation, about b2
+}
+
+TEST(SunSearchPointTest, DeadbandShrinksAttitudeError) {
+    propertyDeadbandShrinksAttitudeError({0.1F, 0.0F, 1.0F}, {0.003F, 0.0F, 0.0F}, /* deadbandAngle = */ 0.2F);
+    propertyDeadbandShrinksAttitudeError({1.0F, 0.0F, 0.2F}, {0.03F, 0.0F, 0.0F}, /* deadbandAngle = */ 0.2F);
+    propertyDeadbandShrinksAttitudeError({0.1F, 0.2F, -1.0F}, {0.0F, 0.01F, 0.0F}, /* deadbandAngle = */ 0.5F);
+}
