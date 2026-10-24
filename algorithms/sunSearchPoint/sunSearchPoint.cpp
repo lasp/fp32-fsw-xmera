@@ -33,7 +33,9 @@ SunSearchPointConfig SunSearchPoint::toConfig() const {
                                         this->sunAxisSpinRate,
                                         this->omega_RN_B,
                                         this->observationThreshold,
-                                        this->controlPeriod);
+                                        this->controlPeriod,
+                                        this->deadbandAngle,
+                                        this->deadbandRate);
 }
 
 /*! Re-validate the current module parameters and push them onto the live algorithm without

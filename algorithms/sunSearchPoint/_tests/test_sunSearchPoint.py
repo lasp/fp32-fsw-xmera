@@ -27,6 +27,7 @@ def unit_orthogonal(v):
     ,(5)        # sun is visible, vectors are oppositely aligned, and command sc is b1
     ,(6)        # sun is not visible, vectors are not aligned, no specified omega_RN_B value
     ,(7)        # sun is visible, vectors not aligned, nominal spin rate specified about sun heading vector
+    ,(8)        # sun is visible, attitude and rate errors inside their deadbands
 ])
 
 def test_sun_search_point(show_plots, case):
@@ -52,6 +53,8 @@ def test_sun_search_point(show_plots, case):
     # Initialize sunSearchPoint module configuration data
     omega_RN_B_Search = np.array([0.0, 0.0, 0.0])
     sunAxisSpinRate = 0.0
+    deadbandAngle = 0.0
+    deadbandRate = 0.0
     if case == 1:  # Sun visible, vectors not aligned
         sHat_cmd_B = np.array([0.0, 0.0, 1.0])
         sun_vec_B = np.array([1.0, 1.0, 0.0])
@@ -78,18 +81,27 @@ def test_sun_search_point(show_plots, case):
         sHat_cmd_B = np.array([0.0, 0.0, 1.0])
         sun_vec_B = np.array([0.0, 0.0, 0.0])
 
-    else:  # Sun visible, spin rate about sun heading vector specified
+    elif case == 7:  # Sun visible, spin rate about sun heading vector specified
         sHat_cmd_B = np.array([0.0, 0.0, 1.0])
         sun_vec_B = np.array([1.0, 1.0, 0.0])
 
         sunAxisSpinRate = 1.5*mc.D2R
         omega_RN_B_Search = sun_vec_B/np.linalg.norm(sun_vec_B) * sunAxisSpinRate
 
+    elif case == 8:  # Sun visible 0.05 rad off sHatCmd, both errors inside their deadbands
+        sHat_cmd_B = np.array([0.0, 0.0, 1.0])
+        sun_vec_B = np.array([np.sin(0.05), 0.0, np.cos(0.05)])
+
+        deadbandAngle = 0.1
+        deadbandRate = 0.6
+
     sun_search_point.sHatBdyCmd = sHat_cmd_B
     sun_search_point.omega_RN_B = omega_RN_B_Search
     sun_search_point.sunAxisSpinRate = sunAxisSpinRate
     sun_search_point.observationThreshold = 4
     sun_search_point.controlPeriod = 0.5  # matches the 0.5 s task rate
+    sun_search_point.deadbandAngle = deadbandAngle
+    sun_search_point.deadbandRate = deadbandRate
 
     # Configure a (no-op) search sequence; the run advances past it to force the POINT transition.
     for i in range(4):
@@ -138,7 +150,7 @@ def test_sun_search_point(show_plots, case):
         eHat = eHat / np.linalg.norm(eHat)
         phi = np.arccos(np.dot(sun_vec_B / np.linalg.norm(sun_vec_B), sHat_cmd_B))
         sigma_BR_truth = eHat * np.tan(phi / 4.0)
-    if case == 2 or case == 3 or case == 6:
+    if case == 2 or case == 3 or case == 6 or case == 8:
         sigma_BR_truth = np.array([0.0, 0.0, 0.0])
     if case == 4 or case == 5:
         eHat = unit_orthogonal(sHat_cmd_B)
@@ -151,6 +163,9 @@ def test_sun_search_point(show_plots, case):
     if case == 2 or case == 7:
         omega_RN_B_truth = omega_RN_B_Search
         omega_BR_B_truth = omega_BN_B - omega_RN_B_Search
+    if case == 8:
+        omega_RN_B_truth = np.array([0.0, 0.0, 0.0])
+        omega_BR_B_truth = np.array([0.0, 0.0, 0.0])
 
     domega_RN_B_truth = np.array([0.0, 0.0, 0.0])
 
@@ -174,6 +189,8 @@ def test_sun_search_point(show_plots, case):
     np.testing.assert_allclose(np.array(sun_search_point.omega_RN_B).flatten(), omega_RN_B_Search, rtol=tolerance, atol=tolerance)
     np.testing.assert_allclose(np.array(sun_search_point.sHatBdyCmd).flatten(), sHat_cmd_B, rtol=tolerance, atol=tolerance)
     assert sun_search_point.observationThreshold == 4
+    np.testing.assert_allclose(sun_search_point.deadbandAngle, deadbandAngle, rtol=tolerance, atol=tolerance)
+    np.testing.assert_allclose(sun_search_point.deadbandRate, deadbandRate, rtol=tolerance, atol=tolerance)
     read_rotation = sun_search_point.getRotation(1)
     np.testing.assert_allclose(read_rotation.rotationDuration, 1.0, rtol=tolerance, atol=tolerance)
     np.testing.assert_allclose(read_rotation.rotationRate, 0.0, rtol=tolerance, atol=tolerance)

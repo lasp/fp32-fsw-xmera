@@ -132,13 +132,21 @@ SunSearchPointOutput SunSearchPointAlgorithm::computePointing(const Eigen::Vecto
         output.sigma_BR = sigma_BR;
         // Rate tracking error is the body rate to bring spacecraft to rest
         output.omega_RN_B = this->cfg.getSunAxisSpinRate() * rHatNormalized_SB_B;
+        output.omega_BR_B = omega_BN_B - output.omega_RN_B;
+
+        // The deadbands apply only with a valid sun direction: the search and no-sun fallback
+        // steer on the rate error alone, and a rate deadband there would cancel the commanded rate.
+        if (sunAngleErr < this->cfg.getDeadbandAngle()) {
+            output.sigma_BR = Eigen::Vector3f::Zero();
+        }
+        if (output.omega_BR_B.stableNorm() < this->cfg.getDeadbandRate()) {
+            output.omega_BR_B = Eigen::Vector3f::Zero();
+        }
     } else {
         output.sigma_BR = Eigen::Vector3f::Zero();
         output.omega_RN_B = this->cfg.getOmega_RN_B();
+        output.omega_BR_B = omega_BN_B - output.omega_RN_B;
     }
-
-    // Compute the hub angular rate error omega_BR_B
-    output.omega_BR_B = omega_BN_B - output.omega_RN_B;
 
     return output;
 }

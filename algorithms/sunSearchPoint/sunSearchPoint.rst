@@ -94,6 +94,18 @@ Module Parameters
       - zero
       - Module update/control period. The search timeline advances by one ``controlPeriod`` per
         update, so this must equal the module's scheduling rate (must be finite and > 0)
+    * - deadbandAngle
+      - float
+      - [rad]
+      - 0
+      - Sun angle error :math:`\Phi` below which :math:`\mathbf\sigma_{B/R}` is set to zero in the pointing
+        phase. Must be finite and >= 0. Zero disables the deadband
+    * - deadbandRate
+      - float
+      - [rad/s]
+      - 0
+      - Rate error norm :math:`|\mathbf\omega_{B/R}|` below which :math:`\mathbf\omega_{B/R}` is set to zero
+        in the pointing phase. Must be finite and >= 0. Zero disables the deadband
     * - rotations
       - RotationProperties[4]
       - --
@@ -129,6 +141,8 @@ The module is configured by::
     module.omega_RN_B = [0.0, 0.0, 0.0]
     module.observationThreshold = 4
     module.controlPeriod = 0.5  # must match the task update rate
+    module.deadbandAngle = 0.0  # optional, 0 disables
+    module.deadbandRate = 0.0  # optional, 0 disables
 
     rotation = sunSearchPointF32.RotationProperties()
     rotation.rotationDuration = 30.0
@@ -197,6 +211,24 @@ The attitude error MRP and reference rate are
 with rate tracking error :math:`\mathbf\omega_{B/R} = \mathbf\omega_{B/N} - \mathbf\omega_{R/N}` and
 zero reference acceleration :math:`\dot{\mathbf\omega}_{R/N} = \mathbf 0`.
 
+Pointing Deadbands
+^^^^^^^^^^^^^^^^^^
+Two deadbands stop the controller from answering small errors. Each one applies to its own term:
+
+.. math::
+
+   \mathbf\sigma_{B/R} = \mathbf 0 \quad \text{if} \quad \Phi < \texttt{deadbandAngle}
+   \qquad
+   \mathbf\omega_{B/R} = \mathbf 0 \quad \text{if} \quad |\mathbf\omega_{B/R}| < \texttt{deadbandRate}
+
+The two checks are independent. The attitude error can be inside its deadband while the rate error is
+not, and the module then commands the rate error only. The reference rate :math:`\mathbf\omega_{R/N}`
+does not change.
+
+The deadbands apply only in this branch. The search phase and the no-sun branch command a rate with
+:math:`\mathbf\sigma_{B/R} = \mathbf 0`. A rate deadband in those branches would cancel the commanded
+rate, and the spacecraft would not find the sun.
+
 Pointing Phase — No Sun Direction Vector
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 If :math:`\mathbf s` is the zero vector, the attitude error is set to zero and the configured
@@ -221,5 +253,6 @@ implementation of the pointing logic, property-based tests (MRP norm bounds, the
 tests (collinear and 180° vectors, zero-vector sun-not-visible, the :math:`\hat{\mathbf e}_{180}`
 fallback), and search/state-machine tests covering active-rotation selection, the first-rotation
 commit window, the observation-threshold transition, the forced transition after the full sequence,
-the terminal pointing phase, and the zero-sun fallback rate. The module adapter is exercised in
+the terminal pointing phase, the zero-sun fallback rate, and the pointing deadbands (each term is
+zeroed only inside its own band, and the search and no-sun branches are not affected). The module adapter is exercised in
 Python for input/output wiring, the search-to-point transition, and the ``reset()`` link checks.

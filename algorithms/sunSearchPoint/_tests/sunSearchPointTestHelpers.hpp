@@ -82,9 +82,17 @@ inline SunSearchPointConfig makeSearchConfig(const std::array<RotationProperties
                                              float sunAxisSpinRate = 0.0F,
                                              const Eigen::Vector3f& omega_RN_B = Eigen::Vector3f::Zero(),
                                              uint32_t observationThreshold = 4U,
-                                             float controlPeriod = kTestControlPeriodSec) {
-    return SunSearchPointConfig::create(
-        rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod);
+                                             float controlPeriod = kTestControlPeriodSec,
+                                             float deadbandAngle = 0.0F,
+                                             float deadbandRate = 0.0F) {
+    return SunSearchPointConfig::create(rotations,
+                                        sHatBdyCmd,
+                                        sunAxisSpinRate,
+                                        omega_RN_B,
+                                        observationThreshold,
+                                        controlPeriod,
+                                        deadbandAngle,
+                                        deadbandRate);
 }
 
 // A valid no-op search config (default pointing params); pointUpdate runs past its 4 s sequence to
@@ -127,6 +135,51 @@ inline SunSearchPointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
     output.omega_BR_B = omega_BN_B - output.omega_RN_B;
 
     return output;
+}
+
+// Each pointing error term is either the undeadbanded term or zero, and it is zero exactly when its
+// own error is inside its band. Near the band edge either outcome is accepted.
+inline void propertyDeadbandGatesPointingErrors(std::vector<float> sunVector,
+                                                std::vector<float> omega_BN_B_Vec,
+                                                float deadbandAngle,
+                                                float deadbandRate) {
+    const Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
+    const Eigen::Vector3f omega_BN_B(omega_BN_B_Vec[0], omega_BN_B_Vec[1], omega_BN_B_Vec[2]);
+    if (sunVec.stableNorm() == 0.0F) {
+        return;
+    }
+
+    SunSearchPointAlgorithm plain{defaultSearchConfig()};
+    SunSearchPointAlgorithm banded{makeSearchConfig(defaultRotations(),
+                                                    Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                                                    /* sunAxisSpinRate = */ 0.0F,
+                                                    Eigen::Vector3f::Zero(),
+                                                    /* observationThreshold = */ 4U,
+                                                    kTestControlPeriodSec,
+                                                    deadbandAngle,
+                                                    deadbandRate)};
+    const SunSearchPointOutput ref = pointUpdate(plain, sunVec, omega_BN_B);
+    const SunSearchPointOutput out = pointUpdate(banded, sunVec, omega_BN_B);
+
+    constexpr float kEdgeTol = 1e-4F;
+    const float sunAngleErr = 4.0F * std::atan(ref.sigma_BR.stableNorm());
+    if (sunAngleErr < deadbandAngle - kEdgeTol) {
+        EXPECT_TRUE(out.sigma_BR.isZero(0.0F));
+    } else if (sunAngleErr > deadbandAngle + kEdgeTol) {
+        EXPECT_EQ(out.sigma_BR, ref.sigma_BR);
+    } else {
+        EXPECT_TRUE(out.sigma_BR.isZero(0.0F) || out.sigma_BR == ref.sigma_BR);
+    }
+
+    const float rateErr = ref.omega_BR_B.stableNorm();
+    if (rateErr < deadbandRate - kEdgeTol) {
+        EXPECT_TRUE(out.omega_BR_B.isZero(0.0F));
+    } else if (rateErr > deadbandRate + kEdgeTol) {
+        EXPECT_EQ(out.omega_BR_B, ref.omega_BR_B);
+    } else {
+        EXPECT_TRUE(out.omega_BR_B.isZero(0.0F) || out.omega_BR_B == ref.omega_BR_B);
+    }
+    EXPECT_EQ(out.omega_RN_B, ref.omega_RN_B);
 }
 
 // ---------------------------------------------------------------------------
@@ -384,6 +437,24 @@ inline void searchConfigValidationChecks() {
     EXPECT_ANY_THROW((void)makeSearchConfig(
         makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, std::numeric_limits<float>::infinity()));
     EXPECT_NO_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, 0.25F));
+
+    // deadbandAngle and deadbandRate must be finite and >= 0; zero disables the band.
+    const auto makeWithDeadbands = [&](float deadbandAngle, float deadbandRate) {
+        return makeSearchConfig(makeValidRotations(),
+                                validSHat,
+                                /* sunAxisSpinRate = */ 0.0F,
+                                Eigen::Vector3f::Zero(),
+                                /* observationThreshold = */ 4U,
+                                kTestControlPeriodSec,
+                                deadbandAngle,
+                                deadbandRate);
+    };
+    EXPECT_NO_THROW((void)makeWithDeadbands(/* deadbandAngle = */ 0.0F, /* deadbandRate = */ 0.0F));
+    EXPECT_NO_THROW((void)makeWithDeadbands(/* deadbandAngle = */ 0.05F, /* deadbandRate = */ 0.01F));
+    EXPECT_ANY_THROW((void)makeWithDeadbands(/* deadbandAngle = */ -0.05F, /* deadbandRate = */ 0.0F));
+    EXPECT_ANY_THROW((void)makeWithDeadbands(std::numeric_limits<float>::quiet_NaN(), /* deadbandRate = */ 0.0F));
+    EXPECT_ANY_THROW((void)makeWithDeadbands(/* deadbandAngle = */ 0.0F, /* deadbandRate = */ -0.01F));
+    EXPECT_ANY_THROW((void)makeWithDeadbands(/* deadbandAngle = */ 0.0F, std::numeric_limits<float>::infinity()));
 }
 
 // Steps a fresh algorithm through the search sequence (observations below threshold, time range
