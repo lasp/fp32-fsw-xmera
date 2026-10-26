@@ -70,6 +70,7 @@ uint32_t SunlineFilterAlgorithm_getNumStates(void);
  * @param sensorThreshold         [-] minimum cosValue that counts a sensor as active; must be >= 0.
  * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be >= 0.
  * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be >= 0.
+ * @param measurementDelay        [s] processing delay for late measurements; must be >= 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
@@ -85,7 +86,8 @@ bool SunlineFilterAlgorithm_validateConfig(double alpha,
                                            uint32_t numberOfCss,
                                            double sensorThreshold,
                                            double cssMeasurementNoiseStd,
-                                           double gyroMeasurementNoiseStd);
+                                           double gyroMeasurementNoiseStd,
+                                           double measurementDelay);
 
 /**
  * @brief Construct a new SunlineFilterAlgorithm from the supplied configuration.
@@ -107,6 +109,7 @@ bool SunlineFilterAlgorithm_validateConfig(double alpha,
  * @param sensorThreshold         [-] minimum cosValue that counts a sensor as active; must be >= 0.
  * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be >= 0.
  * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be >= 0.
+ * @param measurementDelay        [s] processing delay for late measurements; must be >= 0.
  * @return Pointer to a new SunlineFilterAlgorithm (must be destroyed).
  */
 SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(double alpha,
@@ -121,7 +124,8 @@ SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(double alpha,
                                                             uint32_t numberOfCss,
                                                             double sensorThreshold,
                                                             double cssMeasurementNoiseStd,
-                                                            double gyroMeasurementNoiseStd);
+                                                            double gyroMeasurementNoiseStd,
+                                                            double measurementDelay);
 
 /**
  * @brief Destroy a previously created SunlineFilterAlgorithm.
@@ -145,6 +149,7 @@ void SunlineFilterAlgorithm_destroy(SunlineFilterAlgorithmHandle* self);
  * @param sensorThreshold         [-] minimum cosValue that counts a sensor as active; must be >= 0.
  * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be >= 0.
  * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be >= 0.
+ * @param measurementDelay        [s] processing delay for late measurements; must be >= 0.
  */
 void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self,
                                       double alpha,
@@ -159,19 +164,20 @@ void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self,
                                       uint32_t numberOfCss,
                                       double sensorThreshold,
                                       double cssMeasurementNoiseStd,
-                                      double gyroMeasurementNoiseStd);
+                                      double gyroMeasurementNoiseStd,
+                                      double measurementDelay);
 
 /**
  * @brief Advance the filter to currentSeconds using the supplied measurements.
  *
- * A measurement whose timeTag does not advance beyond the last consumed reading
- * is ignored by the filter; the caller signals "no new reading" by leaving the
- * corresponding struct's timeTag unchanged.
+ * A reading with timeTag > 0 is queued and applied, every call it is passed. The caller
+ * signals "no new reading" with timeTag = 0, and must not pass the same reading twice:
+ * a repeated reading is applied again. A reading older than the last applied one is dropped.
  *
  * @param self           Pointer to the instance.
  * @param currentSeconds [s] time the filter is advancing to.
- * @param cssData        Pointer to the CSS array reading.
- * @param rateData       Pointer to the gyro rate reading.
+ * @param cssData        Pointer to the CSS array reading (timeTag > 0 to apply).
+ * @param rateData       Pointer to the gyro rate reading (timeTag > 0 to apply).
  * @return SunlineFilterOutput_c  Post-update filter state and per-kind residuals.
  */
 SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle* self,

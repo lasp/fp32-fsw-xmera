@@ -14,7 +14,7 @@ extern "C" {
 /**
  * @brief Plain-old-data mirror of the C++ CssData update input.
  *
- * Only the first numberOfCss entries of cosValues are meaningful.
+ * timeTag > 0 flags a fresh reading. Only the first numberOfCss entries of cosValues are meaningful.
  */
 typedef struct {
     double timeTag;                           /*!< [s] time tag of the CSS reading */
@@ -22,7 +22,7 @@ typedef struct {
 } SunlineCssData_c;
 
 /**
- * @brief Plain-old-data mirror of the C++ RateData update input.
+ * @brief Plain-old-data mirror of the C++ RateData update input. timeTag > 0 flags a fresh reading.
  */
 typedef struct {
     double timeTag; /*!< [s] time tag of the gyro reading */
