@@ -52,8 +52,8 @@ Configuration
 
 The configuration is set through public properties on the adapter before ``reset()`` and validated (via
 ``DvManeuverConfig``) when the algorithm is constructed. The algorithm rounds each time parameter to the nearest
-nanosecond. A time longer than the ``uint64_t`` nanosecond range (approximately :math:`1.8 \cdot 10^{10}` s) is set
-to the largest ``uint64_t`` value.
+nanosecond. A time longer than the ``uint64_t`` nanosecond range (approximately :math:`1.8 \cdot 10^{10}` s) is
+rejected.
 
 .. list-table:: Configuration parameters
     :widths: 25 25 50
@@ -63,13 +63,13 @@ to the largest ``uint64_t`` value.
       - Valid range
       - Description
     * - ``minTime``
-      - :math:`\ge 0`, finite
+      - :math:`\ge 0`, finite, in the ``uint64_t`` ns range
       - [s] Minimum burn time that must elapse before the burn can complete on the Delta-V criterion.
     * - ``maxTime``
-      - > 0, finite, and > minTime
+      - :math:`\ge` 1 ns, finite, in the ``uint64_t`` ns range, and > minTime
       - [s] Maximum burn time. The burn completes when the burn time reaches maxTime.
     * - ``controlPeriod``
-      - :math:`\ge` 1 ns, finite
+      - :math:`\ge` 1 ns, finite, in the ``uint64_t`` ns range
       - [s] Update period of the module. The burn time increases by this value at each update while the burn
         executes.
     * - ``cmdForce_B``

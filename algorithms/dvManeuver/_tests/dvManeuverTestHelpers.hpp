@@ -3,14 +3,15 @@
 
 #include "dvManeuverAlgorithm.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/timeConversion.hpp"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <cstdint>
 
-// The helpers work in nanoseconds; the configuration takes seconds. The round trip back to nanoseconds in the
-// configuration is exact for the magnitudes the tests use.
-inline double toSeconds(uint64_t nanoseconds) { return static_cast<double>(nanoseconds) / 1e9; }
+// The helpers use nanoseconds. The configuration uses seconds, which the helpers get from fsw::nanosToSeconds.
+// The conversion back to nanoseconds in the configuration is exact for ns < 2^53 (fsw::secondsToNanos rounds
+// to nearest).
 
 // Independent reference re-implementation of the burn state machine, kept in the same FP32
 // precision as the algorithm so the burn flags and the force command must match exactly. It encodes
@@ -70,14 +71,14 @@ inline void regressionTestDvManeuver(uint64_t minTime,
                                      const Eigen::Vector3f& cmdDv_N,
                                      const Eigen::Vector3f& acceleration,
                                      int numSteps) {
-    const auto config =
-        DvManeuverConfig::create(toSeconds(minTime), toSeconds(maxTime), toSeconds(stepNs), cmdForce_B, cmdDv_N);
+    const auto config = DvManeuverConfig::create(
+        fsw::nanosToSeconds(minTime), fsw::nanosToSeconds(maxTime), fsw::nanosToSeconds(stepNs), cmdForce_B, cmdDv_N);
     DvManeuverAlgorithm alg{config};
     DvManeuverReferenceState refState{};
 
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
-        const Eigen::Vector3f dvAccumulated_B = acceleration * (static_cast<float>(callTime) * 1e-9F);
+        const Eigen::Vector3f dvAccumulated_B = acceleration * fsw::elapsedSecondsF(callTime, 0U).value();
 
         DvManeuverOutput algOut{};
         EXPECT_NO_THROW(algOut = alg.update(dvAccumulated_B));
@@ -128,8 +129,8 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
                                      uint64_t maxTimeAboveMinTime,
                                      uint64_t stepNs) {
     const uint64_t maxTime = minTime + maxTimeAboveMinTime;
-    const auto config =
-        DvManeuverConfig::create(toSeconds(minTime), toSeconds(maxTime), toSeconds(stepNs), cmdForce_B, cmdDv_N);
+    const auto config = DvManeuverConfig::create(
+        fsw::nanosToSeconds(minTime), fsw::nanosToSeconds(maxTime), fsw::nanosToSeconds(stepNs), cmdForce_B, cmdDv_N);
     DvManeuverAlgorithm alg{config};
 
     const uint64_t numSteps = fuzzStepCount(maxTime, stepNs);
@@ -137,7 +138,7 @@ inline void propertyOutputWellFormed(const Eigen::Vector3f& cmdForce_B,
 
     for (uint64_t k = 0U; k < numSteps; ++k) {
         const uint64_t burnTime = k * stepNs;
-        const Eigen::Vector3f dvAccumulated_B = acceleration * (static_cast<float>(burnTime) * 1e-9F);
+        const Eigen::Vector3f dvAccumulated_B = acceleration * fsw::elapsedSecondsF(burnTime, 0U).value();
 
         DvManeuverOutput out{};
         EXPECT_NO_THROW(out = alg.update(dvAccumulated_B));

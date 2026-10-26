@@ -8,9 +8,10 @@ DvManeuverAlgorithm::DvManeuverAlgorithm(const DvManeuverConfig& config) : cfg(c
 void DvManeuverAlgorithm::setConfig(const DvManeuverConfig& config) {
     this->cfg = config;
     this->cmdDvMagnitude = this->cfg.getCmdDv().stableNorm();
-    this->minTimeNs = dvManeuverToNanoseconds(this->cfg.getMinTime());
-    this->maxTimeNs = dvManeuverToNanoseconds(this->cfg.getMaxTime());
-    this->controlPeriodNs = dvManeuverToNanoseconds(this->cfg.getControlPeriod());
+    // DvManeuverConfig::create() makes sure that each time converts. Thus the code never uses the fallbacks.
+    this->minTimeNs = fsw::secondsToNanos(this->cfg.getMinTime()).value_or(0U);
+    this->maxTimeNs = fsw::secondsToNanos(this->cfg.getMaxTime()).value_or(0U);
+    this->controlPeriodNs = fsw::secondsToNanos(this->cfg.getControlPeriod()).value_or(0U);
 }
 
 void DvManeuverAlgorithm::reInitialize() {

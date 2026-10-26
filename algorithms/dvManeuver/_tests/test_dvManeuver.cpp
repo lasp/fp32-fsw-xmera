@@ -1,5 +1,6 @@
 #include "dvManeuverTestHelpers.hpp"
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/timeConversion.hpp"
 #include <gtest/gtest.h>
 #include <cmath>
 #include <limits>
@@ -21,8 +22,8 @@ TEST(DvManeuverTest, RegressionNominalBurn) {
     // The burn starts at the first update; 2 m/s^2 along +z accumulates 5 m/s of delta-V after 2.5 s, meeting
     // the 5 m/s command. No minTime gate; maxTime is set beyond the burn's completion time so it never triggers.
     regressionTestDvManeuver(/* minTime = */ 0U,
-                             /* maxTime = */ 3000000000U,
-                             /* stepNs = */ 500000000U,
+                             /* maxTime = */ 3U * fsw::kNanosPerSecond,
+                             /* stepNs = */ fsw::kNanosPerSecond / 2U,
                              kCmdForce_B,
                              /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 5.0F},
                              /* acceleration = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
@@ -32,9 +33,9 @@ TEST(DvManeuverTest, RegressionNominalBurn) {
 TEST(DvManeuverTest, RegressionMinTimeGate) {
     // The delta-V target is reached quickly, but minTime = 4 s holds the burn open until the burn
     // time exceeds the minimum.
-    regressionTestDvManeuver(/* minTime = */ 4000000000U,
-                             /* maxTime = */ 100000000000U,
-                             /* stepNs = */ 500000000U,
+    regressionTestDvManeuver(/* minTime = */ 4U * fsw::kNanosPerSecond,
+                             /* maxTime = */ 100U * fsw::kNanosPerSecond,
+                             /* stepNs = */ fsw::kNanosPerSecond / 2U,
                              kCmdForce_B,
                              /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 4.3F},
                              /* acceleration = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
@@ -44,8 +45,8 @@ TEST(DvManeuverTest, RegressionMinTimeGate) {
 TEST(DvManeuverTest, RegressionMaxTimeCutoff) {
     // The delta-V target is never reached, so the maxTime = 3 s cutoff forces completion.
     regressionTestDvManeuver(/* minTime = */ 0U,
-                             /* maxTime = */ 3000000000U,
-                             /* stepNs = */ 500000000U,
+                             /* maxTime = */ 3U * fsw::kNanosPerSecond,
+                             /* stepNs = */ fsw::kNanosPerSecond / 2U,
                              kCmdForce_B,
                              /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 100.0F},
                              /* acceleration = */ Eigen::Vector3f{0.0F, 0.0F, 2.0F},
@@ -169,35 +170,35 @@ TEST(DvManeuverTest, PropertyOutputWellFormed) {
                              /* cmdDv_N = */ {0.0F, 0.0F, 5.0F},
                              /* acceleration = */ {0.0F, 0.0F, 2.0F},
                              /* minTime = */ 0U,
-                             /* maxTimeAboveMinTime = */ 100000000000U,
-                             /* stepNs = */ 500000000U);
+                             /* maxTimeAboveMinTime = */ 100U * fsw::kNanosPerSecond,
+                             /* stepNs = */ fsw::kNanosPerSecond / 2U);
     propertyOutputWellFormed(
         /* cmdForce_B = */ {1.0F, -2.0F, 3.0F},
         /* cmdDv_N = */ {1.0F, -2.0F, 3.0F},
         /* acceleration = */ {-0.5F, 1.0F, 0.25F},
         /* minTime = */ 0U,
-        /* maxTimeAboveMinTime = */ 100000000000U,
-        /* stepNs = */ 500000000U);
+        /* maxTimeAboveMinTime = */ 100U * fsw::kNanosPerSecond,
+        /* stepNs = */ fsw::kNanosPerSecond / 2U);
     propertyOutputWellFormed(
         /* cmdForce_B = */ {0.0F, 0.0F, 0.0F},
         /* cmdDv_N = */ {0.0F, 0.0F, 0.0F},
         /* acceleration = */ {0.0F, 0.0F, 0.0F},
         /* minTime = */ 0U,
-        /* maxTimeAboveMinTime = */ 100000000000U,
-        /* stepNs = */ 500000000U);
+        /* maxTimeAboveMinTime = */ 100U * fsw::kNanosPerSecond,
+        /* stepNs = */ fsw::kNanosPerSecond / 2U);
     // Both time gates active: the delta-V is reached early, so minTime decides; a large command leaves maxTime.
     propertyOutputWellFormed(kCmdForce_B,
                              /* cmdDv_N = */ {0.0F, 0.0F, 1.0F},
                              /* acceleration = */ {0.0F, 0.0F, 2.0F},
-                             /* minTime = */ 2000000000U,
-                             /* maxTimeAboveMinTime = */ 3000000000U,
-                             /* stepNs = */ 100000000U);
+                             /* minTime = */ 2U * fsw::kNanosPerSecond,
+                             /* maxTimeAboveMinTime = */ 3U * fsw::kNanosPerSecond,
+                             /* stepNs = */ fsw::kNanosPerSecond / 10U);
     propertyOutputWellFormed(kCmdForce_B,
                              /* cmdDv_N = */ {0.0F, 0.0F, 100.0F},
                              /* acceleration = */ {0.0F, 0.0F, 2.0F},
-                             /* minTime = */ 2000000000U,
-                             /* maxTimeAboveMinTime = */ 3000000000U,
-                             /* stepNs = */ 100000000U);
+                             /* minTime = */ 2U * fsw::kNanosPerSecond,
+                             /* maxTimeAboveMinTime = */ 3U * fsw::kNanosPerSecond,
+                             /* stepNs = */ fsw::kNanosPerSecond / 10U);
 }
 
 // ---------------------------------------------------------------------------
@@ -461,15 +462,26 @@ TEST(DvManeuverConfigTest, RejectsZeroControlPeriod) {
                  fsw::invalid_argument);
 }
 
-TEST(DvManeuverConfigTest, RoundsTimesToNearestNanosecond) {
-    // 1.001 s times 1e9 is slightly less than 1001000000 in double precision; truncation would give one
-    // nanosecond less.
-    EXPECT_EQ(dvManeuverToNanoseconds(/* seconds = */ 1.001), 1001000000U);
-    EXPECT_EQ(dvManeuverToNanoseconds(/* seconds = */ 1.000000001e3), 1000000001000U);
-    EXPECT_EQ(dvManeuverToNanoseconds(/* seconds = */ 0.1), 100000000U);
-    EXPECT_EQ(dvManeuverToNanoseconds(/* seconds = */ 0.4e-9), 0U);
-    EXPECT_EQ(dvManeuverToNanoseconds(/* seconds = */ 0.5e-9), 1U);
-    EXPECT_EQ(dvManeuverToNanoseconds(/* seconds = */ 1.0e9), 1000000000000000000U);
+TEST(DvManeuverConfigTest, RejectsTimesBeyondUint64Nanoseconds) {
+    // 2e10 s is approximately 2e19 ns. This is more than the uint64_t range (approximately 1.8e19 ns).
+    EXPECT_THROW(DvManeuverConfig::create(
+                     /* minTime = */ 2.0e10, /* maxTime = */ 3.0e10, kControlPeriod, kCmdForce_B, kCmdDv_N),
+                 fsw::invalid_argument);
+    EXPECT_THROW(DvManeuverConfig::create(
+                     /* minTime = */ 0.0, /* maxTime = */ 2.0e10, kControlPeriod, kCmdForce_B, kCmdDv_N),
+                 fsw::invalid_argument);
+    EXPECT_THROW(DvManeuverConfig::create(
+                     /* minTime = */ 0.0, /* maxTime = */ 1.0, /* controlPeriod = */ 2.0e10, kCmdForce_B, kCmdDv_N),
+                 fsw::invalid_argument);
+    // 1.8e10 s is 1.8e19 ns. This is in the uint64_t range.
+    EXPECT_NO_THROW((void)DvManeuverConfig::create(
+        /* minTime = */ 0.0, /* maxTime = */ 1.8e10, kControlPeriod, kCmdForce_B, kCmdDv_N));
+}
+
+TEST(DvManeuverConfigTest, AcceptsControlPeriodThatRoundsToOneNanosecond) {
+    // 0.5 ns rounds to 1 ns, ties away from zero.
+    EXPECT_NO_THROW((void)DvManeuverConfig::create(
+        /* minTime = */ 0.0, /* maxTime = */ 1.0, /* controlPeriod = */ 0.5e-9, kCmdForce_B, kCmdDv_N));
 }
 
 TEST(DvManeuverConfigTest, GettersRoundTrip) {
