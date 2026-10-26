@@ -22,6 +22,8 @@ static_assert(InertialState::size == INERTIAL_FILTER_NUM_STATES,
 
 // N x N filter matrix (process noise, covariance) where N = InertialState::size.
 using StateMatrix = Eigen::Matrix<float, InertialState::size, InertialState::size>;
+// N-element filter column (state seed) where N = InertialState::size.
+using StateColumn = Eigen::Vector<float, InertialState::size>;
 
 // MRP kinematics: sigma_dot = 1/4 B(sigma) omega; body rate constant under propagation.
 struct InertialDynamics {

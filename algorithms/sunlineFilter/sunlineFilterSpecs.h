@@ -23,6 +23,8 @@ static_assert(SunlineState::size == SUNLINE_FILTER_NUM_STATES,
 
 // N x N filter matrix (process noise, covariance) where N = SunlineState::size.
 using StateMatrix = Eigen::Matrix<float, SunlineState::size, SunlineState::size>;
+// N-element filter column (state seed) where N = SunlineState::size.
+using StateColumn = Eigen::Vector<float, SunlineState::size>;
 
 // ds/dt = s × omega; omega and bias constant under propagation.
 struct SunlineDynamics {

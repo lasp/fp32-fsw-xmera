@@ -18,12 +18,10 @@ using filtering::inertialFilter::RateData;
 using filtering::inertialFilter::StateMatrix;
 using filtering::inertialFilter::StAttData;
 
-InertialFilter::InertialFilter() {
-    constexpr int n = InertialFilterAlgorithm::N;
-    this->processNoise = Eigen::MatrixXf::Zero(n, n);
-    this->initialState = Eigen::VectorXf::Zero(n);
-    this->initialCovariance = Eigen::MatrixXf::Identity(n, n);
-}
+InertialFilter::InertialFilter()
+    : processNoise(StateMatrix::Zero()),
+      initialState(StateColumn::Zero()),
+      initialCovariance(StateMatrix::Identity()) {}
 
 InertialFilter::~InertialFilter() = default;
 
@@ -36,12 +34,11 @@ void InertialFilter::reset(uint64_t /*currentSimNanos*/) {
         throw std::invalid_argument("inertialFilter.stAttInMsg wasn't connected.");
     }
 
-    constexpr int n = InertialFilterAlgorithm::N;
     auto const config = InertialFilterConfig::create(this->alpha,
                                                      this->beta,
-                                                     StateMatrix(this->processNoise),
-                                                     InertialState{Eigen::Vector<float, n>(this->initialState)},
-                                                     StateMatrix(this->initialCovariance),
+                                                     this->processNoise,
+                                                     InertialState{this->initialState},
+                                                     this->initialCovariance,
                                                      this->stMeasurementNoiseStd,
                                                      this->rateMeasurementNoiseStd);
     this->algorithm = std::make_unique<InertialFilterAlgorithm>(config);

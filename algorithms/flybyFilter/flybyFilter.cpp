@@ -18,12 +18,10 @@ using filtering::flybyFilter::FlybyState;
 using filtering::flybyFilter::HeadingData;
 using filtering::flybyFilter::StateMatrix;
 
-FlybyFilter::FlybyFilter() {
-    constexpr int n = FlybyFilterAlgorithm::N;
-    this->processNoise = Eigen::MatrixXf::Zero(n, n);
-    this->initialState = Eigen::VectorXf::Zero(n);
-    this->initialCovariance = Eigen::MatrixXf::Identity(n, n);
-}
+FlybyFilter::FlybyFilter()
+    : processNoise(StateMatrix::Zero()),
+      initialState(StateColumn::Zero()),
+      initialCovariance(StateMatrix::Identity()) {}
 
 FlybyFilter::~FlybyFilter() = default;
 
@@ -42,16 +40,15 @@ void FlybyFilter::reset(uint64_t /*currentSimNanos*/) {
         throw std::invalid_argument("flybyFilter.unitConversion must be positive.");
     }
 
-    constexpr int n = FlybyFilterAlgorithm::N;
     float const uc = this->unitConversion;
     float const uc2 = uc * uc;
     float const uc3 = uc2 * uc;
 
     // SI -> internal: state x uc, covariance / process-noise x uc^2, mu x uc^3.
-    Eigen::Vector<float, n> const internalStateVec = Eigen::Vector<float, n>(this->initialState) * uc;
+    StateColumn const internalStateVec = this->initialState * uc;
     FlybyState const internalState{internalStateVec};
-    StateMatrix const internalCovariance = StateMatrix(this->initialCovariance) * uc2;
-    StateMatrix const internalProcessNoise = StateMatrix(this->processNoise) * uc2;
+    StateMatrix const internalCovariance = this->initialCovariance * uc2;
+    StateMatrix const internalProcessNoise = this->processNoise * uc2;
 
     auto const config = FlybyFilterConfig::create(this->alpha,
                                                   this->beta,

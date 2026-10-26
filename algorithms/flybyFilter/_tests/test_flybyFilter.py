@@ -370,6 +370,23 @@ def test_unit_conversion_does_not_change_the_si_result(show_plots):
                                err_msg="the SI covariance must not depend on the internal unit scale")
 
 
+def test_properties_have_the_filter_size():
+    """The matrix and vector properties have the filter's fixed size: a list of the wrong size is rejected."""
+    module = flybyFilterF32.FlybyFilter()
+    n = 6
+    np.testing.assert_array_equal(np.array(module.initialState).reshape(n), np.zeros(n))
+    np.testing.assert_array_equal(module.initialCovariance, np.eye(n))
+    np.testing.assert_array_equal(module.processNoise, np.zeros((n, n)))
+    wrong_sizes = {
+        "initialState": [0.0] * (n + 1),
+        "initialCovariance": np.eye(n - 1).tolist(),
+        "processNoise": np.eye(n + 1).tolist(),
+    }
+    for name, value in wrong_sizes.items():
+        with pytest.raises(ValueError):
+            setattr(module, name, value)
+
+
 if __name__ == "__main__":
     test_propagation(True)
     test_measurements(True)

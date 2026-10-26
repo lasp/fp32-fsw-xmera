@@ -18,12 +18,10 @@ using filtering::sunlineFilter::SunlineFilterConfig;
 using filtering::sunlineFilter::SunlineFilterOutput;
 using filtering::sunlineFilter::SunlineState;
 
-SunlineFilter::SunlineFilter() {
-    constexpr int n = SunlineFilterAlgorithm::N;
-    this->processNoise = Eigen::MatrixXf::Zero(n, n);
-    this->initialState = Eigen::VectorXf::Zero(n);
-    this->initialCovariance = Eigen::MatrixXf::Identity(n, n);
-}
+SunlineFilter::SunlineFilter()
+    : processNoise(StateMatrix::Zero()),
+      initialState(StateColumn::Zero()),
+      initialCovariance(StateMatrix::Identity()) {}
 
 SunlineFilter::~SunlineFilter() = default;
 
@@ -55,12 +53,11 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
     }
     this->numberOfCss = numCss;
 
-    constexpr int n = SunlineFilterAlgorithm::N;
     auto const config = SunlineFilterConfig::create(this->alpha,
                                                     this->beta,
-                                                    StateMatrix(this->processNoise),
-                                                    SunlineState{Eigen::Vector<float, n>(this->initialState)},
-                                                    StateMatrix(this->initialCovariance),
+                                                    this->processNoise,
+                                                    SunlineState{this->initialState},
+                                                    this->initialCovariance,
                                                     this->biasLowerBound,
                                                     this->biasUpperBound,
                                                     nHat,

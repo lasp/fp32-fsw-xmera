@@ -15,6 +15,8 @@ using FlybyState = filtering::StateVector<filtering::Position<3>, filtering::Vel
 
 // N x N filter matrix (process noise, covariance) where N = FlybyState::size.
 using StateMatrix = Eigen::Matrix<float, FlybyState::size, FlybyState::size>;
+// N-element filter column (state seed) where N = FlybyState::size.
+using StateColumn = Eigen::Vector<float, FlybyState::size>;
 
 inline constexpr float MinGravityRange = 1e-3F;
 // Two-body point-mass gravity: r_dot = v; v_dot = -mu/max(|r|, MinGravityRange)^3 r. The
