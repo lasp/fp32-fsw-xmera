@@ -28,7 +28,7 @@ class VectorDutyCycle final : public SysModel {
     void reInitialize();
 
     /* declare module public variables */
-    uint32_t onPeriods = 1U;   //!< [-] control periods in which the output is equal to the command (minimum 1)
+    uint32_t onPeriods = 1U;   //!< [-] control periods with output equal to the command (zero gives a zero output)
     uint32_t offPeriods = 0U;  //!< [-] control periods in which the output is zero
     VectorType vectorType = VectorType::Torque;  //!< [-] message pair that the adapter gates; reset() keeps the value
 
