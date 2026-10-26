@@ -443,15 +443,22 @@ TEST(FlybyFilterAlgorithmScheduler, BadMeasurementIsRolledBackAndTheCycleStillPr
     EXPECT_TRUE(poisoned->update(120.0, recovery).headingResiduals.valid);
 }
 
-TEST(FlybyFilterAlgorithmScheduler, QueueAdmitsOneMeasurementPerCycle) {
-    // BatchSize == 1: the flyby filter takes at most one heading per cycle, and a second enqueue in
-    // the same cycle is refused rather than silently overwriting the first.
+TEST(FlybyFilterAlgorithmScheduler, FullQueueKeepsTheNewestHeading) {
+    // BatchSize == 1: the flyby filter holds one heading. A full queue drops its oldest measurement, so a newer
+    // heading replaces the queued one, and a heading older than the queued one is the one dropped.
     static_assert(BatchSize == 1, "flybyFilter processes a single heading measurement per cycle");
 
     filtering::measurement_queue<Measurement, BatchSize> queue;
     EXPECT_TRUE(queue.enqueue(1.0, makeHeadingMeasurement(1.0, Eigen::Vector3f::UnitX(), kHeadingStd)));
-    EXPECT_FALSE(queue.enqueue(2.0, makeHeadingMeasurement(2.0, Eigen::Vector3f::UnitY(), kHeadingStd)))
-        << "the queue is full at BatchSize measurements";
+    EXPECT_TRUE(queue.enqueue(2.0, makeHeadingMeasurement(2.0, Eigen::Vector3f::UnitY(), kHeadingStd)))
+        << "a newer heading replaces the queued one";
+    EXPECT_FALSE(queue.enqueue(0.5, makeHeadingMeasurement(0.5, Eigen::Vector3f::UnitZ(), kHeadingStd)))
+        << "a heading older than the queued one is dropped";
+
+    auto const kept = queue.popEarliest();
+    ASSERT_TRUE(kept.has_value());
+    EXPECT_DOUBLE_EQ(kept->first, 2.0) << "only the newest heading is kept";
+    EXPECT_TRUE(queue.isEmpty());
 }
 
 // ============================================================================

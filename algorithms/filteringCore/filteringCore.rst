@@ -115,11 +115,14 @@ long runs; only their differences are narrowed to ``float`` before
 
 ``measurementQueue.h``
    ``measurement_queue<Measurement, CAPACITY>`` — a bounded, time-ordered
-   container (``enqueue`` / ``popEarliest`` / ``clear`` / ``isFull`` /
-   ``isEmpty``) plus a persistent ``getTimeOfLastMeasurement()`` /
+   container (``enqueue`` / ``popEarliest`` / ``popEarliestDue`` / ``clear`` /
+   ``isFull`` / ``isEmpty``) plus a persistent ``getTimeOfLastMeasurement()`` /
    ``setTimeOfLastMeasurement()`` pair: the time of the last measurement
-   the scheduler folded into the filter. Scheduling itself is a free
-   template (see ``kalmanFilter.hpp``).
+   the scheduler folded into the filter, and the processing delay
+   (``setDelay`` / ``getDelay``, see "Heterogeneous rates share one anchor").
+   When the queue is full, ``enqueue`` drops the oldest measurement
+   (``dropOldest``) to make room for a newer one.
+   Scheduling itself is a free template (see ``kalmanFilter.hpp``).
 
 ``kalmanFilter.hpp``
    The ``SequentialFilter<F, M>`` concept plus the scheduling free functions.
@@ -623,21 +626,54 @@ Heterogeneous rates share one anchor
 ``applySequential`` keeps a single last-measurement anchor
 (``queue.getTimeOfLastMeasurement()``) for all measurement kinds, and it
 drops any queued measurement whose ``timeTag`` is earlier than that anchor (the
-``if m.timeTag < tLast: continue`` guard). When two kinds are ingested at
-different frequencies, the faster kind repeatedly advances the shared anchor; if
-the filter time step is small enough that a slower kind's sample then lands *in
-the past* relative to the already-advanced anchor, that slower measurement is
-silently skipped and never folded into the state.
+``if m.timeTag < tLast: continue`` guard). When two kinds have different
+latencies, the kind that arrives first advances the shared anchor. If a sample
+of the slower kind arrives after the anchor has passed its time tag, it is
+dropped. For example, with one call per second, a fast sensor with a latency of
+0.2 s and a slow one with a latency of 2.5 s:
 
-To keep every kind observed you must either:
+.. code-block:: text
 
-- **size the filter time step** so at least one of each of the N measurement kinds
-  falls within a single ``update`` **call** — then all kinds are enqueued
-  together and applied in time order, so none lands behind the anchor; or
-- **reduce the rate of the faster kind** relative to the time step.
+   call 10: fast@9.8, slow@7.5   → both applied in time order, anchor = 9.8
+   call 11: fast@10.8, slow@8.5  → slow@8.5 < 9.8: dropped; anchor = 10.8
+   call 12: ...                  → every later slow sample is dropped
 
-In other words, avoid time steps so small that a window can hold several
-fast-kind samples but no slow-kind sample.
+The measurement queue therefore has a processing **delay** (default zero), set
+once from the filter configuration with ``queue.setDelay(d)``. With a delay
+:math:`d > 0`, a call at ``callTime`` processes only the measurements with
+``timeTag <= callTime - d``. The later ones stay in the queue
+for a later call. A measurement with a latency up to :math:`d` (the time between
+its time tag and its arrival) is then still in the queue when the anchor reaches
+its time tag, and every kind is applied in time order. With :math:`d = 3` s in
+the example above:
+
+.. code-block:: text
+
+   call 11: processes up to 8  → slow@7.5,                anchor = 7.5
+   call 12: processes up to 9  → slow@8.5,                anchor = 8.5
+   call 13: processes up to 10 → slow@9.5, fast@9.8,      anchor = 9.8
+   call 14: processes up to 11 → slow@10.5, fast@10.8,    anchor = 10.8
+
+The filter output is still at ``callTime``: the final ``timeUpdate`` propagates
+from the anchor to ``callTime`` as before, so the delay does not move the
+output in time. The measurements reach the estimate :math:`d` later, though, so
+the output is a prediction over about :math:`d` and its covariance is larger.
+
+To use a delay:
+
+- **Set** :math:`d` to the largest latency of any measurement kind, plus a
+  margin. A kind that stops arriving does not stop the filter: ``callTime - d``
+  still advances, and the other kinds are processed with a delay of :math:`d`.
+  A sample with a latency larger than :math:`d` is behind the anchor; it is
+  dropped.
+- **Size the queue** for the delay. It holds the measurements of about
+  :math:`d` seconds plus one call, for every kind: a capacity of at least
+  :math:`\sum_j (\lceil d \, r_j \rceil + 1)`, where :math:`r_j` is the rate of
+  kind :math:`j`. If the queue is too small, the oldest measurements are
+  dropped.
+
+With a zero delay (the default), the whole queue is processed in each call, as
+before.
 
 How to use a filter
 -------------------

@@ -714,6 +714,47 @@ TEST(SunlineFilterConfig, RejectsNegativeThresholdAndNoiseStds) {
     EXPECT_THROW(buildConfig(gyroStd), fsw::invalid_argument);
 }
 
+TEST(SunlineFilterConfig, MeasurementDelayDefaultsToZeroAndIsValidated) {
+    EXPECT_FLOAT_EQ(buildConfig({}).getMeasurementDelay(), 0.0F);
+
+    ConfigInputs delayed;
+    delayed.measurementDelay = 3.0;
+    EXPECT_FLOAT_EQ(buildConfig(delayed).getMeasurementDelay(), 3.0F);
+
+    ConfigInputs negative;
+    negative.measurementDelay = -1.0;
+    EXPECT_THROW(buildConfig(negative), fsw::invalid_argument);
+}
+
+// A gyro reading delivered 2.5 s after its time tag, one call after the CSS reading of the same cycle. Without a
+// measurement delay the CSS reading has already moved the anchor past it, so it is dropped; with a 3 s delay it is
+// applied, in time order, once the call time reaches its time tag plus the delay.
+TEST(SunlineFilterAlgorithmScheduler, MeasurementDelayAppliesALateGyroReading) {
+    auto const lateGyroIsApplied = [](float delay) {
+        ConfigInputs in;
+        in.measurementDelay = delay;
+        SunlineFilterAlgorithm algo(buildConfig(in));
+
+        Eigen::Vector<float, MaxCss> cos = Eigen::Vector<float, MaxCss>::Zero();
+        cos.head<3>() = threeCssNHat().topRows<3>() * Eigen::Vector3f(0.0, 0.0, 1.0);
+        CssData css;
+        css.timeTag = 10.0;
+        css.cosValues = cos;
+        algo.update(10.0, css, RateData{});
+
+        RateData lateRate;
+        lateRate.timeTag = 8.5;  // latency of 2.5 s at call 11
+        bool applied = algo.update(11.0, CssData{}, lateRate).rateResiduals.valid;
+        for (double callTime = 12.0; callTime <= 15.0; callTime += 1.0) {
+            applied = applied || algo.update(callTime, CssData{}, RateData{}).rateResiduals.valid;
+        }
+        return applied;
+    };
+
+    EXPECT_FALSE(lateGyroIsApplied(0.0F)) << "without a delay the late gyro reading is behind the anchor";
+    EXPECT_TRUE(lateGyroIsApplied(3.0F)) << "a 3 s delay covers the 2.5 s latency";
+}
+
 TEST(SunlineFilterConfig, RejectsBiasLowerBoundNotLessThanUpper) {
     ConfigInputs equal;
     equal.biasLowerBound = 1.0;

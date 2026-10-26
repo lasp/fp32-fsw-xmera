@@ -258,3 +258,19 @@ def error_recovery(err, outlierSteps, ambient, testName):
     plt.tight_layout()
 
     return plt
+
+
+def delay_comparison(errors, ylabel, testName):
+    """Plot an error norm for several filter configurations on one time axis.
+    errors maps a label to an [t_ns, |error|] array."""
+    plt.figure(num=None, figsize=(10, 6), dpi=80, facecolor='w', edgecolor='k')
+    for label, err in errors.items():
+        plt.semilogy(err[:, 0] * 1E-9, err[:, 1], label=label)
+    plt.legend(loc='upper right')
+    plt.xlabel('t(s)')
+    plt.ylabel(ylabel)
+    plt.title(testName)
+    plt.grid()
+    plt.tight_layout()
+
+    return plt
