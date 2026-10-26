@@ -5,6 +5,7 @@
 #include "utilities/fsw/timeConversion.hpp"
 #include <stdint.h>
 #include <Eigen/Core>
+#include <limits>
 
 /// Burn state machine state. Complete is terminal until reInitialize().
 enum class DvManeuverBurnState : uint8_t { Executing = 0, Complete = 1 };
@@ -40,6 +41,9 @@ class DvManeuverConfig final {
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: controlPeriod must be finite, >= 1 ns, and fit in uint64_t ns.");
         }
+        if (!isValidBurnTimeline(maxTime, controlPeriod)) {
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime plus two controlPeriods must fit in uint64_t ns.");
+        }
         if (!isValidCmdForce(cmdForce_B)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: cmdForce_B must be finite.");
         }
@@ -61,6 +65,21 @@ class DvManeuverConfig final {
     // Each update() adds the period to the burn time. A period that rounds to 0 ns never stops the burn.
     static bool isValidControlPeriod(double controlPeriod) {
         return fsw::secondsToNanos(controlPeriod).value_or(0U) > 0U;
+    }
+    /// The burn completes at the first multiple of controlPeriod at or after maxTime. This value is a maximum of
+    /// maxTime - 1 ns + controlPeriod. On that step, update() adds one more controlPeriod. Thus the burn time does
+    /// not wrap the uint64_t ns counter if maxTime - 1 ns + 2 * controlPeriod is in the uint64_t range. Call it only
+    /// with a valid maxTime and controlPeriod.
+    static bool isValidBurnTimeline(double maxTime, double controlPeriod) {
+        const uint64_t maxTimeNs = fsw::secondsToNanos(maxTime).value_or(0U);
+        const uint64_t controlPeriodNs = fsw::secondsToNanos(controlPeriod).value_or(0U);
+        // Check (maxTimeNs - 1) + 2 * controlPeriodNs <= max without calculating the sum. In uint64_t, a sum that
+        // is more than max wraps to a small value, so "sum > max" can never be true. headroomNs is the space that is
+        // available above maxTimeNs - 1. For a valid maxTime, maxTimeNs >= 1, thus the two subtractions do not wrap.
+        const uint64_t headroomNs = std::numeric_limits<uint64_t>::max() - (maxTimeNs - 1U);
+        // 2 * controlPeriodNs can also wrap. Thus compare controlPeriodNs with half of the headroom. For integers,
+        // c <= floor(h / 2) is the same test as 2 * c <= h.
+        return controlPeriodNs <= headroomNs / 2U;
     }
     static bool isValidCmdForce(const Eigen::Vector3f& cmdForce_B) { return cmdForce_B.allFinite(); }
     static bool isValidCmdDv(const Eigen::Vector3f& cmdDv_N) { return cmdDv_N.allFinite(); }

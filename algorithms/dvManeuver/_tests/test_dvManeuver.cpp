@@ -315,6 +315,22 @@ TEST(DvManeuverTest, EdgeMaxTimeGatePassesAtLimit) {
     EXPECT_EQ(longerAlg.update(zero).state, DvManeuverBurnState::Complete);
 }
 
+TEST(DvManeuverTest, EdgeMaxTimeGatePassesNearTimelineLimit) {
+    // maxTime = 1.8e19 ns and controlPeriod = 2.2e17 ns are near the top of the uint64_t ns range. The burn
+    // time must not wrap. Thus the gate passes at update 82, the first multiple of controlPeriod at or after
+    // maxTime.
+    const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
+    DvManeuverAlgorithm alg{DvManeuverConfig::create(/* minTime = */ 0.0,
+                                                     /* maxTime = */ 1.8e10,
+                                                     /* controlPeriod = */ 2.2e8,
+                                                     kCmdForce_B,
+                                                     /* cmdDv_N = */ Eigen::Vector3f{0.0F, 0.0F, 100.0F})};
+    for (int k = 0; k < 82; ++k) {
+        ASSERT_EQ(alg.update(zero).state, DvManeuverBurnState::Executing) << "update " << k;
+    }
+    EXPECT_EQ(alg.update(zero).state, DvManeuverBurnState::Complete);
+}
+
 TEST(DvManeuverTest, EdgeTimeGatesExactAtTenAndHundredHz) {
     // 0.1 s and 0.01 s cannot be stored exactly as a float, so a running float sum of the period drifts from the
     // true time. The burn time is an integer nanosecond count instead, so each gate passes exactly at its limit.
@@ -476,6 +492,23 @@ TEST(DvManeuverConfigTest, RejectsTimesBeyondUint64Nanoseconds) {
     // 1.8e10 s is 1.8e19 ns. This is in the uint64_t range.
     EXPECT_NO_THROW((void)DvManeuverConfig::create(
         /* minTime = */ 0.0, /* maxTime = */ 1.8e10, kControlPeriod, kCmdForce_B, kCmdDv_N));
+}
+
+TEST(DvManeuverConfigTest, RejectsBurnTimelineBeyondUint64Nanoseconds) {
+    // maxTime = 1.8e19 ns gives approximately 4.47e17 ns of headroom. Thus controlPeriod can be a maximum of
+    // approximately 2.23e17 ns.
+    EXPECT_NO_THROW((void)DvManeuverConfig::create(
+        /* minTime = */ 0.0, /* maxTime = */ 1.8e10, /* controlPeriod = */ 2.2e8, kCmdForce_B, kCmdDv_N));
+    EXPECT_THROW(DvManeuverConfig::create(
+                     /* minTime = */ 0.0, /* maxTime = */ 1.8e10, /* controlPeriod = */ 2.3e8, kCmdForce_B, kCmdDv_N),
+                 fsw::invalid_argument);
+    // Exact boundary: when maxTime = 1 ns, the headroom is UINT64_MAX. Thus controlPeriod can be
+    // UINT64_MAX / 2 ns.
+    constexpr uint64_t kMaxPeriodNs = std::numeric_limits<uint64_t>::max() / 2U;
+    EXPECT_TRUE(
+        DvManeuverConfig::isValidBurnTimeline(/* maxTime = */ 1e-9, fsw::nanosToSeconds(kMaxPeriodNs - 1'000'000U)));
+    EXPECT_FALSE(
+        DvManeuverConfig::isValidBurnTimeline(/* maxTime = */ 1e-9, fsw::nanosToSeconds(kMaxPeriodNs + 1'000'000U)));
 }
 
 TEST(DvManeuverConfigTest, AcceptsControlPeriodThatRoundsToOneNanosecond) {

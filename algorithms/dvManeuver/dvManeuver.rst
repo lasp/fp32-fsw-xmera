@@ -52,8 +52,9 @@ Configuration
 
 The configuration is set through public properties on the adapter before ``reset()`` and validated (via
 ``DvManeuverConfig``) when the algorithm is constructed. The algorithm rounds each time parameter to the nearest
-nanosecond. A time longer than the ``uint64_t`` nanosecond range (approximately :math:`1.8 \cdot 10^{10}` s) is
-rejected.
+nanosecond. ``DvManeuverConfig`` rejects a time longer than the ``uint64_t`` nanosecond range (approximately
+:math:`1.8 \cdot 10^{10}` s). ``maxTime`` :math:`-` 1 ns :math:`+ 2 \cdot` ``controlPeriod`` must also be in the
+``uint64_t`` nanosecond range. This prevents a wrap of the burn time before the burn completes.
 
 .. list-table:: Configuration parameters
     :widths: 25 25 50

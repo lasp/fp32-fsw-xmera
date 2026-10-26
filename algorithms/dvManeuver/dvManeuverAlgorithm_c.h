@@ -25,6 +25,8 @@ typedef struct DvManeuverAlgorithmHandle DvManeuverAlgorithmHandle;
  *                      nanosecond range.
  * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
  * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
+ * @note maxTime - 1 ns + 2 * controlPeriod must also be in the uint64_t nanosecond range, so that the
+ *       burn time cannot wrap before the burn completes.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
@@ -44,6 +46,8 @@ bool DvManeuverAlgorithm_validateConfig(double minTime,
  *                      nanosecond range.
  * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
  * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
+ * @note maxTime - 1 ns + 2 * controlPeriod must also be in the uint64_t nanosecond range, so that the
+ *       burn time cannot wrap before the burn completes.
  * @return Pointer to a new DvManeuverAlgorithm (must be destroyed).
  * Validate the values with validateConfig first; invalid input throws.
  */
@@ -71,6 +75,8 @@ void DvManeuverAlgorithm_destroy(DvManeuverAlgorithmHandle* self);
  *                      nanosecond range.
  * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
  * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
+ * @note maxTime - 1 ns + 2 * controlPeriod must also be in the uint64_t nanosecond range, so that the
+ *       burn time cannot wrap before the burn completes.
  * Validate the values with validateConfig first; invalid input throws.
  */
 void DvManeuverAlgorithm_setConfig(DvManeuverAlgorithmHandle* self,
