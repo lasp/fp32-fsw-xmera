@@ -216,6 +216,7 @@ TEST(InertialFilterAlgorithmLifecycle, ConstructorSeedsStateAndCovarianceFromCon
 TEST(InertialFilterAlgorithmLifecycle, ReInitializeExceptPersistentStatesPreservesEstimateReInitializeResetsIt) {
     InertialFilterAlgorithm algo(
         baseConfig(makeState(Eigen::Vector3f(0, 0, 0.05), Eigen::Vector3f(0.01, 0, 0)), diagCovariance(1E-2, 1E-2)));
+    algo.update(0.0, StAttData{}, RateData{});  // synchronize the filter time at t = 0
 
     State const initialState = algo.getState();
     Matrix6 const initialCovariance = algo.getCovariance();
@@ -447,6 +448,7 @@ TEST(InertialFilterAlgorithmUpdate, WithoutMeasurementsGrowsCovarianceMonotonica
     Matrix6 const P0 = diagCovariance(1E-2, 1E-3);
     InertialFilterAlgorithm algo(configWithProcessNoise(
         makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()), P0, Matrix6::Identity() * 1E-3));
+    algo.update(0.0, StAttData{}, RateData{});  // synchronize the filter time at t = 0
 
     // Each update() with empty measurements re-propagates from the unchanged anchor to
     // currentSeconds, so the covariance trace grows with currentSeconds.
@@ -460,6 +462,37 @@ TEST(InertialFilterAlgorithmUpdate, WithoutMeasurementsGrowsCovarianceMonotonica
     EXPECT_GT(trace1, P0.trace());
     EXPECT_GT(trace4, trace1);
     EXPECT_GT(trace9, trace4);
+}
+
+// The first update() at a call time well ahead of 0 only synchronizes the filter time: the covariance does not grow
+// over the gap from 0, and later calls give the same estimate as a filter synchronized at 0 and shifted by 1000 s.
+TEST(InertialFilterAlgorithmSynchronization, FirstCallFarAheadOfZeroSetsTheFilterTime) {
+    Matrix6 const P0 = diagCovariance(1E-2, 1E-3);
+    auto const config = configWithProcessNoise(
+        makeState(Eigen::Vector3f(0.1, 0.0, 0.0), Eigen::Vector3f(0.01, 0.0, 0.0)), P0, Matrix6::Identity() * 1E-3);
+
+    InertialFilterAlgorithm late(config);
+    late.update(1000.0, StAttData{}, RateData{});
+    EXPECT_TRUE(late.getCovariance().isApprox(P0)) << "no propagation over the 1000 s before the first call";
+
+    InertialFilterAlgorithm early(config);
+    early.update(0.0, StAttData{}, RateData{});
+
+    RateData lateRate;
+    lateRate.timeTag = 1002.0;
+    lateRate.rate = Eigen::Vector3f(0.01, 0.0, 0.0);
+    RateData earlyRate = lateRate;
+    earlyRate.timeTag = 2.0;
+
+    late.update(1001.0, StAttData{}, RateData{});
+    early.update(1.0, StAttData{}, RateData{});
+    EXPECT_GT(late.getCovariance().trace(), P0.trace()) << "the second call propagates";
+    EXPECT_TRUE(late.getCovariance().isApprox(early.getCovariance())) << "propagated over 1 s, not 1001 s";
+
+    EXPECT_TRUE(late.update(1004.0, StAttData{}, lateRate).rateResiduals.valid);
+    early.update(4.0, StAttData{}, earlyRate);
+    EXPECT_TRUE(late.getState().raw().isApprox(early.getState().raw()));
+    EXPECT_TRUE(late.getCovariance().isApprox(early.getCovariance()));
 }
 
 // ============================================================================
@@ -514,9 +547,11 @@ TEST(InertialFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovari
     st.sigma_BN = Eigen::Vector3f(0.0, 0.0, 0.05);
 
     InertialFilterAlgorithm sharp(configWithNoiseStds(initial, P0, 1E-3, kRateMeasStd));
+    sharp.update(0.0, StAttData{}, RateData{});  // synchronize the filter time at t = 0
     sharp.update(1.0, st, RateData{});
 
     InertialFilterAlgorithm loose(configWithNoiseStds(initial, P0, 1E-1, kRateMeasStd));
+    loose.update(0.0, StAttData{}, RateData{});  // synchronize the filter time at t = 0
     loose.update(1.0, st, RateData{});
 
     EXPECT_LT(attitudeTrace(sharp.getCovariance()), attitudeTrace(loose.getCovariance()));
@@ -543,6 +578,7 @@ TEST(InertialFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual)
 TEST(InertialFilterAlgorithmMeasurements, SequentialStAttThenRateBothApplied) {
     InertialFilterAlgorithm algo(
         baseConfig(makeState(Eigen::Vector3f(0, 0, 0.05), Eigen::Vector3f(0.01, 0, 0)), diagCovariance(1E-1, 1E-1)));
+    algo.update(0.0, StAttData{}, RateData{});  // synchronize the filter time at t = 0
     Matrix6 const covar0 = algo.getCovariance();
 
     StAttData st;
