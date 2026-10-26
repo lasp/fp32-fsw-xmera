@@ -18,12 +18,10 @@ using filtering::inertialFilter::RateData;
 using filtering::inertialFilter::StateMatrix;
 using filtering::inertialFilter::StAttData;
 
-InertialFilter::InertialFilter() {
-    constexpr int n = InertialFilterAlgorithm::N;
-    this->processNoise = Eigen::MatrixXd::Zero(n, n);
-    this->initialState = Eigen::VectorXd::Zero(n);
-    this->initialCovariance = Eigen::MatrixXd::Identity(n, n);
-}
+InertialFilter::InertialFilter()
+    : processNoise(StateMatrix::Zero()),
+      initialState(StateColumn::Zero()),
+      initialCovariance(StateMatrix::Identity()) {}
 
 InertialFilter::~InertialFilter() = default;
 
@@ -36,12 +34,11 @@ void InertialFilter::reset(uint64_t /*currentSimNanos*/) {
         throw std::invalid_argument("inertialFilter.stAttInMsg wasn't connected.");
     }
 
-    constexpr int n = InertialFilterAlgorithm::N;
     auto const config = InertialFilterConfig::create(this->alpha,
                                                      this->beta,
-                                                     StateMatrix(this->processNoise),
-                                                     InertialState{Eigen::Vector<double, n>(this->initialState)},
-                                                     StateMatrix(this->initialCovariance),
+                                                     this->processNoise,
+                                                     InertialState{this->initialState},
+                                                     this->initialCovariance,
                                                      this->stMeasurementNoiseStd,
                                                      this->rateMeasurementNoiseStd);
     this->algorithm = std::make_unique<InertialFilterAlgorithm>(config);
@@ -83,9 +80,9 @@ void InertialFilter::updateState(uint64_t currentSimNanos) {
 
     if (auto const stPayload = this->stAttInMsg(); static_cast<double>(stPayload.timeTag) > this->lastStTimeTag) {
         stAttData.timeTag = static_cast<double>(stPayload.timeTag);
-        stAttData.sigma_BN = cArrayToEigenVector(stPayload.MRP_BdyInrtl).cast<double>();
+        stAttData.sigma_BN = cArrayToEigenVector(stPayload.MRP_BdyInrtl);
         rateData.timeTag = stAttData.timeTag;
-        rateData.rate = cArrayToEigenVector(stPayload.omega_BN_B).cast<double>();
+        rateData.rate = cArrayToEigenVector(stPayload.omega_BN_B);
         this->lastStTimeTag = stAttData.timeTag;
     }
 
@@ -106,31 +103,31 @@ void InertialFilter::writeOutputMessages(uint64_t currentSimNanos, InertialFilte
     double const timeTag = static_cast<double>(currentSimNanos) * kNano2Sec;
 
     navAttBuf.timeTag = timeTag;
-    eigenVectorToCArray(filterOutput.filterState.state.head<3>().cast<float>(), navAttBuf.sigma_BN);
-    eigenVectorToCArray(filterOutput.filterState.state.segment<3>(3).cast<float>(), navAttBuf.omega_BN_B);
+    eigenVectorToCArray(filterOutput.filterState.state.head<3>().eval(), navAttBuf.sigma_BN);
+    eigenVectorToCArray(filterOutput.filterState.state.segment<3>(3).eval(), navAttBuf.omega_BN_B);
 
     filterBuf.timeTag = timeTag;
     filterBuf.numberOfStates = InertialFilterAlgorithm::N;
-    eigenMatrixXToCArray(filterOutput.filterState.state, filterBuf.state);
-    eigenMatrixXToCArray(filterOutput.filterState.covariance, filterBuf.covar);
+    eigenMatrixXToCArray(filterOutput.filterState.state.cast<double>().eval(), filterBuf.state);
+    eigenMatrixXToCArray(filterOutput.filterState.covariance.cast<double>().eval(), filterBuf.covar);
 
     if (filterOutput.stAttResiduals.valid) {
         stResBuf.timeTag = timeTag;
         stResBuf.valid = true;
         stResBuf.numberOfObservations = 1;
         stResBuf.sizeOfObservations = 3;
-        eigenMatrixXToCArray(filterOutput.stAttResiduals.observation, stResBuf.observation);
-        eigenMatrixXToCArray(filterOutput.stAttResiduals.preFit, stResBuf.preFits);
-        eigenMatrixXToCArray(filterOutput.stAttResiduals.postFit, stResBuf.postFits);
+        eigenMatrixXToCArray(filterOutput.stAttResiduals.observation.cast<double>().eval(), stResBuf.observation);
+        eigenMatrixXToCArray(filterOutput.stAttResiduals.preFit.cast<double>().eval(), stResBuf.preFits);
+        eigenMatrixXToCArray(filterOutput.stAttResiduals.postFit.cast<double>().eval(), stResBuf.postFits);
     }
     if (filterOutput.rateResiduals.valid) {
         rateResBuf.timeTag = timeTag;
         rateResBuf.valid = true;
         rateResBuf.numberOfObservations = 1;
         rateResBuf.sizeOfObservations = 3;
-        eigenMatrixXToCArray(filterOutput.rateResiduals.observation, rateResBuf.observation);
-        eigenMatrixXToCArray(filterOutput.rateResiduals.preFit, rateResBuf.preFits);
-        eigenMatrixXToCArray(filterOutput.rateResiduals.postFit, rateResBuf.postFits);
+        eigenMatrixXToCArray(filterOutput.rateResiduals.observation.cast<double>().eval(), rateResBuf.observation);
+        eigenMatrixXToCArray(filterOutput.rateResiduals.preFit.cast<double>().eval(), rateResBuf.preFits);
+        eigenMatrixXToCArray(filterOutput.rateResiduals.postFit.cast<double>().eval(), rateResBuf.postFits);
     }
 
     this->navAttOutMsg.write(navAttBuf, this->moduleID, currentSimNanos);

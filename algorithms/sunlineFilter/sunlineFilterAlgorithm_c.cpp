@@ -39,38 +39,38 @@ SunlineFilterConfig configFromC(const double alpha,
     StateMatrix initialCovariance;
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            processNoise(i, j) = processNoiseC.data[(i * SUNLINE_FILTER_NUM_STATES) + j];
-            initialCovariance(i, j) = initialCovarianceC.data[(i * SUNLINE_FILTER_NUM_STATES) + j];
+            processNoise(i, j) = static_cast<float>(processNoiseC.data[(i * SUNLINE_FILTER_NUM_STATES) + j]);
+            initialCovariance(i, j) = static_cast<float>(initialCovarianceC.data[(i * SUNLINE_FILTER_NUM_STATES) + j]);
         }
     }
 
-    Eigen::Vector<double, N> stateSeed;
+    Eigen::Vector<float, N> stateSeed;
     for (int i = 0; i < N; ++i) {
-        stateSeed(i) = initialStateC.data[i];
+        stateSeed(i) = static_cast<float>(initialStateC.data[i]);
     }
 
-    Eigen::Matrix<double, MaxCss, 3> cssNHat;
-    Eigen::Vector<double, MaxCss> cssScaleFactor;
+    Eigen::Matrix<float, MaxCss, 3> cssNHat;
+    Eigen::Vector<float, MaxCss> cssScaleFactor;
     for (int i = 0; i < MaxCss; ++i) {
-        cssScaleFactor(i) = cssScaleFactorC.data[i];
+        cssScaleFactor(i) = static_cast<float>(cssScaleFactorC.data[i]);
         for (int j = 0; j < 3; ++j) {
-            cssNHat(i, j) = cssNHatC.data[(i * 3U) + j];
+            cssNHat(i, j) = static_cast<float>(cssNHatC.data[(i * 3U) + j]);
         }
     }
 
-    return SunlineFilterConfig::create(alpha,
-                                       beta,
+    return SunlineFilterConfig::create(static_cast<float>(alpha),
+                                       static_cast<float>(beta),
                                        processNoise,
                                        SunlineState{stateSeed},
                                        initialCovariance,
-                                       biasLowerBound,
-                                       biasUpperBound,
+                                       static_cast<float>(biasLowerBound),
+                                       static_cast<float>(biasUpperBound),
                                        cssNHat,
                                        cssScaleFactor,
                                        numberOfCss,
-                                       sensorThreshold,
-                                       cssMeasurementNoiseStd,
-                                       gyroMeasurementNoiseStd);
+                                       static_cast<float>(sensorThreshold),
+                                       static_cast<float>(cssMeasurementNoiseStd),
+                                       static_cast<float>(gyroMeasurementNoiseStd));
 }
 
 SunlineFilterStateOutput_c filterStateToC(const FilterStateOutput& in) {
@@ -225,12 +225,13 @@ SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle
     CssData cssDataCpp{};
     cssDataCpp.timeTag = cssData->timeTag;
     for (int i = 0; i < MaxCss; ++i) {
-        cssDataCpp.cosValues(i) = cssData->cosValues[i];
+        cssDataCpp.cosValues(i) = static_cast<float>(cssData->cosValues[i]);
     }
 
     RateData rateDataCpp{};
     rateDataCpp.timeTag = rateData->timeTag;
-    rateDataCpp.rate << rateData->rate[0], rateData->rate[1], rateData->rate[2];
+    rateDataCpp.rate << static_cast<float>(rateData->rate[0]), static_cast<float>(rateData->rate[1]),
+        static_cast<float>(rateData->rate[2]);
 
     const SunlineFilterOutput out =
         fsw::fromHandle<::SunlineFilterAlgorithm>(self)->update(currentSeconds, cssDataCpp, rateDataCpp);

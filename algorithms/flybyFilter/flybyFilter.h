@@ -21,6 +21,9 @@
  *  two-phase initialization lifecycle. */
 class FlybyFilter : public SysModel {
    public:
+    using StateMatrix = filtering::flybyFilter::StateMatrix;  //!< N x N filter matrix, N the filter state size
+    using StateColumn = filtering::flybyFilter::StateColumn;  //!< N-element filter column
+
     FlybyFilter();
     ~FlybyFilter() override;
 
@@ -31,14 +34,14 @@ class FlybyFilter : public SysModel {
     void reInitialize();
 
     // ---- Configuration (public, SI units; set by the host before reset()) ----
-    double alpha = 0.0;                       //!< [-]       sigma-point spread tunable
-    double beta = 0.0;                        //!< [-]       prior-knowledge tunable
-    double mu = 0.0;                          //!< [m^3/s^2] central-body gravitational parameter (SI)
-    double unitConversion = 1E-3;             //!< [-]       SI -> internal length scale (1e-3 = m -> km)
-    double headingMeasurementNoiseStd = 0.0;  //!< [-]       heading (unit-vector) measurement noise std
-    Eigen::MatrixXd processNoise;             //!< [(m/s^2)^2] N x N process noise covariance Q (SI)
-    Eigen::VectorXd initialState;             //!< [m, m/s]  N-element initial state seed (SI)
-    Eigen::MatrixXd initialCovariance;        //!< [m^2, (m/s)^2] N x N initial covariance P0 (SI)
+    float alpha = 0.0F;                       //!< [-]       sigma-point spread tunable
+    float beta = 0.0F;                        //!< [-]       prior-knowledge tunable
+    float mu = 0.0F;                          //!< [m^3/s^2] central-body gravitational parameter (SI)
+    float unitConversion = 1E-3F;             //!< [-]       SI -> internal length scale (1e-3 = m -> km)
+    float headingMeasurementNoiseStd = 0.0F;  //!< [-]       heading (unit-vector) measurement noise std
+    StateMatrix processNoise;                 //!< [(m/s^2)^2] N x N process noise covariance Q (SI)
+    StateColumn initialState;                 //!< [m, m/s]  N-element initial state seed (SI)
+    StateMatrix initialCovariance;            //!< [m^2, (m/s)^2] N x N initial covariance P0 (SI)
 
     // ---- Message ports ----
     ReadFunctor<OpNavUnitVecMsgF32Payload> opNavHeadingMsg;  //!< optical-nav heading input (required)

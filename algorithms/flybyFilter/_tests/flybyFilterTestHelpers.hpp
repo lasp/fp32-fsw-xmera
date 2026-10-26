@@ -19,21 +19,26 @@
 #include <gtest/gtest.h>
 #include <Eigen/Dense>
 #include <cmath>
+#include <limits>
 #include <optional>
 
 namespace filtering::flybyFilter {
 
 using TestState = FlybyFilterAlgorithm::State;
-using Vector6 = Eigen::Matrix<double, 6, 1>;
-using Matrix6 = Eigen::Matrix<double, 6, 6>;
+using Vector6 = Eigen::Matrix<float, 6, 1>;
+using Matrix6 = Eigen::Matrix<float, 6, 6>;
+
+// Bound for comparing two float computations of the same quantity: a few operations of roundoff
+// with the 3-10x margin of docs/PRECISION_GUIDELINES.md (10 * epsilon ~ 1.2e-6).
+inline constexpr float kRoundoffTol = 10.0F * std::numeric_limits<float>::epsilon();
 
 // Mars gravitational parameter in internal units (km^3/s^2).
-inline constexpr double kMu = 42828.314;
-inline constexpr double kAlpha = 0.02;
-inline constexpr double kBeta = 2.0;
-inline constexpr double kHeadingStd = 1E-4;
+inline constexpr float kMu = 42828.314;
+inline constexpr float kAlpha = 0.02;
+inline constexpr float kBeta = 2.0;
+inline constexpr float kHeadingStd = 1E-4;
 
-inline TestState makeState(Eigen::Vector3d const& r, Eigen::Vector3d const& v) {
+inline TestState makeState(Eigen::Vector3f const& r, Eigen::Vector3f const& v) {
     TestState s;
     s.set<filtering::Position<3>>(r);
     s.set<filtering::Velocity<3>>(v);
@@ -41,7 +46,7 @@ inline TestState makeState(Eigen::Vector3d const& r, Eigen::Vector3d const& v) {
 }
 
 //! Build a diagonal covariance from position and velocity standard deviations (not variances).
-inline Matrix6 diagCovariance(double posStd, double velStd) {
+inline Matrix6 diagCovariance(float posStd, float velStd) {
     Vector6 d;
     d << posStd * posStd, posStd * posStd, posStd * posStd, velStd * velStd, velStd * velStd, velStd * velStd;
     return d.asDiagonal();
@@ -49,8 +54,8 @@ inline Matrix6 diagCovariance(double posStd, double velStd) {
 
 inline Matrix6 smallProcessNoise() { return Matrix6::Identity() * 1E-12; }
 
-inline Eigen::Vector3d headingOf(TestState const& s) {
-    Eigen::Vector3d const r = s.get<filtering::Position<3>>();
+inline Eigen::Vector3f headingOf(TestState const& s) {
+    Eigen::Vector3f const r = s.get<filtering::Position<3>>();
     return r / r.stableNorm();
 }
 
@@ -67,29 +72,29 @@ inline FlybyFilterConfig configWithProcessNoise(TestState const& initial,
     return FlybyFilterConfig::create(kAlpha, kBeta, kMu, processNoise, initial, P, kHeadingStd);
 }
 
-inline FlybyFilterConfig configWithHeadingStd(TestState const& initial, Matrix6 const& P, double headingStd) {
+inline FlybyFilterConfig configWithHeadingStd(TestState const& initial, Matrix6 const& P, float headingStd) {
     return FlybyFilterConfig::create(kAlpha, kBeta, kMu, smallProcessNoise(), initial, P, headingStd);
 }
 
 //! Pack a heading observation with the noise covariance the filter would build from `headingStd`.
-inline HeadingMeasurement makeHeadingMeasurement(double timeTag, Eigen::Vector3d const& rhat, double headingStd) {
+inline HeadingMeasurement makeHeadingMeasurement(double timeTag, Eigen::Vector3f const& rhat, float headingStd) {
     HeadingMeasurement m;
     m.timeTag = timeTag;
     m.rhat_BN_N = rhat;
-    m.covar = (headingStd * headingStd) * Eigen::Matrix3d::Identity();
+    m.covar = (headingStd * headingStd) * Eigen::Matrix3f::Identity();
     m.valid = true;
     return m;
 }
 
 // A complete set of valid Config inputs; individual tests override one field.
 struct ConfigInputs {
-    double alpha = kAlpha;
-    double beta = kBeta;
-    double mu = kMu;
+    float alpha = kAlpha;
+    float beta = kBeta;
+    float mu = kMu;
     Matrix6 processNoise = smallProcessNoise();
     TestState initialState = nominalTruth();
     Matrix6 initialCovariance = diagCovariance(100.0, 0.1);
-    double headingStd = kHeadingStd;
+    float headingStd = kHeadingStd;
 };
 
 inline FlybyFilterConfig buildConfig(ConfigInputs const& in) {
@@ -99,12 +104,12 @@ inline FlybyFilterConfig buildConfig(ConfigInputs const& in) {
 
 //! Turn arbitrary fuzz inputs into a guaranteed-valid config, or nullopt when they cannot make one.
 //! Keeps |r| away from zero so the two-body dynamics and the heading model stay well conditioned.
-inline std::optional<FlybyFilterConfig> tryFuzzConfig(Eigen::Vector3d const& rOffset,
-                                                      Eigen::Vector3d const& vOffset,
-                                                      double mu,
+inline std::optional<FlybyFilterConfig> tryFuzzConfig(Eigen::Vector3f const& rOffset,
+                                                      Eigen::Vector3f const& vOffset,
+                                                      float mu,
                                                       Vector6 const& covDiagRaw,
-                                                      double q,
-                                                      double headingStd) {
+                                                      float q,
+                                                      float headingStd) {
     if (!rOffset.allFinite() || !vOffset.allFinite() || !covDiagRaw.allFinite() || !std::isfinite(mu) ||
         !std::isfinite(q) || !std::isfinite(headingStd) || mu <= 0.0 || q < 0.0 || headingStd < 0.0) {
         return std::nullopt;
@@ -121,20 +126,20 @@ inline std::optional<FlybyFilterConfig> tryFuzzConfig(Eigen::Vector3d const& rOf
 }
 
 inline bool finiteSymmetricPsd(Matrix6 const& P) {
-    return P.allFinite() && P.isApprox(P.transpose(), 1E-8) && isPositiveSemiDefinite<6>(P);
+    return P.allFinite() && P.isApprox(P.transpose(), 1E-5) && isPositiveSemiDefinite<6>(P);
 }
 
 // ---- Property helpers: one filter invariant each, shared by the fixed-input and fuzzed suites. ----
 
 //! For any valid config and finite, bounded inputs, one update() leaves the estimate physically
 //! meaningful: state and covariance finite, covariance symmetric and positive semi-definite.
-inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3d const& rOffset,
-                                                    Eigen::Vector3d const& vOffset,
-                                                    double mu,
+inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3f const& rOffset,
+                                                    Eigen::Vector3f const& vOffset,
+                                                    float mu,
                                                     Vector6 const& covDiagRaw,
-                                                    double q,
-                                                    Eigen::Vector3d const& rhatRaw,
-                                                    double dt) {
+                                                    float q,
+                                                    Eigen::Vector3f const& rhatRaw,
+                                                    float dt) {
     std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, q, kHeadingStd);
     if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3 || !std::isfinite(dt) || dt < 0.0) {
         return;
@@ -154,13 +159,13 @@ inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3d const& rOffs
 
 //! A bad measurement can never corrupt the estimate: with a non-finite heading the SRuKF skips the
 //! update (its finite-input guard), so the state stays finite and the covariance stays PSD.
-inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3d const& rOffset,
-                                                       Eigen::Vector3d const& vOffset,
-                                                       double mu,
+inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3f const& rOffset,
+                                                       Eigen::Vector3f const& vOffset,
+                                                       float mu,
                                                        Vector6 const& covDiagRaw,
-                                                       double q,
-                                                       Eigen::Vector3d const& rhat,
-                                                       double dt) {
+                                                       float q,
+                                                       Eigen::Vector3f const& rhat,
+                                                       float dt) {
     std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, q, kHeadingStd);
     if (!cfg || !std::isfinite(dt) || dt < 0.0) {
         return;
@@ -179,26 +184,26 @@ inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3d const& rO
 //! Folding in a measurement never increases the total uncertainty: with no time propagation between
 //! them (timeUpdate(0) adds no process noise), the covariance trace after a heading measurementUpdate
 //! is no larger than before. This is the defining information-gain property of a Kalman-family update.
-inline void propertyMeasurementDoesNotIncreaseCovariance(Eigen::Vector3d const& rOffset,
-                                                         Eigen::Vector3d const& vOffset,
-                                                         double mu,
+inline void propertyMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f const& rOffset,
+                                                         Eigen::Vector3f const& vOffset,
+                                                         float mu,
                                                          Vector6 const& covDiagRaw,
-                                                         Eigen::Vector3d const& rhatRaw) {
+                                                         Eigen::Vector3f const& rhatRaw) {
     std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, 0.0, kHeadingStd);
     if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3) {
         return;
     }
     FlybyFilterAlgorithm algo(*cfg);
 
-    double const traceBefore = algo.getCovariance().trace();
+    float const traceBefore = algo.getCovariance().trace();
     if (!algo.timeUpdate(0.0)) {
         return;
     }
     if (!algo.measurementUpdate(makeHeadingMeasurement(0.0, rhatRaw.stableNormalized(), kHeadingStd))) {
         return;
     }
-    double const traceAfter = algo.getCovariance().trace();
-    EXPECT_LE(traceAfter, traceBefore + 1E-9 * (1.0 + traceBefore));
+    float const traceAfter = algo.getCovariance().trace();
+    EXPECT_LE(traceAfter, traceBefore + 1E-5 * (1.0 + traceBefore));
 }
 
 }  // namespace filtering::flybyFilter

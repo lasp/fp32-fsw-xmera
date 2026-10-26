@@ -19,6 +19,9 @@
  *  messages into the algorithm's input types, run update(), and write the output data to messages. */
 class InertialFilter : public SysModel {
    public:
+    using StateMatrix = filtering::inertialFilter::StateMatrix;  //!< N x N filter matrix, N the filter state size
+    using StateColumn = filtering::inertialFilter::StateColumn;  //!< N-element filter column
+
     InertialFilter();
     ~InertialFilter() override;
 
@@ -28,14 +31,14 @@ class InertialFilter : public SysModel {
     void reInitialize();
 
     // Public config properties -- set before reset(). The matrix/vector
-    // properties are sized to their defaults (zero / identity) in the constructor.
-    double alpha = 0.0;                    //!< [-] sigma-point spread tunable
-    double beta = 0.0;                     //!< [-] prior-knowledge tunable
-    Eigen::MatrixXd processNoise;          //!< [-] N x N process noise Q (defaults to zero)
-    Eigen::VectorXd initialState;          //!< [-] N-element initial state seed (defaults to zero)
-    Eigen::MatrixXd initialCovariance;     //!< [-] N x N initial covariance P0 (defaults to identity)
-    double stMeasurementNoiseStd = 0.0;    //!< [-] star-tracker attitude measurement noise std (>= 0)
-    double rateMeasurementNoiseStd = 0.0;  //!< [rad/s] rate measurement noise std (>= 0)
+    // properties have the filter's fixed size and default to zero / identity.
+    float alpha = 0.0F;                    //!< [-] sigma-point spread tunable
+    float beta = 0.0F;                     //!< [-] prior-knowledge tunable
+    StateMatrix processNoise;              //!< [-] N x N process noise Q (defaults to zero)
+    StateColumn initialState;              //!< [-] N-element initial state seed (defaults to zero)
+    StateMatrix initialCovariance;         //!< [-] N x N initial covariance P0 (defaults to identity)
+    float stMeasurementNoiseStd = 0.0F;    //!< [-] star-tracker attitude measurement noise std (>= 0)
+    float rateMeasurementNoiseStd = 0.0F;  //!< [rad/s] rate measurement noise std (>= 0)
 
     ReadFunctor<STAttMsgF32Payload> stAttInMsg;  //!< star-tracker attitude and rate input (required)
 

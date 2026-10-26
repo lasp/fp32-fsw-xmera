@@ -176,6 +176,7 @@ def state_propagation_flyby(show_plots=False):
     np.testing.assert_allclose(state_data_log[:, 1:],
                                expected[:, 1:],
                                rtol=1E-8,
+                               atol=3E-5,
                                err_msg='state propagation error',
                                verbose=True)
     diff = np.copy(state_data_log)
@@ -516,6 +517,23 @@ def state_update_outlier_recovery(show_plots=False):
     np.testing.assert_array_less(np.trace(covariance_data_log[-1, 1:num_states ** 2 + 1].reshape([num_states] * 2)),
                                  0.01 * np.trace(covar_all[0, 1:num_states ** 2 + 1].reshape([num_states] * 2)),
                                  err_msg='covariance not low at the last step', verbose=True)
+
+
+def test_properties_have_the_filter_size():
+    """The matrix and vector properties have the filter's fixed size: a list of the wrong size is rejected."""
+    module = sunlineFilterF32.SunlineFilter()
+    n = 7
+    np.testing.assert_array_equal(np.array(module.initialState).reshape(n), np.zeros(n))
+    np.testing.assert_array_equal(module.initialCovariance, np.eye(n))
+    np.testing.assert_array_equal(module.processNoise, np.zeros((n, n)))
+    wrong_sizes = {
+        "initialState": [0.0] * (n + 1),
+        "initialCovariance": np.eye(n - 1).tolist(),
+        "processNoise": np.eye(n + 1).tolist(),
+    }
+    for name, value in wrong_sizes.items():
+        with pytest.raises(ValueError):
+            setattr(module, name, value)
 
 
 if __name__ == "__main__":

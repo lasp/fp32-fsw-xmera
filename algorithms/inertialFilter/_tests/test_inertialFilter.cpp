@@ -28,38 +28,43 @@
 #include <random>
 
 namespace filtering::inertialFilter {
+
+// Bound for comparing two float computations of the same quantity: a few operations of roundoff
+// with the 3-10x margin of docs/PRECISION_GUIDELINES.md (10 * epsilon ~ 1.2e-6).
+inline constexpr float kRoundoffTol = 10.0F * std::numeric_limits<float>::epsilon();
+
 namespace {
 
 using State = InertialFilterAlgorithm::State;
-using Vector6 = Eigen::Matrix<double, 6, 1>;
-using Matrix6 = Eigen::Matrix<double, 6, 6>;
+using Vector6 = Eigen::Matrix<float, 6, 1>;
+using Matrix6 = Eigen::Matrix<float, 6, 6>;
 using SRuKF = ::filtering::SRuKF<InertialState, InertialDynamics>;
 
-constexpr double kAlpha = 0.02;
-constexpr double kBeta = 2.0;
-constexpr double kStMeasStd = 1E-3;
-constexpr double kRateMeasStd = 1E-3;
+constexpr float kAlpha = 0.02;
+constexpr float kBeta = 2.0;
+constexpr float kStMeasStd = 1E-3;
+constexpr float kRateMeasStd = 1E-3;
 
-State makeState(Eigen::Vector3d const& sigma, Eigen::Vector3d const& omega) {
+State makeState(Eigen::Vector3f const& sigma, Eigen::Vector3f const& omega) {
     State s;
     s.set<filtering::MrpAttitude<3>>(sigma);
     s.set<filtering::AngularRate<3>>(omega);
     return s;
 }
 
-Matrix6 diagCovariance(double attStd, double rateStd) {
+Matrix6 diagCovariance(float attStd, float rateStd) {
     Vector6 d;
     d << attStd * attStd, attStd * attStd, attStd * attStd, rateStd * rateStd, rateStd * rateStd, rateStd * rateStd;
     return d.asDiagonal();
 }
 
 Matrix6 smallProcessNoise() {
-    double const q = 1E-10;
+    float const q = 1E-10;
     return Matrix6::Identity() * q;
 }
 
-double attitudeTrace(Matrix6 const& P) { return P(0, 0) + P(1, 1) + P(2, 2); }
-double rateTrace(Matrix6 const& P) { return P(3, 3) + P(4, 4) + P(5, 5); }
+float attitudeTrace(Matrix6 const& P) { return P(0, 0) + P(1, 1) + P(2, 2); }
+float rateTrace(Matrix6 const& P) { return P(3, 3) + P(4, 4) + P(5, 5); }
 
 // Validated config for the dynamics / timeUpdate / measurement tests.
 InertialFilterConfig baseConfig(State const& initial, Matrix6 const& P) {
@@ -72,20 +77,20 @@ InertialFilterConfig configWithProcessNoise(State const& initial, Matrix6 const&
 }
 
 // baseConfig with explicit measurement-noise standard deviations.
-InertialFilterConfig configWithNoiseStds(State const& initial, Matrix6 const& P, double stStd, double rateStd) {
+InertialFilterConfig configWithNoiseStds(State const& initial, Matrix6 const& P, float stStd, float rateStd) {
     return InertialFilterConfig::create(kAlpha, kBeta, smallProcessNoise(), initial, P, stStd, rateStd);
 }
 
 // A complete set of valid Config inputs; individual tests override one field to
 // drive a specific validation branch.
 struct ConfigInputs {
-    double alpha = kAlpha;
-    double beta = kBeta;
+    float alpha = kAlpha;
+    float beta = kBeta;
     Matrix6 processNoise = smallProcessNoise();
-    State initialState = makeState(Eigen::Vector3d(0.0, 0.0, 0.05), Eigen::Vector3d::Zero());
+    State initialState = makeState(Eigen::Vector3f(0.0, 0.0, 0.05), Eigen::Vector3f::Zero());
     Matrix6 initialCovariance = diagCovariance(1E-2, 1E-3);
-    double stMeasStd = kStMeasStd;
-    double rateStd = kRateMeasStd;
+    float stMeasStd = kStMeasStd;
+    float rateStd = kRateMeasStd;
 };
 
 InertialFilterConfig buildConfig(ConfigInputs const& in) {
@@ -118,12 +123,12 @@ TEST(InertialFilterConfig, RejectsNonPositiveSemiDefiniteCovariance) {
 TEST(InertialFilterConfig, RejectsNonFiniteInitialState) {
     ConfigInputs in;
     in.initialState =
-        makeState(Eigen::Vector3d(std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0), Eigen::Vector3d::Zero());
+        makeState(Eigen::Vector3f(std::numeric_limits<float>::quiet_NaN(), 0.0, 0.0), Eigen::Vector3f::Zero());
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
 }
 
 TEST(InertialFilterConfig, RejectsAlphaOutsideHalfOpenUnitInterval) {
-    for (double bad : {0.0, -0.1, 1.5}) {  // (0, 1]: zero and anything above one are rejected
+    for (float bad : {0.0, -0.1, 1.5}) {  // (0, 1]: zero and anything above one are rejected
         ConfigInputs in;
         in.alpha = bad;
         EXPECT_THROW(buildConfig(in), fsw::invalid_argument) << "alpha=" << bad;
@@ -136,7 +141,7 @@ TEST(InertialFilterConfig, RejectsAlphaOutsideHalfOpenUnitInterval) {
 }
 
 TEST(InertialFilterConfig, RejectsBetaOutsideRange) {
-    for (double bad : {-0.1, 2.5}) {  // [0, 2] closed interval
+    for (float bad : {-0.1, 2.5}) {  // [0, 2] closed interval
         ConfigInputs in;
         in.beta = bad;
         EXPECT_THROW(buildConfig(in), fsw::invalid_argument) << "beta=" << bad;
@@ -185,13 +190,13 @@ TEST(InertialFilterConfig, GettersRoundTrip) {
     ConfigInputs in;
     in.processNoise = Matrix6::Identity() * 3E-4;
     in.initialCovariance = diagCovariance(2E-2, 4E-3);
-    in.initialState = makeState(Eigen::Vector3d(0.1, -0.2, 0.15), Eigen::Vector3d(0.01, -0.02, 0.03));
+    in.initialState = makeState(Eigen::Vector3f(0.1, -0.2, 0.15), Eigen::Vector3f(0.01, -0.02, 0.03));
     InertialFilterConfig const cfg = buildConfig(in);
 
-    EXPECT_DOUBLE_EQ(cfg.getAlpha(), kAlpha);
-    EXPECT_DOUBLE_EQ(cfg.getBeta(), kBeta);
-    EXPECT_DOUBLE_EQ(cfg.getStMeasurementNoiseStd(), kStMeasStd);
-    EXPECT_DOUBLE_EQ(cfg.getRateMeasurementNoiseStd(), kRateMeasStd);
+    EXPECT_FLOAT_EQ(cfg.getAlpha(), kAlpha);
+    EXPECT_FLOAT_EQ(cfg.getBeta(), kBeta);
+    EXPECT_FLOAT_EQ(cfg.getStMeasurementNoiseStd(), kStMeasStd);
+    EXPECT_FLOAT_EQ(cfg.getRateMeasurementNoiseStd(), kRateMeasStd);
     EXPECT_TRUE(cfg.getProcessNoise().isApprox(in.processNoise, 1E-12));
     EXPECT_TRUE(cfg.getInitialCovariance().isApprox(in.initialCovariance, 1E-12));
     EXPECT_TRUE(cfg.getInitialState().raw().isApprox(in.initialState.raw(), 1E-12));
@@ -200,7 +205,7 @@ TEST(InertialFilterConfig, GettersRoundTrip) {
 // ---- Lifecycle: construction seeds the filter; reInitializeExceptPersistentStates / reInitialize / setConfig. ----
 
 TEST(InertialFilterAlgorithmLifecycle, ConstructorSeedsStateAndCovarianceFromConfig) {
-    State const initial = makeState(Eigen::Vector3d(0.1, -0.2, 0.15), Eigen::Vector3d(0.01, 0.0, -0.02));
+    State const initial = makeState(Eigen::Vector3f(0.1, -0.2, 0.15), Eigen::Vector3f(0.01, 0.0, -0.02));
     Matrix6 const P0 = diagCovariance(1E-2, 1E-3);
     InertialFilterAlgorithm algo(baseConfig(initial, P0));
 
@@ -210,17 +215,17 @@ TEST(InertialFilterAlgorithmLifecycle, ConstructorSeedsStateAndCovarianceFromCon
 
 TEST(InertialFilterAlgorithmLifecycle, ReInitializeExceptPersistentStatesPreservesEstimateReInitializeResetsIt) {
     InertialFilterAlgorithm algo(
-        baseConfig(makeState(Eigen::Vector3d(0, 0, 0.05), Eigen::Vector3d(0.01, 0, 0)), diagCovariance(1E-2, 1E-2)));
+        baseConfig(makeState(Eigen::Vector3f(0, 0, 0.05), Eigen::Vector3f(0.01, 0, 0)), diagCovariance(1E-2, 1E-2)));
 
     State const initialState = algo.getState();
     Matrix6 const initialCovariance = algo.getCovariance();
 
     StAttData stAtt;
     stAtt.timeTag = 1.0;
-    stAtt.sigma_BN = Eigen::Vector3d(0.001, 0.0, 0.05);
+    stAtt.sigma_BN = Eigen::Vector3f(0.001, 0.0, 0.05);
     RateData rate;
     rate.timeTag = 1.0;
-    rate.rate = Eigen::Vector3d(0.01, 0.0, 0.0);
+    rate.rate = Eigen::Vector3f(0.01, 0.0, 0.0);
     algo.update(2.0, stAtt, rate);
 
     State const movedState = algo.getState();
@@ -242,11 +247,11 @@ TEST(InertialFilterAlgorithmLifecycle, ReInitializeExceptPersistentStatesPreserv
 }
 
 TEST(InertialFilterAlgorithmLifecycle, ReInitializeRestoresSeedAfterConvergence) {
-    State const initial = makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero());
+    State const initial = makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
     Matrix6 const P0 = diagCovariance(1E-1, 1E-2);
     InertialFilterAlgorithm algo(baseConfig(initial, P0));
 
-    Eigen::Vector3d const truth(0.1, -0.2, 0.15);
+    Eigen::Vector3f const truth(0.1, -0.2, 0.15);
     for (int i = 1; i <= 50; ++i) {
         StAttData st;
         st.timeTag = i * 0.5;
@@ -262,11 +267,11 @@ TEST(InertialFilterAlgorithmLifecycle, ReInitializeRestoresSeedAfterConvergence)
 
 // A filter reconfigured to a larger process noise must behave like one constructed with it.
 TEST(InertialFilterAlgorithmLifecycle, SetConfigReDerivesProcessNoise) {
-    State const initial = makeState(Eigen::Vector3d(0, 0, 0.05), Eigen::Vector3d::Zero());
+    State const initial = makeState(Eigen::Vector3f(0, 0, 0.05), Eigen::Vector3f::Zero());
     Matrix6 const P0 = diagCovariance(1E-2, 1E-2);
     Matrix6 const smallQ = Matrix6::Identity() * 1E-12;
     Matrix6 const largeQ = Matrix6::Identity() * 1E-2;
-    constexpr double dt = 1.0;
+    constexpr float dt = 1.0;
 
     InertialFilterAlgorithm reference(configWithProcessNoise(initial, P0, largeQ));
     EXPECT_TRUE(reference.timeUpdate(dt));
@@ -286,30 +291,30 @@ TEST(InertialFilterAlgorithmLifecycle, SetConfigReDerivesProcessNoise) {
 // ============================================================================
 
 TEST(SrukfDetail, ForwardSubstitutionSolvesLowerTriangular) {
-    Eigen::Matrix3d L;
+    Eigen::Matrix3f L;
     L << 2.0, 0.0, 0.0, 1.0, 3.0, 0.0, 0.5, 1.0, 4.0;
-    Eigen::Vector3d const xTruth(1.0, 2.0, 3.0);
-    Eigen::Matrix<double, 3, 1> const b = L * xTruth;
+    Eigen::Vector3f const xTruth(1.0, 2.0, 3.0);
+    Eigen::Matrix<float, 3, 1> const b = L * xTruth;
 
-    Eigen::Matrix<double, 3, 1> const x = SRuKF::forwardSubstitution<3, 1>(L, b);
-    EXPECT_TRUE(x.col(0).isApprox(xTruth, 1E-12));
+    Eigen::Matrix<float, 3, 1> const x = SRuKF::forwardSubstitution<3, 1>(L, b);
+    EXPECT_TRUE(x.col(0).isApprox(xTruth, kRoundoffTol));
 }
 
 TEST(SrukfDetail, BackSubstitutionSolvesUpperTriangular) {
-    Eigen::Matrix3d U;
+    Eigen::Matrix3f U;
     U << 2.0, 1.0, 0.5, 0.0, 3.0, 1.0, 0.0, 0.0, 4.0;
-    Eigen::Vector3d const xTruth(1.0, 2.0, 3.0);
-    Eigen::Matrix<double, 3, 1> const b = U * xTruth;
+    Eigen::Vector3f const xTruth(1.0, 2.0, 3.0);
+    Eigen::Matrix<float, 3, 1> const b = U * xTruth;
 
-    Eigen::Matrix<double, 3, 1> const x = SRuKF::backSubstitution<3, 1>(U, b);
-    EXPECT_TRUE(x.col(0).isApprox(xTruth, 1E-12));
+    Eigen::Matrix<float, 3, 1> const x = SRuKF::backSubstitution<3, 1>(U, b);
+    EXPECT_TRUE(x.col(0).isApprox(xTruth, kRoundoffTol));
 }
 
 TEST(SrukfDetail, CholeskyDecompositionReconstructsP) {
-    Eigen::Matrix3d P;
+    Eigen::Matrix3f P;
     P << 4.0, 2.0, 0.5, 2.0, 5.0, 1.0, 0.5, 1.0, 6.0;
-    Eigen::Matrix3d const L = SRuKF::choleskyDecomposition<3>(P);
-    EXPECT_TRUE((L * L.transpose()).isApprox(P, 1E-10));
+    Eigen::Matrix3f const L = SRuKF::choleskyDecomposition<3>(P);
+    EXPECT_TRUE((L * L.transpose()).isApprox(P, kRoundoffTol));
 
     // Returned factor should be lower-triangular.
     for (int i = 0; i < L.rows(); ++i) {
@@ -323,39 +328,39 @@ TEST(SrukfDetail, CholeskyDecompositionReconstructsP) {
 // square N×N factor such that R * R^T == A * A^T. The function transposes its
 // internal R, so the returned matrix is lower-triangular.
 TEST(SrukfDetail, QrDecompositionJustRPreservesNormalEquations) {
-    Eigen::Matrix<double, 3, 9> A;
+    Eigen::Matrix<float, 3, 9> A;
     A << 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 2.0, -1.0, 0.0, 1.0,
         2.0, 3.0, 4.0, 5.0, 6.0;
 
-    Eigen::Matrix3d const R = SRuKF::qrDecompositionJustR<3, 9>(A);
+    Eigen::Matrix3f const R = SRuKF::qrDecompositionJustR<3, 9>(A);
 
     for (int i = 0; i < R.rows(); ++i) {
         for (int j = i + 1; j < R.cols(); ++j) {
             EXPECT_NEAR(R(i, j), 0.0, 1E-10) << "(" << i << "," << j << ")";
         }
     }
-    EXPECT_TRUE((R * R.transpose()).isApprox(A * A.transpose(), 1E-9));
+    EXPECT_TRUE((R * R.transpose()).isApprox(A * A.transpose(), kRoundoffTol));
 }
 
 TEST(SrukfDetail, CholeskyUpDownDateMatchesExplicitUpdate) {
-    Eigen::Matrix3d P0;
+    Eigen::Matrix3f P0;
     P0 << 4.0, 1.0, 0.0, 1.0, 3.0, 0.5, 0.0, 0.5, 2.0;
-    Eigen::Matrix3d const S0 = SRuKF::choleskyDecomposition<3>(P0);
+    Eigen::Matrix3f const S0 = SRuKF::choleskyDecomposition<3>(P0);
 
-    Eigen::Vector3d const v(0.1, -0.2, 0.3);
+    Eigen::Vector3f const v(0.1, -0.2, 0.3);
 
     // Up-date with +coef and down-date with -coef must reconstruct P0 ± coef v vᵀ.
     {
-        double const coef = 0.5;
-        Eigen::Matrix3d const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef);
-        Eigen::Matrix3d const P1 = P0 + coef * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, 1E-9));
+        float const coef = 0.5;
+        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
+        Eigen::Matrix3f const P1 = P0 + coef * v * v.transpose();
+        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
     }
     {
-        double const coef = -0.5;
-        Eigen::Matrix3d const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef);
-        Eigen::Matrix3d const P1 = P0 - 0.5 * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, 1E-9));
+        float const coef = -0.5;
+        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
+        Eigen::Matrix3f const P1 = P0 - 0.5 * v * v.transpose();
+        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
     }
 }
 
@@ -364,15 +369,15 @@ TEST(SrukfDetail, CholeskyUpDownDateMatchesExplicitUpdate) {
 // ============================================================================
 
 TEST(InertialFilterAlgorithmDynamics, DerivativeMatchesMrpKinematics) {
-    Eigen::Vector3d const sigma(0.1, -0.2, 0.05);
-    Eigen::Vector3d const omega(0.02, -0.005, 0.01);
+    Eigen::Vector3f const sigma(0.1, -0.2, 0.05);
+    Eigen::Vector3f const omega(0.02, -0.005, 0.01);
     State s = makeState(sigma, omega);
 
     State const dot = InertialDynamics{}(0.0, s);
 
-    Eigen::Vector3d const expectedSigmaDot = 0.25 * bmatMrp(sigma) * omega;
-    EXPECT_TRUE(dot.get<filtering::MrpAttitude<3>>().isApprox(expectedSigmaDot, 1E-12));
-    EXPECT_TRUE(dot.get<filtering::AngularRate<3>>().isApprox(Eigen::Vector3d::Zero(), 1E-12));
+    Eigen::Vector3f const expectedSigmaDot = 0.25 * bmatMrp(sigma) * omega;
+    EXPECT_TRUE(dot.get<filtering::MrpAttitude<3>>().isApprox(expectedSigmaDot, kRoundoffTol));
+    EXPECT_TRUE(dot.get<filtering::AngularRate<3>>().isApprox(Eigen::Vector3f::Zero(), 1E-12));
 }
 
 // ============================================================================
@@ -381,18 +386,18 @@ TEST(InertialFilterAlgorithmDynamics, DerivativeMatchesMrpKinematics) {
 
 // With omega = 0 the attitude must not move.
 TEST(InertialFilterAlgorithmTimeUpdate, ZeroRateLeavesAttitudeFixed) {
-    Eigen::Vector3d const sigma0(0.1, -0.2, 0.05);
-    InertialFilterAlgorithm algo(baseConfig(makeState(sigma0, Eigen::Vector3d::Zero()), diagCovariance(1E-2, 1E-3)));
+    Eigen::Vector3f const sigma0(0.1, -0.2, 0.05);
+    InertialFilterAlgorithm algo(baseConfig(makeState(sigma0, Eigen::Vector3f::Zero()), diagCovariance(1E-2, 1E-3)));
 
     EXPECT_TRUE(algo.timeUpdate(10.0));
-    Eigen::Vector3d const sigma = algo.getState().get<filtering::MrpAttitude<3>>();
+    Eigen::Vector3f const sigma = algo.getState().get<filtering::MrpAttitude<3>>();
     EXPECT_TRUE(sigma.isApprox(sigma0, 1E-9));
 }
 
 // dt == 0 short-circuit: the state must equal the anchor on return.
 TEST(InertialFilterAlgorithmTimeUpdate, ZeroDtCollapsesToAnchor) {
-    Eigen::Vector3d const sigma0(0.0, 0.0, 0.1);
-    Eigen::Vector3d const omega0(0.1, 0.0, 0.0);
+    Eigen::Vector3f const sigma0(0.0, 0.0, 0.1);
+    Eigen::Vector3f const omega0(0.1, 0.0, 0.0);
 
     InertialFilterAlgorithm algo(baseConfig(makeState(sigma0, omega0), diagCovariance(1E-2, 1E-3)));
 
@@ -407,12 +412,12 @@ TEST(InertialFilterAlgorithmTimeUpdate, ZeroDtCollapsesToAnchor) {
 // finiteness check passes. The step is effectively a no-op (the state is unchanged), which
 // is why timeUpdate cannot flag a NaN dt on its own.
 TEST(InertialFilterAlgorithmTimeUpdate, NaNDtReturnsTrueAndLeavesStateUnchanged) {
-    Eigen::Vector3d const sigma0(0.1, -0.2, 0.05);
-    Eigen::Vector3d const omega0(0.01, 0.0, -0.02);
+    Eigen::Vector3f const sigma0(0.1, -0.2, 0.05);
+    Eigen::Vector3f const omega0(0.01, 0.0, -0.02);
     InertialFilterAlgorithm algo(baseConfig(makeState(sigma0, omega0), diagCovariance(1E-2, 1E-3)));
     State const before = algo.getState();
 
-    EXPECT_TRUE(algo.timeUpdate(std::numeric_limits<double>::quiet_NaN()))
+    EXPECT_TRUE(algo.timeUpdate(std::numeric_limits<float>::quiet_NaN()))
         << "a NaN dt is a no-op (zero sub-steps), so timeUpdate stays valid";
     EXPECT_TRUE(algo.getState().raw().isApprox(before.raw(), 1E-12)) << "a NaN dt should leave the state unchanged";
 }
@@ -420,7 +425,7 @@ TEST(InertialFilterAlgorithmTimeUpdate, NaNDtReturnsTrueAndLeavesStateUnchanged)
 TEST(InertialFilterAlgorithmTimeUpdate, ZeroDtLeavesCovarianceUnchanged) {
     Matrix6 const P0 = diagCovariance(1E-2, 1E-3);
     InertialFilterAlgorithm algo(configWithProcessNoise(
-        makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()), P0, Matrix6::Identity() * 1E-2));
+        makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()), P0, Matrix6::Identity() * 1E-2));
 
     EXPECT_TRUE(algo.timeUpdate(0.0));
     EXPECT_TRUE(algo.getCovariance().isApprox(P0, 1E-10));
@@ -429,28 +434,28 @@ TEST(InertialFilterAlgorithmTimeUpdate, ZeroDtLeavesCovarianceUnchanged) {
 TEST(InertialFilterAlgorithmTimeUpdate, GrowsCovarianceWithProcessNoise) {
     Matrix6 const P0 = diagCovariance(1E-2, 1E-3);
     InertialFilterAlgorithm algo(configWithProcessNoise(
-        makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()), P0, Matrix6::Identity() * 1E-2));
+        makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()), P0, Matrix6::Identity() * 1E-2));
 
     EXPECT_TRUE(algo.timeUpdate(1.0));
     Matrix6 const P = algo.getCovariance();
     EXPECT_GT(P.trace(), P0.trace()) << "process noise should grow covariance";
-    EXPECT_TRUE(P.isApprox(P.transpose(), 1E-10)) << "covariance not symmetric";
+    EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(P)) << "covariance not PSD";
 }
 
 TEST(InertialFilterAlgorithmUpdate, WithoutMeasurementsGrowsCovarianceMonotonically) {
     Matrix6 const P0 = diagCovariance(1E-2, 1E-3);
     InertialFilterAlgorithm algo(configWithProcessNoise(
-        makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()), P0, Matrix6::Identity() * 1E-3));
+        makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()), P0, Matrix6::Identity() * 1E-3));
 
     // Each update() with empty measurements re-propagates from the unchanged anchor to
     // currentSeconds, so the covariance trace grows with currentSeconds.
     algo.update(1.0, StAttData{}, RateData{});
-    double const trace1 = algo.getCovariance().trace();
+    float const trace1 = algo.getCovariance().trace();
     algo.update(4.0, StAttData{}, RateData{});
-    double const trace4 = algo.getCovariance().trace();
+    float const trace4 = algo.getCovariance().trace();
     algo.update(9.0, StAttData{}, RateData{});
-    double const trace9 = algo.getCovariance().trace();
+    float const trace9 = algo.getCovariance().trace();
 
     EXPECT_GT(trace1, P0.trace());
     EXPECT_GT(trace4, trace1);
@@ -464,7 +469,7 @@ TEST(InertialFilterAlgorithmUpdate, WithoutMeasurementsGrowsCovarianceMonotonica
 
 TEST(InertialFilterAlgorithmMeasurements, StAttDataFiresResidualOnlyWhenFresh) {
     InertialFilterAlgorithm algo(
-        baseConfig(makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()), diagCovariance(1E-1, 1E-2)));
+        baseConfig(makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()), diagCovariance(1E-1, 1E-2)));
 
     // timeTag <= 0 is a stale/empty reading: no measurement fires.
     InertialFilterOutput const stale = algo.update(1.0, StAttData{}, RateData{});
@@ -474,7 +479,7 @@ TEST(InertialFilterAlgorithmMeasurements, StAttDataFiresResidualOnlyWhenFresh) {
     // timeTag > 0 fires; the recorded observation echoes the input MRP.
     StAttData st;
     st.timeTag = 2.0;
-    st.sigma_BN = Eigen::Vector3d(0.01, -0.02, 0.03);
+    st.sigma_BN = Eigen::Vector3f(0.01, -0.02, 0.03);
     InertialFilterOutput const fresh = algo.update(2.0, st, RateData{});
     EXPECT_TRUE(fresh.stAttResiduals.valid);
     EXPECT_FALSE(fresh.rateResiduals.valid);
@@ -483,14 +488,14 @@ TEST(InertialFilterAlgorithmMeasurements, StAttDataFiresResidualOnlyWhenFresh) {
 
 TEST(InertialFilterAlgorithmMeasurements, RateDataFiresResidualOnlyWhenFresh) {
     InertialFilterAlgorithm algo(
-        baseConfig(makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()), diagCovariance(1E-2, 1E-1)));
+        baseConfig(makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()), diagCovariance(1E-2, 1E-1)));
 
     InertialFilterOutput const stale = algo.update(1.0, StAttData{}, RateData{});
     EXPECT_FALSE(stale.rateResiduals.valid);
 
     RateData rate;
     rate.timeTag = 2.0;
-    rate.rate = Eigen::Vector3d(0.02, -0.01, 0.015);
+    rate.rate = Eigen::Vector3f(0.02, -0.01, 0.015);
     InertialFilterOutput const fresh = algo.update(2.0, StAttData{}, rate);
     EXPECT_TRUE(fresh.rateResiduals.valid);
     EXPECT_FALSE(fresh.stAttResiduals.valid);
@@ -501,12 +506,12 @@ TEST(InertialFilterAlgorithmMeasurements, RateDataFiresResidualOnlyWhenFresh) {
 // a larger std makes the star-tracker update less informative, so the attitude block
 // shrinks less.
 TEST(InertialFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovarianceLess) {
-    State const initial = makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero());
+    State const initial = makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero());
     Matrix6 const P0 = diagCovariance(1E-1, 1E-2);
 
     StAttData st;
     st.timeTag = 1.0;
-    st.sigma_BN = Eigen::Vector3d(0.0, 0.0, 0.05);
+    st.sigma_BN = Eigen::Vector3f(0.0, 0.0, 0.05);
 
     InertialFilterAlgorithm sharp(configWithNoiseStds(initial, P0, 1E-3, kRateMeasStd));
     sharp.update(1.0, st, RateData{});
@@ -520,13 +525,13 @@ TEST(InertialFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovari
 
 TEST(InertialFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual) {
     InertialFilterAlgorithm algo(
-        baseConfig(makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()), diagCovariance(1E-1, 1E-2)));
+        baseConfig(makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()), diagCovariance(1E-1, 1E-2)));
     EXPECT_TRUE(algo.timeUpdate(0.0));
 
     StAttMeasurement m;
     m.timeTag = 0.0;
-    m.sigma_BN = Eigen::Vector3d(0.05, -0.05, 0.05);
-    m.covar = (kStMeasStd * kStMeasStd) * Eigen::Matrix3d::Identity();
+    m.sigma_BN = Eigen::Vector3f(0.05, -0.05, 0.05);
+    m.covar = (kStMeasStd * kStMeasStd) * Eigen::Matrix3f::Identity();
     m.valid = true;
     EXPECT_TRUE(algo.measurementUpdate(m));
 
@@ -537,15 +542,15 @@ TEST(InertialFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual)
 
 TEST(InertialFilterAlgorithmMeasurements, SequentialStAttThenRateBothApplied) {
     InertialFilterAlgorithm algo(
-        baseConfig(makeState(Eigen::Vector3d(0, 0, 0.05), Eigen::Vector3d(0.01, 0, 0)), diagCovariance(1E-1, 1E-1)));
+        baseConfig(makeState(Eigen::Vector3f(0, 0, 0.05), Eigen::Vector3f(0.01, 0, 0)), diagCovariance(1E-1, 1E-1)));
     Matrix6 const covar0 = algo.getCovariance();
 
     StAttData st;
     st.timeTag = 1.0;  // earlier
-    st.sigma_BN = Eigen::Vector3d(0.001, 0.0, 0.05);
+    st.sigma_BN = Eigen::Vector3f(0.001, 0.0, 0.05);
     RateData rate;
     rate.timeTag = 1.5;  // later
-    rate.rate = Eigen::Vector3d(0.01, 0.0, 0.0);
+    rate.rate = Eigen::Vector3f(0.01, 0.0, 0.0);
 
     InertialFilterOutput const out = algo.update(2.0, st, rate);
 
@@ -561,17 +566,17 @@ TEST(InertialFilterAlgorithmMeasurements, SequentialStAttThenRateBothApplied) {
 // ============================================================================
 
 TEST(InertialFilterAlgorithmMeasurementUpdate, StAttMeasurementShrinksAttitudeCovariance) {
-    Eigen::Vector3d const sigma0(0.0, 0.0, 0.05);
+    Eigen::Vector3f const sigma0(0.0, 0.0, 0.05);
     InertialFilterAlgorithm algo(
-        baseConfig(makeState(sigma0, Eigen::Vector3d(0.01, 0.01, 0.01)), diagCovariance(1E-1, 1E-2)));
+        baseConfig(makeState(sigma0, Eigen::Vector3f(0.01, 0.01, 0.01)), diagCovariance(1E-1, 1E-2)));
 
     Matrix6 const covar0 = algo.getCovariance();
     EXPECT_TRUE(algo.timeUpdate(0.0));
 
     StAttMeasurement m;
     m.timeTag = 0.0;
-    m.sigma_BN = Eigen::Vector3d(0.001, -0.001, 0.051);
-    m.covar = (kStMeasStd * kStMeasStd) * Eigen::Matrix3d::Identity();
+    m.sigma_BN = Eigen::Vector3f(0.001, -0.001, 0.051);
+    m.covar = (kStMeasStd * kStMeasStd) * Eigen::Matrix3f::Identity();
     m.valid = true;
     EXPECT_TRUE(algo.measurementUpdate(m));
 
@@ -579,22 +584,22 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, StAttMeasurementShrinksAttitudeCo
     for (int i = 0; i < 3; ++i) {
         EXPECT_LT(covarN(i, i), covar0(i, i)) << "attitude cov diag index " << i;
     }
-    EXPECT_TRUE(covarN.isApprox(covarN.transpose(), 1E-10)) << "covariance not symmetric";
+    EXPECT_TRUE(covarN.isApprox(covarN.transpose(), kRoundoffTol)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(covarN)) << "covariance not PSD";
     EXPECT_TRUE(algo.getLastStAttResiduals().valid);
 }
 
 TEST(InertialFilterAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovariance) {
-    Eigen::Vector3d const omega0(0.01, 0.01, 0.01);
-    InertialFilterAlgorithm algo(baseConfig(makeState(Eigen::Vector3d::Zero(), omega0), diagCovariance(1E-2, 1E-1)));
+    Eigen::Vector3f const omega0(0.01, 0.01, 0.01);
+    InertialFilterAlgorithm algo(baseConfig(makeState(Eigen::Vector3f::Zero(), omega0), diagCovariance(1E-2, 1E-1)));
 
     Matrix6 const covar0 = algo.getCovariance();
     EXPECT_TRUE(algo.timeUpdate(0.0));
 
     RateMeasurement r;
     r.timeTag = 0.0;
-    r.omega_BN_B = Eigen::Vector3d(0.012, 0.008, 0.011);
-    r.covar = (kRateMeasStd * kRateMeasStd) * Eigen::Matrix3d::Identity();
+    r.omega_BN_B = Eigen::Vector3f(0.012, 0.008, 0.011);
+    r.covar = (kRateMeasStd * kRateMeasStd) * Eigen::Matrix3f::Identity();
     r.valid = true;
     EXPECT_TRUE(algo.measurementUpdate(r));
 
@@ -602,21 +607,21 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovaria
     for (int i = 3; i < 6; ++i) {
         EXPECT_LT(covarN(i, i), covar0(i, i)) << "rate cov diag index " << i;
     }
-    EXPECT_TRUE(covarN.isApprox(covarN.transpose(), 1E-10)) << "covariance not symmetric";
+    EXPECT_TRUE(covarN.isApprox(covarN.transpose(), kRoundoffTol)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(covarN)) << "covariance not PSD";
     EXPECT_TRUE(algo.getLastRateResiduals().valid);
 }
 
 TEST(InertialFilterAlgorithmMeasurementUpdate, HighMeasurementNoiseLeavesStateNearlyUnchanged) {
     InertialFilterAlgorithm algo(
-        baseConfig(makeState(Eigen::Vector3d(0.0, 0.0, 0.05), Eigen::Vector3d::Zero()), diagCovariance(1E-2, 1E-2)));
+        baseConfig(makeState(Eigen::Vector3f(0.0, 0.0, 0.05), Eigen::Vector3f::Zero()), diagCovariance(1E-2, 1E-2)));
     EXPECT_TRUE(algo.timeUpdate(0.0));
     State const before = algo.getState();
 
     StAttMeasurement m;
     m.timeTag = 0.0;
-    m.sigma_BN = Eigen::Vector3d(0.5, 0.0, 0.0);  // far from the prior
-    m.covar = 1E8 * Eigen::Matrix3d::Identity();  // R >> P
+    m.sigma_BN = Eigen::Vector3f(0.5, 0.0, 0.0);  // far from the prior
+    m.covar = 1E8 * Eigen::Matrix3f::Identity();  // R >> P
     m.valid = true;
     EXPECT_TRUE(algo.measurementUpdate(m));
 
@@ -629,13 +634,13 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, HighMeasurementNoiseLeavesStateNe
 // false and the residual snapshot is left invalid (the SRuKF returns no value).
 TEST(InertialFilterAlgorithmMeasurementUpdate, BadMeasurementReturnsFalseAndLeavesResidualInvalid) {
     InertialFilterAlgorithm algo(
-        baseConfig(makeState(Eigen::Vector3d(0.0, 0.0, 0.05), Eigen::Vector3d::Zero()), diagCovariance(1E-2, 1E-2)));
+        baseConfig(makeState(Eigen::Vector3f(0.0, 0.0, 0.05), Eigen::Vector3f::Zero()), diagCovariance(1E-2, 1E-2)));
     EXPECT_TRUE(algo.timeUpdate(0.0));
 
     StAttMeasurement m;
     m.timeTag = 0.0;
-    m.sigma_BN = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
-    m.covar = (kStMeasStd * kStMeasStd) * Eigen::Matrix3d::Identity();
+    m.sigma_BN = Eigen::Vector3f::Constant(std::numeric_limits<float>::quiet_NaN());
+    m.covar = (kStMeasStd * kStMeasStd) * Eigen::Matrix3f::Identity();
     m.valid = true;
 
     EXPECT_FALSE(algo.measurementUpdate(m)) << "a non-finite measurement update must report false";
@@ -647,18 +652,18 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, BadMeasurementReturnsFalseAndLeav
 // and the state stays finite.
 TEST(InertialFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
     InertialFilterAlgorithm algo(
-        baseConfig(makeState(Eigen::Vector3d(0, 0, 0.05), Eigen::Vector3d::Zero()), diagCovariance(1E-1, 1E-2)));
+        baseConfig(makeState(Eigen::Vector3f(0, 0, 0.05), Eigen::Vector3f::Zero()), diagCovariance(1E-1, 1E-2)));
 
     // A good update first, to establish a finite anchor.
     StAttData good;
     good.timeTag = 1.0;
-    good.sigma_BN = Eigen::Vector3d(0.0, 0.0, 0.05);
+    good.sigma_BN = Eigen::Vector3f(0.0, 0.0, 0.05);
     algo.update(1.0, good, RateData{});
 
     // A NaN star-tracker reading must not corrupt the filter.
     StAttData bad;
     bad.timeTag = 2.0;
-    bad.sigma_BN = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());
+    bad.sigma_BN = Eigen::Vector3f::Constant(std::numeric_limits<float>::quiet_NaN());
     InertialFilterOutput const out = algo.update(2.0, bad, RateData{});
 
     EXPECT_FALSE(out.stAttResiduals.valid) << "bad measurement must not produce a valid residual";
@@ -670,7 +675,7 @@ TEST(InertialFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
     // the measurement, and the covariance is finite.
     StAttData recover;
     recover.timeTag = 3.0;
-    recover.sigma_BN = Eigen::Vector3d(0.0, 0.0, 0.05);
+    recover.sigma_BN = Eigen::Vector3f(0.0, 0.0, 0.05);
     InertialFilterOutput const recovered = algo.update(3.0, recover, RateData{});
 
     EXPECT_TRUE(recovered.stAttResiduals.valid) << "the post-recovery measurement must be applied";
@@ -686,22 +691,22 @@ TEST(InertialFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
 // ============================================================================
 
 TEST(InertialFilterAlgorithmRegularize, SwitchesOverUnityMrpToInnerSet) {
-    Eigen::Vector3d const overUnity(0.9, 0.9, 0.9);  // norm ~1.56
+    Eigen::Vector3f const overUnity(0.9, 0.9, 0.9);  // norm ~1.56
     ASSERT_GT(overUnity.stableNorm(), 1.0);
-    InertialFilterAlgorithm algo(baseConfig(makeState(overUnity, Eigen::Vector3d::Zero()), diagCovariance(1E-2, 1E-3)));
+    InertialFilterAlgorithm algo(baseConfig(makeState(overUnity, Eigen::Vector3f::Zero()), diagCovariance(1E-2, 1E-3)));
 
     // currentSeconds = 0: no propagation, no measurements -- only regularization runs.
     algo.update(0.0, StAttData{}, RateData{});
 
-    Eigen::Vector3d const sigma = algo.getState().get<filtering::MrpAttitude<3>>();
+    Eigen::Vector3f const sigma = algo.getState().get<filtering::MrpAttitude<3>>();
     EXPECT_LE(sigma.stableNorm(), 1.0);
     // Shadow switching preserves the physical attitude (same DCM).
-    EXPECT_TRUE(mrpToDcm(sigma).isApprox(mrpToDcm(overUnity), 1E-9));
+    EXPECT_TRUE(mrpToDcm(sigma).isApprox(mrpToDcm(overUnity), kRoundoffTol));
 }
 
 TEST(InertialFilterAlgorithmRegularize, LeavesRateUnchanged) {
-    Eigen::Vector3d const overUnity(0.9, 0.9, 0.9);
-    Eigen::Vector3d const omega(0.01, -0.02, 0.03);
+    Eigen::Vector3f const overUnity(0.9, 0.9, 0.9);
+    Eigen::Vector3f const omega(0.01, -0.02, 0.03);
     InertialFilterAlgorithm algo(baseConfig(makeState(overUnity, omega), diagCovariance(1E-2, 1E-3)));
 
     algo.update(0.0, StAttData{}, RateData{});
@@ -714,14 +719,14 @@ TEST(InertialFilterAlgorithmRegularize, LeavesRateUnchanged) {
 // ============================================================================
 
 TEST(InertialFilterAlgorithmConvergence, ConvergesToConstantAttitudeWithExactMeasurements) {
-    Eigen::Vector3d const truthSigma(0.1, -0.2, 0.15);  // moderate, inside the unit sphere
-    Eigen::Vector3d const truthOmega(0.0, 0.0, 0.0);
+    Eigen::Vector3f const truthSigma(0.1, -0.2, 0.15);  // moderate, inside the unit sphere
+    Eigen::Vector3f const truthOmega(0.0, 0.0, 0.0);
 
-    State const initial = makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d(0.05, 0.05, 0.05));
+    State const initial = makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f(0.05, 0.05, 0.05));
     Matrix6 const P0 = diagCovariance(1E-1, 1E-2);
     InertialFilterAlgorithm algo(configWithProcessNoise(initial, P0, Matrix6::Identity() * 1E-8));
 
-    double const dt = 0.5;
+    float const dt = 0.5;
     for (int i = 1; i <= 200; ++i) {
         StAttData st;
         st.timeTag = i * dt;
@@ -732,28 +737,28 @@ TEST(InertialFilterAlgorithmConvergence, ConvergesToConstantAttitudeWithExactMea
         algo.update(i * dt, st, rate);
     }
 
-    double const attErr = (algo.getState().get<filtering::MrpAttitude<3>>() - truthSigma).stableNorm();
-    double const rateErr = (algo.getState().get<filtering::AngularRate<3>>() - truthOmega).stableNorm();
+    float const attErr = (algo.getState().get<filtering::MrpAttitude<3>>() - truthSigma).stableNorm();
+    float const rateErr = (algo.getState().get<filtering::AngularRate<3>>() - truthOmega).stableNorm();
     EXPECT_LT(attErr, 1E-3) << "attitude error " << attErr;
     EXPECT_LT(rateErr, 5E-3) << "rate error " << rateErr;
     EXPECT_LT(algo.getCovariance().trace(), P0.trace());
 }
 
 TEST(InertialFilterAlgorithmConvergence, ConvergesUnderNoisyMeasurements) {
-    Eigen::Vector3d const truthSigma(0.1, -0.2, 0.15);
-    Eigen::Vector3d const truthOmega(0.0, 0.0, 0.0);
-    double const stStd = 1E-3;
-    double const rateStd = 1E-3;
+    Eigen::Vector3f const truthSigma(0.1, -0.2, 0.15);
+    Eigen::Vector3f const truthOmega(0.0, 0.0, 0.0);
+    float const stStd = 1E-3;
+    float const rateStd = 1E-3;
 
-    State const initial = makeState(Eigen::Vector3d::Zero(), Eigen::Vector3d(0.05, 0.05, 0.05));
+    State const initial = makeState(Eigen::Vector3f::Zero(), Eigen::Vector3f(0.05, 0.05, 0.05));
     Matrix6 const P0 = diagCovariance(1E-1, 1E-2);
     InertialFilterAlgorithm algo(configWithNoiseStds(initial, P0, stStd, rateStd));
 
     std::mt19937 gen(42);
-    std::normal_distribution<double> noise(0.0, 1.0);
-    auto sample = [&](double std) { return Eigen::Vector3d(std * noise(gen), std * noise(gen), std * noise(gen)); };
+    std::normal_distribution<float> noise(0.0, 1.0);
+    auto sample = [&](float std) { return Eigen::Vector3f(std * noise(gen), std * noise(gen), std * noise(gen)); };
 
-    double const dt = 0.5;
+    float const dt = 0.5;
     for (int i = 1; i <= 400; ++i) {
         StAttData st;
         st.timeTag = i * dt;
@@ -766,8 +771,8 @@ TEST(InertialFilterAlgorithmConvergence, ConvergesUnderNoisyMeasurements) {
 
     // Generous bound (~10 sigma) keeps the seeded test non-flaky while still
     // demonstrating convergence under noise.
-    double const attErr = (algo.getState().get<filtering::MrpAttitude<3>>() - truthSigma).stableNorm();
-    double const rateErr = (algo.getState().get<filtering::AngularRate<3>>() - truthOmega).stableNorm();
+    float const attErr = (algo.getState().get<filtering::MrpAttitude<3>>() - truthSigma).stableNorm();
+    float const rateErr = (algo.getState().get<filtering::AngularRate<3>>() - truthOmega).stableNorm();
     EXPECT_LT(attErr, 10 * stStd) << "attitude error " << attErr;
     EXPECT_LT(rateErr, 10 * rateStd) << "rate error " << rateErr;
     EXPECT_LT(algo.getCovariance().trace(), P0.trace());

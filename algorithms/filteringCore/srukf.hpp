@@ -14,6 +14,7 @@
 
 #include <math.h>
 #include <array>
+#include <optional>
 
 namespace filtering {
 
@@ -23,14 +24,14 @@ namespace filtering {
 template <FilterState State, Dynamics<State> Dyn>
 class SRuKF {
    public:
-    using Covariance = Eigen::Matrix<double, State::size, State::size>;
-    using SigmaWeights = Eigen::Vector<double, 2 * State::size + 1>;
+    using Covariance = Eigen::Matrix<float, State::size, State::size>;
+    using SigmaWeights = Eigen::Vector<float, 2 * State::size + 1>;
 
     /*! Pre- and post-fit residuals returned from measurementUpdate(). */
     template <class M>
     struct UpdateResult {
-        Eigen::Vector<double, M::size> preFit;
-        Eigen::Vector<double, M::size> postFit;
+        Eigen::Vector<float, M::size> preFit;
+        Eigen::Vector<float, M::size> postFit;
     };
 
     /*! QR decomposition returning only the leading Rows×Rows block of R
@@ -38,13 +39,13 @@ class SRuKF {
      *  @return Rows×Rows lower-triangular factor
      *  @param input [-] Rows×Cols matrix (Cols >= Rows) */
     template <int Rows, int Cols>
-    static Eigen::Matrix<double, Rows, Rows> qrDecompositionJustR(Eigen::Matrix<double, Rows, Cols> const& input) {
-        Eigen::Matrix<double, Cols, Rows> const inputT = input.transpose();
-        Eigen::HouseholderQR<Eigen::Matrix<double, Cols, Rows>> const qr(inputT);
+    static Eigen::Matrix<float, Rows, Rows> qrDecompositionJustR(Eigen::Matrix<float, Rows, Cols> const& input) {
+        Eigen::Matrix<float, Cols, Rows> const inputT = input.transpose();
+        Eigen::HouseholderQR<Eigen::Matrix<float, Cols, Rows>> const qr(inputT);
         // matrixQR() already holds R in its upper triangle. Materializing Q and
         // forming Q^T * inputT to recover it costs a Cols x Cols temporary and
         // pulls in Eigen's heap-allocating blocked product kernels.
-        Eigen::Matrix<double, Rows, Rows> const rTilde =
+        Eigen::Matrix<float, Rows, Rows> const rTilde =
             qr.matrixQR().template topLeftCorner<Rows, Rows>().template triangularView<Eigen::Upper>();
 
         return rTilde.transpose();
@@ -54,26 +55,67 @@ class SRuKF {
      *  @return lower-triangular L with input = L * L^T
      *  @param input [-] symmetric positive-definite matrix */
     template <int Size>
-    static Eigen::Matrix<double, Size, Size> choleskyDecomposition(Eigen::Matrix<double, Size, Size> const& input) {
-        Eigen::LLT<Eigen::Matrix<double, Size, Size>> chol(input);
+    static Eigen::Matrix<float, Size, Size> choleskyDecomposition(Eigen::Matrix<float, Size, Size> const& input) {
+        Eigen::LLT<Eigen::Matrix<float, Size, Size>> chol(input);
         return chol.matrixL();
     }
 
-    /*! Rank-1 Cholesky up/down date: returns chol(S*S^T + sign(coef)*|coef|*v*v^T).
-     *  @return updated Cholesky factor
-     *  @param sqrtP       [-] current Cholesky factor S
+    /*! Rank-1 Cholesky up/down date: returns lower-triangular L with
+     *  L*L^T = S*S^T + sign(coef)*|coef|*v*v^T. The rank-1 term is rotated into the columns of S
+     *  (Givens rotations to update, mixed hyperbolic rotations to downdate) instead of re-factoring
+     *  S*S^T, which in float cancels away the small-variance directions. A downdate that would make
+     *  the result indefinite or singular, and so divide by zero, fails: the caller reports a bad
+     *  update and the filter clears. No division by zero is ever evaluated: the Givens rotation
+     *  divides by r = hypot(l, x) >= |x| > 0, and the hyperbolic rotation is taken only once
+     *  (l - x)(l + x) > 0, which gives |l| > |x| > 0 and a nonzero gamma = r / l.
+     *  @return updated Cholesky factor, or nullopt if the downdate fails
+     *  @param sqrtP       [-] current lower-triangular Cholesky factor S
      *  @param v           [-] rank-1 update vector
      *  @param coefficient [-] signed weight (sign determines up vs down date) */
     template <int Size>
-    static Eigen::Matrix<double, Size, Size> choleskyUpDownDate(Eigen::Matrix<double, Size, Size> const& sqrtP,
-                                                                Eigen::Vector<double, Size> const& v,
-                                                                double coefficient) {
-        Eigen::Matrix<double, Size, Size> P = sqrtP * sqrtP.transpose();
-        int const sign = (coefficient > 0) ? 1 : -1;
-        P += sign * fabs(coefficient) * v * v.transpose();
+    static std::optional<Eigen::Matrix<float, Size, Size>> choleskyUpDownDate(
+        Eigen::Matrix<float, Size, Size> const& sqrtP,
+        Eigen::Vector<float, Size> const& v,
+        float coefficient) {
+        Eigen::Matrix<float, Size, Size> L = sqrtP;
+        Eigen::Vector<float, Size> x = sqrtf(fabsf(coefficient)) * v;
+        bool const isUpdate = coefficient > 0.0F;
 
-        Eigen::Matrix<double, Size, Size> const A = choleskyDecomposition<Size>(P);
-        return qrDecompositionJustR<Size, Size>(A);
+        for (int k = 0; k < Size; ++k) {
+            float const xk = x(k);
+            if (xk == 0.0F) {
+                continue;  // identity rotation
+            }
+            float const lkk = L(k, k);
+            if (isUpdate) {
+                float const r = hypotf(lkk, xk);  // >= |xk| > 0
+                float const c = lkk / r;
+                float const s = xk / r;
+                L(k, k) = r;
+                for (int i = k + 1; i < Size; ++i) {
+                    float const lik = L(i, k);
+                    L(i, k) = c * lik + s * x(i);
+                    x(i) = c * x(i) - s * lik;
+                }
+            } else {
+                float const rSquared = (lkk - xk) * (lkk + xk);
+                if (!(rSquared > 0.0F)) {
+                    return std::nullopt;
+                }
+                float const r = sqrtf(rSquared);
+                float const c = r / lkk;  // nonzero: |lkk| > |xk| > 0
+                if (c == 0.0F) {
+                    return std::nullopt;
+                }
+                float const s = xk / lkk;
+                L(k, k) = r;
+                for (int i = k + 1; i < Size; ++i) {
+                    L(i, k) = (L(i, k) - s * x(i)) / c;
+                    x(i) = c * x(i) - s * L(i, k);
+                }
+            }
+        }
+        return L;
     }
 
     /*! Forward substitution: solve L*x = b with L lower triangular.
@@ -81,9 +123,9 @@ class SRuKF {
      *  @param L [-] Rows×Rows lower-triangular matrix
      *  @param b [-] Rows×Cols RHS */
     template <int Rows, int Cols>
-    static Eigen::Matrix<double, Rows, Cols> forwardSubstitution(Eigen::Matrix<double, Rows, Rows> const& L,
-                                                                 Eigen::Matrix<double, Rows, Cols> const& b) {
-        Eigen::Matrix<double, Rows, Cols> x = Eigen::Matrix<double, Rows, Cols>::Zero();
+    static Eigen::Matrix<float, Rows, Cols> forwardSubstitution(Eigen::Matrix<float, Rows, Rows> const& L,
+                                                                Eigen::Matrix<float, Rows, Cols> const& b) {
+        Eigen::Matrix<float, Rows, Cols> x = Eigen::Matrix<float, Rows, Cols>::Zero();
         for (int col = 0; col < Cols; ++col) {
             for (int i = 0; i < Rows; ++i) {
                 x(i, col) = b(i, col);
@@ -101,9 +143,9 @@ class SRuKF {
      *  @param U [-] Rows×Rows upper-triangular matrix
      *  @param b [-] Rows×Cols RHS */
     template <int Rows, int Cols>
-    static Eigen::Matrix<double, Rows, Cols> backSubstitution(Eigen::Matrix<double, Rows, Rows> const& U,
-                                                              Eigen::Matrix<double, Rows, Cols> const& b) {
-        Eigen::Matrix<double, Rows, Cols> x = Eigen::Matrix<double, Rows, Cols>::Zero();
+    static Eigen::Matrix<float, Rows, Cols> backSubstitution(Eigen::Matrix<float, Rows, Rows> const& U,
+                                                             Eigen::Matrix<float, Rows, Cols> const& b) {
+        Eigen::Matrix<float, Rows, Cols> x = Eigen::Matrix<float, Rows, Cols>::Zero();
         for (int col = 0; col < Cols; ++col) {
             for (int i = Rows - 1; i >= 0; --i) {
                 x(i, col) = b(i, col);
@@ -116,26 +158,26 @@ class SRuKF {
         return x;
     }
 
-    void setAlpha(double newAlpha) { this->alpha = newAlpha; }
-    void setBeta(double newBeta) { this->beta = newBeta; }
+    void setAlpha(float newAlpha) { this->alpha = newAlpha; }
+    void setBeta(float newBeta) { this->beta = newBeta; }
     void setProcessNoise(Covariance const& newProcessNoise) { this->processNoise = newProcessNoise; }
     void setInitialState(State const& newInitialState) { this->stateInitial = newInitialState; }
     void setInitialCovariance(Covariance const& newInitialCovariance) {
         this->covarianceInitial = newInitialCovariance;
     }
 
-    double getAlpha() const { return this->alpha; }
-    double getBeta() const { return this->beta; }
+    float getAlpha() const { return this->alpha; }
+    float getBeta() const { return this->beta; }
 
     Dyn dynamics{};  //!< concrete dynamics functor; set by the owning algorithm
 
     // ---- Validity checks ----------------------------------------------------
 
     /*! @return true iff alpha is in (0, 1] */
-    static bool alphaIsValid(double alpha) { return alpha > 0.0 && alpha <= 1.0; }
+    static bool alphaIsValid(float alpha) { return alpha > 0.0F && alpha <= 1.0F; }
 
     /*! @return true iff beta is in [0, 2] */
-    static bool betaIsValid(double beta) { return beta >= 0.0 && beta <= 2.0; }
+    static bool betaIsValid(float beta) { return beta >= 0.0F && beta <= 2.0F; }
 
     /*! Derive the sigma-point spread (lambda, eta), the sigma weights, and the
      *  process-noise Cholesky from alpha, beta, and the process noise. The estimate
@@ -143,19 +185,18 @@ class SRuKF {
     void configure() {
         constexpr int N = State::size;
         constexpr int numSigmaPoints = 2 * N + 1;
-        constexpr auto Ndouble = static_cast<double>(N);
+        constexpr auto Nfloat = static_cast<float>(N);
 
         this->cholProcessNoise = choleskyDecomposition<N>(this->processNoise);
 
-        this->lambda = Ndouble * (this->alpha * this->alpha - 1.0);
-        this->eta = safeSqrt(Ndouble + this->lambda);
+        this->lambda = Nfloat * (this->alpha * this->alpha - 1.0F);
+        this->eta = safeSqrtf(Nfloat + this->lambda);
 
-        this->wM(0) = this->lambda / (Ndouble + this->lambda);
-        this->wC(0) = this->lambda / (Ndouble + this->lambda) + (1.0 - this->alpha * this->alpha + this->beta);
+        this->wM(0) = this->lambda / (Nfloat + this->lambda);
         for (int i = 1; i < numSigmaPoints; ++i) {
-            this->wM(i) = 1.0 / (2.0 * (Ndouble + this->lambda));
-            this->wC(i) = this->wM(i);
+            this->wM(i) = 1.0F / (2.0F * (Nfloat + this->lambda));
         }
+        this->wMeanOffset = this->beta - this->alpha * this->alpha;
     }
 
     /*! Seed the estimate from initial conditions and re-derive the filter parameters
@@ -187,7 +228,7 @@ class SRuKF {
      *  the sigma points are populated around the last-measurement state for the
      *  next measurementUpdate but the timeUpdate math isn't done
      *  @param dt [s] elapsed time since the last measurement */
-    bool timeUpdate(const double dt) {
+    bool timeUpdate(const float dt) {
         constexpr int N = State::size;
         constexpr int numSigmaPoints = 2 * N + 1;
 
@@ -196,52 +237,64 @@ class SRuKF {
         this->covariance = this->covarianceLastMeasurement;
         this->sqrtCovar = this->sqrtCovarLastMeasurement;
 
-        /*! > If the time update doesn't move us forward in time, just populate the sigma points and xbar for the
-        measurement update but skip the hard math */
-        if (dt == 0) {
+        /*! > If the time update doesn't move us forward in time, just populate the sigma points and their
+        deviations for the measurement update but skip the hard math */
+        if (dt == 0.0F) {
             this->sigmaPoints[0] = this->state;
             for (int i = 1; i <= N; ++i) {
                 typename State::Storage const offset = this->eta * this->sqrtCovar.col(i - 1);
-                this->sigmaPoints[i] = State(this->state.raw() + offset);
-                this->sigmaPoints[i + N] = State(this->state.raw() - offset);
+                this->sigmaPoints[i] = this->state.add(State(offset));
+                this->sigmaPoints[i + N] = this->state.subtract(State(offset));
+                this->sigmaDeviations[i] = State(offset);
+                this->sigmaDeviations[i + N] = State(-offset);
             }
-            this->xBar = this->state;
+            this->meanOffset = State::Storage::Zero();
+            this->sqrtNoiseOutsideSigmaPoints = Covariance::Zero();
         } else {
-            std::array<double, 2> const interval = {0, dt};
+            std::array<float, 2> const interval = {0.0F, dt};
 
-            //! > For each sigma point (state + eta*Covar.col(i)) starting with the mean, propagate fowards (eq 17-18)
+            //! > Propagate the central sigma point, and each other sigma point as its deviation from the central one
+            //! > (eq 17-18), so the spread is not absorbed into a large state (see "Propagating the sigma points as
+            //! > deviations" in filteringCore.rst)
             this->sigmaPoints[0] = filtering::propagate(this->dynamics, this->state, interval);
             for (int i = 1; i <= N; ++i) {
                 typename State::Storage const offset = this->eta * this->sqrtCovar.col(i - 1);
-                State const plus = State(this->state.raw() + offset);
-                State const minus = State(this->state.raw() - offset);
-                this->sigmaPoints[i] = filtering::propagate(this->dynamics, plus, interval);
-                this->sigmaPoints[i + N] = filtering::propagate(this->dynamics, minus, interval);
+                this->sigmaDeviations[i] =
+                    filtering::propagateDeviation(this->dynamics, this->state, State(offset), interval);
+                this->sigmaDeviations[i + N] =
+                    filtering::propagateDeviation(this->dynamics, this->state, State(-offset), interval);
+            }
+            for (int i = 1; i < numSigmaPoints; ++i) {
+                this->sigmaPoints[i] = this->sigmaPoints[0].add(this->sigmaDeviations[i]);
             }
 
-            //! > xBar is the weighted sum of the sigma points (eq 19)
-            this->xBar = this->sigmaPoints[0].scale(this->wM(0));
+            //! > The weighted sum of the sigma points (eq 19) is kept as its offset from the central point, accumulated
+            //! > from the deviations (see "Statistics about the central sigma point" in filteringCore.rst)
+            this->meanOffset = State::Storage::Zero();
             for (int i = 1; i < numSigmaPoints; ++i) {
-                this->xBar = this->xBar.add(this->sigmaPoints[i].scale(this->wM(i)));
+                this->meanOffset += this->wM(i) * this->sigmaDeviations[i].raw();
             }
 
-            //! > Construct the A matrix (to be QR'ed) which contains the sigma points - xbar and process noise (eq 20)
-            Eigen::Matrix<double, N, 3 * N> A;
+            //! > Construct the A matrix (to be QR'ed) from the sigma point deviations and the process noise (eq 20),
+            //! > then fold in the mean offset with a rank-1 update (eq 21)
+            Eigen::Matrix<float, N, 3 * N> A;
             for (int i = 1; i < numSigmaPoints; ++i) {
-                A.col(i - 1) = sqrt(this->wC(i)) * (this->sigmaPoints[i].raw() - this->xBar.raw());
+                A.col(i - 1) = sqrtf(this->wM(i)) * this->sigmaDeviations[i].raw();
             }
             A.template block<N, N>(0, numSigmaPoints - 1) = this->cholProcessNoise;
+            Eigen::Matrix<float, N, N> const sBar = qrDecompositionJustR<N, 3 * N>(A);
 
-            //! > QR decompose it to get the updated covariance(eq 20)
-            Eigen::Matrix<double, N, N> const sBar = qrDecompositionJustR<N, 3 * N>(A);
-
-            //! > Cholesky-downDate the covariance and the state error, update the states with results
-            Eigen::Vector<double, N> const xError = this->sigmaPoints[0].raw() - this->xBar.raw();
-            this->sqrtCovar = choleskyUpDownDate<N>(sBar, xError, this->wC(0));
+            std::optional<Eigen::Matrix<float, N, N>> const sqrtCovarUpdated =
+                choleskyUpDownDate<N>(sBar, this->meanOffset, this->wMeanOffset);
+            if (!sqrtCovarUpdated) {
+                return false;  // the rank-1 downdate failed: a bad update, for the caller to clear
+            }
+            this->sqrtCovar = *sqrtCovarUpdated;
             this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
             this->state = this->sigmaPoints[0];
+            this->sqrtNoiseOutsideSigmaPoints = this->cholProcessNoise;
 
-            if (!this->state.allFinite() || !this->sqrtCovar.allFinite()) {
+            if (!this->state.allFinite() || !this->sqrtCovar.allFinite() || !this->covariance.allFinite()) {
                 return false;
             }
         }
@@ -268,70 +321,85 @@ class SRuKF {
 
         if (inputsFinite) {
             //! > Using the measurement model, get the Y matrix (expected measurement) of each sigma point (eq 22)
-            Eigen::Matrix<double, MSize, numSigma> yMeasPre;
+            Eigen::Matrix<float, MSize, numSigma> yMeasPre;
             for (int j = 0; j < numSigma; ++j) {
                 yMeasPre.col(j) = measurement.model(this->sigmaPoints[j]);
             }
-            //! > Like eq 19, the measurement expected is the weighted sum of the Sigma points transformed (eq 23)
-            Eigen::Vector<double, MSize> yBarPre = Eigen::Vector<double, MSize>::Zero();
-            for (int i = 0; i < numSigma; ++i) {
-                yBarPre += this->wM(i) * yMeasPre.col(i);
+            //! > Like eq 19, the measurement expected is the weighted sum of the Sigma points transformed (eq 23),
+            //! > accumulated as deviations from the central point
+            Eigen::Vector<float, MSize> yBarPre = yMeasPre.col(0);
+            for (int i = 1; i < numSigma; ++i) {
+                yBarPre += this->wM(i) * (yMeasPre.col(i) - yMeasPre.col(0));
             }
+
+            //! > Sigma point deviations and mean offsets from the central point, as in the time update
+            Eigen::Matrix<float, N, numSigma - 1> xDev;
+            Eigen::Matrix<float, MSize, numSigma - 1> yDev;
+            for (int i = 1; i < numSigma; ++i) {
+                xDev.col(i - 1) = this->sigmaDeviations[i].raw();
+                yDev.col(i - 1) = measurement.subtract(yMeasPre.col(i), yMeasPre.col(0));
+            }
+            Eigen::Vector<float, N> const& xMeanOffset = this->meanOffset;
+            Eigen::Vector<float, MSize> const yMeanOffset = measurement.subtract(yBarPre, yMeasPre.col(0));
 
             //! > Before moving to the update, computed the prefits
-            Eigen::Vector<double, MSize> const preFit = measurement.subtract(observation, yBarPre);
+            Eigen::Vector<float, MSize> const preFit = measurement.subtract(observation, yBarPre);
 
             //! > Sqrt the measurement noise, this could theoretically be different at every time step
-            Eigen::Matrix<double, MSize, MSize> const cholMeasNoise = choleskyDecomposition<MSize>(measurement.noise());
+            Eigen::Matrix<float, MSize, MSize> const cholMeasNoise = choleskyDecomposition<MSize>(measurement.noise());
 
-            //! > Symmetrically to the time update, populate the A matrix for a qr decomposition (eq 24)
-            Eigen::Matrix<double, MSize, 2 * N + MSize> A;
-            for (int i = 1; i < numSigma; ++i) {
-                A.col(i - 1) = sqrt(this->wC(1)) * measurement.subtract(yMeasPre.col(i), yBarPre);
-            }
+            //! > Symmetrically to the time update, populate the A matrix for a qr decomposition (eq 24-25)
+            Eigen::Matrix<float, MSize, 2 * N + MSize> A;
+            A.template leftCols<numSigma - 1>() = sqrtf(this->wM(1)) * yDev;
             A.template block<MSize, MSize>(0, numSigma - 1) = cholMeasNoise;
-
-            //! > Qr decomposition of A (eq 24)
-            Eigen::Matrix<double, MSize, MSize> sy = qrDecompositionJustR<MSize, 2 * N + MSize>(A);
-
-            //! > Cholesky-downDate the covariance and the measurement error
-            Eigen::Vector<double, MSize> const yError0 = measurement.subtract(yMeasPre.col(0), yBarPre);
-            sy = choleskyUpDownDate<MSize>(sy, yError0, this->wC(0));
+            std::optional<Eigen::Matrix<float, MSize, MSize>> const syUpdated = choleskyUpDownDate<MSize>(
+                qrDecompositionJustR<MSize, 2 * N + MSize>(A), yMeanOffset, this->wMeanOffset);
+            if (!syUpdated) {
+                return residuals;  // the rank-1 downdate failed: a bad update (no residuals), for the caller to clear
+            }
+            Eigen::Matrix<float, MSize, MSize> const& sy = *syUpdated;
 
             //! > Covariance of prior prediction computation eq 26
-            Eigen::Matrix<double, N, MSize> pXY = Eigen::Matrix<double, N, MSize>::Zero();
-            for (int i = 0; i < numSigma; ++i) {
-                Eigen::Vector<double, N> const xError = this->sigmaPoints[i].raw() - this->xBar.raw();
-                Eigen::Vector<double, MSize> const yError = measurement.subtract(yMeasPre.col(i), yBarPre);
-                pXY += this->wC(i) * xError * yError.transpose();
-            }
+            Eigen::Matrix<float, N, MSize> const pXY =
+                this->wM(1) * (xDev * yDev.transpose()) + this->wMeanOffset * (xMeanOffset * yMeanOffset.transpose());
 
             //! > Calculate Kalman gain eq 27
-            Eigen::Matrix<double, MSize, N> const pXYT = pXY.transpose();
-            Eigen::Matrix<double, MSize, N> const stKt = forwardSubstitution<MSize, N>(sy, pXYT);
-            Eigen::Matrix<double, MSize, MSize> const syT = sy.transpose();
-            Eigen::Matrix<double, N, MSize> const kMat = backSubstitution<MSize, N>(syT, stKt).transpose();
+            Eigen::Matrix<float, MSize, N> const pXYT = pXY.transpose();
+            Eigen::Matrix<float, MSize, N> const stKt = forwardSubstitution<MSize, N>(sy, pXYT);
+            Eigen::Matrix<float, MSize, MSize> const syT = sy.transpose();
+            Eigen::Matrix<float, N, MSize> const kMat = backSubstitution<MSize, N>(syT, stKt).transpose();
 
             //! > Calculate surprise factor and update state
-            Eigen::Vector<double, MSize> const innovation = measurement.subtract(observation, yBarPre);
-            this->state = State(this->xBar.raw() + kMat * innovation);
+            Eigen::Vector<float, MSize> const innovation = measurement.subtract(observation, yBarPre);
+            this->state = this->sigmaPoints[0].add(State(xMeanOffset + kMat * innovation));
 
-            //! > Cholesky downDate to get the update covariance (eq 29)
-            Eigen::Matrix<double, N, MSize> const Umat = kMat * sy;
-            for (int i = 0; i < MSize; ++i) {
-                Eigen::Vector<double, N> const col = Umat.col(i);
-                this->sqrtCovar = choleskyUpDownDate<N>(this->sqrtCovar, col, -1.0);
+            //! > Updated covariance (eq 29) in Joseph form, expanded about the central point, as one QR decomposition
+            //! > of a sum of squares and one rank-1 update (see "Measurement update in Joseph form" in
+            //! > filteringCore.rst)
+            constexpr int numCols = 2 * N + MSize + N;
+            Eigen::Matrix<float, N, numCols> B;
+            B.template leftCols<numSigma - 1>() = sqrtf(this->wM(1)) * (xDev - kMat * yDev);
+            B.template block<N, MSize>(0, numSigma - 1) = kMat * cholMeasNoise;
+            B.template block<N, N>(0, numSigma - 1 + MSize) = this->sqrtNoiseOutsideSigmaPoints;
+            Eigen::Matrix<float, N, N> const sPlus = qrDecompositionJustR<N, numCols>(B);
+
+            Eigen::Vector<float, N> const meanOffsetError = xMeanOffset - kMat * yMeanOffset;
+            std::optional<Eigen::Matrix<float, N, N>> const sqrtCovarUpdated =
+                choleskyUpDownDate<N>(sPlus, meanOffsetError, this->wMeanOffset);
+            if (!sqrtCovarUpdated) {
+                return residuals;  // the rank-1 downdate failed: a bad update (no residuals), for the caller to clear
             }
+            this->sqrtCovar = *sqrtCovarUpdated;
             this->covariance = this->sqrtCovar * this->sqrtCovar.transpose();
 
-            if (this->state.allFinite() and this->sqrtCovar.allFinite()) {
+            if (this->state.allFinite() and this->sqrtCovar.allFinite() and this->covariance.allFinite()) {
                 //! > Move the state and covariance of last measuremnts up
                 this->stateLastMeasurement = this->state;
                 this->covarianceLastMeasurement = this->covariance;
                 this->sqrtCovarLastMeasurement = this->sqrtCovar;
 
                 //! > Now that update is done compute post fit residuals
-                Eigen::Vector<double, MSize> const postFit =
+                Eigen::Vector<float, MSize> const postFit =
                     measurement.subtract(observation, measurement.model(this->state));
 
                 residuals = {.preFit = preFit, .postFit = postFit};
@@ -374,16 +442,22 @@ class SRuKF {
     Covariance sqrtCovarLastMeasurement;
 
     /*!  Filter parameters.  */
-    double alpha = 0;
-    double beta = 0;
-    double lambda = 0;
-    double eta = 0;
+    float alpha = 0;
+    float beta = 0;
+    float lambda = 0;
+    float eta = 0;
 
-    /*!  Sigma weights, latest propagated sigma points, and weighted mean. */
+    Covariance sqrtNoiseOutsideSigmaPoints = Covariance::Zero();
+
+    /*!  Sigma weights, latest propagated sigma points, their deviations from the central one (entry 0 unused), and
+     *   the weighted mean as its offset from the central point. The deviations and the mean offset are kept
+     *   separately so they are not absorbed into a large state in float. */
     SigmaWeights wM = SigmaWeights::Zero();
-    SigmaWeights wC = SigmaWeights::Zero();
+    /*!  Covariance weight of the mean offset, beta - alpha^2 (see filteringCore.rst). */
+    float wMeanOffset = 0.0F;
     std::array<State, 2 * State::size + 1> sigmaPoints = {};
-    State xBar;
+    std::array<State, 2 * State::size + 1> sigmaDeviations = {};
+    typename State::Storage meanOffset = State::Storage::Zero();
 };
 
 }  // namespace filtering

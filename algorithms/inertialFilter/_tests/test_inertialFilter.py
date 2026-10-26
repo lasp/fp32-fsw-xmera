@@ -10,6 +10,7 @@
 
 import inertialFilter_test_utilities as filter_plots
 import numpy as np
+import pytest
 from xmera.architecture import messaging
 from xmera.fp32 import inertialFilterF32
 from xmera.utilities import RigidBodyKinematics as rbk
@@ -588,6 +589,23 @@ def delayedMeasurement(show_plots):
     if testFailCount == 0:
         print("PASSED: InertialFilter delayed measurement")
     return [testFailCount, ''.join(testMessages)]
+
+
+def test_properties_have_the_filter_size():
+    """The matrix and vector properties have the filter's fixed size: a list of the wrong size is rejected."""
+    module = inertialFilterF32.InertialFilter()
+    n = 6
+    np.testing.assert_array_equal(np.array(module.initialState).reshape(n), np.zeros(n))
+    np.testing.assert_array_equal(module.initialCovariance, np.eye(n))
+    np.testing.assert_array_equal(module.processNoise, np.zeros((n, n)))
+    wrong_sizes = {
+        "initialState": [0.0] * (n + 1),
+        "initialCovariance": np.eye(n - 1).tolist(),
+        "processNoise": np.eye(n + 1).tolist(),
+    }
+    for name, value in wrong_sizes.items():
+        with pytest.raises(ValueError):
+            setattr(module, name, value)
 
 
 if __name__ == "__main__":
