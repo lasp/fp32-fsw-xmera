@@ -119,6 +119,11 @@ Two runtime reset entry points are exposed on both the algorithm and the adapter
 - ``reInitialize()`` performs ``reInitializeExceptPersistentStates()`` and additionally re-seeds the filter state and
   covariance from the configured initial values.
 
+The first ``update()`` after construction or after either reset entry point only synchronizes the filter time
+with the call time: the filter state and covariance are taken to be the estimate at that call time, nothing is
+propagated, and a fresh reading passed on that call stays queued for the next one. See "Synchronizing the filter
+time" in ``filteringCore.rst``.
+
 Configuration parameters
 +++++++++++++++++++++++++
 .. list-table:: Configuration parameters and valid ranges

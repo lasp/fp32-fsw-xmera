@@ -34,7 +34,8 @@ SunlineFilterConfig configFromC(const double alpha,
                                 const uint32_t numberOfCss,
                                 const double sensorThreshold,
                                 const double cssMeasurementNoiseStd,
-                                const double gyroMeasurementNoiseStd) {
+                                const double gyroMeasurementNoiseStd,
+                                const double measurementDelay) {
     StateMatrix processNoise;
     StateMatrix initialCovariance;
     for (int i = 0; i < N; ++i) {
@@ -70,7 +71,8 @@ SunlineFilterConfig configFromC(const double alpha,
                                        numberOfCss,
                                        static_cast<float>(sensorThreshold),
                                        static_cast<float>(cssMeasurementNoiseStd),
-                                       static_cast<float>(gyroMeasurementNoiseStd));
+                                       static_cast<float>(gyroMeasurementNoiseStd),
+                                       static_cast<float>(measurementDelay));
 }
 
 SunlineFilterStateOutput_c filterStateToC(const FilterStateOutput& in) {
@@ -133,7 +135,8 @@ bool SunlineFilterAlgorithm_validateConfig(double alpha,
                                            uint32_t numberOfCss,
                                            double sensorThreshold,
                                            double cssMeasurementNoiseStd,
-                                           double gyroMeasurementNoiseStd) {
+                                           double gyroMeasurementNoiseStd,
+                                           double measurementDelay) {
     // Build the config through the same path create() uses: success means valid, a throw means
     // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
     try {
@@ -149,7 +152,8 @@ bool SunlineFilterAlgorithm_validateConfig(double alpha,
                           numberOfCss,
                           sensorThreshold,
                           cssMeasurementNoiseStd,
-                          gyroMeasurementNoiseStd);
+                          gyroMeasurementNoiseStd,
+                          measurementDelay);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -168,7 +172,8 @@ SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(double alpha,
                                                             uint32_t numberOfCss,
                                                             double sensorThreshold,
                                                             double cssMeasurementNoiseStd,
-                                                            double gyroMeasurementNoiseStd) {
+                                                            double gyroMeasurementNoiseStd,
+                                                            double measurementDelay) {
     return fsw::createHandle<::SunlineFilterAlgorithm, SunlineFilterAlgorithmHandle>(
         configFromC(alpha,
                     beta,
@@ -182,7 +187,8 @@ SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(double alpha,
                     numberOfCss,
                     sensorThreshold,
                     cssMeasurementNoiseStd,
-                    gyroMeasurementNoiseStd));
+                    gyroMeasurementNoiseStd,
+                    measurementDelay));
 }
 
 void SunlineFilterAlgorithm_destroy(SunlineFilterAlgorithmHandle* self) {
@@ -202,7 +208,8 @@ void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self,
                                       uint32_t numberOfCss,
                                       double sensorThreshold,
                                       double cssMeasurementNoiseStd,
-                                      double gyroMeasurementNoiseStd) {
+                                      double gyroMeasurementNoiseStd,
+                                      double measurementDelay) {
     fsw::fromHandle<::SunlineFilterAlgorithm>(self)->setConfig(configFromC(alpha,
                                                                            beta,
                                                                            *processNoise,
@@ -215,7 +222,8 @@ void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self,
                                                                            numberOfCss,
                                                                            sensorThreshold,
                                                                            cssMeasurementNoiseStd,
-                                                                           gyroMeasurementNoiseStd));
+                                                                           gyroMeasurementNoiseStd,
+                                                                           measurementDelay));
 }
 
 SunlineFilterOutput_c SunlineFilterAlgorithm_update(SunlineFilterAlgorithmHandle* self,
