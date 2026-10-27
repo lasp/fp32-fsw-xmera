@@ -1,6 +1,7 @@
 #ifndef F32XMERA_SUNLINEFILTERSPECS_H
 #define F32XMERA_SUNLINEFILTERSPECS_H
 
+#include "../msgPayloadDef/definitions.h"
 #include "sunlineFilterTypes.h"
 
 #include <filteringCore/state.hpp>
@@ -12,7 +13,7 @@
 
 namespace filtering::sunlineFilter {
 
-inline constexpr int MaxCss = SUNLINE_FILTER_MAX_CSS;
+inline constexpr int MaxCss = kMaxNumCssSensors;
 inline constexpr int BatchSize = 5;
 
 // State: [s_hat (3), omega_BN_B (3), bias (1)].

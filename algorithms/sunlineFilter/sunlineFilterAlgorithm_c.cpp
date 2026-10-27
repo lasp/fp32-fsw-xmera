@@ -117,7 +117,7 @@ SunlineFilterOutput_c outputToC(const SunlineFilterOutput& out) {
 
 }  // namespace
 
-uint32_t SunlineFilterAlgorithm_getMaxCss(void) { return SUNLINE_FILTER_MAX_CSS; }
+uint32_t SunlineFilterAlgorithm_getMaxCss(void) { return MAX_NUM_CSS_SENSORS; }
 
 uint32_t SunlineFilterAlgorithm_getNumStates(void) { return SUNLINE_FILTER_NUM_STATES; }
 

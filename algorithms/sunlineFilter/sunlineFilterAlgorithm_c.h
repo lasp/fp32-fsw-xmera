@@ -1,6 +1,7 @@
 #ifndef F32XMERA_SUNLINEFILTERALGORITHM_C_H
 #define F32XMERA_SUNLINEFILTERALGORITHM_C_H
 
+#include "../mission/parameters.h"
 #include "sunlineFilterTypes.h"
 
 #include <stdbool.h>
@@ -33,18 +34,18 @@ typedef struct {
  * @brief Sized per-CSS scalar array, so the bound is part of the type at the C boundary.
  */
 typedef struct {
-    double data[SUNLINE_FILTER_MAX_CSS]; /*!< [-] one entry per CSS */
+    double data[MAX_NUM_CSS_SENSORS]; /*!< [-] one entry per CSS */
 } SunlineFilterCssVector_c;
 
 /**
  * @brief Sized per-CSS three-vector array, so the bound is part of the type at the C boundary.
  */
 typedef struct {
-    double data[SUNLINE_FILTER_MAX_CSS * 3]; /*!< [-] one body-frame three-vector per CSS */
+    double data[MAX_NUM_CSS_SENSORS * 3]; /*!< [-] one body-frame three-vector per CSS */
 } SunlineFilterCssMatrix_c;
 
 /**
- * @brief Get the SUNLINE_FILTER_MAX_CSS constant for Ada validation.
+ * @brief Get the MAX_NUM_CSS_SENSORS constant for Ada validation.
  * @return The maximum number of coarse sun sensors.
  */
 uint32_t SunlineFilterAlgorithm_getMaxCss(void);

@@ -1,6 +1,8 @@
 #ifndef F32XMERA_SUNLINEFILTER_TYPES_H
 #define F32XMERA_SUNLINEFILTER_TYPES_H
 
+#include "msgPayloadDef/definitions.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -8,7 +10,6 @@
 extern "C" {
 #endif
 
-#define SUNLINE_FILTER_MAX_CSS 8    /* Maximum number of coarse sun sensors */
 #define SUNLINE_FILTER_NUM_STATES 7 /* Filter state dimension: s_hat(3) + omega(3) + bias(1) */
 
 /**
@@ -17,8 +18,8 @@ extern "C" {
  * timeTag > 0 flags a fresh reading. There is one cosValues entry per CSS.
  */
 typedef struct {
-    double timeTag;                           /*!< [s] time tag of the CSS reading */
-    double cosValues[SUNLINE_FILTER_MAX_CSS]; /*!< [-] CSS cosine measurement values */
+    double timeTag;                        /*!< [s] time tag of the CSS reading */
+    double cosValues[MAX_NUM_CSS_SENSORS]; /*!< [-] CSS cosine measurement values */
 } SunlineCssData_c;
 
 /**
@@ -46,11 +47,11 @@ typedef struct {
  * numberOfActiveCss entries of each residual array are meaningful.
  */
 typedef struct {
-    bool valid;                                 /*!< [-] true iff a CSS measurement fired this cycle */
-    int32_t numberOfActiveCss;                  /*!< [-] number of CSS above the sensor threshold */
-    double observation[SUNLINE_FILTER_MAX_CSS]; /*!< [-] measured CSS cosine values */
-    double preFit[SUNLINE_FILTER_MAX_CSS];      /*!< [-] pre-update CSS residuals */
-    double postFit[SUNLINE_FILTER_MAX_CSS];     /*!< [-] post-update CSS residuals */
+    bool valid;                              /*!< [-] true iff a CSS measurement fired this cycle */
+    int32_t numberOfActiveCss;               /*!< [-] number of CSS above the sensor threshold */
+    double observation[MAX_NUM_CSS_SENSORS]; /*!< [-] measured CSS cosine values */
+    double preFit[MAX_NUM_CSS_SENSORS];      /*!< [-] pre-update CSS residuals */
+    double postFit[MAX_NUM_CSS_SENSORS];     /*!< [-] post-update CSS residuals */
 } SunlineCssResidualsOutput_c;
 
 /**
