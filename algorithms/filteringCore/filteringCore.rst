@@ -173,6 +173,10 @@ long runs; only their differences are narrowed to ``float`` before
    weights, and the process-noise Cholesky from alpha, beta, and the process
    noise, leaving the estimate untouched; ``reInitialize()`` calls ``configure()``
    and additionally seeds the state and covariance from the initial conditions.
+   ``choleskyDecomposition()`` is a semidefinite Cholesky: the process noise and
+   the initial covariance only need to be positive semi-definite, so a state with
+   zero process noise (or a rank-deficient covariance) factors exactly, with a
+   zero column for each zero pivot.
 
    ``timeUpdate(dt)`` always propagates **from the saved last-measurement
    state**, which it leaves untouched, so it is idempotent in ``dt`` — calling

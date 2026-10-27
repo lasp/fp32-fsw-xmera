@@ -112,6 +112,36 @@ TEST(SrukfStatic, CholeskyDecompositionReconstructsP) {
     }
 }
 
+// A singular PSD matrix (zero process noise on some states, or a rank-deficient covariance) still factors: a
+// zero pivot gives a zero column, and the factor of the remaining states is unaffected.
+TEST(SrukfStatic, CholeskyDecompositionFactorsASingularPositiveSemiDefiniteMatrix) {
+    Eigen::Matrix<float, 3, 2> B;
+    B << 1.0F, 0.5F, -2.0F, 1.0F, 0.25F, 3.0F;
+    Eigen::Matrix3f const zeroInTheMiddle = Eigen::Vector3f(4.0F, 0.0F, 9.0F).asDiagonal();
+    Eigen::Matrix3f const zeroFirst = Eigen::Vector3f(0.0F, 4.0F, 9.0F).asDiagonal();
+    Eigen::Matrix3f const rankTwo = B * B.transpose();
+
+    for (Eigen::Matrix3f const& P : {zeroInTheMiddle, zeroFirst, rankTwo}) {
+        Eigen::Matrix3f const L = SRuKFType::choleskyDecomposition<3>(P);
+        ASSERT_TRUE(L.allFinite()) << "P =\n" << P;
+        EXPECT_LE((L * L.transpose() - P).norm(), kRoundoffTol * P.norm()) << "L·L^T must equal P =\n" << P;
+        EXPECT_TRUE(L.isLowerTriangular()) << "P =\n" << P;
+        EXPECT_GE(L.diagonal().minCoeff(), 0.0F) << "P =\n" << P;
+    }
+    EXPECT_TRUE(SRuKFType::choleskyDecomposition<3>(Eigen::Matrix3f::Zero()).isZero()) << "zero process noise";
+}
+
+// A zero pivot is judged against that state's own variance, so small variances next to a much larger one are kept.
+TEST(SrukfStatic, CholeskyDecompositionKeepsSmallVariancesNextToALargeOne) {
+    Eigen::Matrix3f P = Eigen::Vector3f(1e10F, 1e-4F, 2e-4F).asDiagonal();
+    P(1, 2) = P(2, 1) = 1e-4F;
+
+    Eigen::Matrix3f const L = SRuKFType::choleskyDecomposition<3>(P);
+
+    Eigen::Matrix2f const smallBlock = (L * L.transpose()).bottomRightCorner<2, 2>();
+    EXPECT_TRUE(smallBlock.isApprox(P.bottomRightCorner<2, 2>(), kRoundoffTol)) << smallBlock;
+}
+
 TEST(SrukfStatic, QrDecompositionJustRReturnsLowerTriangularSatisfyingNormalEquations) {
     Eigen::Matrix<float, 3, 9> A;
     A << 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 2.0, -1.0, 0.0, 1.0,
@@ -304,6 +334,25 @@ TEST(SrukfTimeUpdate, CovarianceUnderTimeUpdate) {
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
     EXPECT_TRUE(isSymmetric<3>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
+}
+
+// Zero process noise on a state in the middle adds Q exactly: with zero dynamics the covariance after a time update
+// is P0 + Q. A factor of Q that stopped at the zero pivot would add 0.3^2 instead of 0.3 to the last state.
+TEST(SrukfTimeUpdate, PartlyZeroProcessNoiseAddsExactlyQ) {
+    SRuKFType filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    Eigen::Matrix3f const P0 = Eigen::Matrix3f::Identity();
+    Eigen::Matrix3f const Q = Eigen::Vector3f(0.1F, 0.0F, 0.3F).asDiagonal();
+    filter.setInitialCovariance(P0);
+    filter.setProcessNoise(Q);
+    filter.reInitialize();
+    filter.configure();
+
+    ASSERT_TRUE(filter.timeUpdate(1.0));
+
+    Eigen::Matrix3f const P = filter.getCovariance();
+    EXPECT_TRUE(P.isApprox(P0 + Q, kRoundoffTol)) << P;
 }
 
 // A covariance that overflows float must fail the time update: the prior and the process noise are finite, but

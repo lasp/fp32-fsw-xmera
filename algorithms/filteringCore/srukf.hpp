@@ -14,6 +14,7 @@
 
 #include <math.h>
 #include <array>
+#include <limits>
 #include <optional>
 
 namespace filtering {
@@ -51,13 +52,33 @@ class SRuKF {
         return rTilde.transpose();
     }
 
-    /*! Cholesky decomposition.
-     *  @return lower-triangular L with input = L * L^T
-     *  @param input [-] symmetric positive-definite matrix */
+    /*! Semidefinite Cholesky decomposition, reading the lower triangle. A positive semi-definite matrix
+     *  may be singular, e.g. a process noise with zero noise on some states. 
+     *  @return lower-triangular L with input = L * L^T and a non-negative diagonal
+     *  @param input [-] symmetric positive semi-definite matrix */
     template <int Size>
     static Eigen::Matrix<float, Size, Size> choleskyDecomposition(Eigen::Matrix<float, Size, Size> const& input) {
-        Eigen::LLT<Eigen::Matrix<float, Size, Size>> chol(input);
-        return chol.matrixL();
+        constexpr float kPivotTolerance = static_cast<float>(Size) * std::numeric_limits<float>::epsilon();
+        Eigen::Matrix<float, Size, Size> L = Eigen::Matrix<float, Size, Size>::Zero();
+        for (int j = 0; j < Size; ++j) {
+            float pivot = input(j, j);
+            for (int k = 0; k < j; ++k) {
+                pivot -= L(j, k) * L(j, k);
+            }
+            if (!(pivot > kPivotTolerance * input(j, j))) {
+                continue;  // zero pivot: the state's variance is already carried by the previous states
+            }
+            float const ljj = sqrtf(pivot);
+            L(j, j) = ljj;
+            for (int i = j + 1; i < Size; ++i) {
+                float sum = input(i, j);
+                for (int k = 0; k < j; ++k) {
+                    sum -= L(i, k) * L(j, k);
+                }
+                L(i, j) = sum / ljj;
+            }
+        }
+        return L;
     }
 
     /*! Rank-1 Cholesky up/down date: returns lower-triangular L with
