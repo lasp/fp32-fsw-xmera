@@ -2,6 +2,7 @@
 #define F32XMERA_MOMENTUM_MANAGEMENT_ALGORITHM_C_H
 
 #include "momentumManagementTypes.h"
+#include "utilities/fsw/deviceAvailability.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdbool.h>
@@ -31,10 +32,10 @@ typedef struct {
 } MomentumManagementRwInertias_c;
 
 /**
- * @brief Availability of each wheel slot, one byte per slot: 0 available, 1 unavailable.
+ * @brief Availability of each wheel slot, one entry per slot: 0 available, 1 unavailable.
  */
 typedef struct {
-    uint8_t availability[RW_EFF_CNT]; /*!< [-] one entry per wheel */
+    DeviceAvailability_c availability[RW_EFF_CNT]; /*!< [-] one entry per wheel */
 } MomentumManagementRwAvailability_c;
 
 /**
@@ -60,7 +61,7 @@ uint32_t MomentumManagementAlgorithm_getMaxNumRw(void);
  * @param GsMatrix_B        [-]     RW spin axes, three per wheel in row major order; every axis must be a
  *                                  unit vector.
  * @param JsList            [kgm2]  per-wheel spin-axis inertia.
- * @param wheelAvailability [-]     availability of each wheel, one byte per slot: 0 available, 1 unavailable.
+ * @param wheelAvailability [-]     availability of each wheel, one entry per slot: 0 available, 1 unavailable.
  * @return true when the configuration is valid. Never throws, so it can guard the
  *         throwing create/setConfig from an invalid configuration.
  */
@@ -92,7 +93,7 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
  * @param GsMatrix_B        [-]     RW spin axes, three per wheel in row major order; every axis must be a
  *                                  unit vector.
  * @param JsList            [kgm2]  per-wheel spin-axis inertia.
- * @param wheelAvailability [-]     availability of each wheel, one byte per slot: 0 available, 1 unavailable.
+ * @param wheelAvailability [-]     availability of each wheel, one entry per slot: 0 available, 1 unavailable.
  * @return Pointer to a new MomentumManagementAlgorithm (must be destroyed).
  * Validate the configuration with validateConfig first; invalid input throws.
  */
@@ -132,7 +133,7 @@ void MomentumManagementAlgorithm_destroy(MomentumManagementAlgorithmHandle* self
  * @param GsMatrix_B        [-]     RW spin axes, three per wheel in row major order; every axis must be a
  *                                  unit vector.
  * @param JsList            [kgm2]  per-wheel spin-axis inertia.
- * @param wheelAvailability [-]     availability of each wheel, one byte per slot: 0 available, 1 unavailable.
+ * @param wheelAvailability [-]     availability of each wheel, one entry per slot: 0 available, 1 unavailable.
  * Validate the configuration with validateConfig first; invalid input throws.
  */
 void MomentumManagementAlgorithm_setConfig(MomentumManagementAlgorithmHandle* self,

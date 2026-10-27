@@ -38,6 +38,11 @@ The following table lists the Xmera message connections for the ``MimuMajorityVo
       - :ref:`IMUSensorBodyMsgF32Payload`
       - Output message containing the majority-voted angular velocity (``AngVelBody``) and
         apparent acceleration (``AccelBody``) estimates in the spacecraft body frame.
+    * - ``navAttOutMsg``
+      - :ref:`NavAttMsgF32Payload`
+      - Output message containing the majority-voted angular velocity (``omega_BN_B``) in the
+        spacecraft body frame. ``timeTag`` is the module call time. The IMU inputs have no time tag,
+        so this is the time of the vote, not the time of the measurement. All other fields are zero.
     * - ``mimuFaultMsg``
       - :ref:`MimuFaultMsgPayload`
       - Output message containing the gyro and accel fault status (``gyroFaultDetected`` /
@@ -231,7 +236,8 @@ re-applies the current public parameters to the running algorithm, and ``reIniti
 votes' persistence counters.
 
 The voted angular velocity (``AngVelBody``) and acceleration (``AccelBody``) are available on
-``module.imuSensorBodyOutMsg`` and the fault status on ``module.mimuFaultMsg``. The ``mimuFaultMsg``
+``module.imuSensorBodyOutMsg``, the voted angular velocity is also available as ``omega_BN_B`` on
+``module.navAttOutMsg``, and the fault status is on ``module.mimuFaultMsg``. The ``mimuFaultMsg``
 payload fields are:
 
 - ``gyroFaultDetected`` / ``accelFaultDetected`` — ``bool`` per vote.

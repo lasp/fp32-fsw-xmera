@@ -9,9 +9,9 @@
 namespace {
 AverageMimuDataConfig configFromC(const float gyroAveragingWindow,
                                   const float accelAveragingWindow,
-                                  const Matrix3f_c& dcm_BC) {
+                                  const Vector3f_c& sigma_CB) {
     return AverageMimuDataConfig::create(
-        gyroAveragingWindow, accelAveragingWindow, c2DArrayToEigenMatrix3(dcm_BC.data));
+        gyroAveragingWindow, accelAveragingWindow, cArrayToEigenVector3<float>(sigma_CB.data));
 }
 }  // namespace
 
@@ -21,11 +21,11 @@ uint32_t AverageMimuDataAlgorithm_getMaxMimuSamplesPerPkt(void) { return MAX_MIM
 
 bool AverageMimuDataAlgorithm_validateConfig(const float gyroAveragingWindow,
                                              const float accelAveragingWindow,
-                                             const Matrix3f_c dcm_BC) {
+                                             const Vector3f_c sigma_CB) {
     // Attempt to build the config through the real create path; success means valid,
     // a throw means invalid. Reusing configFromC keeps validation from drifting.
     try {
-        (void)configFromC(gyroAveragingWindow, accelAveragingWindow, dcm_BC);
+        (void)configFromC(gyroAveragingWindow, accelAveragingWindow, sigma_CB);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -34,9 +34,9 @@ bool AverageMimuDataAlgorithm_validateConfig(const float gyroAveragingWindow,
 
 AverageMimuDataAlgorithmHandle* AverageMimuDataAlgorithm_create(const float gyroAveragingWindow,
                                                                 const float accelAveragingWindow,
-                                                                const Matrix3f_c dcm_BC) {
+                                                                const Vector3f_c sigma_CB) {
     return fsw::createHandle<::AverageMimuDataAlgorithm, AverageMimuDataAlgorithmHandle>(
-        configFromC(gyroAveragingWindow, accelAveragingWindow, dcm_BC));
+        configFromC(gyroAveragingWindow, accelAveragingWindow, sigma_CB));
 }
 
 void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self) {
@@ -46,9 +46,9 @@ void AverageMimuDataAlgorithm_destroy(AverageMimuDataAlgorithmHandle* self) {
 void AverageMimuDataAlgorithm_setConfig(AverageMimuDataAlgorithmHandle* self,
                                         const float gyroAveragingWindow,
                                         const float accelAveragingWindow,
-                                        const Matrix3f_c dcm_BC) {
+                                        const Vector3f_c sigma_CB) {
     fsw::fromHandle<::AverageMimuDataAlgorithm>(self)->setConfig(
-        configFromC(gyroAveragingWindow, accelAveragingWindow, dcm_BC));
+        configFromC(gyroAveragingWindow, accelAveragingWindow, sigma_CB));
 }
 
 void AverageMimuDataAlgorithm_reInitialize(AverageMimuDataAlgorithmHandle* self) {

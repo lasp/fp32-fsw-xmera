@@ -1,20 +1,18 @@
 import numpy as np
-import pytest
 
 from xmera.utilities import SimulationBaseClass
 from xmera.fp32 import mrpPDF32
 from xmera.utilities import macros
 from xmera.architecture import messaging
 
-@pytest.mark.parametrize("set_external_torque", [False, True])
-def test_mrpPD(show_plots, set_external_torque):
+def test_mrpPD(show_plots):
     r"""
     **Validation Test Description**
 
     The unit test for this module verifies that the module output control torque vector matches the expected value.
-    Given the spacecraft vehicle configuration input message containing the spacecraft inertia, an input attitude
-    guidance message, and an optional known external torque vector, the module-computed control torque command vector
-    is logged and compared with the computed truth value.
+    Given the spacecraft vehicle configuration input message containing the spacecraft inertia and an input attitude
+    guidance message, the module-computed control torque command vector is logged and compared with the computed
+    truth value.
 
     **Test Parameters**
 
@@ -22,7 +20,6 @@ def test_mrpPD(show_plots, set_external_torque):
     method parameters include the following.
 
     :param show_plots: flag to show the test run plots
-    :param set_external_torque: flag to set the knownTorquePntB_B variable
     :return: void
     """
 
@@ -42,10 +39,6 @@ def test_mrpPD(show_plots, set_external_torque):
     mrp_pd.modelTag = "mrpPD"
     mrp_pd.P = 150.0
     mrp_pd.K = 0.15
-    knownTorquePntB_B = np.array([0.0, 0.0, 0.0])
-    if set_external_torque:
-        knownTorquePntB_B = np.array([0.1, 0.2, 0.3])
-        mrp_pd.knownTorquePntB_B = knownTorquePntB_B
     unit_test_sim.AddModelToTask(task_name, mrp_pd)
 
     # Create the mrpPD module attitude guidance input message
@@ -74,7 +67,7 @@ def test_mrpPD(show_plots, set_external_torque):
     unit_test_sim.ExecuteSimulation()
 
     # Compute the truth control torque vector
-    truth_torque = compute_true_torque(mrp_pd, guidance_cmd_data, np.array(inertia).reshape(3, 3), knownTorquePntB_B)  # [Nm]
+    truth_torque = compute_true_torque(mrp_pd, guidance_cmd_data, np.array(inertia).reshape(3, 3))  # [Nm]
 
     # Compare the module-computed command torque to the truth value
     accuracy = 1e-6
@@ -84,7 +77,7 @@ def test_mrpPD(show_plots, set_external_torque):
                                rtol=0,
                                verbose=True)
 
-def compute_true_torque(mrp_pd, guidance_cmd_data, ISCPntB_B, knownTorquePntB_B):
+def compute_true_torque(mrp_pd, guidance_cmd_data, ISCPntB_B):
     # Compute hub inertial angular velocity in B-frame components
     omega_BR_B = np.array(guidance_cmd_data.omega_BR_B)
 
@@ -94,9 +87,9 @@ def compute_true_torque(mrp_pd, guidance_cmd_data, ISCPntB_B, knownTorquePntB_B)
     domega_RN_B = np.array(guidance_cmd_data.domega_RN_B)
 
     # Compute required attitude control torque
-    Lr = - K * sigma_BR - P * omega_BR_B + ISCPntB_B @ domega_RN_B  - knownTorquePntB_B  # [Nm]
+    Lr = - K * sigma_BR - P * omega_BR_B + ISCPntB_B @ domega_RN_B  # [Nm]
 
     return Lr
 
 if __name__ == "__main__":
-    test_mrpPD(False, False)
+    test_mrpPD(False)

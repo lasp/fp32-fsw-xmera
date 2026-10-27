@@ -8,7 +8,7 @@ Executive Summary
 
 The ``convertStPlatformToBody`` module converts a star tracker attitude measurement from the sensor (case) frame into
 the spacecraft body frame. It takes the inertial-to-case attitude quaternion and case-frame delta quaternion produced
-by the star tracker and, using a configured body-to-case mounting DCM, outputs the inertial-to-body MRP and body-frame
+by the star tracker and, using a configured mounting MRP, outputs the inertial-to-body MRP and body-frame
 angular velocity suitable for downstream navigation and control modules. The adapter layer accepts the legacy
 angular-velocity field on ``STSensorMsgF32Payload`` and converts it to a delta quaternion before invoking the algorithm,
 so upstream producers may continue to publish angular velocity until the message layout is updated.
@@ -50,12 +50,12 @@ The following table lists all the module parameters that can be set.
       - Units
       - Default
       - Description
-    * - dcm_CB
-      - Eigen::Matrix3f
+    * - sigma_CB
+      - Eigen::Vector3f
       - [-]
-      - Identity
-      - Direction cosine matrix mapping body-frame components to case-frame components. Must be a valid
-        DCM (orthonormal, det +1); validated when the configuration is built in ``reset()``.
+      - Zero
+      - MRP of the case frame relative to the body frame. Must be finite; validated when the configuration is
+        built in ``reset()``. A shadow set is stored as its principal set.
 
 
 -------------------------------
@@ -76,7 +76,7 @@ The adapter (``ConvertStPlatformToBody``) provides the Xmera-facing interface an
 
 - Initializing the module by verifying that input messages are properly linked in ``reset()``, throwing
   ``std::invalid_argument`` if ``stSensorInMsg`` is not connected
-- Building a validated ``ConvertStPlatformToBodyConfig`` from the ``dcm_CB`` property and constructing the algorithm
+- Building a validated ``ConvertStPlatformToBodyConfig`` from the ``sigma_CB`` property and constructing the algorithm
   in ``reset()`` (two-phase initialization); ``updateState()`` raises ``XmeraLifecycleException`` if called first
 - Reading the input message ``stSensorInMsg``
 - Reordering the scalar-first inertial-to-case quaternion on the incoming message to the scalar-last
@@ -108,7 +108,6 @@ Input Constraints and Assumptions
   interface passes them through unchanged
 - ``q_CN`` is a unit quaternion :math:`[q_0, q_1, q_2, q_3]` with scalar part :math:`q_3`, representing the rotation
   from the inertial frame :math:`\mathcal{N}` to the case frame :math:`\mathcal{C}`
-- ``dcm_CB`` is a proper orthogonal direction cosine matrix (det = +1)
 - ``dq_CN`` is a unit delta quaternion in scalar-last convention,
   :math:`\delta \boldsymbol{q}_{CN} = [\sin(\theta/2)\,\hat{\boldsymbol{e}},\ \cos(\theta/2)]`,
   representing a one-sample case-frame rotation about unit axis :math:`\hat{\boldsymbol{e}}` by angle :math:`\theta`
@@ -136,9 +135,9 @@ Rodrigues Parameter set. The scalar-last input is first reordered to the scalar-
 
 **2. Inertial-to-body MRP**
 
-The case-to-body MRP is obtained from the inverse of the configured body-to-case DCM:
+The case-to-body MRP is the inverse of the configured mounting MRP:
 
-:math:`\boldsymbol{\sigma}_{BC} = \mathrm{dcmToMrp}\!\left([CB]^{T}\right) = \mathrm{dcmToMrp}\!\left([BC]\right)`
+:math:`\boldsymbol{\sigma}_{BC} = -\boldsymbol{\sigma}_{CB}`
 
 The inertial-to-body MRP is then computed by MRP addition:
 
@@ -163,7 +162,7 @@ When the vector part has zero norm the recovered angular velocity is taken to be
 **4. Angular velocity transformation**
 
 Because the sensor is rigidly mounted, the angular velocity in the body frame is obtained by rotating the
-case-frame measurement through the mounting DCM:
+case-frame measurement through the DCM of the mounting MRP, :math:`[CB] = [CB](\boldsymbol{\sigma}_{CB})`:
 
 :math:`{}^{B}\boldsymbol{\omega}_{BN} = [CB]^{T}\, {}^{C}\boldsymbol{\omega}_{CN}`
 
@@ -176,9 +175,9 @@ The module is configured from Python as::
 
     module = convertStPlatformToBodyF32.ConvertStPlatformToBody()
     module.modelTag = "stPlatformToBody"
-    module.dcm_CB = dcm_CB
+    module.sigma_CB = sigma_CB
     module.stSensorInMsg.subscribeTo(stSensorMsg)
 
-The ``dcm_CB`` mounting matrix must be set before ``reset()`` is called so that the algorithm uses the
-intended mounting configuration on the first update cycle. If ``dcm_CB`` is never set, an identity DCM is
+The ``sigma_CB`` mounting MRP must be set before ``reset()`` is called so that the algorithm uses the
+intended mounting configuration on the first update cycle. If ``sigma_CB`` is never set, a zero MRP is
 used (body and case frames are assumed to coincide).

@@ -45,13 +45,9 @@ Module Parameters
       - float
       - 0
       - rate-error feedback (derivative) gain; must be >= 0
-    * - knownTorquePntB_B
-      - Eigen::Vector3f
-      - zero
-      - known external torque in body-frame components; must be finite
 
 The spacecraft inertia ``ISCPntB_B`` is not a user property: it is read from ``vehConfigInMsg`` at ``reset()`` (an
-identity matrix is used if that message has not been written) and must be a valid inertia matrix. All four values are
+identity matrix is used if that message has not been written) and must be a valid inertia matrix. All three values are
 validated when the configuration is built in ``reset()``.
 
 
@@ -61,7 +57,6 @@ This attitude feedback module using the MRP feedback control related to the cont
 
 .. math::
     {\mathbf L}_{r} =  -K \mathbf\sigma - [P] \delta\mathbf\omega   + [I]\dot{\mathbf\omega}_{r}
-            - \mathbf L
 
 Note that this control solution creates an external control torque which must be produced with a cluster of thrusters.  No reaction wheel information is used here.  Further, the feedback control component is a simple proportional and derivative feedback formulation.  As shown in `Analytical Mechanics of Space Systems <http://dx.doi.org/10.2514/4.105210>`_, this control can asymptotically track a general reference trajectory given by the reference frame :math:`\mathcal R`.
 The torque provided does not compute gyroscopic terms.
@@ -79,10 +74,9 @@ The required module configuration is::
     module.modelTag = "mrpPD"
     module.K = K
     module.P = P
-    module.knownTorquePntB_B = knownTorquePntB_B
 
     module.guidInMsg.subscribeTo(guidance_msg)
     module.vehConfigInMsg.subscribeTo(vehicle_config_msg)
 
-The gains and known torque must be set, and the input messages connected, before ``reset()`` is called: the module
+The gains must be set, and the input messages connected, before ``reset()`` is called: the module
 builds and validates its immutable configuration at reset (reading the inertia from ``vehConfigInMsg``).

@@ -8,33 +8,34 @@
 #include <Eigen/Core>
 
 namespace {
-ConvertStPlatformToBodyConfig configFromC(const Matrix3f_c& dcm_CB) {
-    return ConvertStPlatformToBodyConfig::create(c2DArrayToEigenMatrix3(dcm_CB.data));
+ConvertStPlatformToBodyConfig configFromC(const Vector3f_c& sigma_CB) {
+    return ConvertStPlatformToBodyConfig::create(cArrayToEigenVector3<float>(sigma_CB.data));
 }
 }  // namespace
 
-bool ConvertStPlatformToBodyAlgorithm_validateConfig(const Matrix3f_c dcm_CB) {
+bool ConvertStPlatformToBodyAlgorithm_validateConfig(const Vector3f_c sigma_CB) {
     // Attempt to build the config through the real create path; success means valid,
     // a throw means invalid. Reusing configFromC keeps validation from drifting.
     try {
-        (void)configFromC(dcm_CB);
+        (void)configFromC(sigma_CB);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
     }
 }
 
-ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(const Matrix3f_c dcm_CB) {
+ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(const Vector3f_c sigma_CB) {
     return fsw::createHandle<::ConvertStPlatformToBodyAlgorithm, ConvertStPlatformToBodyAlgorithmHandle>(
-        configFromC(dcm_CB));
+        configFromC(sigma_CB));
 }
 
 void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHandle* self) {
     fsw::deleteHandle<::ConvertStPlatformToBodyAlgorithm>(self);
 }
 
-void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self, const Matrix3f_c dcm_CB) {
-    fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->setConfig(configFromC(dcm_CB));
+void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self,
+                                                const Vector3f_c sigma_CB) {
+    fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->setConfig(configFromC(sigma_CB));
 }
 
 StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithmHandle* self,

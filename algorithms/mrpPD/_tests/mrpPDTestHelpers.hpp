@@ -13,19 +13,18 @@ inline Eigen::Vector3f referenceUpdate(const MrpPDConfig& cfg,
                                        const Eigen::Vector3f& sigma_BR,
                                        const Eigen::Vector3f& omega_BR_B,
                                        const Eigen::Vector3f& domega_RN_B) {
-    const Eigen::Vector3f Lr = -cfg.getProportionalGainK() * sigma_BR - cfg.getDerivativeGainP() * omega_BR_B +
-                               cfg.getInertia() * domega_RN_B - cfg.getKnownTorquePntB_B();
+    const Eigen::Vector3f Lr =
+        -cfg.getProportionalGainK() * sigma_BR - cfg.getDerivativeGainP() * omega_BR_B + cfg.getInertia() * domega_RN_B;
     return Lr;
 }
 
 inline void regressionTestMrpPD(float K,
                                 float P,
-                                const Eigen::Vector3f& torque,
                                 const Eigen::Vector3f& sigma_BR,
                                 const Eigen::Vector3f& omega_BR_B,
                                 const Eigen::Vector3f& domega_RN_B) {
     // Identity inertia (the default vehicle configuration used by these regression scenarios).
-    const MrpPDConfig cfg = MrpPDConfig::create(K, P, torque, Eigen::Matrix3f::Identity());
+    const MrpPDConfig cfg = MrpPDConfig::create(K, P, Eigen::Matrix3f::Identity());
     MrpPDAlgorithm alg{cfg};
 
     Eigen::Vector3f outputTorque = Eigen::Vector3f::Zero();

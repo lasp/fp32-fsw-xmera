@@ -94,6 +94,13 @@ Module Parameters
       - zero
       - Module update/control period. The search timeline advances by one ``controlPeriod`` per
         update, so this must equal the module's scheduling rate (must be finite and > 0)
+    * - deadbandAngle
+      - float
+      - [rad]
+      - 0
+      - Attitude deadband. In the pointing phase, the module controls to the band edge, not to zero
+        error. Thus :math:`\mathbf\sigma_{B/R}` is zero inside the band and increases from zero
+        outside it. Must be finite and >= 0. Zero disables the deadband
     * - rotations
       - RotationProperties[4]
       - --
@@ -129,6 +136,7 @@ The module is configured by::
     module.omega_RN_B = [0.0, 0.0, 0.0]
     module.observationThreshold = 4
     module.controlPeriod = 0.5  # must match the task update rate
+    module.deadbandAngle = 0.0  # optional, 0 disables
 
     rotation = sunSearchPointF32.RotationProperties()
     rotation.rotationDuration = 30.0
@@ -197,6 +205,28 @@ The attitude error MRP and reference rate are
 with rate tracking error :math:`\mathbf\omega_{B/R} = \mathbf\omega_{B/N} - \mathbf\omega_{R/N}` and
 zero reference acceleration :math:`\dot{\mathbf\omega}_{R/N} = \mathbf 0`.
 
+Attitude Deadband
+^^^^^^^^^^^^^^^^^
+The module controls the attitude to the edge of the deadband, not to zero error. It subtracts
+``deadbandAngle`` from the sun angle error and commands the remaining error about the same axis
+:math:`\hat{\mathbf e}`:
+
+.. math::
+
+   \Phi_{c} = \max(\Phi - \texttt{deadbandAngle},\ 0)
+   \qquad
+   \mathbf\sigma_{B/R} = \tan\left(\frac{\Phi_{c}}{4}\right) \hat{\mathbf e}
+
+Inside the band, :math:`\mathbf\sigma_{B/R} = \mathbf 0`. Outside the band, the commanded error is
+the angle between the attitude and the band edge. Thus the commanded error increases from zero when
+the attitude moves out of the band. If the module controlled to zero error, the commanded error would
+jump from zero to ``deadbandAngle`` at the band edge. With thruster control (a Schmitt trigger), this
+jump causes chattering between opposite thrusters and uses propellant.
+With ``deadbandAngle = 0`` the output is the same as with no deadband.
+
+The deadband does not change :math:`\mathbf\omega_{B/R}` or :math:`\mathbf\omega_{R/N}`. It applies
+only when a sun direction is available. The search phase and the no-sun branch do not change.
+
 Pointing Phase — No Sun Direction Vector
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 If :math:`\mathbf s` is the zero vector, the attitude error is set to zero and the configured
@@ -221,5 +251,7 @@ implementation of the pointing logic, property-based tests (MRP norm bounds, the
 tests (collinear and 180° vectors, zero-vector sun-not-visible, the :math:`\hat{\mathbf e}_{180}`
 fallback), and search/state-machine tests covering active-rotation selection, the first-rotation
 commit window, the observation-threshold transition, the forced transition after the full sequence,
-the terminal pointing phase, and the zero-sun fallback rate. The module adapter is exercised in
+the terminal pointing phase, the zero-sun fallback rate, and the attitude deadband (zero
+inside the band, the band subtracted outside it, continuous at the edge, no effect on the rate errors,
+and no effect on the search and no-sun branches). The module adapter is exercised in
 Python for input/output wiring, the search-to-point transition, and the ``reset()`` link checks.

@@ -17,20 +17,20 @@ typedef struct ConvertStPlatformToBodyAlgorithmHandle ConvertStPlatformToBodyAlg
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param dcm_CB Body-to-case mounting DCM, row-major 3x3.
+ * @param sigma_CB MRP of the case frame relative to the body frame; must be finite.
  * @return true if the configuration is valid. Never throws, so it can guard the
  *         throwing create/setConfig from an invalid configuration.
  * @note The accepted value ranges are defined by ConvertStPlatformToBodyConfig::create; this
  *       predicate reports whether a candidate set would be accepted, without throwing.
  */
-bool ConvertStPlatformToBodyAlgorithm_validateConfig(Matrix3f_c dcm_CB);
+bool ConvertStPlatformToBodyAlgorithm_validateConfig(Vector3f_c sigma_CB);
 
 /**
  * @brief Construct a new ConvertStPlatformToBodyAlgorithm instance from the supplied configuration.
- * @param dcm_CB Body-to-case mounting DCM, row-major 3x3.
+ * @param sigma_CB MRP of the case frame relative to the body frame; must be finite.
  * @return Pointer to a new instance (must be destroyed). Validated; throws on invalid input.
  */
-ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(Matrix3f_c dcm_CB);
+ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(Vector3f_c sigma_CB);
 
 /**
  * @brief Destroy a previously created ConvertStPlatformToBodyAlgorithm.
@@ -40,11 +40,11 @@ void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHa
 
 /**
  * @brief Apply a new configuration.
- * @param self   Pointer to the instance.
- * @param dcm_CB Body-to-case mounting DCM, row-major 3x3.
+ * @param self     Pointer to the instance.
+ * @param sigma_CB MRP of the case frame relative to the body frame; must be finite.
  * Validated; throws on invalid input.
  */
-void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self, Matrix3f_c dcm_CB);
+void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self, Vector3f_c sigma_CB);
 
 /**
  * @brief Run the update step.

@@ -19,7 +19,8 @@ SunSearchPointConfig configFromC(const RotationPropertiesArray4_c& rotationsIn,
                                  const float sunAxisSpinRate,
                                  const Vector3f_c omega_RN_B,
                                  const uint32_t observationThreshold,
-                                 const float controlPeriod) {
+                                 const float controlPeriod,
+                                 const float deadbandAngle) {
     std::array<RotationProperties, kNumSunSearchRotations> rotations{};
     for (uint32_t i = 0U; i < kNumSunSearchRotations; ++i) {
         rotations[i].rotationDuration = rotationsIn.rotations[i].rotationDuration;
@@ -31,7 +32,8 @@ SunSearchPointConfig configFromC(const RotationPropertiesArray4_c& rotationsIn,
                                         sunAxisSpinRate,
                                         cArrayToEigenVector3<float>(omega_RN_B.data),
                                         observationThreshold,
-                                        controlPeriod);
+                                        controlPeriod,
+                                        deadbandAngle);
 }
 }  // namespace
 
@@ -44,11 +46,13 @@ bool SunSearchPointAlgorithm_validateConfig(const RotationPropertiesArray4_c* ro
                                             const float sunAxisSpinRate,
                                             const Vector3f_c omega_RN_B,
                                             const uint32_t observationThreshold,
-                                            const float controlPeriod) {
+                                            const float controlPeriod,
+                                            const float deadbandAngle) {
     // Build the config through the real create path; success means valid, a throw means invalid.
     // Reusing configFromC keeps the validity rules from drifting away from create/setConfig.
     try {
-        (void)configFromC(*rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod);
+        (void)configFromC(
+            *rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod, deadbandAngle);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -60,9 +64,10 @@ SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const RotationProp
                                                               const float sunAxisSpinRate,
                                                               const Vector3f_c omega_RN_B,
                                                               const uint32_t observationThreshold,
-                                                              const float controlPeriod) {
-    return fsw::createHandle<::SunSearchPointAlgorithm, SunSearchPointAlgorithmHandle>(
-        configFromC(*rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod));
+                                                              const float controlPeriod,
+                                                              const float deadbandAngle) {
+    return fsw::createHandle<::SunSearchPointAlgorithm, SunSearchPointAlgorithmHandle>(configFromC(
+        *rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod, deadbandAngle));
 }
 
 void SunSearchPointAlgorithm_destroy(SunSearchPointAlgorithmHandle* self) {
@@ -75,9 +80,10 @@ void SunSearchPointAlgorithm_setConfig(SunSearchPointAlgorithmHandle* self,
                                        const float sunAxisSpinRate,
                                        const Vector3f_c omega_RN_B,
                                        const uint32_t observationThreshold,
-                                       const float controlPeriod) {
-    fsw::fromHandle<::SunSearchPointAlgorithm>(self)->setConfig(
-        configFromC(*rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod));
+                                       const float controlPeriod,
+                                       const float deadbandAngle) {
+    fsw::fromHandle<::SunSearchPointAlgorithm>(self)->setConfig(configFromC(
+        *rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod, deadbandAngle));
 }
 
 void SunSearchPointAlgorithm_reInitialize(SunSearchPointAlgorithmHandle* self) {

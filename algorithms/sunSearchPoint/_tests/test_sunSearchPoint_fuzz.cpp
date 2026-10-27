@@ -21,3 +21,8 @@ FUZZ_TEST(SunSearchPointPropertyFuzz, propertyOmegaBrIdentity)
 
 FUZZ_TEST(SunSearchPointPropertyFuzz, propertyOutputIsFinite)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3));
+
+FUZZ_TEST(SunSearchPointPropertyFuzz, propertyDeadbandShrinksAttitudeError)
+    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3),
+                 fuzztest::VectorOf(fuzztest::InRange(-0.1F, 0.1F)).WithSize(3),
+                 fuzztest::InRange(0.0F, 0.5F));  // deadbandAngle

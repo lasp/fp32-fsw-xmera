@@ -13,8 +13,8 @@ slot when capacity is reached. Phase 2 averages the ring, but gyro and accelerom
 time windows anchored to the newest stored sample's tail time (``maxTimeTag``): a sample (derived measurement time
 ``slot.measTime + s * kMimuSamplePeriodNs``) contributes to the angular-rate mean when its age relative to
 ``maxTimeTag`` is within ``gyroAveragingWindow``, and to the acceleration mean when within ``accelAveragingWindow``.
-Each mean is rotated into the body frame using the configured DCM ``dcm_BC`` that maps the Camera Head Unit (CHU)
-frame to the body frame. Each contributing sample weighs equally.
+Each mean is rotated into the body frame using the configured MRP ``sigma_CB``, which gives the orientation of the
+Camera Head Unit (CHU) frame relative to the body frame. Each contributing sample weighs equally.
 A modality with no sample inside its window (or an empty ring) yields a zero vector for that modality. The ring is
 sized at compile time to
 hold exactly ``kMaxAveragingWindowSec`` (2.0 s) of samples at the MIMU device's compile-time sample rate
@@ -66,11 +66,11 @@ public member variables set before ``reset()``; ``reset()`` freezes them into th
       - [s]
       - 0.0
       - Rolling time-window for acceleration. Must be in ``[0.0, kMaxAveragingWindowSec]``.
-    * - dcm_BC
-      - Eigen::Matrix3f
+    * - sigma_CB
+      - Eigen::Vector3f
       - [-]
-      - Identity
-      - DCM mapping CHU-frame vectors to the body frame. Must be orthonormal with det=+1.
+      - Zero
+      - MRP of the CHU frame relative to the body frame. Must be finite. A shadow set is stored as its principal set.
 
 Module Assumptions and Limitations
 ----------------------------------
@@ -97,7 +97,7 @@ messages. Configuration parameters are public properties set before ``reset()``:
     AverageMimuData mod;
     mod.gyroAveragingWindow = 0.05;          // <= kMaxAveragingWindowSec
     mod.accelAveragingWindow = 0.10;         // independent of the gyro window
-    mod.dcm_BC = dcm_BC;                      // Eigen::Matrix3f (CHU-to-body)
+    mod.sigma_CB = sigma_CB;                  // Eigen::Vector3f (CHU relative to body)
     mod.mimuPacketInMsg.subscribeTo(...);    // required - reset() throws if not linked
 
 ``reset(callTime)`` validates the linked message, freezes the public properties into an ``AverageMimuDataConfig`` (which
@@ -108,7 +108,7 @@ which copies the latest ``MimuPacketF32Payload`` into the algorithm and writes t
 
 For unit-test or standalone use, the algorithm class is constructed from a validated config and driven directly::
 
-    AverageMimuDataConfig cfg = AverageMimuDataConfig::create(0.05, 0.10, dcm_BC);
+    AverageMimuDataConfig cfg = AverageMimuDataConfig::create(0.05, 0.10, sigma_CB);
     AverageMimuDataAlgorithm alg(cfg);
     OutputAverageAccelAngleVel out = alg.update(localPkts);
 
@@ -133,7 +133,7 @@ Configuration
 ^^^^^^^^^^^^^
 1. Set ``gyroAveragingWindow`` and ``accelAveragingWindow`` to define, independently per modality, how far back (from
    the newest stored sample) to include samples in the average.
-2. Set ``dcm_BC`` to map CHU-frame vectors into the body frame.
+2. Set ``sigma_CB`` to the orientation of the CHU frame relative to the body frame.
 
 Algorithm
 ^^^^^^^^^^^^^^^^
@@ -162,14 +162,13 @@ Phase 2 - average over the ring:
    accel vector to the accel accumulator (and bump the accel count) iff the age is ``<= accelAveragingWindowNs``.
 3. Divide each accumulator by its own count to form the CHU-frame means, weighting each sample equally. A count of
    zero leaves that modality's mean at zero.
-4. Transform each averaged vector to the body frame using ``dcm_BC`` and return them.
+4. Transform each averaged vector to the body frame using the transpose of the DCM of ``sigma_CB`` and return them.
 
 Recommended Practices
 ^^^^^^^^^^^^^^^^^^^^^
 - Choose ``gyroAveragingWindow`` and ``accelAveragingWindow`` independently based on the desired smoothing for each
   modality. Larger values increase smoothing but introduce more latency. ``create()`` rejects values outside
   ``[0.0, kMaxAveragingWindowSec]``.
-- ``dcm_BC`` shall be a proper DCM (orthonormal, right-handed).
 - Set ``packet.measTime`` to the timestamp of the first sample in each packet. Subsequent samples are scheduled at
   ``measTime + s * kMimuSamplePeriodNs`` regardless of what the per-sample ``AccPktDataMsgF32Payload.measTime`` says.
 - The caller is responsible for maintaining ``isValid[p]``. Producers should clear ``isValid[p]`` for any packet that
@@ -196,15 +195,15 @@ The configuration and algorithm classes are::
        public:
         // Validates the parameters and throws fsw::invalid_argument on a bad value.
         static AverageMimuDataConfig create(float gyroAveragingWindow, float accelAveragingWindow,
-                                            Eigen::Matrix3f const& dcm_BC);
+                                            Eigen::Vector3f const& sigma_CB);
 
         static bool isValidGyroAveragingWindow(float window);
         static bool isValidAccelAveragingWindow(float window);
-        static bool isValidDcmChuToBody(Eigen::Matrix3f const& dcm_BC);
+        static bool isValidSigma_CB(Eigen::Vector3f const& sigma_CB);
 
         float getGyroAveragingWindow() const;
         float getAccelAveragingWindow() const;
-        Eigen::Matrix3f const& getDcmChuToBody() const;
+        Eigen::Vector3f const& getSigma_CB() const;
     };
 
     class AverageMimuDataAlgorithm {
@@ -232,7 +231,7 @@ The SysModel-style wrapper class is ``AverageMimuData`` (declared in ``averageMi
 ``std::unique_ptr`` (constructed on ``reset()``) and is the production entry point. Notable behaviors layered on top of
 the algorithm:
 
-- The configuration parameters (``gyroAveragingWindow``, ``accelAveragingWindow``, ``dcm_BC``) are public member
+- The configuration parameters (``gyroAveragingWindow``, ``accelAveragingWindow``, ``sigma_CB``) are public member
   variables set before ``reset()``.
 - ``reset(callTime)`` throws ``std::invalid_argument`` if ``mimuPacketInMsg`` is not linked, clears ``prevInMsgTime``,
   and constructs the algorithm from a validated config (``create()`` throws on a bad value).
@@ -269,4 +268,4 @@ Notes
 - Both averaging windows are anchored to the newest stored sample's derived time (``maxTimeTag``), not to the current
   system time.
 - The output is deterministic given the input snapshot history, ``gyroAveragingWindow``, ``accelAveragingWindow``, and
-  ``dcm_BC``.
+  ``sigma_CB``.

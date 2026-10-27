@@ -32,6 +32,7 @@ class SunSearchPoint final : public SysModel {
     Eigen::Vector3f omega_RN_B{Eigen::Vector3f::Zero()};  //!< [rad/s] fallback rate when no sun is available
     uint32_t observationThreshold{4U};                    //!< [-] CSS count at or above which to transition to pointing
     float controlPeriod{};                                //!< [s] update period; advances the search timeline (> 0)
+    float deadbandAngle{};  //!< [rad] attitude deadband; while pointing, control to the band edge (0 disables)
 
     ReadFunctor<NavAttMsgF32Payload> rateInMsg;                      //!< Body angular velocity input message
     ReadFunctor<NavAttMsgF32Payload> sunDirectionInMsg;              //!< Sun direction input message

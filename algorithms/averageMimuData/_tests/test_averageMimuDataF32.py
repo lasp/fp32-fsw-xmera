@@ -33,8 +33,9 @@ def test_average_mimu_data():
     module = averageMimuDataF32.AverageMimuData()
     module.modelTag = "averageMimuData"
 
-    dcm_chu_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06]).astype(np.float32)
-    module.dcm_BC = dcm_chu_to_body
+    dcm_chu_to_body = RigidBodyKinematics.euler3212C([0.01, -0.04, 0.06])
+    sigma_CB = RigidBodyKinematics.C2MRP(dcm_chu_to_body.T)
+    module.sigma_CB = sigma_CB.astype(np.float32)
     module.gyroAveragingWindow = _MAX_AVG_WINDOW_SEC  # 2 s window covers the full ring
     module.accelAveragingWindow = _MAX_AVG_WINDOW_SEC  # accel uses the same full-ring window here
 
@@ -94,7 +95,7 @@ def test_average_mimu_data():
         unit_test_sim.ExecuteSimulation()
 
     np.testing.assert_allclose(_MAX_AVG_WINDOW_SEC, module.gyroAveragingWindow, rtol=1e-8, atol=1e-9, verbose=True)
-    np.testing.assert_allclose(dcm_chu_to_body, module.dcm_BC, rtol=1e-8, atol=1e-6, verbose=True)
+    np.testing.assert_allclose(sigma_CB, np.ravel(module.sigma_CB), rtol=1e-6, atol=1e-7, verbose=True)
 
     module_output_accel = data_log.AccelBody
     module_output_angular_velocity = data_log.AngVelBody
@@ -128,8 +129,7 @@ def test_average_mimu_data_buffer_fill():
     module = averageMimuDataF32.AverageMimuData()
     module.modelTag = "averageMimuData"
 
-    dcm_chu_to_body = np.eye(3, dtype=np.float32)
-    module.dcm_BC = dcm_chu_to_body
+    module.sigma_CB = np.zeros(3, dtype=np.float32)
     module.gyroAveragingWindow = _MAX_AVG_WINDOW_SEC  # 2 s covers the full ring
     module.accelAveragingWindow = _MAX_AVG_WINDOW_SEC  # accel uses the same full-ring window here
 

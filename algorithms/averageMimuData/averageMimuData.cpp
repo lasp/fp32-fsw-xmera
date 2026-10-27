@@ -3,7 +3,7 @@
 #include <utilities/fsw/eigenSupport.h>
 
 AverageMimuDataConfig AverageMimuData::toConfig() const {
-    return AverageMimuDataConfig::create(this->gyroAveragingWindow, this->accelAveragingWindow, this->dcm_BC);
+    return AverageMimuDataConfig::create(this->gyroAveragingWindow, this->accelAveragingWindow, this->sigma_CB);
 }
 
 void AverageMimuData::reset(uint64_t const callTime) {

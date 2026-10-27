@@ -1,6 +1,7 @@
 #include "mimuMajorityVote.h"
 
 #include "utilities/fsw/eigenSupport.h"
+#include "utilities/fsw/timeConstants.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
@@ -40,6 +41,10 @@ void MimuMajorityVote::updateState(uint64_t const callTime) {
     eigenVectorToCArray(output.gyro.average, imuOutPayload.AngVelBody);
     eigenVectorToCArray(output.accel.average, imuOutPayload.AccelBody);
 
+    NavAttMsgF32Payload navAttPayload{};
+    eigenVectorToCArray(output.gyro.average, navAttPayload.omega_BN_B);
+    navAttPayload.timeTag = static_cast<double>(callTime) * kNano2Sec;
+
     MimuFaultMsgPayload faultPayload{};
     faultPayload.gyroFaultDetected = output.gyro.faultDetected;
     faultPayload.accelFaultDetected = output.accel.faultDetected;
@@ -51,6 +56,7 @@ void MimuMajorityVote::updateState(uint64_t const callTime) {
     }
 
     this->imuSensorBodyOutMsg.write(imuOutPayload, this->moduleID, callTime);
+    this->navAttOutMsg.write(navAttPayload, this->moduleID, callTime);
     this->mimuFaultMsg.write(faultPayload, this->moduleID, callTime);
 }
 

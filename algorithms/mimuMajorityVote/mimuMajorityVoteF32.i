@@ -12,3 +12,4 @@
 
 %include "msgPayloadDef/IMUSensorBodyMsgF32Payload.h"
 %include "msgPayloadDef/MimuFaultMsgPayload.h"
+%include "msgPayloadDef/NavAttMsgF32Payload.h"
