@@ -54,8 +54,20 @@ class FlybyFilterConfig final {
         if (!isValidMu(mu)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: central-body gravitational parameter mu must be positive");
         }
+        if (!processNoise.allFinite()) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: process noise must be finite");
+        }
+        if (!isSymmetric<FlybyState::size>(processNoise)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: process noise must be symmetric");
+        }
         if (!isValidProcessNoise(processNoise)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: process noise must be positive semi-definite");
+        }
+        if (!initialCovariance.allFinite()) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: initial covariance must be finite");
+        }
+        if (!isSymmetric<FlybyState::size>(initialCovariance)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: initial covariance must be symmetric");
         }
         if (!isValidInitialCovariance(initialCovariance)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: initial covariance must be positive semi-definite");
@@ -71,7 +83,8 @@ class FlybyFilterConfig final {
 
     static bool isValidMu(float mu) { return mu > 0.0F; }
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
-        return isSymmetric<FlybyState::size>(processNoise) && isPositiveSemiDefinite<FlybyState::size>(processNoise);
+        return processNoise.allFinite() && isSymmetric<FlybyState::size>(processNoise) &&
+               isPositiveSemiDefinite<FlybyState::size>(processNoise);
     }
     static bool isValidInitialState(FlybyState const& initialState) { return initialState.allFinite(); }
     static bool isValidInitialCovariance(StateMatrix const& covariance) {

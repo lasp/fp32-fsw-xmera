@@ -26,6 +26,8 @@
 #include <cmath>
 #include <limits>
 #include <random>
+#include <string>
+#include <utility>
 
 namespace filtering::inertialFilter {
 
@@ -118,6 +120,34 @@ TEST(InertialFilterConfig, RejectsNonPositiveSemiDefiniteCovariance) {
     ConfigInputs in;
     in.initialCovariance = -Matrix6::Identity();  // negative definite
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
+// Each failing check on Q and P0 has its own message: non-finite, asymmetric, or not positive semi-definite.
+TEST(InertialFilterConfig, NamesWhichCovarianceCheckFails) {
+    auto const messageOf = [](ConfigInputs const& in) -> std::string {
+        try {
+            (void)buildConfig(in);
+        } catch (fsw::invalid_argument const& error) {
+            return error.what();
+        }
+        return "no throw";
+    };
+    Matrix6 nonFinite = Matrix6::Identity();
+    nonFinite(1, 1) = std::numeric_limits<float>::quiet_NaN();
+    Matrix6 asymmetric = Matrix6::Identity();
+    asymmetric(0, 1) = 1E-3F;  // the lower triangle keeps 0
+    Matrix6 const negative = -Matrix6::Identity();
+
+    for (auto const& [matrix, failure] : {std::pair{nonFinite, "finite"},
+                                          std::pair{asymmetric, "symmetric"},
+                                          std::pair{negative, "positive semi-definite"}}) {
+        ConfigInputs processNoiseCase;
+        processNoiseCase.processNoise = matrix;
+        EXPECT_EQ(messageOf(processNoiseCase), std::string("inertialFilter: process noise must be ") + failure);
+        ConfigInputs covarianceCase;
+        covarianceCase.initialCovariance = matrix;
+        EXPECT_EQ(messageOf(covarianceCase), std::string("inertialFilter: initial covariance must be ") + failure);
+    }
 }
 
 TEST(InertialFilterConfig, RejectsNonFiniteInitialState) {

@@ -67,8 +67,20 @@ class SunlineFilterConfig final {
         if (!Srukf::betaIsValid(beta)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: beta must be in [0, 2]");
         }
+        if (!processNoise.allFinite()) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: process noise must be finite");
+        }
+        if (!isSymmetric<SunlineState::size>(processNoise)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: process noise must be symmetric");
+        }
         if (!isValidProcessNoise(processNoise)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: process noise must be positive semi-definite");
+        }
+        if (!initialCovariance.allFinite()) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial covariance must be finite");
+        }
+        if (!isSymmetric<SunlineState::size>(initialCovariance)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial covariance must be symmetric");
         }
         if (!isValidInitialCovariance(initialCovariance)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial covariance must be positive semi-definite");
@@ -119,7 +131,7 @@ class SunlineFilterConfig final {
     }
 
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
-        return isSymmetric<SunlineState::size>(processNoise) &&
+        return processNoise.allFinite() && isSymmetric<SunlineState::size>(processNoise) &&
                isPositiveSemiDefinite<SunlineState::size>(processNoise);
     }
     static bool isValidInitialState(SunlineState const& initialState) { return initialState.allFinite(); }

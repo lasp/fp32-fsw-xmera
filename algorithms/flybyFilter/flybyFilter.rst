@@ -204,13 +204,13 @@ Configuration parameters
       - > 0
     * - processNoise
       - N x N process noise covariance Q
-      - positive semi-definite
+      - finite, symmetric, positive semi-definite
     * - initialState
       - N-element initial state seed [m, m/s]
       - finite
     * - initialCovariance
       - N x N initial covariance P0
-      - finite, positive semi-definite
+      - finite, symmetric, positive semi-definite
     * - headingMeasurementNoiseStd
       - heading (unit-vector) measurement noise standard deviation
       - >= 0
