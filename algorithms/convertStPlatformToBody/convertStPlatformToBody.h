@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_CONVERT_ST_PLATFORM_TO_BODY_H
-#define F32XIMERA_CONVERT_ST_PLATFORM_TO_BODY_H
+#ifndef F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_H
+#define F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_H
 
 #include "convertStPlatformToBodyAlgorithm.h"
 #include "msgPayloadDef/STAttMsgF32Payload.h"

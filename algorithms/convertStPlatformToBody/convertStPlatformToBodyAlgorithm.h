@@ -1,5 +1,5 @@
-#ifndef F32XIMERA_CONVERT_ST_PLATFORM_TO_BODY_ALGORITHM_H
-#define F32XIMERA_CONVERT_ST_PLATFORM_TO_BODY_ALGORITHM_H
+#ifndef F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_ALGORITHM_H
+#define F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_ALGORITHM_H
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
