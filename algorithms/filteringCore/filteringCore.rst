@@ -351,6 +351,17 @@ Cholesky factor per column of :math:`K S_y`, so that :math:`P^+ = P^- - K P_{yy}
 fully resolves some directions of the state. In those directions the downdate subtracts two nearly equal terms, and
 in float the result can become indefinite: the downdate fails, or the covariance grows instead of shrinking.
 
+Storing the square root does not avoid this. In a covariance-form filter, the Joseph form is used because
+:math:`P^- - K P_{yy} K^T` can lose symmetry or positive definiteness in rounding. A square-root filter stores
+:math:`S` and so keeps :math:`P = S S^T` symmetric and positive semi-definite. But the textbook square-root UKF (van
+der Merwe & Wan) reaches the same :math:`P^- - K P_{yy} K^T` through downdates, which are the square-root form of that
+subtraction. Where the covariance form would become indefinite, the downdate has no real square root and fails. This
+SRuKF does not use those downdates, and has no downdate at all: the Joseph form below has no subtraction, and the
+mean-offset term is a weighted square (see "Mean-offset term"). The Joseph form also gives the covariance of the
+posterior error for any gain, not only the optimal one. A rounding error :math:`\delta K` in the gain therefore
+changes it only by :math:`\delta K \, P_{yy} \, \delta K^T`, a second-order term. The textbook update changes by a
+first-order term, and is then not the covariance of the actual error.
+
 The SRuKF therefore writes the updated covariance as a sum of squares. With the posterior deviations
 :math:`\boldsymbol{z}_i = \boldsymbol{d}_i - K \boldsymbol{u}_i` and :math:`\boldsymbol{m}_z = \boldsymbol{m} - K
 \bar{\boldsymbol{u}}` (the notation of "Statistics about the central sigma point"):
