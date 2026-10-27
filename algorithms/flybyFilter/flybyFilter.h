@@ -34,14 +34,15 @@ class FlybyFilter : public SysModel {
     void reInitialize();
 
     // ---- Configuration (public, SI units; set by the host before reset()) ----
-    float alpha = 0.0F;                       //!< [-]       sigma-point spread tunable
-    float beta = 0.0F;                        //!< [-]       prior-knowledge tunable
-    float mu = 0.0F;                          //!< [m^3/s^2] central-body gravitational parameter (SI)
-    float unitConversion = 1E-3F;             //!< [-]       SI -> internal length scale (1e-3 = m -> km)
-    float headingMeasurementNoiseStd = 0.0F;  //!< [-]       heading (unit-vector) measurement noise std
-    StateMatrix processNoise;                 //!< [(m/s^2)^2] N x N process noise covariance Q (SI)
-    StateColumn initialState;                 //!< [m, m/s]  N-element initial state seed (SI)
-    StateMatrix initialCovariance;            //!< [m^2, (m/s)^2] N x N initial covariance P0 (SI)
+    float alpha = 0.0F;            //!< [-]       sigma-point spread tunable
+    float beta = 0.0F;             //!< [-]       prior-knowledge tunable
+    float mu = 0.0F;               //!< [m^3/s^2] central-body gravitational parameter (SI)
+    float unitConversion = 1E-3F;  //!< [-]       SI -> internal length scale (1e-3 = m -> km)
+    float headingMeasurementNoiseStd =
+        0.0F;                       //!< [-]       heading (unit-vector) measurement noise std (> 0, must be set)
+    StateMatrix processNoise;       //!< [(m/s^2)^2] N x N process noise covariance Q (SI)
+    StateColumn initialState;       //!< [m, m/s]  N-element initial state seed (SI)
+    StateMatrix initialCovariance;  //!< [m^2, (m/s)^2] N x N initial covariance P0 (SI)
 
     // ---- Message ports ----
     ReadFunctor<OpNavUnitVecMsgF32Payload> opNavHeadingMsg;  //!< optical-nav heading input (required)

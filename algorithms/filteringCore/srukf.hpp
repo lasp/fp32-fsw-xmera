@@ -145,6 +145,14 @@ class SRuKF {
         return alpha > 0.0F && alpha <= 1.0F && beta >= alpha * alpha && beta <= 2.0F;
     }
 
+    /*! A measurement noise standard deviation must be positive, with a positive finite variance, so the
+     *  measurement noise R = std^2 * I is positive definite (a std that squares to zero or overflows fails).
+     *  @return true iff std > 0 and 0 < std^2 <= FLT_MAX */
+    static bool measurementNoiseStdIsValid(float noiseStd) {
+        float const variance = noiseStd * noiseStd;
+        return noiseStd > 0.0F && variance > 0.0F && variance <= std::numeric_limits<float>::max();
+    }
+
     /*! Derive the sigma-point spread (lambda, eta), the sigma weights, and the
      *  process-noise Cholesky from alpha, beta, and the process noise. The estimate
      *  (state and covariance) is left untouched. */
@@ -310,6 +318,9 @@ class SRuKF {
 
             //! > Sqrt the measurement noise, this could theoretically be different at every time step
             Eigen::Matrix<float, MSize, MSize> const cholMeasNoise = choleskyDecomposition<MSize>(measurement.noise());
+            if (!(cholMeasNoise.diagonal().minCoeff() > 0.0F)) {
+                return residuals;  // R is not positive definite: a bad update (no residuals), for the caller to clear
+            }
 
             //! > Symmetrically to the time update, populate the A matrix for a qr decomposition (eq 24-25), with the
             //! > mean offset as its last column

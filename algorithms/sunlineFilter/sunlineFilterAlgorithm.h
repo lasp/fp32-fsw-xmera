@@ -104,10 +104,12 @@ class SunlineFilterConfig final {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: sensor threshold must not be negative");
         }
         if (!isValidCssMeasurementNoiseStd(cssMeasurementNoiseStd)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: CSS measurement noise std must not be negative");
+            FSW_THROW_INVALID_ARGUMENT(
+                "sunlineFilter: CSS measurement noise std must be positive, with a finite square");
         }
         if (!isValidGyroMeasurementNoiseStd(gyroMeasurementNoiseStd)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: gyro measurement noise std must not be negative");
+            FSW_THROW_INVALID_ARGUMENT(
+                "sunlineFilter: gyro measurement noise std must be positive, with a finite square");
         }
         if (measurementDelay < 0.0F) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: measurement delay must not be negative");
@@ -153,8 +155,8 @@ class SunlineFilterConfig final {
         return (cssScaleFactor.array() >= 0.0F).all();
     }
     static bool isValidSensorThreshold(float threshold) { return threshold >= 0.0F; }
-    static bool isValidCssMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
-    static bool isValidGyroMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
+    static bool isValidCssMeasurementNoiseStd(float noiseStd) { return Srukf::measurementNoiseStdIsValid(noiseStd); }
+    static bool isValidGyroMeasurementNoiseStd(float noiseStd) { return Srukf::measurementNoiseStdIsValid(noiseStd); }
 
     float getAlpha() const { return this->alpha; }
     float getBeta() const { return this->beta; }

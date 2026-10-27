@@ -73,7 +73,8 @@ class FlybyFilterConfig final {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: initial state must be finite");
         }
         if (!isValidHeadingMeasurementNoiseStd(headingMeasurementNoiseStd)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyFilter: heading measurement noise std must not be negative");
+            FSW_THROW_INVALID_ARGUMENT(
+                "flybyFilter: heading measurement noise std must be positive, with a finite square");
         }
         return {alpha, beta, mu, processNoise, initialState, initialCovariance, headingMeasurementNoiseStd};
     }
@@ -88,7 +89,9 @@ class FlybyFilterConfig final {
         return covariance.allFinite() && isSymmetric<FlybyState::size>(covariance) &&
                isPositiveSemiDefinite<FlybyState::size>(covariance);
     }
-    static bool isValidHeadingMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
+    static bool isValidHeadingMeasurementNoiseStd(float noiseStd) {
+        return Srukf::measurementNoiseStdIsValid(noiseStd);
+    }
 
     float getAlpha() const { return this->alpha; }
     float getBeta() const { return this->beta; }

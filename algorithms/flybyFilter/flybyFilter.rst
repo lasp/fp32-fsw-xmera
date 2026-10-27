@@ -213,7 +213,7 @@ Configuration parameters
       - finite, symmetric, positive semi-definite
     * - headingMeasurementNoiseStd
       - heading (unit-vector) measurement noise standard deviation
-      - >= 0
+      - > 0 (must be set)
 
 
 User Guide

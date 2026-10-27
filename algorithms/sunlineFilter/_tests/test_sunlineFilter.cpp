@@ -747,7 +747,7 @@ TEST(SunlineFilterConfig, RejectsNegativeCssScaleFactor) {
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
 }
 
-TEST(SunlineFilterConfig, RejectsNegativeThresholdAndNoiseStds) {
+TEST(SunlineFilterConfig, RejectsNegativeThresholdAndNonPositiveNoiseStds) {
     ConfigInputs threshold;
     threshold.sensorThreshold = -1E-3;
     EXPECT_THROW(buildConfig(threshold), fsw::invalid_argument);
@@ -759,6 +759,14 @@ TEST(SunlineFilterConfig, RejectsNegativeThresholdAndNoiseStds) {
     ConfigInputs gyroStd;
     gyroStd.gyroStd = -1E-3;
     EXPECT_THROW(buildConfig(gyroStd), fsw::invalid_argument);
+
+    ConfigInputs zeroCssStd;
+    zeroCssStd.cssMeasStd = 0.0;
+    EXPECT_THROW(buildConfig(zeroCssStd), fsw::invalid_argument);
+
+    ConfigInputs zeroGyroStd;
+    zeroGyroStd.gyroStd = 0.0;
+    EXPECT_THROW(buildConfig(zeroGyroStd), fsw::invalid_argument);
 }
 
 TEST(SunlineFilterConfig, MeasurementDelayDefaultsToZeroAndIsValidated) {
@@ -833,7 +841,9 @@ TEST(SunlineFilterConfig, StaticValidatorsCheckBoundaries) {
     EXPECT_FALSE(SunlineFilterConfig::isValidBiasLowerBound(0.0));
     EXPECT_TRUE(SunlineFilterConfig::isValidSensorThreshold(0.0));
     EXPECT_FALSE(SunlineFilterConfig::isValidSensorThreshold(-1E-9));
-    EXPECT_TRUE(SunlineFilterConfig::isValidCssMeasurementNoiseStd(0.0));
+    EXPECT_TRUE(SunlineFilterConfig::isValidCssMeasurementNoiseStd(1E-9));
+    EXPECT_FALSE(SunlineFilterConfig::isValidCssMeasurementNoiseStd(0.0));
+    EXPECT_TRUE(SunlineFilterConfig::isValidGyroMeasurementNoiseStd(1E-9));
     EXPECT_FALSE(SunlineFilterConfig::isValidGyroMeasurementNoiseStd(-1E-9));
     EXPECT_TRUE(SunlineFilterConfig::isValidProcessNoise(Matrix7::Identity()));
     EXPECT_FALSE(SunlineFilterConfig::isValidProcessNoise(-Matrix7::Identity()));

@@ -146,16 +146,17 @@ TEST(FlybyFilterConfig, RejectsNegativeHeadingNoiseStd) {
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
 }
 
-TEST(FlybyFilterConfig, AcceptsZeroHeadingNoiseStd) {
+TEST(FlybyFilterConfig, RejectsZeroHeadingNoiseStd) {
     ConfigInputs in;
     in.headingStd = 0.0;
-    EXPECT_NO_THROW(buildConfig(in));
+    EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
 }
 
 TEST(FlybyFilterConfig, StaticValidatorsCheckBoundaries) {
     EXPECT_TRUE(FlybyFilterConfig::isValidMu(1.0));
     EXPECT_FALSE(FlybyFilterConfig::isValidMu(0.0));
-    EXPECT_TRUE(FlybyFilterConfig::isValidHeadingMeasurementNoiseStd(0.0));
+    EXPECT_TRUE(FlybyFilterConfig::isValidHeadingMeasurementNoiseStd(1E-9));
+    EXPECT_FALSE(FlybyFilterConfig::isValidHeadingMeasurementNoiseStd(0.0));
     EXPECT_FALSE(FlybyFilterConfig::isValidHeadingMeasurementNoiseStd(-1E-9));
     EXPECT_TRUE(FlybyFilterConfig::isValidProcessNoise(Matrix6::Identity()));
     EXPECT_FALSE(FlybyFilterConfig::isValidProcessNoise(-Matrix6::Identity()));

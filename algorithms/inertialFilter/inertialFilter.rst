@@ -172,10 +172,10 @@ Configuration parameters
       - finite, symmetric, positive semi-definite
     * - stMeasurementNoiseStd
       - star-tracker attitude measurement noise standard deviation
-      - >= 0
+      - > 0 (must be set)
     * - rateMeasurementNoiseStd
       - rate measurement noise standard deviation
-      - >= 0
+      - > 0 (must be set)
 
 
 User Guide

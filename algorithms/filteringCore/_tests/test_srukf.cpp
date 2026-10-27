@@ -252,6 +252,19 @@ TEST(SrukfApi, SetGetRoundtripsForAlphaAndBeta) {
 
 // Valid inputs. The validators are static: they take the term to check and can be called
 // without an SRuKF instance (e.g. from a filter's config validation in another file).
+// The measurement noise std must give R = std^2 * I positive definite: positive, with a square that neither
+// underflows to zero nor overflows.
+TEST(SrukfApi, MeasurementNoiseStdIsValidOnlyForAPositiveFiniteVariance) {
+    EXPECT_TRUE(SRuKFType::measurementNoiseStdIsValid(1E-9F));
+    EXPECT_TRUE(SRuKFType::measurementNoiseStdIsValid(1.0F));
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(0.0F));
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(-1.0F));
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(1E-30F)) << "the variance underflows to zero";
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(1E30F)) << "the variance overflows";
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(std::numeric_limits<float>::infinity()));
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(std::numeric_limits<float>::quiet_NaN()));
+}
+
 TEST(SrukfApi, ValidityChecks) {
     // alphaAndBetaAreValid: true iff alpha in (0, 1] and beta in [alpha^2, 2].
     EXPECT_TRUE(SRuKFType::alphaAndBetaAreValid(0.02F, 2.0F)) << "the flight tuning";
@@ -608,6 +621,26 @@ TEST(SrukfMeasurementUpdate, NaNMeasurementReturnsNoValue) {
 
     EXPECT_FALSE(filter.measurementUpdate(m).has_value())
         << "measurementUpdate should not return a value for a bad (NaN) update";
+}
+
+// A measurement noise that is not positive definite (here zero noise on one axis) is a bad update: no residuals,
+// and the estimate is left as it was for the caller to clear.
+TEST(SrukfMeasurementUpdate, SingularMeasurementNoiseReturnsNoValue) {
+    SRuKFType filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    filter.setInitialCovariance(Eigen::Matrix3f::Identity());
+    filter.setProcessNoise(Eigen::Matrix3f::Zero());
+    filter.reInitialize();
+    filter.configure();
+    filter.timeUpdate(0.0);
+
+    PositionMeasurement m;
+    m.observed = Eigen::Vector3f(0.1F, -0.2F, 0.3F);
+    m.noiseCov = Eigen::Vector3f(0.01F, 0.0F, 0.01F).asDiagonal();
+
+    EXPECT_FALSE(filter.measurementUpdate(m).has_value());
+    EXPECT_TRUE(filter.getStateAtLastMeasurement().raw().isZero()) << "the last-measurement state is unchanged";
 }
 
 // An MRP measurement must still pull the state onto the observation when |sigma| is large.

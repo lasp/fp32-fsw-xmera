@@ -200,11 +200,14 @@ TEST(InertialFilterConfig, RejectsNegativeNoiseStds) {
     EXPECT_THROW(buildConfig(rateStd), fsw::invalid_argument);
 }
 
-TEST(InertialFilterConfig, AcceptsZeroNoiseStds) {
-    ConfigInputs in;
-    in.stMeasStd = 0.0;
-    in.rateStd = 0.0;
-    EXPECT_NO_THROW(buildConfig(in));
+TEST(InertialFilterConfig, RejectsZeroNoiseStds) {
+    ConfigInputs stStd;
+    stStd.stMeasStd = 0.0;
+    EXPECT_THROW(buildConfig(stStd), fsw::invalid_argument);
+
+    ConfigInputs rateStd;
+    rateStd.rateStd = 0.0;
+    EXPECT_THROW(buildConfig(rateStd), fsw::invalid_argument);
 }
 
 TEST(InertialFilterConfig, AcceptsPositiveSemiDefiniteSingularMatrices) {
@@ -218,9 +221,11 @@ TEST(InertialFilterConfig, AcceptsPositiveSemiDefiniteSingularMatrices) {
 }
 
 TEST(InertialFilterConfig, StaticValidatorsCheckBoundaries) {
-    EXPECT_TRUE(InertialFilterConfig::isValidStMeasurementNoiseStd(0.0));
+    EXPECT_TRUE(InertialFilterConfig::isValidStMeasurementNoiseStd(1E-9));
+    EXPECT_FALSE(InertialFilterConfig::isValidStMeasurementNoiseStd(0.0));
     EXPECT_FALSE(InertialFilterConfig::isValidStMeasurementNoiseStd(-1E-9));
-    EXPECT_TRUE(InertialFilterConfig::isValidRateMeasurementNoiseStd(0.0));
+    EXPECT_TRUE(InertialFilterConfig::isValidRateMeasurementNoiseStd(1E-9));
+    EXPECT_FALSE(InertialFilterConfig::isValidRateMeasurementNoiseStd(0.0));
     EXPECT_FALSE(InertialFilterConfig::isValidRateMeasurementNoiseStd(-1E-9));
     EXPECT_TRUE(InertialFilterConfig::isValidProcessNoise(Matrix6::Identity()));
     EXPECT_FALSE(InertialFilterConfig::isValidProcessNoise(-Matrix6::Identity()));
