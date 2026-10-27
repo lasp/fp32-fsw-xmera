@@ -66,7 +66,6 @@ uint32_t SunlineFilterAlgorithm_getNumStates(void);
  * @param biasUpperBound          [-] upper clamp on the CSS bias state; must be > 0.
  * @param cssNHat                 [-] per-CSS boresight unit vectors in body frame.
  * @param cssScaleFactor          [-] per-CSS calibration scale factor; each must be >= 0.
- * @param numberOfCss             [-] number of active CSS, in [1, SUNLINE_FILTER_MAX_CSS].
  * @param sensorThreshold         [-] minimum cosValue that counts a sensor as active; must be >= 0.
  * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be >= 0.
  * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be >= 0.
@@ -83,7 +82,6 @@ bool SunlineFilterAlgorithm_validateConfig(double alpha,
                                            double biasUpperBound,
                                            const SunlineFilterCssMatrix_c* cssNHat,
                                            const SunlineFilterCssVector_c* cssScaleFactor,
-                                           uint32_t numberOfCss,
                                            double sensorThreshold,
                                            double cssMeasurementNoiseStd,
                                            double gyroMeasurementNoiseStd,
@@ -105,7 +103,6 @@ bool SunlineFilterAlgorithm_validateConfig(double alpha,
  * @param biasUpperBound          [-] upper clamp on the CSS bias state; must be > 0.
  * @param cssNHat                 [-] per-CSS boresight unit vectors in body frame.
  * @param cssScaleFactor          [-] per-CSS calibration scale factor; each must be >= 0.
- * @param numberOfCss             [-] number of active CSS, in [1, SUNLINE_FILTER_MAX_CSS].
  * @param sensorThreshold         [-] minimum cosValue that counts a sensor as active; must be >= 0.
  * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be >= 0.
  * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be >= 0.
@@ -121,7 +118,6 @@ SunlineFilterAlgorithmHandle* SunlineFilterAlgorithm_create(double alpha,
                                                             double biasUpperBound,
                                                             const SunlineFilterCssMatrix_c* cssNHat,
                                                             const SunlineFilterCssVector_c* cssScaleFactor,
-                                                            uint32_t numberOfCss,
                                                             double sensorThreshold,
                                                             double cssMeasurementNoiseStd,
                                                             double gyroMeasurementNoiseStd,
@@ -145,7 +141,6 @@ void SunlineFilterAlgorithm_destroy(SunlineFilterAlgorithmHandle* self);
  * @param biasUpperBound          [-] upper clamp on the CSS bias state; must be > 0.
  * @param cssNHat                 [-] per-CSS boresight unit vectors in body frame.
  * @param cssScaleFactor          [-] per-CSS calibration scale factor; each must be >= 0.
- * @param numberOfCss             [-] number of active CSS, in [1, SUNLINE_FILTER_MAX_CSS].
  * @param sensorThreshold         [-] minimum cosValue that counts a sensor as active; must be >= 0.
  * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be >= 0.
  * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be >= 0.
@@ -161,7 +156,6 @@ void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self,
                                       double biasUpperBound,
                                       const SunlineFilterCssMatrix_c* cssNHat,
                                       const SunlineFilterCssVector_c* cssScaleFactor,
-                                      uint32_t numberOfCss,
                                       double sensorThreshold,
                                       double cssMeasurementNoiseStd,
                                       double gyroMeasurementNoiseStd,

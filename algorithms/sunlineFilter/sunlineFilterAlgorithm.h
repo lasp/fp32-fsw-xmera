@@ -16,9 +16,8 @@
 
 namespace filtering::sunlineFilter {
 
-/*! Raw CSS array reading consumed by SunlineFilterAlgorithm::update(). The
- *  first `numberOfCss` slots of `cosValues` are meaningful; `valid` flags
- *  whether the adapter saw a fresh reading this cycle. */
+/*! Raw CSS array reading consumed by SunlineFilterAlgorithm::update(). There
+ *  is one `cosValues` slot per CSS; `timeTag` > 0 flags a fresh reading. */
 struct CssData {
     double timeTag = 0;
     Eigen::Vector<float, MaxCss> cosValues = Eigen::Vector<float, MaxCss>::Zero();
@@ -58,7 +57,6 @@ class SunlineFilterConfig final {
                                       float biasUpperBound,
                                       Eigen::Matrix<float, MaxCss, 3> const& cssNHat,
                                       Eigen::Vector<float, MaxCss> const& cssScaleFactor,
-                                      uint32_t numberOfCss,
                                       float sensorThreshold,
                                       float cssMeasurementNoiseStd,
                                       float gyroMeasurementNoiseStd,
@@ -87,12 +85,8 @@ class SunlineFilterConfig final {
         if (!isValidBiasBounds(biasLowerBound, biasUpperBound)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: bias lower bound must be less than bias upper bound");
         }
-        if (!isValidNumberOfCss(numberOfCss)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: numberOfCss must be in [1, MaxCss]");
-        }
-        if (!isValidCssNHat(cssNHat, numberOfCss)) {
-            FSW_THROW_INVALID_ARGUMENT(
-                "sunlineFilter: the first numberOfCss CSS nHat rows must be unit vectors within 1e-3");
+        if (!isValidCssNHat(cssNHat)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: every CSS nHat row must be a unit vector within 1e-3");
         }
         if (!isValidCssScaleFactor(cssScaleFactor)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: CSS calibration bias must not be negative");
@@ -116,9 +110,8 @@ class SunlineFilterConfig final {
                 initialCovariance,
                 biasLowerBound,
                 biasUpperBound,
-                normalizeCssNHat(cssNHat, numberOfCss),
+                normalizeCssNHat(cssNHat),
                 cssScaleFactor,
-                numberOfCss,
                 sensorThreshold,
                 cssMeasurementNoiseStd,
                 gyroMeasurementNoiseStd,
@@ -135,9 +128,9 @@ class SunlineFilterConfig final {
     static bool isValidBiasLowerBound(float bound) { return bound > 0.0F; }
     static bool isValidBiasUpperBound(float bound) { return bound > 0.0F; }
     static bool isValidBiasBounds(float lowerBound, float upperBound) { return lowerBound < upperBound; }
-    static bool isValidCssNHat(Eigen::Matrix<float, MaxCss, 3> const& cssNHat, uint32_t numberOfCss) {
+    static bool isValidCssNHat(Eigen::Matrix<float, MaxCss, 3> const& cssNHat) {
         constexpr float normTolerance = 1e-3F;
-        for (uint32_t i = 0; i < numberOfCss; ++i) {
+        for (uint32_t i = 0; i < MaxCss; ++i) {
             Eigen::Vector3f const row = cssNHat.row(i).transpose();
             if (fabsf(row.stableNorm() - 1.0F) > normTolerance) {
                 return false;
@@ -148,7 +141,6 @@ class SunlineFilterConfig final {
     static bool isValidCssScaleFactor(Eigen::Vector<float, MaxCss> const& cssScaleFactor) {
         return (cssScaleFactor.array() >= 0.0F).all();
     }
-    static bool isValidNumberOfCss(uint32_t count) { return count > 0 && count <= static_cast<uint32_t>(MaxCss); }
     static bool isValidSensorThreshold(float threshold) { return threshold >= 0.0F; }
     static bool isValidCssMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
     static bool isValidGyroMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
@@ -162,7 +154,6 @@ class SunlineFilterConfig final {
     float getBiasUpperBound() const { return this->biasUpperBound; }
     Eigen::Matrix<float, MaxCss, 3> const& getCssNHat() const { return this->cssNHat; }
     Eigen::Vector<float, MaxCss> const& getCssScaleFactor() const { return this->cssScaleFactor; }
-    uint32_t getNumberOfCss() const { return this->numberOfCss; }
     float getSensorThreshold() const { return this->sensorThreshold; }
     float getCssMeasurementNoiseStd() const { return this->cssMeasNoiseStd; }
     float getGyroMeasurementNoiseStd() const { return this->gyroMeasNoiseStd; }
@@ -178,7 +169,6 @@ class SunlineFilterConfig final {
                         float biasUpperBound,
                         Eigen::Matrix<float, MaxCss, 3> const& cssNHat,
                         Eigen::Vector<float, MaxCss> const& cssScaleFactor,
-                        uint32_t numberOfCss,
                         float sensorThreshold,
                         float cssMeasurementNoiseStd,
                         float gyroMeasurementNoiseStd,
@@ -192,16 +182,14 @@ class SunlineFilterConfig final {
           biasUpperBound(biasUpperBound),
           cssNHat(cssNHat),
           cssScaleFactor(cssScaleFactor),
-          numberOfCss(numberOfCss),
           sensorThreshold(sensorThreshold),
           cssMeasNoiseStd(cssMeasurementNoiseStd),
           gyroMeasNoiseStd(gyroMeasurementNoiseStd),
           measurementDelay(measurementDelay) {}
 
-    static Eigen::Matrix<float, MaxCss, 3> normalizeCssNHat(Eigen::Matrix<float, MaxCss, 3> const& cssNHat,
-                                                            uint32_t numberOfCss) {
+    static Eigen::Matrix<float, MaxCss, 3> normalizeCssNHat(Eigen::Matrix<float, MaxCss, 3> const& cssNHat) {
         Eigen::Matrix<float, MaxCss, 3> normalized = Eigen::Matrix<float, MaxCss, 3>::Zero();
-        for (uint32_t i = 0; i < numberOfCss; ++i) {
+        for (uint32_t i = 0; i < MaxCss; ++i) {
             Eigen::Vector3f const row = cssNHat.row(i).transpose();
             normalized.row(i) = row.stableNormalized().transpose();
         }
@@ -217,7 +205,6 @@ class SunlineFilterConfig final {
     float biasUpperBound;
     Eigen::Matrix<float, MaxCss, 3> cssNHat;
     Eigen::Vector<float, MaxCss> cssScaleFactor;
-    uint32_t numberOfCss;
     float sensorThreshold;
     float cssMeasNoiseStd;
     float gyroMeasNoiseStd;

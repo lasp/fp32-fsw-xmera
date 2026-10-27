@@ -14,7 +14,7 @@ extern "C" {
 /**
  * @brief Plain-old-data mirror of the C++ CssData update input.
  *
- * timeTag > 0 flags a fresh reading. Only the first numberOfCss entries of cosValues are meaningful.
+ * timeTag > 0 flags a fresh reading. There is one cosValues entry per CSS.
  */
 typedef struct {
     double timeTag;                           /*!< [s] time tag of the CSS reading */

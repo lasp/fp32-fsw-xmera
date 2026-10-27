@@ -175,9 +175,10 @@ has fewer readings waiting: with the gyro arriving 3 s after its time tag and a 
 CSS readings and one gyro reading. When the queue is full, the oldest measurement is dropped. See
 "Heterogeneous rates share one anchor" in ``filteringCore.rst`` for how the delay works.
 
-The CSS geometry is not set directly: ``numberOfCss`` (:math:`1 \le n \le` ``MaxCss``), the per-sensor
-boresights (each of the first ``numberOfCss`` rows must be unit length within 1e-3), and the per-sensor
-scale factors (each :math:`\ge 0`) are latched from ``cssConfigInMsg`` at ``reset()``.
+The CSS geometry is not set directly: the per-sensor boresights (each of the ``MaxCss`` rows must be unit length
+within 1e-3) and the per-sensor scale factors (each :math:`\ge 0`) are latched from ``cssConfigInMsg`` at
+``reset()``. ``MaxCss`` is ``MAX_NUM_CSS_SENSORS`` from ``mission/parameters.h``, and ``cssConfigInMsg`` must
+report exactly that many sensors.
 
 
 User Guide
