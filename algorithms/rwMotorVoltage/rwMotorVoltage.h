@@ -17,7 +17,6 @@
 class RwMotorVoltage : public SysModel {
    public:
     RwMotorVoltage(float minVoltageMagnitude, float maxVoltageMagnitude);
-    ~RwMotorVoltage() final = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
