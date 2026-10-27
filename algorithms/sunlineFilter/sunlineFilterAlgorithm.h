@@ -61,11 +61,8 @@ class SunlineFilterConfig final {
                                       float cssMeasurementNoiseStd,
                                       float gyroMeasurementNoiseStd,
                                       float measurementDelay = 0.0F) {
-        if (!Srukf::alphaIsValid(alpha)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: alpha must be in (0, 1]");
-        }
-        if (!Srukf::betaIsValid(beta)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: beta must be in [0, 2]");
+        if (!Srukf::alphaAndBetaAreValid(alpha, beta)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: alpha must be in (0, 1] and beta in [alpha^2, 2]");
         }
         if (!processNoise.allFinite()) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: process noise must be finite");

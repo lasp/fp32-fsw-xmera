@@ -80,6 +80,18 @@ TEST(FlybyFilterConfig, RejectsBetaOutsideRange) {
     }
 }
 
+TEST(FlybyFilterConfig, RejectsBetaBelowAlphaSquared) {
+    ConfigInputs below;
+    below.alpha = 1.0;
+    below.beta = 0.5;
+    EXPECT_THROW(buildConfig(below), fsw::invalid_argument);
+
+    ConfigInputs atTheBound;
+    atTheBound.alpha = 0.5;
+    atTheBound.beta = 0.25;
+    EXPECT_NO_THROW(buildConfig(atTheBound));
+}
+
 TEST(FlybyFilterConfig, RejectsNonPositiveMu) {
     for (float bad : {0.0, -1.0}) {
         ConfigInputs in;

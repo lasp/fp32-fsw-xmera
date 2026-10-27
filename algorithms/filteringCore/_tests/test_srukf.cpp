@@ -247,17 +247,18 @@ TEST(SrukfApi, SetGetRoundtripsForAlphaAndBeta) {
 // Valid inputs. The validators are static: they take the term to check and can be called
 // without an SRuKF instance (e.g. from a filter's config validation in another file).
 TEST(SrukfApi, ValidityChecks) {
-    // (1) alphaIsValid: true iff alpha in (0, 1] -- zero excluded, one included.
-    EXPECT_TRUE(SRuKFType::alphaIsValid(0.5)) << "alpha=0.5 in range";
-    EXPECT_TRUE(SRuKFType::alphaIsValid(1.0)) << "alpha=1 is the inclusive upper bound";
-    EXPECT_FALSE(SRuKFType::alphaIsValid(0.0)) << "alpha=0 excluded";
-    EXPECT_FALSE(SRuKFType::alphaIsValid(-0.1)) << "alpha<0";
-    EXPECT_FALSE(SRuKFType::alphaIsValid(1.5)) << "alpha>1";
-
-    // (2) betaIsValid: true iff beta in [0, 2].
-    EXPECT_TRUE(SRuKFType::betaIsValid(1.0)) << "beta=1 in range";
-    EXPECT_FALSE(SRuKFType::betaIsValid(-0.5)) << "beta<0";
-    EXPECT_FALSE(SRuKFType::betaIsValid(2.5)) << "beta>2";
+    // alphaAndBetaAreValid: true iff alpha in (0, 1] and beta in [alpha^2, 2].
+    EXPECT_TRUE(SRuKFType::alphaAndBetaAreValid(0.02F, 2.0F)) << "the flight tuning";
+    EXPECT_TRUE(SRuKFType::alphaAndBetaAreValid(1.0F, 1.0F)) << "alpha = 1 and beta = alpha^2 are inclusive bounds";
+    EXPECT_TRUE(SRuKFType::alphaAndBetaAreValid(0.5F, 0.25F)) << "beta = alpha^2 is the inclusive lower bound";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(0.0F, 2.0F)) << "alpha = 0 excluded";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(-0.1F, 2.0F)) << "alpha < 0";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(1.5F, 2.0F)) << "alpha > 1";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(0.5F, 2.5F)) << "beta > 2";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(1.0F, 0.5F)) << "beta < alpha^2";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(0.02F, 0.0F)) << "beta = 0 is below alpha^2 for any alpha";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(std::numeric_limits<float>::quiet_NaN(), 2.0F)) << "NaN alpha";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(0.5F, std::numeric_limits<float>::quiet_NaN())) << "NaN beta";
 }
 
 // Reset

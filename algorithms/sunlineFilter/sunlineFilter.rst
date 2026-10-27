@@ -138,7 +138,7 @@ Configuration parameters
       - 0 < alpha <= 1
     * - beta
       - prior-knowledge tunable
-      - any
+      - alpha^2 <= beta <= 2
     * - processNoise
       - N x N process noise covariance Q
       - finite, symmetric, positive semi-definite

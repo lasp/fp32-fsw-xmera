@@ -220,8 +220,10 @@ equal to
    = \sum_{i=1}^{2N} w^m_i \, \boldsymbol{d}_i \boldsymbol{d}_i^T + (\beta - \alpha^2) \, \boldsymbol{m} \boldsymbol{m}^T
 
 The large negative weight does not appear. Only the small coefficient :math:`\beta - \alpha^2`
-(``wMeanOffset``) remains. In the square-root form, the QR decomposition uses the weighted deviations and the
-process-noise factor, and a rank-1 update adds the mean-offset term.
+(``wMeanOffset``) remains. The filters require :math:`\beta \ge \alpha^2`
+(``SRuKF::alphaAndBetaAreValid``), so that every term is a weighted square. In the square-root form, the QR
+decomposition uses the weighted deviations and the process-noise factor, and a rank-1 update adds the
+mean-offset term.
 
 The measurement update uses the same expansion with :math:`\boldsymbol{u}_i = \boldsymbol{Y}_i \ominus
 \boldsymbol{Y}_0` and :math:`\bar{\boldsymbol{u}} = \bar{\boldsymbol{y}} \ominus \boldsymbol{Y}_0`, where

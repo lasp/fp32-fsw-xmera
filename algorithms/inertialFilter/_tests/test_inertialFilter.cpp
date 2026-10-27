@@ -178,6 +178,18 @@ TEST(InertialFilterConfig, RejectsBetaOutsideRange) {
     }
 }
 
+TEST(InertialFilterConfig, RejectsBetaBelowAlphaSquared) {
+    ConfigInputs below;
+    below.alpha = 1.0;
+    below.beta = 0.5;
+    EXPECT_THROW(buildConfig(below), fsw::invalid_argument);
+
+    ConfigInputs atTheBound;
+    atTheBound.alpha = 0.5;
+    atTheBound.beta = 0.25;
+    EXPECT_NO_THROW(buildConfig(atTheBound));
+}
+
 TEST(InertialFilterConfig, RejectsNegativeNoiseStds) {
     ConfigInputs stStd;
     stStd.stMeasStd = -1E-3;

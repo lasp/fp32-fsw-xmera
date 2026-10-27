@@ -53,11 +53,8 @@ class InertialFilterConfig final {
                                        StateMatrix const& initialCovariance,
                                        float stMeasurementNoiseStd,
                                        float rateMeasurementNoiseStd) {
-        if (!Srukf::alphaIsValid(alpha)) {
-            FSW_THROW_INVALID_ARGUMENT("inertialFilter: alpha must be in (0, 1]");
-        }
-        if (!Srukf::betaIsValid(beta)) {
-            FSW_THROW_INVALID_ARGUMENT("inertialFilter: beta must be in [0, 2]");
+        if (!Srukf::alphaAndBetaAreValid(alpha, beta)) {
+            FSW_THROW_INVALID_ARGUMENT("inertialFilter: alpha must be in (0, 1] and beta in [alpha^2, 2]");
         }
         if (!processNoise.allFinite()) {
             FSW_THROW_INVALID_ARGUMENT("inertialFilter: process noise must be finite");

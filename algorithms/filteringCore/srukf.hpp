@@ -194,11 +194,14 @@ class SRuKF {
 
     // ---- Validity checks ----------------------------------------------------
 
-    /*! @return true iff alpha is in (0, 1] */
-    static bool alphaIsValid(float alpha) { return alpha > 0.0F && alpha <= 1.0F; }
-
-    /*! @return true iff beta is in [0, 2] */
-    static bool betaIsValid(float beta) { return beta >= 0.0F && beta <= 2.0F; }
+    /*! Sigma-point tuning: alpha in (0, 1] and beta in [alpha^2, 2]. The lower bound on beta keeps the
+     *  mean-offset weight beta - alpha^2 (wMeanOffset) from being negative, so every term of the covariance
+     *  expanded about the central sigma point is a weighted square (see "Statistics about the central sigma
+     *  point" in filteringCore.rst).
+     *  @return true iff 0 < alpha <= 1 and alpha^2 <= beta <= 2 */
+    static bool alphaAndBetaAreValid(float alpha, float beta) {
+        return alpha > 0.0F && alpha <= 1.0F && beta >= alpha * alpha && beta <= 2.0F;
+    }
 
     /*! Derive the sigma-point spread (lambda, eta), the sigma weights, and the
      *  process-noise Cholesky from alpha, beta, and the process noise. The estimate

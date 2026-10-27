@@ -128,7 +128,7 @@ the problem-specific types and lets the core provide the estimator machinery. Th
 Because the module selects the *robust* scheduler, ``InertialFilterAlgorithm`` fulfils that scheduler's
 contract: its ``timeUpdate`` and ``measurementUpdate`` return a ``bool`` validity, and it implements
 ``clear()`` to roll back to the last-good state after a bad update. The config validators reuse the
-``SRuKF`` static checks (``alphaIsValid``/``betaIsValid``) so the valid ranges stay defined in one place.
+``SRuKF`` static check (``alphaAndBetaAreValid``) so the valid ranges stay defined in one place.
 
 Lifecycle
 +++++++++
@@ -160,7 +160,7 @@ Configuration parameters
       - 0 < alpha <= 1
     * - beta
       - prior-knowledge tunable
-      - 0 <= beta <= 2
+      - alpha^2 <= beta <= 2
     * - processNoise
       - N x N process noise covariance Q
       - finite, symmetric, positive semi-definite

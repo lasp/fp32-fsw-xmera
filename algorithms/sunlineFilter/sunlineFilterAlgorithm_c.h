@@ -59,7 +59,7 @@ uint32_t SunlineFilterAlgorithm_getNumStates(void);
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param alpha                   [-] sigma-point spread tunable.
- * @param beta                    [-] prior-knowledge tunable.
+ * @param beta                    [-] prior-knowledge tunable, in [alpha^2, 2].
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
@@ -96,7 +96,7 @@ bool SunlineFilterAlgorithm_validateConfig(double alpha,
  * filter state and covariance from the configuration.
  *
  * @param alpha                   [-] sigma-point spread tunable.
- * @param beta                    [-] prior-knowledge tunable.
+ * @param beta                    [-] prior-knowledge tunable, in [alpha^2, 2].
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
@@ -134,7 +134,7 @@ void SunlineFilterAlgorithm_destroy(SunlineFilterAlgorithmHandle* self);
  * @brief Replace the algorithm's configuration and re-derive filter parameters.
  * @param self                    Pointer to the instance.
  * @param alpha                   [-] sigma-point spread tunable.
- * @param beta                    [-] prior-knowledge tunable.
+ * @param beta                    [-] prior-knowledge tunable, in [alpha^2, 2].
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.

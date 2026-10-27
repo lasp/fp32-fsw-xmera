@@ -45,11 +45,8 @@ class FlybyFilterConfig final {
                                     FlybyState const& initialState,
                                     StateMatrix const& initialCovariance,
                                     float headingMeasurementNoiseStd) {
-        if (!Srukf::alphaIsValid(alpha)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyFilter: alpha must be in (0, 1]");
-        }
-        if (!Srukf::betaIsValid(beta)) {
-            FSW_THROW_INVALID_ARGUMENT("flybyFilter: beta must be in [0, 2]");
+        if (!Srukf::alphaAndBetaAreValid(alpha, beta)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: alpha must be in (0, 1] and beta in [alpha^2, 2]");
         }
         if (!isValidMu(mu)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: central-body gravitational parameter mu must be positive");
