@@ -75,6 +75,7 @@ void fuzzMeasurementUpdateInvariants(float x0, float obs, float pDiag, float rDi
     // Covariance stays symmetric PSD.
     Eigen::Matrix3f const P = filter.getCovariance();
     EXPECT_TRUE(P.isApprox(P.transpose(), 1e-5)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<3>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
 
     // Covariance does not grow under a measurement update.

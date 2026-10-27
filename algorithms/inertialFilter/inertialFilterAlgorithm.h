@@ -60,10 +60,12 @@ class InertialFilterConfig final {
             FSW_THROW_INVALID_ARGUMENT("inertialFilter: beta must be in [0, 2]");
         }
         if (!isValidProcessNoise(processNoise)) {
-            FSW_THROW_INVALID_ARGUMENT("inertialFilter: process noise must be positive semi-definite");
+            FSW_THROW_INVALID_ARGUMENT(
+                "inertialFilter: process noise must be finite, symmetric and positive semi-definite");
         }
         if (!isValidInitialCovariance(initialCovariance)) {
-            FSW_THROW_INVALID_ARGUMENT("inertialFilter: initial covariance must be positive semi-definite");
+            FSW_THROW_INVALID_ARGUMENT(
+                "inertialFilter: initial covariance must be finite, symmetric and positive semi-definite");
         }
         if (!isValidInitialState(initialState)) {
             FSW_THROW_INVALID_ARGUMENT("inertialFilter: initial state must be finite");
@@ -79,11 +81,11 @@ class InertialFilterConfig final {
     }
 
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
-        return isPositiveSemiDefinite<InertialState::size>(processNoise);
+        return isValidCovariance<InertialState::size>(processNoise);
     }
     static bool isValidInitialState(InertialState const& initialState) { return initialState.allFinite(); }
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return covariance.allFinite() && isPositiveSemiDefinite<InertialState::size>(covariance);
+        return isValidCovariance<InertialState::size>(covariance);
     }
     static bool isValidStMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
     static bool isValidRateMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }

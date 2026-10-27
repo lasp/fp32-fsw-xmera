@@ -68,10 +68,12 @@ class SunlineFilterConfig final {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: beta must be in [0, 2]");
         }
         if (!isValidProcessNoise(processNoise)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: process noise must be positive semi-definite");
+            FSW_THROW_INVALID_ARGUMENT(
+                "sunlineFilter: process noise must be finite, symmetric and positive semi-definite");
         }
         if (!isValidInitialCovariance(initialCovariance)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial covariance must be positive semi-definite");
+            FSW_THROW_INVALID_ARGUMENT(
+                "sunlineFilter: initial covariance must be finite, symmetric and positive semi-definite");
         }
         if (!isValidInitialState(initialState)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial state must be finite");
@@ -119,11 +121,11 @@ class SunlineFilterConfig final {
     }
 
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
-        return isPositiveSemiDefinite<SunlineState::size>(processNoise);
+        return isValidCovariance<SunlineState::size>(processNoise);
     }
     static bool isValidInitialState(SunlineState const& initialState) { return initialState.allFinite(); }
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return covariance.allFinite() && isPositiveSemiDefinite<SunlineState::size>(covariance);
+        return isValidCovariance<SunlineState::size>(covariance);
     }
     static bool isValidBiasLowerBound(float bound) { return bound > 0.0F; }
     static bool isValidBiasUpperBound(float bound) { return bound > 0.0F; }

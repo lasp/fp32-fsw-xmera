@@ -26,6 +26,8 @@
 #include <cmath>
 #include <limits>
 #include <random>
+#include <string>
+#include <utility>
 
 namespace filtering::inertialFilter {
 
@@ -118,6 +120,35 @@ TEST(InertialFilterConfig, RejectsNonPositiveSemiDefiniteCovariance) {
     ConfigInputs in;
     in.initialCovariance = -Matrix6::Identity();  // negative definite
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
+// A non-finite, asymmetric or indefinite Q or P0 fails isValidCovariance, with a message that names the matrix.
+TEST(InertialFilterConfig, NamesWhichCovarianceIsInvalid) {
+    auto const messageOf = [](ConfigInputs const& in) -> std::string {
+        try {
+            (void)buildConfig(in);
+        } catch (fsw::invalid_argument const& error) {
+            return error.what();
+        }
+        return "no throw";
+    };
+    Matrix6 nonFinite = Matrix6::Identity();
+    nonFinite(1, 1) = std::numeric_limits<float>::quiet_NaN();
+    Matrix6 asymmetric = Matrix6::Identity();
+    asymmetric(0, 1) = 1E-3F;  // the lower triangle keeps 0
+    Matrix6 const negative = -Matrix6::Identity();
+
+    for (Matrix6 const& matrix : {nonFinite, asymmetric, negative}) {
+        ConfigInputs processNoiseCase;
+        processNoiseCase.processNoise = matrix;
+        EXPECT_EQ(messageOf(processNoiseCase),
+                  std::string("inertialFilter: process noise must be finite, symmetric and positive semi-definite"));
+        ConfigInputs covarianceCase;
+        covarianceCase.initialCovariance = matrix;
+        EXPECT_EQ(
+            messageOf(covarianceCase),
+            std::string("inertialFilter: initial covariance must be finite, symmetric and positive semi-definite"));
+    }
 }
 
 TEST(InertialFilterConfig, RejectsNonFiniteInitialState) {
@@ -441,6 +472,7 @@ TEST(InertialFilterAlgorithmTimeUpdate, GrowsCovarianceWithProcessNoise) {
     Matrix6 const P = algo.getCovariance();
     EXPECT_GT(P.trace(), P0.trace()) << "process noise should grow covariance";
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(P)) << "covariance not PSD";
 }
 
@@ -621,6 +653,7 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, StAttMeasurementShrinksAttitudeCo
         EXPECT_LT(covarN(i, i), covar0(i, i)) << "attitude cov diag index " << i;
     }
     EXPECT_TRUE(covarN.isApprox(covarN.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(covarN)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(covarN)) << "covariance not PSD";
     EXPECT_TRUE(algo.getLastStAttResiduals().valid);
 }
@@ -644,6 +677,7 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovaria
         EXPECT_LT(covarN(i, i), covar0(i, i)) << "rate cov diag index " << i;
     }
     EXPECT_TRUE(covarN.isApprox(covarN.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(covarN)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(covarN)) << "covariance not PSD";
     EXPECT_TRUE(algo.getLastRateResiduals().valid);
 }

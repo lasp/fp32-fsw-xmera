@@ -32,6 +32,8 @@
 #include <limits>
 #include <memory>
 #include <random>
+#include <string>
+#include <utility>
 
 namespace filtering::flybyFilter {
 namespace {
@@ -96,6 +98,34 @@ TEST(FlybyFilterConfig, RejectsNonPositiveSemiDefiniteCovariance) {
     ConfigInputs in;
     in.initialCovariance = -Matrix6::Identity();
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
+// A non-finite, asymmetric or indefinite Q or P0 fails isValidCovariance, with a message that names the matrix.
+TEST(FlybyFilterConfig, NamesWhichCovarianceIsInvalid) {
+    auto const messageOf = [](ConfigInputs const& in) -> std::string {
+        try {
+            (void)buildConfig(in);
+        } catch (fsw::invalid_argument const& error) {
+            return error.what();
+        }
+        return "no throw";
+    };
+    Matrix6 nonFinite = Matrix6::Identity();
+    nonFinite(1, 1) = std::numeric_limits<float>::quiet_NaN();
+    Matrix6 asymmetric = Matrix6::Identity();
+    asymmetric(0, 1) = 1E-3F;  // the lower triangle keeps 0
+    Matrix6 const negative = -Matrix6::Identity();
+
+    for (Matrix6 const& matrix : {nonFinite, asymmetric, negative}) {
+        ConfigInputs processNoiseCase;
+        processNoiseCase.processNoise = matrix;
+        EXPECT_EQ(messageOf(processNoiseCase),
+                  std::string("flybyFilter: process noise must be finite, symmetric and positive semi-definite"));
+        ConfigInputs covarianceCase;
+        covarianceCase.initialCovariance = matrix;
+        EXPECT_EQ(messageOf(covarianceCase),
+                  std::string("flybyFilter: initial covariance must be finite, symmetric and positive semi-definite"));
+    }
 }
 
 TEST(FlybyFilterConfig, RejectsNegativeHeadingNoiseStd) {
@@ -579,6 +609,7 @@ TEST(FlybyFilterAlgorithmTimeUpdate, GrowsCovarianceWithProcessNoise) {
     EXPECT_GT(P.trace(), 0.0);
     EXPECT_GT(P.trace(), tracePrior) << "process noise should grow the covariance over a finite dt";
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(P)) << "covariance not PSD";
 }
 
@@ -604,6 +635,7 @@ TEST(FlybyFilterAlgorithmMeasurementUpdate, HeadingMeasurementShrinksCovariance)
     Matrix6 const covarN = algo.getCovariance();
     EXPECT_LT(covarN.trace(), covar0.trace()) << "a heading update should reduce total uncertainty";
     EXPECT_TRUE(covarN.isApprox(covarN.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(covarN)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(covarN)) << "covariance not PSD";
     EXPECT_TRUE(algo.getLastHeadingResiduals().valid);
 }

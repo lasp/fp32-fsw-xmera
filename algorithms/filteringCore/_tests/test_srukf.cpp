@@ -302,6 +302,7 @@ TEST(SrukfTimeUpdate, CovarianceUnderTimeUpdate) {
     Eigen::Matrix3f const P = filter.getCovariance();
     EXPECT_GT(P.trace(), P0.trace()) << "dt>0 should grow covariance";
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<3>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
 }
 
@@ -352,6 +353,7 @@ TEST(SrukfMeasurementUpdate, InformativeMeasurementUpdatesStateAndShrinksCovaria
     Eigen::Matrix3f const P = filter.getCovariance();
     EXPECT_LT(P.trace(), 3.0) << "covariance should shrink";
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<3>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
 
     // Last-measurement state moved forward
@@ -407,6 +409,7 @@ TEST(SrukfMeasurementUpdate, PreciseMeasurementKeepsAPositivePosteriorCovariance
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(P(i, i), expectedVariance, 1e-3F * expectedVariance) << "posterior variance " << i;
     }
+    EXPECT_TRUE(isSymmetric<3>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
 }
 

@@ -163,13 +163,13 @@ Configuration parameters
       - 0 <= beta <= 2
     * - processNoise
       - N x N process noise covariance Q
-      - positive semi-definite
+      - finite, symmetric, positive semi-definite
     * - initialState
       - N-element initial state seed
       - finite
     * - initialCovariance
       - N x N initial covariance P0
-      - positive semi-definite
+      - finite, symmetric, positive semi-definite
     * - stMeasurementNoiseStd
       - star-tracker attitude measurement noise standard deviation
       - >= 0
