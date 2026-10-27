@@ -441,6 +441,7 @@ TEST(InertialFilterAlgorithmTimeUpdate, GrowsCovarianceWithProcessNoise) {
     Matrix6 const P = algo.getCovariance();
     EXPECT_GT(P.trace(), P0.trace()) << "process noise should grow covariance";
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(P)) << "covariance not PSD";
 }
 
@@ -621,6 +622,7 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, StAttMeasurementShrinksAttitudeCo
         EXPECT_LT(covarN(i, i), covar0(i, i)) << "attitude cov diag index " << i;
     }
     EXPECT_TRUE(covarN.isApprox(covarN.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(covarN)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(covarN)) << "covariance not PSD";
     EXPECT_TRUE(algo.getLastStAttResiduals().valid);
 }
@@ -644,6 +646,7 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovaria
         EXPECT_LT(covarN(i, i), covar0(i, i)) << "rate cov diag index " << i;
     }
     EXPECT_TRUE(covarN.isApprox(covarN.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(covarN)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(covarN)) << "covariance not PSD";
     EXPECT_TRUE(algo.getLastRateResiduals().valid);
 }

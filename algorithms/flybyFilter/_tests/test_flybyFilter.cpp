@@ -579,6 +579,7 @@ TEST(FlybyFilterAlgorithmTimeUpdate, GrowsCovarianceWithProcessNoise) {
     EXPECT_GT(P.trace(), 0.0);
     EXPECT_GT(P.trace(), tracePrior) << "process noise should grow the covariance over a finite dt";
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(P)) << "covariance not PSD";
 }
 
@@ -604,6 +605,7 @@ TEST(FlybyFilterAlgorithmMeasurementUpdate, HeadingMeasurementShrinksCovariance)
     Matrix6 const covarN = algo.getCovariance();
     EXPECT_LT(covarN.trace(), covar0.trace()) << "a heading update should reduce total uncertainty";
     EXPECT_TRUE(covarN.isApprox(covarN.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(covarN)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(covarN)) << "covariance not PSD";
     EXPECT_TRUE(algo.getLastHeadingResiduals().valid);
 }

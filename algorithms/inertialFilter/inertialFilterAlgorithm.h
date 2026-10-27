@@ -79,11 +79,13 @@ class InertialFilterConfig final {
     }
 
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
-        return isPositiveSemiDefinite<InertialState::size>(processNoise);
+        return isSymmetric<InertialState::size>(processNoise) &&
+               isPositiveSemiDefinite<InertialState::size>(processNoise);
     }
     static bool isValidInitialState(InertialState const& initialState) { return initialState.allFinite(); }
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return covariance.allFinite() && isPositiveSemiDefinite<InertialState::size>(covariance);
+        return covariance.allFinite() && isSymmetric<InertialState::size>(covariance) &&
+               isPositiveSemiDefinite<InertialState::size>(covariance);
     }
     static bool isValidStMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
     static bool isValidRateMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }

@@ -119,11 +119,13 @@ class SunlineFilterConfig final {
     }
 
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
-        return isPositiveSemiDefinite<SunlineState::size>(processNoise);
+        return isSymmetric<SunlineState::size>(processNoise) &&
+               isPositiveSemiDefinite<SunlineState::size>(processNoise);
     }
     static bool isValidInitialState(SunlineState const& initialState) { return initialState.allFinite(); }
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return covariance.allFinite() && isPositiveSemiDefinite<SunlineState::size>(covariance);
+        return covariance.allFinite() && isSymmetric<SunlineState::size>(covariance) &&
+               isPositiveSemiDefinite<SunlineState::size>(covariance);
     }
     static bool isValidBiasLowerBound(float bound) { return bound > 0.0F; }
     static bool isValidBiasUpperBound(float bound) { return bound > 0.0F; }

@@ -71,11 +71,12 @@ class FlybyFilterConfig final {
 
     static bool isValidMu(float mu) { return mu > 0.0F; }
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
-        return isPositiveSemiDefinite<FlybyState::size>(processNoise);
+        return isSymmetric<FlybyState::size>(processNoise) && isPositiveSemiDefinite<FlybyState::size>(processNoise);
     }
     static bool isValidInitialState(FlybyState const& initialState) { return initialState.allFinite(); }
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return covariance.allFinite() && isPositiveSemiDefinite<FlybyState::size>(covariance);
+        return covariance.allFinite() && isSymmetric<FlybyState::size>(covariance) &&
+               isPositiveSemiDefinite<FlybyState::size>(covariance);
     }
     static bool isValidHeadingMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
 
