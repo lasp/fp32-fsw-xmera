@@ -221,9 +221,9 @@ equal to
 
 The large negative weight does not appear. Only the small coefficient :math:`\beta - \alpha^2`
 (``wMeanOffset``) remains. The filters require :math:`\beta \ge \alpha^2`
-(``SRuKF::alphaAndBetaAreValid``), so that every term is a weighted square. In the square-root form, the QR
-decomposition uses the weighted deviations and the process-noise factor, and a rank-1 update adds the
-mean-offset term.
+(``SRuKF::alphaAndBetaAreValid``), so that every term is a weighted square. In the square-root form, one QR
+decomposition takes the weighted deviations, the process-noise factor and the weighted mean offset (see
+"Mean-offset term").
 
 The measurement update uses the same expansion with :math:`\boldsymbol{u}_i = \boldsymbol{Y}_i \ominus
 \boldsymbol{Y}_0` and :math:`\bar{\boldsymbol{u}} = \bar{\boldsymbol{y}} \ominus \boldsymbol{Y}_0`, where
@@ -332,7 +332,7 @@ the stage points :math:`\boldsymbol{X}_{0,k} + \boldsymbol{d}_k` are those of an
 the rounding changes.
 
 The SRuKF keeps the propagated deviations (``sigmaDeviations``) and the mean offset :math:`\boldsymbol{m}`
-(``meanOffset``). It uses them directly in the QR decomposition, the rank-1 update, :math:`P_{xy}` and the state
+(``meanOffset``). It uses them directly in the QR decomposition, :math:`P_{xy}` and the state
 update, :math:`\boldsymbol{x}^+ = \boldsymbol{X}_0 + (\boldsymbol{m} + K \boldsymbol{\nu})`, where
 :math:`\boldsymbol{\nu}` is the innovation. The absolute sigma points :math:`\boldsymbol{X}_0 + \boldsymbol{d}_i` are
 formed only as inputs to the measurement models. A ``timeUpdate(0)`` sets the deviations directly to
@@ -381,74 +381,46 @@ with one QR decomposition of
 .. math::
 
    \left[ \sqrt{w^m_1} \, (\boldsymbol{z}_1 \ \cdots \ \boldsymbol{z}_{2N}) \quad K S_R \quad S_{Q_{\text{out}}}
-   \right]
+   \quad \sqrt{\beta - \alpha^2} \, \boldsymbol{m}_z \right]
 
-where :math:`S_R` and :math:`S_{Q_{\text{out}}}` are the Cholesky factors of :math:`R` and :math:`Q_{\text{out}}`,
-and one rank-1 update by :math:`\boldsymbol{m}_z` with the coefficient :math:`\beta - \alpha^2`.
+where :math:`S_R` and :math:`S_{Q_{\text{out}}}` are the Cholesky factors of :math:`R` and :math:`Q_{\text{out}}`.
 
 For usual measurement noise the two forms give the same results. In a heading-only flyby with a heading noise of
 :math:`3 \times 10^{-6}` or more, the float filter is equally accurate with either form. With a heading noise of
 :math:`10^{-6}`, the textbook update rejects 3,000 to 20,000 updates in 50 runs and the filter diverges. The Joseph
 form rejects none.
 
-Rank-1 update by rotations
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Mean-offset term
+~~~~~~~~~~~~~~~~
 
-The time update, :math:`S_y` and the Joseph form each finish with a rank-1 update of a lower-triangular factor
-:math:`S`, by the mean offset with the coefficient :math:`c = \beta - \alpha^2`: the new factor :math:`L` satisfies
+The time update, :math:`S_y` and the Joseph form each add the mean-offset term :math:`c \, \boldsymbol{v}
+\boldsymbol{v}^T`, with :math:`c = \beta - \alpha^2` (``wMeanOffset``) and :math:`\boldsymbol{v}` the mean offset
+:math:`\boldsymbol{m}`, :math:`\bar{\boldsymbol{u}}` or :math:`\boldsymbol{m}_z`. Because the filters require
+:math:`\beta \ge \alpha^2`, :math:`c \ge 0` and the term is one more weighted square: the column
+:math:`\sqrt{c} \, \boldsymbol{v}` is appended to the matrix of the QR decomposition that already builds the factor.
+Every term of every covariance is then a weighted square, and no step subtracts.
 
-.. math::
-
-   L L^T = S S^T + c \, \boldsymbol{v} \boldsymbol{v}^T
-
-The simple way is to form :math:`P = S S^T + c \, \boldsymbol{v} \boldsymbol{v}^T` and factor it again. The
+The simple alternative is to form :math:`P = S S^T + c \, \boldsymbol{v} \boldsymbol{v}^T` and factor it again. The
 condition number of :math:`P` is the square of the condition number of :math:`S`, and float keeps only about 7
 significant digits. In a covariance with a variance of :math:`10^{-6}` next to one of :math:`10^{4}`, the small
-direction is rounded away when :math:`P` is formed, and the factor of :math:`P` is wrong in that direction.
-
-``choleskyUpDownDate()`` therefore never forms :math:`P`. It rotates :math:`\boldsymbol{x} = \sqrt{|c|} \,
-\boldsymbol{v}` into the columns of :math:`L`, starting from :math:`L = S`. For each column :math:`k` with
-:math:`\ell = L_{kk}` and :math:`x_k \neq 0` (a zero :math:`x_k` needs no rotation):
-
-- **Update** (:math:`c > 0`), a Givens rotation:
-
-  .. math::
-
-     r = \sqrt{\ell^2 + x_k^2}, \qquad \gamma = \ell / r, \qquad \sigma = x_k / r, \qquad L_{kk} \leftarrow r
-
-  and for :math:`i > k`, with :math:`L_{ik}` the value before the rotation:
-
-  .. math::
-
-     L_{ik} \leftarrow \gamma L_{ik} + \sigma x_i, \qquad x_i \leftarrow \gamma x_i - \sigma L_{ik}
-
-- **Downdate** (:math:`c < 0`), a hyperbolic rotation:
-
-  .. math::
-
-     r = \sqrt{(\ell - x_k)(\ell + x_k)}, \qquad \gamma = r / \ell, \qquad \sigma = x_k / \ell, \qquad
-     L_{kk} \leftarrow r
-
-  and for :math:`i > k`, with :math:`L_{ik}` the value after its update:
-
-  .. math::
-
-     L_{ik} \leftarrow (L_{ik} - \sigma x_i) / \gamma, \qquad x_i \leftarrow \gamma x_i - \sigma L_{ik}
-
-Each rotation works on entries of the size of the factor, not of the covariance, so the condition number is not
-squared. A downdate that would make the result indefinite or singular has :math:`(\ell - x_k)(\ell + x_k) \le 0`:
-this includes a zero :math:`\ell` (a state with zero variance) and :math:`|x_k| = |\ell|`. The downdate tests this
-before it divides and fails: ``choleskyUpDownDate()`` returns no factor, the time or measurement update reports a bad
-update, and ``applySequentialRobust`` clears the filter back to its last good state. So no division by zero is ever
-evaluated: the Givens rotation divides by :math:`r \ge |x_k| > 0`, and the hyperbolic
-rotation divides by :math:`\ell` and :math:`\gamma` only once :math:`|\ell| > |x_k| > 0`. Because :math:`S S^T` is never formed, these
-checks also test that the covariance :math:`S S^T` is finite: :math:`S` can stay finite while :math:`S S^T`
-overflows float.
-
-The fuzz tests found the case where this matters. A flyby prior with velocity variances of :math:`10^{-6}` next to
+direction is rounded away when :math:`P` is formed, and the factor of :math:`P` is wrong in that direction. The
+fuzz tests found the case where this matters: a flyby prior with velocity variances of :math:`10^{-6}` next to
 :math:`10^{4}`, propagated for 47 s without process noise, gave a velocity variance of :math:`10^{8}` instead of
-about :math:`10^{4}` when the factor was formed again. With the rotations, the result is correct and does not depend
-on the process noise. For a well-conditioned covariance, the two methods give the same results.
+about :math:`10^{4}` when the factor was formed again. The QR decomposition works on the entries of the factor, so
+the condition number is not squared.
+
+The filter used to add the term after the QR decomposition, by rotating :math:`\sqrt{|c|} \, \boldsymbol{v}` into
+the factor: Givens rotations for :math:`c > 0` and hyperbolic rotations for :math:`c < 0`. The rotations update an
+existing triangular factor in :math:`O(N^2)`, where a Householder QR of :math:`[S \ \ \boldsymbol{v}]` would cost
+:math:`O(N^3)`. Appending the column to the QR decomposition that already runs costs about the same and needs no
+separate code. A downdate (:math:`c < 0`) subtracts and can fail in float; requiring :math:`\beta \ge \alpha^2`
+removes it. At :math:`\beta = \alpha^2` the weight :math:`\beta - \alpha^2` can round to :math:`-1` ulp, so
+``configure()`` clamps it to zero.
+
+The only remaining division that a singular matrix could reach is the triangular solve with :math:`S_y` for the
+gain. :math:`R` is positive definite (a measurement whose :math:`R` factor has a zero diagonal is a bad update), so
+:math:`P_{yy} \succeq R` is too, and a zero diagonal of :math:`S_y` can only come from rounding. ``measurementUpdate``
+checks for it before dividing, and reports a bad update instead.
 
 
 host adapter

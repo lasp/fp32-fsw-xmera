@@ -639,28 +639,6 @@ TEST(SrukfDetail, QrDecompositionJustRPreservesNormalEquations) {
     EXPECT_TRUE((R * R.transpose()).isApprox(A * A.transpose(), kRoundoffTol));
 }
 
-TEST(SrukfDetail, CholeskyUpDownDateMatchesExplicitUpdate) {
-    Eigen::Matrix3f P0;
-    P0 << 4.0, 1.0, 0.0, 1.0, 3.0, 0.5, 0.0, 0.5, 2.0;
-    Eigen::Matrix3f const S0 = SRuKF::choleskyDecomposition<3>(P0);
-
-    Eigen::Vector3f const v(0.1, -0.2, 0.3);
-
-    // Up-date with +coef and down-date with -coef must reconstruct P0 ± coef v vᵀ.
-    {
-        float const coef = 0.5;
-        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
-        Eigen::Matrix3f const P1 = P0 + coef * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
-    }
-    {
-        float const coef = -0.5;
-        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
-        Eigen::Matrix3f const P1 = P0 - 0.5 * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
-    }
-}
-
 // ============================================================================
 // SunlineFilterConfig: factory validation, static validators, and round-trip.
 // ============================================================================
