@@ -10,4 +10,4 @@
 %include "convertStPlatformToBody.h"
 
 %include "msgPayloadDef/STAttMsgF32Payload.h"
-%include "msgPayloadDef/STSensorMsgF32Payload.h"
+%include "msgPayloadDef/AscPlatformAttitudeTmMsgF32Payload.h"

@@ -6,6 +6,14 @@ from xmera.utilities import macros
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
 
+def pack_angular_rate_quaternion(omega_CN_C):
+    """Pack a rate into the micro-ASC rate quaternion [axis*sin(|w|/2), cos(|w|/2)] (scalar-last)."""
+    angle = np.linalg.norm(omega_CN_C)
+    if angle == 0.0:
+        return [0.0, 0.0, 0.0, 1.0]
+    axis = omega_CN_C / angle
+    return [*(axis * np.sin(angle / 2.0)), np.cos(angle / 2.0)]
+
 
 def test_identity_mounting():
     """With identity mounting the output MRP and omega should match the case-frame values."""
@@ -28,11 +36,11 @@ def test_identity_mounting():
     ep_CN = np.array([np.cos(angle/2), 0, 0, np.sin(angle/2)])
     omega_CN_C = np.array([0.01, -0.02, 0.03])
 
-    sensor_data = messaging.STSensorMsgF32Payload()
-    sensor_data.timeTag = 100.0
-    sensor_data.qInrtl2Case = ep_CN.tolist()
-    sensor_data.omega_CN_C = omega_CN_C.tolist()
-    sensor_in_msg = messaging.STSensorMsgF32().write(sensor_data)
+    sensor_data = messaging.AscPlatformAttitudeTmMsgF32Payload()
+    sensor_data.solutionTimestamp = 100.0
+    sensor_data.platformAttitude = [ep_CN[1], ep_CN[2], ep_CN[3], ep_CN[0]]
+    sensor_data.platformAngularVelocity = pack_angular_rate_quaternion(omega_CN_C)
+    sensor_in_msg = messaging.AscPlatformAttitudeTmMsgF32().write(sensor_data)
 
     module.stSensorInMsg.subscribeTo(sensor_in_msg)
 
@@ -82,11 +90,11 @@ def test_rotated_mounting():
     ep_CN = np.array([np.cos(st_angle/2), np.sin(st_angle/2), 0, 0])
     omega_CN_C = np.array([-0.015, 0.008, 0.022])
 
-    sensor_data = messaging.STSensorMsgF32Payload()
-    sensor_data.timeTag = 200.0
-    sensor_data.qInrtl2Case = ep_CN.tolist()
-    sensor_data.omega_CN_C = omega_CN_C.tolist()
-    sensor_in_msg = messaging.STSensorMsgF32().write(sensor_data)
+    sensor_data = messaging.AscPlatformAttitudeTmMsgF32Payload()
+    sensor_data.solutionTimestamp = 200.0
+    sensor_data.platformAttitude = [ep_CN[1], ep_CN[2], ep_CN[3], ep_CN[0]]
+    sensor_data.platformAngularVelocity = pack_angular_rate_quaternion(omega_CN_C)
+    sensor_in_msg = messaging.AscPlatformAttitudeTmMsgF32().write(sensor_data)
 
     module.stSensorInMsg.subscribeTo(sensor_in_msg)
 
@@ -128,8 +136,8 @@ def test_zero_input():
     module.modelTag = "convertStPlatformToBody"
     sim.AddModelToTask(task_name, module)
 
-    sensor_data = messaging.STSensorMsgF32Payload()
-    sensor_in_msg = messaging.STSensorMsgF32().write(sensor_data)
+    sensor_data = messaging.AscPlatformAttitudeTmMsgF32Payload()
+    sensor_in_msg = messaging.AscPlatformAttitudeTmMsgF32().write(sensor_data)
     module.stSensorInMsg.subscribeTo(sensor_in_msg)
 
     att_log = module.stAttOutMsg.recorder()
