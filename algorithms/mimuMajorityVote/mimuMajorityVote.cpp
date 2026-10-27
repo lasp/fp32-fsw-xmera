@@ -1,7 +1,7 @@
 #include "mimuMajorityVote.h"
 
 #include "utilities/fsw/eigenSupport.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
@@ -43,7 +43,7 @@ void MimuMajorityVote::updateState(uint64_t const callTime) {
 
     NavAttMsgF32Payload navAttPayload{};
     eigenVectorToCArray(output.gyro.average, navAttPayload.omega_BN_B);
-    navAttPayload.timeTag = static_cast<double>(callTime) * kNano2Sec;
+    navAttPayload.timeTag = fsw::nanosToSeconds(callTime);
 
     MimuFaultMsgPayload faultPayload{};
     faultPayload.gyroFaultDetected = output.gyro.faultDetected;
