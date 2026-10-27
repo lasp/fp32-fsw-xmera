@@ -3,6 +3,7 @@ xmera_add_swig_message(AccDataMsgF32Payload
                        "${CMAKE_CURRENT_SOURCE_DIR}/AccDataMsgF32Payload.i"
 )
 xmera_add_swig_message(AccPktDataMsgF32Payload)
+xmera_add_swig_message(AscPlatformAttitudeTmMsgF32Payload)
 xmera_add_swig_message(AttGuidMsgF32Payload)
 xmera_add_swig_message(AttRefMsgF32Payload)
 xmera_add_swig_message(AttStateMsgF32Payload)
