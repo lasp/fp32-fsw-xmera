@@ -42,8 +42,8 @@ uint32_t InertialFilterAlgorithm_getNumStates(void);
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
- * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be >= 0.
- * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be >= 0.
+ * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be > 0.
+ * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be > 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
@@ -62,8 +62,8 @@ bool InertialFilterAlgorithm_validateConfig(double alpha,
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
- * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be >= 0.
- * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be >= 0.
+ * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be > 0.
+ * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be > 0.
  * @return owning handle to the new instance (destroy with InertialFilterAlgorithm_destroy)
  * @note create() validates the config and throws on invalid input; the exception propagates to Ada.
  */
@@ -89,8 +89,8 @@ void InertialFilterAlgorithm_destroy(InertialFilterAlgorithmHandle* self);
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
- * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be >= 0.
- * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be >= 0.
+ * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be > 0.
+ * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be > 0.
  * @note setConfig() validates the config and throws on invalid input; the exception propagates to Ada.
  */
 void InertialFilterAlgorithm_setConfig(InertialFilterAlgorithmHandle* self,

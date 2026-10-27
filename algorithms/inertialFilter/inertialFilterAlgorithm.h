@@ -71,10 +71,12 @@ class InertialFilterConfig final {
             FSW_THROW_INVALID_ARGUMENT("inertialFilter: initial state must be finite");
         }
         if (!isValidStMeasurementNoiseStd(stMeasurementNoiseStd)) {
-            FSW_THROW_INVALID_ARGUMENT("inertialFilter: ST measurement noise std must not be negative");
+            FSW_THROW_INVALID_ARGUMENT(
+                "inertialFilter: ST measurement noise std must be positive, with a finite square");
         }
         if (!isValidRateMeasurementNoiseStd(rateMeasurementNoiseStd)) {
-            FSW_THROW_INVALID_ARGUMENT("inertialFilter: rate measurement noise std must not be negative");
+            FSW_THROW_INVALID_ARGUMENT(
+                "inertialFilter: rate measurement noise std must be positive, with a finite square");
         }
         return {
             alpha, beta, processNoise, initialState, initialCovariance, stMeasurementNoiseStd, rateMeasurementNoiseStd};
@@ -87,8 +89,8 @@ class InertialFilterConfig final {
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
         return isValidCovariance<InertialState::size>(covariance);
     }
-    static bool isValidStMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
-    static bool isValidRateMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
+    static bool isValidStMeasurementNoiseStd(float noiseStd) { return Srukf::measurementNoiseStdIsValid(noiseStd); }
+    static bool isValidRateMeasurementNoiseStd(float noiseStd) { return Srukf::measurementNoiseStdIsValid(noiseStd); }
 
     float getAlpha() const { return this->alpha; }
     float getBeta() const { return this->beta; }

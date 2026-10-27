@@ -159,10 +159,10 @@ Configuration parameters
       - >= 0
     * - cssMeasurementNoiseStd
       - CSS measurement noise standard deviation
-      - >= 0
+      - > 0 (must be set)
     * - gyroMeasurementNoiseStd
       - gyro measurement noise standard deviation
-      - >= 0
+      - > 0 (must be set)
     * - measurementDelay
       - processing delay [s]: a measurement is processed only once the filter time is at least its time tag
         plus the delay (default 0, no delay). Set it to the largest measurement latency plus a margin.

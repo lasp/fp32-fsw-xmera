@@ -43,7 +43,7 @@ uint32_t FlybyFilterAlgorithm_getNumStates(void);
  * @param processNoise               [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState               [km, km/s] N-element initial state seed.
  * @param initialCovariance          [-] N x N initial covariance P0; must be positive semi-definite.
- * @param headingMeasurementNoiseStd [-] heading measurement noise std; must be >= 0.
+ * @param headingMeasurementNoiseStd [-] heading measurement noise std; must be > 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
@@ -63,7 +63,7 @@ bool FlybyFilterAlgorithm_validateConfig(double alpha,
  * @param processNoise               [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState               [km, km/s] N-element initial state seed.
  * @param initialCovariance          [-] N x N initial covariance P0; must be positive semi-definite.
- * @param headingMeasurementNoiseStd [-] heading measurement noise std; must be >= 0.
+ * @param headingMeasurementNoiseStd [-] heading measurement noise std; must be > 0.
  * @return owning handle to the new instance (destroy with FlybyFilterAlgorithm_destroy)
  * @note create() validates the config and throws on invalid input; the exception propagates to Ada.
  */
@@ -90,7 +90,7 @@ void FlybyFilterAlgorithm_destroy(FlybyFilterAlgorithmHandle* self);
  * @param processNoise               [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState               [km, km/s] N-element initial state seed.
  * @param initialCovariance          [-] N x N initial covariance P0; must be positive semi-definite.
- * @param headingMeasurementNoiseStd [-] heading measurement noise std; must be >= 0.
+ * @param headingMeasurementNoiseStd [-] heading measurement noise std; must be > 0.
  * @note setConfig() validates the config and throws on invalid input; the exception propagates to Ada.
  */
 void FlybyFilterAlgorithm_setConfig(FlybyFilterAlgorithmHandle* self,
