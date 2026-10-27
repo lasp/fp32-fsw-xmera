@@ -110,8 +110,8 @@ long runs; only their differences are narrowed to ``float`` before
    ``rk4()`` and ``propagate()`` — RK4 integration usable on any
    ``LinearlyCombinable`` state. ``propagate()`` accumulates the sub-steps
    with Kahan compensation (see "Accumulating the RK4 sub-steps").
-   ``propagateDeviation()`` propagates a small deviation from a reference
-   state (see "Propagating the sigma points as deviations").
+   ``propagateDeviations()`` propagates a reference state and small
+   deviations from it (see "Propagating the sigma points as deviations").
 
 ``measurementQueue.h``
    ``measurement_queue<Measurement, CAPACITY>`` — a bounded, time-ordered
@@ -319,17 +319,19 @@ of the deviation smaller than about one ulp is lost. For example, at a range of 
 position is about 0.03 km, while the velocity spread moves a position deviation by about :math:`3 \times 10^{-4}` km
 in one sub-step. The spread of the sigma points then stops growing, and the covariance stops growing with it.
 
-The SRuKF therefore propagates the central sigma point :math:`\boldsymbol{X}_0` with ``propagate()``, and each other
-sigma point as its deviation from the central point with ``propagateDeviation()``. The deviation obeys
+The SRuKF therefore propagates each sigma point other than the central one, :math:`\boldsymbol{X}_0`, as its deviation
+from the central point, with ``propagateDeviations()``. The deviation obeys
 
 .. math::
 
    \dot{\boldsymbol{d}} = \boldsymbol{f}(t, \boldsymbol{X}_0 + \boldsymbol{d}) - \boldsymbol{f}(t, \boldsymbol{X}_0)
 
-and is integrated on its own scale. ``propagateDeviation()`` integrates the reference :math:`\boldsymbol{X}_0` and the
-deviation together. Each RK4 stage of the deviation uses the matching stage of the reference, so in exact arithmetic
-the stage points :math:`\boldsymbol{X}_{0,k} + \boldsymbol{d}_k` are those of an RK4 on the absolute sigma point. Only
-the rounding changes.
+and is integrated on its own scale. ``propagateDeviations()`` integrates the reference :math:`\boldsymbol{X}_0` once,
+exactly as ``propagate()`` does, and all the deviations with it. Each RK4 stage of a deviation uses the matching stage
+of the reference, so in exact arithmetic the stage points :math:`\boldsymbol{X}_{0,k} + \boldsymbol{d}_k` are those
+of an RK4 on the absolute sigma point. Only the rounding changes. Sharing the reference stages makes a sub-step cost
+:math:`4 + 8N` dynamics calls for the :math:`2N` deviations, instead of :math:`4 + 16N` when each deviation integrates
+its own copy of the reference.
 
 The SRuKF keeps the propagated deviations (``sigmaDeviations``) and the mean offset :math:`\boldsymbol{m}`
 (``meanOffset``). It uses them directly in the QR decomposition, :math:`P_{xy}` and the state

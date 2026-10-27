@@ -53,7 +53,7 @@ class SRuKF {
     }
 
     /*! Semidefinite Cholesky decomposition, reading the lower triangle. A positive semi-definite matrix
-     *  may be singular, e.g. a process noise with zero noise on some states. 
+     *  may be singular, e.g. a process noise with zero noise on some states.
      *  @return lower-triangular L with input = L * L^T and a non-negative diagonal
      *  @param input [-] symmetric positive semi-definite matrix */
     template <int Size>
@@ -221,14 +221,16 @@ class SRuKF {
 
             //! > Propagate the central sigma point, and each other sigma point as its deviation from the central one
             //! > (eq 17-18), so the spread is not absorbed into a large state (see "Propagating the sigma points as
-            //! > deviations" in filteringCore.rst)
-            this->sigmaPoints[0] = filtering::propagate(this->dynamics, this->state, interval);
-            for (int i = 1; i <= N; ++i) {
-                typename State::Storage const offset = this->eta * this->sqrtCovar.col(i - 1);
-                this->sigmaDeviations[i] =
-                    filtering::propagateDeviation(this->dynamics, this->state, State(offset), interval);
-                this->sigmaDeviations[i + N] =
-                    filtering::propagateDeviation(this->dynamics, this->state, State(-offset), interval);
+            //! > deviations" in filteringCore.rst). The central point is integrated once for all the deviations.
+            std::array<State, 2 * N> deviations;
+            for (int i = 0; i < N; ++i) {
+                typename State::Storage const offset = this->eta * this->sqrtCovar.col(i);
+                deviations[i] = State(offset);
+                deviations[i + N] = State(-offset);
+            }
+            this->sigmaPoints[0] = filtering::propagateDeviations(this->dynamics, this->state, deviations, interval);
+            for (int i = 1; i < numSigmaPoints; ++i) {
+                this->sigmaDeviations[i] = deviations[i - 1];
             }
             for (int i = 1; i < numSigmaPoints; ++i) {
                 this->sigmaPoints[i] = this->sigmaPoints[0].add(this->sigmaDeviations[i]);

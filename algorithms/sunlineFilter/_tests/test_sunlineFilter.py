@@ -727,8 +727,10 @@ def state_update_delayed_gyro(show_plots=False):
 
     # Performance against the normal cycle. With the delay, the filter applies the same readings, only later, so its
     # rate estimate is as good (measured ratio 1.01). Its output is a prediction over the delay, which costs some
-    # heading accuracy (measured ratio 1.24). Without the delay, the rate comes from the CSS heading alone
-    # (measured ratio 77).
+    # heading accuracy (measured ratio 1.24). Without the delay, the rate comes from the CSS heading alone. Its error
+    # is not checked: it is set by float rounding (measured ratios 1.1 to 330 against the reference across builds that
+    # differ only in rounding), while the two filters checked here agree to three digits. The loss of the late gyro
+    # readings is checked above, by the empty set of applied readings.
     second_half = slice(num_steps // 2, None)
 
     def rms_error(result, key):
@@ -740,8 +742,6 @@ def state_update_delayed_gyro(show_plots=False):
         f"rate RMS with the delay {rms_error(delayed, 'rate_err')} vs reference {reference_rate}"
     assert rms_error(delayed, 'heading_err') < 1.6 * reference_heading, \
         f"heading RMS with the delay {rms_error(delayed, 'heading_err')} vs reference {reference_heading}"
-    assert rms_error(undelayed, 'rate_err') > 10 * reference_rate, \
-        f"rate RMS without the delay {rms_error(undelayed, 'rate_err')} vs reference {reference_rate}"
     np.testing.assert_allclose(delayed['states'][-1, 4:7], expected[-1, 4:7], atol=5 * gyroSigma,
                                err_msg='rate not converged at the last step', verbose=True)
     np.testing.assert_allclose(delayed['states'][-1, 1:4], expected[-1, 1:4], atol=5 * cssSigma,
