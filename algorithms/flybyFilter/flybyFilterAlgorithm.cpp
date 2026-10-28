@@ -41,7 +41,7 @@ static_assert(filtering::Measurement<HeadingMeasurementModel, State>);
  *  @return true iff covar_N can be used as the heading measurement noise
  *  @param covar_N [-] heading noise covariance supplied with the reading */
 bool isValidHeadingCovariance(Eigen::Matrix3f const& covar_N) {
-    return covar_N.allFinite() && covar_N.isApprox(covar_N.transpose()) &&
+    return covar_N.allFinite() && isSymmetric<3>(covar_N) &&
            Eigen::LLT<Eigen::Matrix3f>(covar_N).info() == Eigen::Success;
 }
 

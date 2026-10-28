@@ -820,12 +820,16 @@ TEST(FlybyFilterAlgorithmMeasurements, ReadingWithoutAPositiveDefiniteCovariance
     float const nan = std::numeric_limits<float>::quiet_NaN();
     Eigen::Matrix3f asymmetric = headingCovariance();
     asymmetric(0, 1) = 1E-3;
-    std::array<Eigen::Matrix3f, 5> const unusable = {
+    // Asymmetric in its small-variance direction by 1e-6 of the largest entry: a norm-relative check misses it
+    Eigen::Matrix3f smallBlockAsymmetric = Eigen::Vector3f(1E-6, 1E-6, 1E-12).asDiagonal();
+    smallBlockAsymmetric(2, 0) = 1E-12F;
+    std::array<Eigen::Matrix3f, 6> const unusable = {
         Eigen::Matrix3f::Zero(),                        // a message that never set covar_N
         -headingCovariance(),                           // negative definite
         Eigen::Vector3f(1E-8, 1E-8, 0.0).asDiagonal(),  // singular
         Eigen::Matrix3f::Constant(nan),                 // non-finite
         asymmetric,
+        smallBlockAsymmetric,
     };
     for (std::size_t i = 0; i < unusable.size(); ++i) {
         FlybyFilterAlgorithm algo(baseConfig(initial, P0));
