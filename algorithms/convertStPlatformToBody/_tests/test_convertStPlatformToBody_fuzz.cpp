@@ -121,7 +121,7 @@ FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyMountingEdges)
  * which always produces unit delta quaternions. This harness normalizes the four
  * fuzzed components to a unit δq but otherwise bypasses the helper so that adversarial
  * scalar-part values (near ±1 and near 0) stress-test the algorithm's safeSqrtf and
- * safeAcosf guards directly. Only safety properties are checked — no truth value.
+ * safeAtan2f guards directly. Only safety properties are checked — no truth value.
  */
 void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
                                                 double dqy,
