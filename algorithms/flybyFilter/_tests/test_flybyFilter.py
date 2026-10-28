@@ -3,11 +3,14 @@
 #
 # Python integration tests for the flybyFilter fp32 module. Exercises the full xmera adapter path
 # (SWIG, SI<->km unit conversion, message I/O) using the same optical-navigation heading measurement
-# as fswAlgorithms/opticalNavigation/flybyODuKF: a unit vector rhat_BN_N with measurement model r/|r|.
+# as fswAlgorithms/opticalNavigation/flybyODuKF: a unit vector rhat_BN_N, modeled as the line of sight r/|r|
+# rotated by the two heading-bias angles across and along the terminator (the sun direction comes from
+# navAttInMsg; without it the bias is not modeled).
 #
 # Scenarios: pure propagation against an rk4 truth, heading tracking through a mid-arc velocity kick,
 # navTransOutMsg agreement with the filter state, validity/freshness gating of the heading port,
-# delayed-measurement anchoring, and unit-conversion invariance of the SI output.
+# delayed-measurement anchoring, unit-conversion invariance of the SI output, and the sun direction
+# taken from the attitude message in the inertial frame.
 #
 # Not covered here: the adapter's error paths (unlinked message, non-positive unitConversion,
 # lifecycle calls before reset, invalid configuration). No fp32 SWIG module declares exception
@@ -19,11 +22,15 @@ import numpy as np
 import pytest
 from xmera.architecture import messaging
 from xmera.fp32 import flybyFilterF32
+from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.utilities import SimulationBaseClass, macros, orbitalMotion
 
 MU_SI = 42828.314 * 1E9  # Mars gravitational parameter [m^3/s^2]
 HEADING_STD = 1E-3       # heading (unit-vector) measurement noise std
 HEADING_COVAR_N = (HEADING_STD ** 2 * np.eye(3)).flatten().tolist()  # covar_N a cobConverter-style producer sends
+NUM_STATES = 8           # position (3), velocity (3), heading-bias angles across and along the terminator (2)
+BIAS_STD = 1E-3          # [rad] prior standard deviation of each bias angle
+MAX_BIAS = 1E-2          # [rad] bias-angle magnitude above which the bias is re-seeded
 
 
 def add_time_column(time, data):
@@ -64,15 +71,19 @@ def truth_rv():
     return np.array(r).reshape(3), np.array(v).reshape(3)
 
 
-def setup_filter_data(module, initial_state_si):
+def setup_filter_data(module, initial_rv_si):
+    """Configure the filter from an SI position-velocity seed; the bias angles start at zero."""
     module.alpha = 0.02
     module.beta = 2.0
     module.unitConversion = 1E-3  # filter internally in km, km/s
     module.mu = MU_SI
     module.measurementNoiseScale = 1.0
-    module.initialState = list(initial_state_si)
-    module.initialCovariance = np.diag([1000.0 * 1E6] * 3 + [0.1 * 1E6] * 3).tolist()  # m^2, (m/s)^2
-    module.processNoise = np.diag([(1E-6) ** 2] * 3 + [(1E-8) ** 2] * 3).tolist()
+    module.maxAcrossTerminatorBias = MAX_BIAS
+    module.maxAlongTerminatorBias = MAX_BIAS
+    module.initialState = list(initial_rv_si) + [0.0, 0.0]
+    # m^2, (m/s)^2, rad^2
+    module.initialCovariance = np.diag([1000.0 * 1E6] * 3 + [0.1 * 1E6] * 3 + [BIAS_STD ** 2] * 2).tolist()
+    module.processNoise = np.diag([(1E-6) ** 2] * 3 + [(1E-8) ** 2] * 3 + [(1E-8) ** 2] * 2).tolist()
 
 
 def specific_energy(states):
@@ -110,7 +121,7 @@ def test_propagation(show_plots):
     sim.ExecuteSimulation()
 
     num_states = filter_log.numberOfStates[0]
-    assert num_states == 6
+    assert num_states == NUM_STATES
     state_log = add_time_column(filter_log.times(), filter_log.state[:, :num_states])
     covar_log = add_time_column(filter_log.times(), filter_log.covar[:, :num_states ** 2])
 
@@ -192,7 +203,7 @@ def test_measurements(show_plots):
     assert valid.any(), "at least one heading measurement must fire"
 
     res_time = add_time_column(res_log.times(), post)
-    error_log = np.copy(state_log)
+    error_log = np.copy(state_log[:, :7])
     error_log[:, 1:] -= truth[:len(error_log), 1:]
     filter_plots.states(error_log, 'Update error', show_plots)
     filter_plots.state_covar(state_log, covar_log, 'Update', show_plots)
@@ -207,16 +218,18 @@ def test_measurements(show_plots):
     assert cov_trace(covar_log[t1]) < cov_trace(covar_log[0]), "covariance must shrink during tracking"
     assert cov_trace(covar_log[-1]) < cov_trace(covar_log[0]), "covariance must shrink by the end"
     # The estimate converges to the (kicked) truth trajectory (position + velocity).
-    np.testing.assert_allclose(state_log[-1, 1:], truth[-1, 1:], rtol=1E-1,
+    np.testing.assert_allclose(state_log[-1, 1:7], truth[-1, 1:], rtol=1E-1,
                                err_msg="estimate must converge to the truth trajectory")
     # Informative updates also reduce the residual.
     assert np.linalg.norm(post[valid], axis=1).mean() < np.linalg.norm(pre[valid], axis=1).mean(), \
         "measurement updates should reduce the residual"
 
 
-def _run_heading_scenario(unit_conversion, headings, n_steps=60, dt=1.0, measurement_delay=0.0, scale=1.0):
+def _run_heading_scenario(unit_conversion, headings, n_steps=60, dt=1.0, measurement_delay=0.0, scale=1.0,
+                          nav_att=None):
     """Run the adapter for n_steps, writing the heading payloads supplied by `headings(i)` (which
-    returns None for a step with no fresh reading). Returns (module, filter_log, res_log, nav_log)."""
+    returns None for a step with no fresh reading), and the attitude payload `nav_att` once, if given.
+    Returns (module, filter_log, res_log, nav_log)."""
     sim = SimulationBaseClass.SimBaseClass()
     proc = sim.CreateNewProcess("test_process")
     proc.addTask(sim.CreateNewTask("unit_task", macros.sec2nano(dt)))
@@ -238,6 +251,9 @@ def _run_heading_scenario(unit_conversion, headings, n_steps=60, dt=1.0, measure
 
     opnav_msg = messaging.OpNavUnitVecMsgF32()
     module.opNavHeadingMsg.subscribeTo(opnav_msg)
+    if nav_att is not None:
+        nav_att_msg = messaging.NavAttMsgF32().write(nav_att)
+        module.navAttInMsg.subscribeTo(nav_att_msg)
 
     sim.InitializeSimulation()
     for i in range(n_steps):
@@ -296,7 +312,7 @@ def test_measurement_noise_comes_from_the_message_covariance(show_plots):
         _, filter_log, res_log, _ = _run_heading_scenario(
             1E-3, lambda i: _heading_payload((i + 1) * 1.0, rhat0, covar_n=covar_n) if i % 5 == 0 else None,
             n_steps=20, scale=scale)
-        trace = float(np.trace(np.array(filter_log.covar)[-1, :36].reshape(6, 6)))
+        trace = float(np.trace(np.array(filter_log.covar)[-1, :NUM_STATES ** 2].reshape(NUM_STATES, NUM_STATES)))
         return trace, np.array(res_log.valid, dtype=bool)
 
     trace_none, valid_none = run(np.zeros(9))
@@ -430,7 +446,7 @@ def test_unit_conversion_does_not_change_the_si_result(show_plots):
 def test_properties_have_the_filter_size():
     """The matrix and vector properties have the filter's fixed size: a list of the wrong size is rejected."""
     module = flybyFilterF32.FlybyFilter()
-    n = 6
+    n = NUM_STATES
     np.testing.assert_array_equal(np.array(module.initialState).reshape(n), np.zeros(n))
     np.testing.assert_array_equal(module.initialCovariance, np.eye(n))
     np.testing.assert_array_equal(module.processNoise, np.zeros((n, n)))
@@ -444,6 +460,52 @@ def test_properties_have_the_filter_size():
             setattr(module, name, value)
 
 
+def _nav_att_payload(dcm_bn, sun_n):
+    payload = messaging.NavAttMsgF32Payload()
+    payload.sigma_BN = list(rbk.C2MRP(dcm_bn))
+    payload.vehSunPntBdy = list(dcm_bn @ sun_n)
+    return payload
+
+
+def test_sun_direction_comes_from_the_attitude_message(show_plots):
+    """The adapter takes the sun direction from navAttInMsg and rotates it into the inertial frame: the same
+    inertial sun direction seen from two attitudes gives the same estimate. With the sun direction the headings
+    move the bias angles; without the attitude message the bias is not modeled and keeps its prior."""
+    del show_plots
+    r0, _ = truth_rv()
+    rhat0 = r0 / np.linalg.norm(r0)
+    sun_n = np.array([0.2, -1.0, 0.5]) / np.linalg.norm([0.2, -1.0, 0.5])
+    # A heading rotated 2e-3 rad toward the sun, across the terminator.
+    across = sun_n - sun_n.dot(rhat0) * rhat0
+    across /= np.linalg.norm(across)
+    biased = np.cos(2E-3) * rhat0 + np.sin(2E-3) * across
+
+    def headings(i):
+        return _heading_payload((i + 1) * 1.0, biased) if i % 5 == 0 else None
+
+    _, log_identity, _, _ = _run_heading_scenario(1E-3, headings, nav_att=_nav_att_payload(np.eye(3), sun_n))
+    _, log_no_sun, _, _ = _run_heading_scenario(1E-3, headings)
+    state_identity = np.array(log_identity.state)[-1, :NUM_STATES]
+    state_no_sun = np.array(log_no_sun.state)[-1, :NUM_STATES]
+
+    # The fixed line of sight leaves the range weakly observable, which magnifies the single-precision rounding of
+    # the rotated sun direction: up to ~20 m, ~0.3 m/s and ~1e-6 rad between attitudes. Dropping the rotation into
+    # the inertial frame moves the estimate by at least ~90 m, ~3 m/s and ~1.5e-4 rad.
+    for sigma_bn in ([0.1, -0.2, 0.3], [-0.3, 0.1, 0.05]):
+        _, log_rotated, _, _ = _run_heading_scenario(
+            1E-3, headings, nav_att=_nav_att_payload(rbk.MRP2C(sigma_bn), sun_n))
+        state_rotated = np.array(log_rotated.state)[-1, :NUM_STATES]
+        err_msg = f"the sun direction must be rotated into the inertial frame (sigma_BN {sigma_bn})"
+        np.testing.assert_allclose(state_rotated[0:3], state_identity[0:3], rtol=0,
+                                   atol=1E-5 * np.linalg.norm(state_identity[0:3]), err_msg=err_msg)
+        np.testing.assert_allclose(state_rotated[3:6], state_identity[3:6], rtol=0, atol=1.0, err_msg=err_msg)
+        np.testing.assert_allclose(state_rotated[6:8], state_identity[6:8], rtol=0, atol=1E-5, err_msg=err_msg)
+    # On a fixed line of sight the wide position prior absorbs most of the offset, so the angle only starts to move.
+    assert state_identity[6] > 1E-6, "a heading turned toward the sun must move the across-terminator angle"
+    np.testing.assert_array_equal(state_no_sun[6:], [0.0, 0.0],
+                                  err_msg="without the attitude message the bias must keep its prior")
+
+
 if __name__ == "__main__":
     test_propagation(True)
     test_measurements(True)
@@ -451,3 +513,4 @@ if __name__ == "__main__":
     test_heading_is_gated_on_validity_and_freshness(True)
     test_delayed_measurement_anchors_to_its_time_tag(True)
     test_unit_conversion_does_not_change_the_si_result(True)
+    test_sun_direction_comes_from_the_attitude_message(True)
