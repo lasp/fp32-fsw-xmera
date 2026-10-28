@@ -43,8 +43,14 @@ def test_time_closest_approach(show_plots, position, velocity, filter_covariance
 
     # Create the input messages.
     input_filter_data = messaging.FilterMsgF32Payload()
-    input_filter_data.numberOfStates = len(filter_covariance[:,0])
-    input_filter_data.covar = filter_covariance.flatten().tolist()
+    # The flyby filter publishes an 8 x 8 covariance (position, velocity, two heading-bias angles). TCA uses the
+    # position-velocity block, so the bias rows and columns, here correlated with it, must not change the result.
+    flyby_covariance = np.eye(8) * 1e-6
+    flyby_covariance[:6, :6] = filter_covariance
+    flyby_covariance[6:, :6] = 1e-3
+    flyby_covariance[:6, 6:] = 1e-3
+    input_filter_data.numberOfStates = 8
+    input_filter_data.covar = flyby_covariance.flatten().tolist()
     input_filter_data.state = state_vector.tolist()
     filter_in_msg = messaging.FilterMsgF32().write(input_filter_data)
     tca_module.filterInMsg.subscribeTo(filter_in_msg)
