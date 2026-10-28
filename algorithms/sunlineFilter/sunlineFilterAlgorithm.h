@@ -94,6 +94,9 @@ class SunlineFilterConfig final {
         if (!isValidBiasBounds(biasLowerBound, biasUpperBound)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: bias lower bound must be less than bias upper bound");
         }
+        if (!isValidInitialBias(initialState, biasLowerBound, biasUpperBound)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial bias must be within the bias bounds");
+        }
         if (!isValidCssNHat(cssNHat)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: every CSS nHat row must be a unit vector within 1e-3");
         }
@@ -141,6 +144,10 @@ class SunlineFilterConfig final {
     static bool isValidBiasLowerBound(float bound) { return bound > 0.0F; }
     static bool isValidBiasUpperBound(float bound) { return bound > 0.0F; }
     static bool isValidBiasBounds(float lowerBound, float upperBound) { return lowerBound < upperBound; }
+    static bool isValidInitialBias(SunlineState const& initialState, float lowerBound, float upperBound) {
+        float const bias = initialState.get<filtering::Bias<1>>()(0);
+        return bias >= lowerBound && bias <= upperBound;
+    }
     static bool isValidCssNHat(Eigen::Matrix<float, MaxCss, 3> const& cssNHat) {
         constexpr float normTolerance = 1e-3F;
         for (uint32_t i = 0; i < MaxCss; ++i) {
@@ -256,7 +263,8 @@ class SunlineFilterAlgorithm {
     CssMeasurement packCssMeasurement(CssData const& cssData) const;
     RateMeasurement packRateMeasurement(RateData const& rateData) const;
 
-    State regularize(State const& state) const;
+    static State regularize(State const& state);
+    void resetBiasOutsideBounds();
 
     SunlineFilterConfig cfg;  //!< validated configuration, supplied at construction / setConfig()
     SRuKF<State, SunlineDynamics> srukf;

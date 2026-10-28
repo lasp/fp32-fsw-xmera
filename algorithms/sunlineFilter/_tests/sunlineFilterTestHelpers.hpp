@@ -13,6 +13,7 @@
 
 #include <gtest/gtest.h>
 #include <Eigen/Dense>
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <optional>
@@ -183,9 +184,11 @@ inline std::optional<SunlineFilterConfig> tryFuzzConfig(Eigen::Vector3f const& s
         !covDiagRaw.allFinite()) {
         return std::nullopt;
     }
-    // A strictly positive diagonal is symmetric positive definite, so the covariance always validates.
+    // A strictly positive diagonal is symmetric positive definite, so the covariance always validates, and
+    // the initial bias is clamped into the bounds the config requires.
     Vector7 const covDiag = covDiagRaw.cwiseAbs() + Vector7::Constant(1E-6);
-    return threeCssConfig(makeState(sHatRaw.stableNormalized(), omega, bias), covDiag.asDiagonal(), 0.0);
+    float const initialBias = std::clamp(bias, kBiasLowerBound, kBiasUpperBound);
+    return threeCssConfig(makeState(sHatRaw.stableNormalized(), omega, initialBias), covDiag.asDiagonal(), 0.0);
 }
 
 // Drives one update() with the given (possibly non-finite) CSS cos-values and rate at a shared
@@ -209,7 +212,7 @@ inline void driveUpdate(SunlineFilterAlgorithm& algo,
 
 // For any valid config and finite, bounded inputs, one update() leaves the estimate physically
 // meaningful: the state and covariance are finite, the heading is a unit vector (regularize
-// renormalizes it), the CSS bias is inside its configured bounds (regularize clamps it), and the
+// renormalizes it), the CSS bias is inside its configured bounds (a bias outside is reset), and the
 // covariance stays symmetric.
 inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3f sHatRaw,
                                                     Eigen::Vector3f omega,
