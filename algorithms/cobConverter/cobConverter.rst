@@ -184,6 +184,17 @@ The attitude error-MRP covariance :math:`P_{att}` (body frame) is added in the i
 
 where 16 converts MRP to small-angle variance (:math:`\delta\theta \approx 4\,\delta\sigma`).
 
+:math:`P^N` is singular along the line of sight: a unit vector has no first-order error along itself. The published
+covariance adds the mean cross-sight variance along it, so that a consumer that Cholesky-factors the measurement noise
+(the flyby filter) gets a positive definite matrix:
+
+.. math::
+
+    P^N_{pub} = P^N + \frac{\operatorname{tr}(P^N)}{2} \, \hat{\mathbf{r}}^N \hat{\mathbf{r}}^{N\,T}
+
+The residual along :math:`\hat{\mathbf{r}}^N` is second order, so the added term carries no weight. The outlier gate
+and the diagnostic covariances use :math:`P^N`.
+
 The heading and covariance are also rotated to the camera and body frames for the diagnostic message. If the incoming
 image is not valid, or ``vehSunPntBdy`` is zero or non-finite, the module writes empty messages.
 
