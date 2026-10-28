@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define FLYBY_FILTER_NUM_STATES 6 /* position(3) + velocity(3) */
+#define FLYBY_FILTER_NUM_STATES 8 /* position(3) + velocity(3) + heading bias angles(2) */
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,6 +21,15 @@ typedef struct {
 } FlybyHeadingData_c;
 
 /**
+ * @brief C mirror of the attitude knowledge used for the heading bias. vehSunPntBdy all zero means no sun
+ *        direction: a reading is then modeled without the heading bias.
+ */
+typedef struct {
+    double sigma_BN[3];     /*!< [-] MRP attitude of the body frame w.r.t. the inertial frame */
+    double vehSunPntBdy[3]; /*!< [-] sun direction (spacecraft -> sun, body frame); zero if unavailable */
+} FlybyVehicleAttitude_c;
+
+/**
  * @brief C mirror of the per-cycle heading residual snapshot (valid only when a measurement fired).
  */
 typedef struct {
@@ -34,7 +43,7 @@ typedef struct {
  * @brief C mirror of the post-update filter snapshot (internal km / km/s units).
  */
 typedef struct {
-    double state[FLYBY_FILTER_NUM_STATES];                               /*!< [km, km/s] estimated state */
+    double state[FLYBY_FILTER_NUM_STATES];                               /*!< [km, km/s, rad] estimated state */
     double covariance[FLYBY_FILTER_NUM_STATES][FLYBY_FILTER_NUM_STATES]; /*!< N x N covariance (row-major) */
     FlybyHeadingResiduals_c headingResiduals;                            /*!< heading residual snapshot */
 } FlybyFilterOutput_c;

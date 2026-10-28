@@ -11,6 +11,7 @@ using FlybyFilterConfig = ::filtering::flybyFilter::FlybyFilterConfig;
 using FlybyFilterOutput = ::filtering::flybyFilter::FlybyFilterOutput;
 using FlybyState = ::filtering::flybyFilter::FlybyState;
 using HeadingData = ::filtering::flybyFilter::HeadingData;
+using VehicleAttitude = ::filtering::flybyFilter::VehicleAttitude;
 using StateMatrix = ::filtering::flybyFilter::StateMatrix;
 
 namespace {
@@ -22,6 +23,8 @@ FlybyFilterConfig configFromC(const double alpha,
                               const FlybyFilterStateVector_c& initialStateC,
                               const FlybyFilterStateMatrix_c& initialCovarianceC,
                               const double measurementNoiseScale,
+                              const double maxAcrossTerminatorBias,
+                              const double maxAlongTerminatorBias,
                               const double measurementDelay) {
     Eigen::Matrix<float, FLYBY_FILTER_NUM_STATES, 1> initialStateVec;
     for (int i = 0; i < FLYBY_FILTER_NUM_STATES; ++i) {
@@ -42,6 +45,8 @@ FlybyFilterConfig configFromC(const double alpha,
                                      FlybyState(initialStateVec),
                                      initialCovariance,
                                      static_cast<float>(measurementNoiseScale),
+                                     static_cast<float>(maxAcrossTerminatorBias),
+                                     static_cast<float>(maxAlongTerminatorBias),
                                      static_cast<float>(measurementDelay));
 }
 
@@ -73,12 +78,22 @@ bool FlybyFilterAlgorithm_validateConfig(double alpha,
                                          const FlybyFilterStateVector_c* initialState,
                                          const FlybyFilterStateMatrix_c* initialCovariance,
                                          double measurementNoiseScale,
+                                         double maxAcrossTerminatorBias,
+                                         double maxAlongTerminatorBias,
                                          double measurementDelay) {
     // Build the config through the same path create() uses: success means valid, a throw means
     // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
     try {
-        (void)configFromC(
-            alpha, beta, mu, *processNoise, *initialState, *initialCovariance, measurementNoiseScale, measurementDelay);
+        (void)configFromC(alpha,
+                          beta,
+                          mu,
+                          *processNoise,
+                          *initialState,
+                          *initialCovariance,
+                          measurementNoiseScale,
+                          maxAcrossTerminatorBias,
+                          maxAlongTerminatorBias,
+                          measurementDelay);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -92,9 +107,19 @@ FlybyFilterAlgorithmHandle* FlybyFilterAlgorithm_create(double alpha,
                                                         const FlybyFilterStateVector_c* initialState,
                                                         const FlybyFilterStateMatrix_c* initialCovariance,
                                                         double measurementNoiseScale,
+                                                        double maxAcrossTerminatorBias,
+                                                        double maxAlongTerminatorBias,
                                                         double measurementDelay) {
-    return fsw::createHandle<FlybyFilterAlgorithm, FlybyFilterAlgorithmHandle>(configFromC(
-        alpha, beta, mu, *processNoise, *initialState, *initialCovariance, measurementNoiseScale, measurementDelay));
+    return fsw::createHandle<FlybyFilterAlgorithm, FlybyFilterAlgorithmHandle>(configFromC(alpha,
+                                                                                           beta,
+                                                                                           mu,
+                                                                                           *processNoise,
+                                                                                           *initialState,
+                                                                                           *initialCovariance,
+                                                                                           measurementNoiseScale,
+                                                                                           maxAcrossTerminatorBias,
+                                                                                           maxAlongTerminatorBias,
+                                                                                           measurementDelay));
 }
 
 void FlybyFilterAlgorithm_destroy(FlybyFilterAlgorithmHandle* self) { fsw::deleteHandle<FlybyFilterAlgorithm>(self); }
@@ -107,9 +132,19 @@ void FlybyFilterAlgorithm_setConfig(FlybyFilterAlgorithmHandle* self,
                                     const FlybyFilterStateVector_c* initialState,
                                     const FlybyFilterStateMatrix_c* initialCovariance,
                                     double measurementNoiseScale,
+                                    double maxAcrossTerminatorBias,
+                                    double maxAlongTerminatorBias,
                                     double measurementDelay) {
-    fsw::fromHandle<FlybyFilterAlgorithm>(self)->setConfig(configFromC(
-        alpha, beta, mu, *processNoise, *initialState, *initialCovariance, measurementNoiseScale, measurementDelay));
+    fsw::fromHandle<FlybyFilterAlgorithm>(self)->setConfig(configFromC(alpha,
+                                                                       beta,
+                                                                       mu,
+                                                                       *processNoise,
+                                                                       *initialState,
+                                                                       *initialCovariance,
+                                                                       measurementNoiseScale,
+                                                                       maxAcrossTerminatorBias,
+                                                                       maxAlongTerminatorBias,
+                                                                       measurementDelay));
 }
 
 void FlybyFilterAlgorithm_reInitializeExceptPersistentStates(FlybyFilterAlgorithmHandle* self) {
@@ -122,17 +157,21 @@ void FlybyFilterAlgorithm_reInitialize(FlybyFilterAlgorithmHandle* self) {
 
 FlybyFilterOutput_c FlybyFilterAlgorithm_update(FlybyFilterAlgorithmHandle* self,
                                                 double currentSeconds,
-                                                const FlybyHeadingData_c* heading) {
+                                                const FlybyHeadingData_c* heading,
+                                                const FlybyVehicleAttitude_c* attitude) {
     HeadingData in{};
+    VehicleAttitude att{};
     in.timeTag = heading->timeTag;
     for (int i = 0; i < 3; ++i) {
         in.rhat_BN_N(i) = static_cast<float>(heading->rhat_BN_N[i]);
         for (int j = 0; j < 3; ++j) {
             in.covar_N(i, j) = static_cast<float>(heading->covar_N[i][j]);
         }
+        att.sigma_BN(i) = static_cast<float>(attitude->sigma_BN[i]);
+        att.vehSunPntBdy(i) = static_cast<float>(attitude->vehSunPntBdy[i]);
     }
 
     auto* algo = fsw::fromHandle<FlybyFilterAlgorithm>(self);
-    const FlybyFilterOutput out = algo->update(currentSeconds, in);
+    const FlybyFilterOutput out = algo->update(currentSeconds, in, att);
     return outputToC(out);
 }

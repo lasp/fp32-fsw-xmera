@@ -5,6 +5,7 @@
 
 #include "msgPayloadDef/FilterMsgF32Payload.h"
 #include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
+#include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include "msgPayloadDef/OpNavUnitVecMsgF32Payload.h"
 
@@ -34,18 +35,21 @@ class FlybyFilter : public SysModel {
     void reInitialize();
 
     // ---- Configuration (public, SI units; set by the host before reset()) ----
-    float alpha = 0.0F;                  //!< [-]       sigma-point spread tunable
-    float beta = 0.0F;                   //!< [-]       prior-knowledge tunable
-    float mu = 0.0F;                     //!< [m^3/s^2] central-body gravitational parameter (SI)
-    float unitConversion = 1E-3F;        //!< [-]       SI -> internal length scale (1e-3 = m -> km)
-    float measurementNoiseScale = 1.0F;  //!< [-]       scales the heading message's covar_N into the filter noise
-    float measurementDelay = 0.0F;       //!< [s]       processing delay for late measurements (>= 0)
-    StateMatrix processNoise;            //!< [(m/s^2)^2] N x N process noise covariance Q (SI)
-    StateColumn initialState;            //!< [m, m/s]  N-element initial state seed (SI)
-    StateMatrix initialCovariance;       //!< [m^2, (m/s)^2] N x N initial covariance P0 (SI)
+    float alpha = 0.0F;                    //!< [-]       sigma-point spread tunable
+    float beta = 0.0F;                     //!< [-]       prior-knowledge tunable
+    float mu = 0.0F;                       //!< [m^3/s^2] central-body gravitational parameter (SI)
+    float unitConversion = 1E-3F;          //!< [-]       SI -> internal length scale (1e-3 = m -> km)
+    float measurementNoiseScale = 1.0F;    //!< [-]       scales the heading message's covar_N into the filter noise
+    float maxAcrossTerminatorBias = 0.0F;  //!< [rad]     across-terminator bias magnitude that re-seeds the bias (> 0)
+    float maxAlongTerminatorBias = 0.0F;   //!< [rad]     along-terminator bias magnitude that re-seeds the bias (> 0)
+    float measurementDelay = 0.0F;         //!< [s]       processing delay for late measurements (>= 0)
+    StateMatrix processNoise;              //!< [m^2, (m/s)^2, rad^2] 8 x 8 process noise covariance Q (SI)
+    StateColumn initialState;              //!< [m, m/s, rad] 8-element initial state [r_BN_N, v_BN_N, b] (SI)
+    StateMatrix initialCovariance;         //!< [m^2, (m/s)^2, rad^2] 8 x 8 initial covariance P0 (SI)
 
     // ---- Message ports ----
     ReadFunctor<OpNavUnitVecMsgF32Payload> opNavHeadingMsg;  //!< optical-nav heading input (required)
+    ReadFunctor<NavAttMsgF32Payload> navAttInMsg;            //!< sun direction for the bias (optional)
     Message<NavTransMsgF32Payload> navTransOutMsg;           //!< estimated position + velocity output
     Message<FilterMsgF32Payload> filterOutMsg;               //!< full filter state + covariance output
     Message<FilterResidualsMsgF32Payload> filterResOutMsg;   //!< heading pre/post-fit residuals output
