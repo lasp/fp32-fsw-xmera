@@ -3,6 +3,10 @@
 #include "utilities/xmera/xmeraLifecycleException.h"
 #include <stdexcept>
 
+namespace {
+constexpr int kFilterStates = 6;  //!< [-] states of the flyby filter solution: position and velocity
+}  // namespace
+
 /**
  * @brief Reset internal state, validate required input connections, and construct the algorithm from the
  *        currently-set config properties.
@@ -21,7 +25,10 @@ void CobConverter::reset(uint64_t currentSimNanos) {
     if (!this->navAttInMsg.isLinked()) {
         throw std::invalid_argument("CobConverter.navAttInMsg wasn't connected.");
     }
-    if (this->opnavFilterInMsg.isLinked() && this->opnavFilterInMsg().numberOfStates != 6) {
+    // A filter that has not written yet (it may reset after this module) is not an error; one that publishes another
+    // state size is.
+    if (this->opnavFilterInMsg.isLinked() && this->opnavFilterInMsg.isWritten() &&
+        this->opnavFilterInMsg().numberOfStates != kFilterStates) {
         throw std::invalid_argument("CobConverter.opnavFilterInMsg: numberOfStates must be 6.");
     }
 
@@ -76,6 +83,15 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     const OpNavCOBMsgF32Payload cobMsg = this->opnavCOBInMsg();
     const NavAttMsgF32Payload navAttMsg = this->navAttInMsg();
     const FilterMsgF32Payload filterMsg = this->opnavFilterInMsg();
+
+    // Without a flyby filter solution (not written yet) the target cannot be placed: publish an invalid heading this
+    // step rather than one computed from a zero position.
+    if (this->opnavFilterInMsg.isLinked() && filterMsg.numberOfStates != kFilterStates) {
+        this->opnavUnitVecOutMsg.write(OpNavUnitVecMsgF32Payload{}, this->moduleID, currentSimNanos);
+        this->cobConverterDiagnosticOutMsg.write(
+            CobConverterDiagnosticMsgF32Payload{}, this->moduleID, currentSimNanos);
+        return;
+    }
 
     CobMeasurement cob;
     cob.cobValid = cobMsg.valid;
