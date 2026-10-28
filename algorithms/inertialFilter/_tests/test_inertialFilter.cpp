@@ -93,11 +93,18 @@ struct ConfigInputs {
     Matrix6 initialCovariance = diagCovariance(1E-2, 1E-3);
     float stMeasStd = kStMeasStd;
     float rateStd = kRateMeasStd;
+    float measurementDelay = 0.0;
 };
 
 InertialFilterConfig buildConfig(ConfigInputs const& in) {
-    return InertialFilterConfig::create(
-        in.alpha, in.beta, in.processNoise, in.initialState, in.initialCovariance, in.stMeasStd, in.rateStd);
+    return InertialFilterConfig::create(in.alpha,
+                                        in.beta,
+                                        in.processNoise,
+                                        in.initialState,
+                                        in.initialCovariance,
+                                        in.stMeasStd,
+                                        in.rateStd,
+                                        in.measurementDelay);
 }
 
 }  // namespace
@@ -208,6 +215,18 @@ TEST(InertialFilterConfig, RejectsZeroNoiseStds) {
     ConfigInputs rateStd;
     rateStd.rateStd = 0.0;
     EXPECT_THROW(buildConfig(rateStd), fsw::invalid_argument);
+}
+
+TEST(InertialFilterConfig, MeasurementDelayDefaultsToZeroAndIsValidated) {
+    EXPECT_FLOAT_EQ(buildConfig({}).getMeasurementDelay(), 0.0F);
+
+    ConfigInputs delayed;
+    delayed.measurementDelay = 3.0;
+    EXPECT_FLOAT_EQ(buildConfig(delayed).getMeasurementDelay(), 3.0F);
+
+    ConfigInputs negative;
+    negative.measurementDelay = -1.0;
+    EXPECT_THROW(buildConfig(negative), fsw::invalid_argument);
 }
 
 TEST(InertialFilterConfig, AcceptsPositiveSemiDefiniteSingularMatrices) {
@@ -488,6 +507,35 @@ TEST(InertialFilterAlgorithmUpdate, WithoutMeasurementsGrowsCovarianceMonotonica
     EXPECT_GT(trace1, P0.trace());
     EXPECT_GT(trace4, trace1);
     EXPECT_GT(trace9, trace4);
+}
+
+// A rate reading delivered 2.5 s after its time tag, one call after the attitude reading of the same cycle. Without a
+// measurement delay the attitude reading has already moved the anchor past it, so it is dropped; with a 3 s delay it is
+// applied, in time order, once the call time reaches its time tag plus the delay.
+TEST(InertialFilterAlgorithmScheduler, MeasurementDelayAppliesALateRateReading) {
+    auto const lateRateIsApplied = [](float delay) {
+        ConfigInputs in;
+        in.measurementDelay = delay;
+        InertialFilterAlgorithm algo(buildConfig(in));
+        algo.update(0.0, StAttData{}, RateData{});  // synchronize the filter time at t = 0
+
+        StAttData st;
+        st.timeTag = 10.0;
+        st.sigma_BN = in.initialState.get<MrpAttitude<3>>();
+        algo.update(10.0, st, RateData{});
+
+        RateData lateRate;
+        lateRate.timeTag = 8.5;  // latency of 2.5 s at call 11
+        lateRate.rate = Eigen::Vector3f(0.01, 0.0, 0.0);
+        bool applied = algo.update(11.0, StAttData{}, lateRate).rateResiduals.valid;
+        for (double callTime = 12.0; callTime <= 15.0; callTime += 1.0) {
+            applied = applied || algo.update(callTime, StAttData{}, RateData{}).rateResiduals.valid;
+        }
+        return applied;
+    };
+
+    EXPECT_FALSE(lateRateIsApplied(0.0F)) << "without a delay the late rate reading is behind the anchor";
+    EXPECT_TRUE(lateRateIsApplied(3.0F)) << "a 3 s delay covers the 2.5 s latency";
 }
 
 // The first update() at a call time well ahead of 0 only synchronizes the filter time: the covariance does not grow

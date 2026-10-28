@@ -146,6 +146,11 @@ Two runtime reset entry points are exposed on both the algorithm and the adapter
 - ``reInitialize()`` performs ``reInitializeExceptPersistentStates()`` and additionally re-seeds the filter state and
   covariance from the configured initial values.
 
+The first ``update()`` after construction or after either reset entry point only synchronizes the filter time
+with the call time: the filter state and covariance are taken to be the estimate at that call time, nothing is
+propagated, and a fresh reading passed on that call stays queued for the next one. See "Synchronizing the filter
+time" in ``filteringCore.rst``.
+
 Configuration parameters
 +++++++++++++++++++++++++
 .. list-table:: Configuration parameters and valid ranges
@@ -176,6 +181,21 @@ Configuration parameters
     * - rateMeasurementNoiseStd
       - rate measurement noise standard deviation
       - > 0 (must be set)
+    * - measurementDelay
+      - processing delay [s]: a measurement is processed only once the filter time is at least its time tag
+        plus the delay (default 0, no delay). Set it to the largest measurement latency plus a margin.
+      - >= 0
+
+The measurement queue holds ``BatchSize = 5`` measurements. Each call enqueues the new readings before it processes
+the due ones, so the queue must hold every reading received within the delay, plus the new ones. With one attitude
+and one rate reading per call, that is two readings per call of delay: a delay up to 2 s at a 1 Hz call rate fits.
+When the queue is full, the oldest measurement is dropped. See "Heterogeneous rates share one anchor" in
+``filteringCore.rst`` for how the delay works.
+
+Both measurements come from the one star-tracker message, and the adapter forwards a reading only when its time tag
+is newer than the last one, so the readings always reach the queue in time order and the default zero delay is the
+right setting. A delay only holds each reading for that long. It becomes useful when a measurement source with a
+different latency is added.
 
 
 User Guide
@@ -191,6 +211,7 @@ configuration::
     filter.initialCovariance = (1e-4 * np.identity(6)).tolist()
     filter.stMeasurementNoiseStd = 1e-4
     filter.rateMeasurementNoiseStd = 0.001
+    filter.measurementDelay = 0.0  # [s] keep 0 with the single star-tracker input
     sigmaAtt = (1e-7) ** 2
     sigmaRate = (1e-8) ** 2
     processNoise = np.zeros([6, 6])
