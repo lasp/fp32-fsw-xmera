@@ -187,6 +187,22 @@ class SRuKF {
         this->sqrtCovarLastMeasurement = this->sqrtCovar;
     }
 
+    /*! Re-seed one state component from the initial conditions, in the working estimate and in the
+     *  last-measurement anchor: its value from the initial state, its covariance block from the initial
+     *  covariance, and its correlations with the other components zeroed. The other components keep their
+     *  estimate and covariance. Use it to recover one component (a bias that left its bounds) without
+     *  restarting the filter.
+     *  @tparam Component tag type of the component to re-seed */
+    template <class Component>
+    void reInitializeComponent() {
+        constexpr int offset = State::template offsetOf<Component>();
+        this->state.template set<Component>(this->stateInitial.template get<Component>());
+        this->stateLastMeasurement.template set<Component>(this->stateInitial.template get<Component>());
+        this->reseedCovarianceBlock<offset, Component::size>(this->covariance, this->sqrtCovar);
+        this->reseedCovarianceBlock<offset, Component::size>(this->covarianceLastMeasurement,
+                                                             this->sqrtCovarLastMeasurement);
+    }
+
     /*! Return the filter state to the previous measurement in the case of a bad update.
      * Re-configure in case a value became corrupted.
      */
@@ -390,6 +406,20 @@ class SRuKF {
     void setStateLastMeasurement(State const& newStateLastMeas) { this->stateLastMeasurement = newStateLastMeas; }
 
    private:
+    /*! Replace the covariance block of one component by its initial block, zero its correlations with the other
+     *  components, and refactor the square root. A block-diagonal split of positive semi-definite blocks stays
+     *  positive semi-definite.
+     *  @param covar [-] covariance to edit
+     *  @param sqrtCovarOut [-] its lower Cholesky factor, recomputed */
+    template <int Offset, int Size>
+    void reseedCovarianceBlock(Covariance& covar, Covariance& sqrtCovarOut) const {
+        covar.template middleRows<Size>(Offset).setZero();
+        covar.template middleCols<Size>(Offset).setZero();
+        covar.template block<Size, Size>(Offset, Offset) =
+            this->covarianceInitial.template block<Size, Size>(Offset, Offset);
+        sqrtCovarOut = choleskyDecomposition<State::size>(covar);
+    }
+
     /*!  Working state at the current call time. */
     State state;
     Covariance covariance;

@@ -93,7 +93,12 @@ long runs; only their differences are narrowed to ``float`` before
    Component tags (``Position``, ``Velocity``, ``Acceleration``, ``Bias``,
    ``MrpAttitude``, ``AngularRate``, ``Consider``) each carry a compile-time
    ``size``. ``StateVector`` satisfies ``LinearlyCombinable`` via ``add()`` and
-   ``scale()`` and exposes ``raw()`` for the underlying Eigen vector.
+   ``scale()`` and exposes ``raw()`` for the underlying Eigen vector and
+   ``offsetOf<Component>()`` for a component's offset. For a change of unit,
+   an adapter names each component it converts:
+   ``scaleComponent<Component>(x, k)`` multiplies that component of a flat
+   state vector by ``k``, and ``scaleCovarianceComponent<Component>(P, k)``
+   multiplies its rows and columns of a covariance by ``k``.
 
 ``concepts.hpp``
    The C++20 concepts that define the interfaces, so filters compose by
@@ -177,6 +182,11 @@ long runs; only their differences are narrowed to ``float`` before
    the initial covariance only need to be positive semi-definite, so a state with
    zero process noise (or a rank-deficient covariance) factors exactly, with a
    zero column for each zero pivot.
+   ``reInitializeComponent<Component>()`` re-seeds one component only, in the
+   working estimate and the last-measurement state: its value from the initial
+   state, its covariance block from the initial covariance, and its correlations
+   with the other components zeroed. It recovers one component (a bias that left
+   its bounds) without restarting the filter.
 
    ``timeUpdate(dt)`` always propagates **from the saved last-measurement
    state**, which it leaves untouched, so it is idempotent in ``dt`` — calling

@@ -306,6 +306,74 @@ TEST(SrukfApi, ResetCopiesInitialStateAndCovarianceToWorkingState) {
     EXPECT_TRUE(filter.getCovariance().isApprox(P0, 1e-12)) << "covariance";
 }
 
+// A position plus a dimensionless bias: the component scaling touches only the named component, and
+// reInitializeComponent() re-seeds only the addressed one.
+using BiasedState = StateVector<Position<3>, Bias<3>>;
+struct BiasedZeroDynamics {
+    BiasedState operator()(float, BiasedState const& s) const { return s.scale(0.0); }
+};
+struct BiasedPositionMeasurement {
+    static constexpr int size = 3;
+    Eigen::Vector3f observed = Eigen::Vector3f::Zero();
+    Eigen::Vector3f observation() const { return observed; }
+    Eigen::Vector3f model(BiasedState const& s) const { return s.get<Position<3>>() + s.get<Bias<3>>(); }
+    Eigen::Matrix3f noise() const { return 0.01F * Eigen::Matrix3f::Identity(); }
+    Eigen::Vector3f subtract(Eigen::Vector3f const& a, Eigen::Vector3f const& b) const { return a - b; }
+};
+static_assert(Measurement<BiasedPositionMeasurement, BiasedState>);
+
+TEST(StateVectorApi, ScaleComponentScalesOnlyTheNamedComponent) {
+    EXPECT_EQ(BiasedState::offsetOf<Bias<3>>(), 3);
+
+    Eigen::Vector<double, 6> x;
+    x << 1.0, 2.0, 3.0, 4.0, 5.0, 6.0;
+    BiasedState::scaleComponent<Position<3>>(x, 1E-3);
+    Eigen::Vector<double, 6> expectedX;
+    expectedX << 1E-3, 2E-3, 3E-3, 4.0, 5.0, 6.0;
+    EXPECT_EQ(x, expectedX);
+
+    // The covariance of the scaled state is S P S with S = diag(k, k, k, 1, 1, 1).
+    Eigen::Matrix<double, 6, 6> P = Eigen::Matrix<double, 6, 6>::Constant(2.0);
+    Eigen::Vector<double, 6> s;
+    s << 1E-3, 1E-3, 1E-3, 1.0, 1.0, 1.0;
+    Eigen::Matrix<double, 6, 6> const expectedP = s.asDiagonal() * P * s.asDiagonal();
+    BiasedState::scaleCovarianceComponent<Position<3>>(P, 1E-3);
+    EXPECT_TRUE(P.isApprox(expectedP, 1E-15));
+}
+
+TEST(SrukfApi, ReInitializeComponentReseedsOnlyThatComponent) {
+    SRuKF<BiasedState, BiasedZeroDynamics> filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    Eigen::Matrix<float, 6, 6> const P0 = Eigen::Matrix<float, 6, 6>::Identity();
+    filter.setInitialState(BiasedState{});
+    filter.setInitialCovariance(P0);
+    filter.setProcessNoise(1E-6F * Eigen::Matrix<float, 6, 6>::Identity());
+    filter.configure();
+    filter.reInitialize();
+
+    // A measurement of position + bias moves both and correlates them.
+    ASSERT_TRUE(filter.timeUpdate(0.0));
+    ASSERT_TRUE(filter.measurementUpdate(BiasedPositionMeasurement{{1.0F, 2.0F, 3.0F}}).has_value());
+    BiasedState const before = filter.getState();
+    Eigen::Matrix<float, 6, 6> const covarBefore = filter.getCovariance();
+    ASSERT_FALSE((covarBefore.topRightCorner<3, 3>().isZero()));
+
+    filter.reInitializeComponent<Bias<3>>();
+    EXPECT_TRUE(filter.getState().get<Bias<3>>().isZero());
+    EXPECT_EQ(filter.getState().get<Position<3>>(), before.get<Position<3>>());
+    EXPECT_TRUE(filter.getStateAtLastMeasurement().get<Bias<3>>().isZero());
+    Eigen::Matrix<float, 6, 6> const P = filter.getCovariance();
+    EXPECT_EQ((P.topLeftCorner<3, 3>()), (covarBefore.topLeftCorner<3, 3>()));
+    EXPECT_EQ((P.bottomRightCorner<3, 3>()), (P0.bottomRightCorner<3, 3>()));
+    EXPECT_TRUE((P.topRightCorner<3, 3>().isZero()));
+    EXPECT_TRUE((P.bottomLeftCorner<3, 3>().isZero()));
+
+    // The re-seeded anchor carries through the next time update.
+    ASSERT_TRUE(filter.timeUpdate(0.0));
+    EXPECT_TRUE((filter.getCovariance().topRightCorner<3, 3>().isZero()));
+}
+
 // timeUpdate tests
 
 // Time update doesn't change the last-measurement state
