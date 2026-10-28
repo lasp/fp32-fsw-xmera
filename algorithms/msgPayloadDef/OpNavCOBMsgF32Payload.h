@@ -9,10 +9,11 @@
  * found during the computation.
  */
 typedef struct {
-    uint64_t timeTag;             //!< --[ns]   Current vehicle time-tag associated with measurements
-    bool valid;                   //!< --  Quality of measurement
-    float centerOfBrightness[2];  //!< -- [-]   Center x, y of bright pixels
-    int32_t pixelsFound;          //!< -- [-] Number of bright pixels found in the image
+    uint64_t timeTag;                //!< --[ns]   Current vehicle time-tag associated with measurements
+    bool valid;                      //!< --  Quality of measurement
+    float centerOfBrightness[2];     //!< -- [-]   Center x, y of bright pixels
+    int32_t pixelsFound;             //!< -- [-] Number of bright pixels found in the image
+    float rollingAverageBrightness;  //!< -- [-] Rolling average of the bright pixel count
 } OpNavCOBMsgF32Payload;
 
 #endif
