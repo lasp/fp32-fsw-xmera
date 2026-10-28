@@ -25,7 +25,7 @@ class TimeClosestApproach : public SysModel {
 
    private:
     std::unique_ptr<TimeClosestApproachAlgorithm> algorithm = nullptr;
-    void writeMessages(double tCA, double sigmaTca, uint64_t currentSimNanos);
+    void writeMessages(float tCA, float sigmaTca, uint64_t currentSimNanos);
 };
 
 #endif

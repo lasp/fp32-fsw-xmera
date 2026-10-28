@@ -48,8 +48,8 @@ void TimeClosestApproachAlgorithm_destroy(TimeClosestApproachAlgorithmHandle* se
  * @return TimeClosestApproachOutput_c  The computed TCA estimate and standard deviation.
  */
 TimeClosestApproachOutput_c TimeClosestApproachAlgorithm_update(const TimeClosestApproachAlgorithmHandle* self,
-                                                                const Vector3d_c* r_BN_N,
-                                                                const Vector3d_c* v_BN_N,
+                                                                const Vector3f_c* r_BN_N,
+                                                                const Vector3f_c* v_BN_N,
                                                                 const FilterCovariance_c* covariance);
 
 #ifdef __cplusplus

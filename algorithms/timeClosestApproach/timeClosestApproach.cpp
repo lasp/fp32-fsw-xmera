@@ -12,11 +12,11 @@
 * @param currentSimNanos Current sim nano
 
 */
-void TimeClosestApproach::writeMessages(const double tCA, const double sigmaTca, const uint64_t currentSimNanos) {
+void TimeClosestApproach::writeMessages(const float tCA, const float sigmaTca, const uint64_t currentSimNanos) {
     /*! create and zero the output message */
     TimeClosestApproachMsgF32Payload tcaMsgBuffer{};
-    tcaMsgBuffer.timeClosestApproach = static_cast<float>(tCA);
-    tcaMsgBuffer.standardDeviation = static_cast<float>(sigmaTca);
+    tcaMsgBuffer.timeClosestApproach = tCA;
+    tcaMsgBuffer.standardDeviation = sigmaTca;
 
     /*! Write the output messages */
     this->tcaOutMsg.write(tcaMsgBuffer, this->moduleID, currentSimNanos);
@@ -45,10 +45,11 @@ void TimeClosestApproach::updateState(const uint64_t currentSimNanos) {
 
     auto filterStatePayload = this->filterInMsg();
 
-    Eigen::Vector3d r_BN_N = cArrayToEigenVector3<double>(filterStatePayload.state);
-    Eigen::Vector3d v_BN_N = cArrayToEigenVector3<double>(filterStatePayload.state + 3);
-    Eigen::Matrix<double, 6, 6> filterCovariance = Eigen::Matrix<double, 6, 6>::Zero();
-    filterCovariance = cArrayToEigenMatrix<double, 6, 6>(filterStatePayload.covar);
+    // The filter message is double; the algorithm is float.
+    Eigen::Vector3f const r_BN_N = cArrayToEigenVector3<double>(filterStatePayload.state).cast<float>();
+    Eigen::Vector3f const v_BN_N = cArrayToEigenVector3<double>(filterStatePayload.state + 3).cast<float>();
+    Eigen::Matrix<float, 6, 6> const filterCovariance =
+        cArrayToEigenMatrix<double, 6, 6>(filterStatePayload.covar).cast<float>();
 
     TimeClosestApproachOutput out_algo = this->algorithm->update(r_BN_N, v_BN_N, filterCovariance);
     this->writeMessages(out_algo.tCA, out_algo.sigmaTca, currentSimNanos);
