@@ -41,17 +41,22 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
         throw std::invalid_argument("sunlineFilter.cssConfigInMsg wasn't connected.");
     }
 
-    auto const cssConfig = this->cssConfigInMsg();
-    uint32_t const numCss = cssConfig.nCSS;
+    const auto [nCSS, cssVals] = this->cssConfigInMsg();
+    if (nCSS != MaxCss) {
+        throw std::invalid_argument(
+            "sunlineFilter: the number of CSS in the cssConfig "
+            "does not equal the compile time MaxCss.");
+    }
+
     Eigen::Matrix<float, MaxCss, 3> nHat = Eigen::Matrix<float, MaxCss, 3>::Zero();
     Eigen::Vector<float, MaxCss> cssScaleFactor = Eigen::Vector<float, MaxCss>::Zero();
-    for (uint32_t i = 0; i < numCss; ++i) {
-        cssScaleFactor(i) = cssConfig.cssVals[i].CBias;
+
+    for (uint32_t i = 0; i < MaxCss; ++i) {
+        cssScaleFactor(i) = cssVals[i].CBias;
         for (int j = 0; j < 3; ++j) {
-            nHat(i, j) = cssConfig.cssVals[i].nHat_B[j];
+            nHat(i, j) = cssVals[i].nHat_B[j];
         }
     }
-    this->numberOfCss = numCss;
 
     auto const config = SunlineFilterConfig::create(this->alpha,
                                                     this->beta,
@@ -62,7 +67,6 @@ void SunlineFilter::reset(uint64_t currentSimNanos) {
                                                     this->biasUpperBound,
                                                     nHat,
                                                     cssScaleFactor,
-                                                    numCss,
                                                     this->sensorThreshold,
                                                     this->cssMeasurementNoiseStd,
                                                     this->gyroMeasurementNoiseStd,
@@ -113,7 +117,7 @@ void SunlineFilter::updateState(uint64_t currentSimNanos) {
 
     if (auto const [timeTag, CosValue] = this->cssDataInMsg(); timeTag > this->lastCssTimeTag) {
         Eigen::Vector<float, MaxCss> sensorMeasurements{};
-        for (uint32_t i = 0; i < this->numberOfCss; ++i) {
+        for (uint32_t i = 0; i < MaxCss; ++i) {
             sensorMeasurements[i] = CosValue[i];
         }
         cssData.timeTag = timeTag;

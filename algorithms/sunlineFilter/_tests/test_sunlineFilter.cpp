@@ -726,16 +726,6 @@ TEST(SunlineFilterConfig, RejectsNegativeCssScaleFactor) {
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
 }
 
-TEST(SunlineFilterConfig, RejectsNumberOfCssOutOfRange) {
-    ConfigInputs zero;
-    zero.numberOfCss = 0;
-    EXPECT_THROW(buildConfig(zero), fsw::invalid_argument);
-
-    ConfigInputs tooMany;
-    tooMany.numberOfCss = MaxCss + 1;
-    EXPECT_THROW(buildConfig(tooMany), fsw::invalid_argument);
-}
-
 TEST(SunlineFilterConfig, RejectsNegativeThresholdAndNoiseStds) {
     ConfigInputs threshold;
     threshold.sensorThreshold = -1E-3;
@@ -804,37 +794,26 @@ TEST(SunlineFilterConfig, RejectsBiasLowerBoundNotLessThanUpper) {
     EXPECT_THROW(buildConfig(inverted), fsw::invalid_argument);
 }
 
-TEST(SunlineFilterConfig, RejectsMissingLeadingCssNHat) {
+TEST(SunlineFilterConfig, RejectsZeroCssNHatRow) {
     ConfigInputs in;
-    in.cssNHat = Eigen::Matrix<float, MaxCss, 3>::Zero();
-    in.cssNHat.row(0) = Eigen::RowVector3f(1.0, 0.0, 0.0);
-    in.cssNHat.row(1) = Eigen::RowVector3f(0.0, 1.0, 0.0);
-    in.numberOfCss = 3;
+    in.cssNHat.row(MaxCss - 1) = Eigen::RowVector3f::Zero();
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
-}
-
-TEST(SunlineFilterConfig, IgnoresCssNHatRowsBeyondNumberOfCss) {
-    ConfigInputs in;
-    in.numberOfCss = 2;
-    EXPECT_NO_THROW(buildConfig(in));
 }
 
 TEST(SunlineFilterConfig, StaticValidatorsCheckBoundaries) {
     EXPECT_TRUE(SunlineFilterConfig::isValidBiasBounds(0.5, 1.5));
     EXPECT_FALSE(SunlineFilterConfig::isValidBiasBounds(1.5, 0.5));
     EXPECT_FALSE(SunlineFilterConfig::isValidBiasBounds(1.0, 1.0));
-    EXPECT_TRUE(SunlineFilterConfig::isValidCssNHat(threeCssNHat(), 3));
-    EXPECT_FALSE(SunlineFilterConfig::isValidCssNHat(threeCssNHat(), 4));  // row 3 is zero
+    EXPECT_TRUE(SunlineFilterConfig::isValidCssNHat(threeCssNHat()));
+    Eigen::Matrix<float, MaxCss, 3> zeroLastRow = threeCssNHat();
+    zeroLastRow.row(MaxCss - 1) = Eigen::RowVector3f::Zero();
+    EXPECT_FALSE(SunlineFilterConfig::isValidCssNHat(zeroLastRow));
     EXPECT_TRUE(SunlineFilterConfig::isValidBiasLowerBound(1E-9));
     EXPECT_FALSE(SunlineFilterConfig::isValidBiasLowerBound(0.0));
     EXPECT_TRUE(SunlineFilterConfig::isValidSensorThreshold(0.0));
     EXPECT_FALSE(SunlineFilterConfig::isValidSensorThreshold(-1E-9));
     EXPECT_TRUE(SunlineFilterConfig::isValidCssMeasurementNoiseStd(0.0));
     EXPECT_FALSE(SunlineFilterConfig::isValidGyroMeasurementNoiseStd(-1E-9));
-    EXPECT_FALSE(SunlineFilterConfig::isValidNumberOfCss(0));
-    EXPECT_TRUE(SunlineFilterConfig::isValidNumberOfCss(1));
-    EXPECT_TRUE(SunlineFilterConfig::isValidNumberOfCss(MaxCss));
-    EXPECT_FALSE(SunlineFilterConfig::isValidNumberOfCss(MaxCss + 1));
     EXPECT_TRUE(SunlineFilterConfig::isValidProcessNoise(Matrix7::Identity()));
     EXPECT_FALSE(SunlineFilterConfig::isValidProcessNoise(-Matrix7::Identity()));
     EXPECT_TRUE(SunlineFilterConfig::isValidInitialCovariance(Matrix7::Identity()));
@@ -847,20 +826,18 @@ TEST(SunlineFilterConfig, GettersRoundTripAndNormalizeNHat) {
     EXPECT_FLOAT_EQ(cfg.getBeta(), kBeta);
     EXPECT_FLOAT_EQ(cfg.getBiasLowerBound(), kBiasLowerBound);
     EXPECT_FLOAT_EQ(cfg.getBiasUpperBound(), kBiasUpperBound);
-    EXPECT_EQ(cfg.getNumberOfCss(), 3);
     EXPECT_FLOAT_EQ(cfg.getCssMeasurementNoiseStd(), 1E-2);
     EXPECT_FLOAT_EQ(cfg.getGyroMeasurementNoiseStd(), 1E-3);
-    // Active boresights are stored normalized; unused rows stay zero.
-    for (int i = 0; i < 3; ++i) {
+    // Boresights are stored normalized.
+    for (int i = 0; i < MaxCss; ++i) {
         EXPECT_NEAR(cfg.getCssNHat().row(i).stableNorm(), 1.0, kRoundoffTol);
     }
-    EXPECT_TRUE(cfg.getCssNHat().row(3).isZero());
 }
 
 TEST(SunlineFilterConfig, SetConfigSwapsConfiguration) {
     SunlineFilterAlgorithm algo(buildConfig({}));
     ConfigInputs other;
-    other.numberOfCss = 2;
+    other.cssNHat = oneCssNHat();
     EXPECT_NO_THROW(algo.setConfig(buildConfig(other)));
 }
 

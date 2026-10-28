@@ -56,20 +56,31 @@ inline Matrix7 smallProcessNoise() {
     return d.asDiagonal();
 }
 
-// Three-CSS geometry (unit boresights in rows 0..2; remaining rows unused/zero).
+// Fill every row from `firstRow` on with a unit boresight. Every CSS slot is a real sensor, so every row must be
+// unit length; a slot that reads a zero cos value is below the sensor threshold and stays inactive.
+inline void fillUnusedNHatRows(Eigen::Matrix<float, MaxCss, 3>& nHat, int firstRow) {
+    for (int i = firstRow; i < MaxCss; ++i) {
+        nHat.row(i) = Eigen::RowVector3f::Zero();
+        nHat(i, i % 3) = (i % 2 == 0) ? 1.0F : -1.0F;
+    }
+}
+
+// Three-CSS geometry: the boresights in rows 0..2 are the ones the tests drive; the remaining rows get filler
+// boresights from fillUnusedNHatRows.
 inline Eigen::Matrix<float, MaxCss, 3> threeCssNHat() {
-    Eigen::Matrix<float, MaxCss, 3> nHat = Eigen::Matrix<float, MaxCss, 3>::Zero();
+    Eigen::Matrix<float, MaxCss, 3> nHat;
     nHat.row(0) = Eigen::RowVector3f(0.707, -0.5, 0.5);
     nHat.row(1) = Eigen::RowVector3f(0.707, 0.5, 0.5);
     nHat.row(2) = Eigen::RowVector3f(-0.707, 0.0, 0.707);
+    fillUnusedNHatRows(nHat, 3);
     return nHat;
 }
 
-// Single-boresight CSS geometry for rate-only tests. numberOfCss must be >= 1, but
-// these tests never feed a CSS measurement, so the lone boresight is inert.
+// Single-boresight CSS geometry for rate-only tests; the remaining rows get filler boresights.
 inline Eigen::Matrix<float, MaxCss, 3> oneCssNHat() {
-    Eigen::Matrix<float, MaxCss, 3> nHat = Eigen::Matrix<float, MaxCss, 3>::Zero();
+    Eigen::Matrix<float, MaxCss, 3> nHat;
     nHat.row(0) = Eigen::RowVector3f(0.0, 0.0, 1.0);
+    fillUnusedNHatRows(nHat, 1);
     return nHat;
 }
 
@@ -84,7 +95,6 @@ inline SunlineFilterConfig rateOnlyConfig(TestState const& initial, Matrix7 cons
                                        kBiasUpperBound,
                                        oneCssNHat(),
                                        Eigen::Vector<float, MaxCss>::Ones(),
-                                       1,
                                        0.0,
                                        1E-2,
                                        1E-3);
@@ -103,7 +113,6 @@ inline SunlineFilterConfig rateOnlyConfigWithProcessNoise(TestState const& initi
                                        kBiasUpperBound,
                                        oneCssNHat(),
                                        Eigen::Vector<float, MaxCss>::Ones(),
-                                       1,
                                        0.0,
                                        1E-2,
                                        1E-3);
@@ -120,7 +129,6 @@ inline SunlineFilterConfig threeCssConfig(TestState const& initial, Matrix7 cons
                                        kBiasUpperBound,
                                        threeCssNHat(),
                                        Eigen::Vector<float, MaxCss>::Ones(),
-                                       3,
                                        sensorThreshold,
                                        1E-2,
                                        1E-3);
@@ -138,7 +146,6 @@ struct ConfigInputs {
     float biasUpperBound = kBiasUpperBound;
     Eigen::Matrix<float, MaxCss, 3> cssNHat = threeCssNHat();
     Eigen::Vector<float, MaxCss> cssScaleFactor = Eigen::Vector<float, MaxCss>::Ones();
-    uint32_t numberOfCss = 3;
     float sensorThreshold = 0.0;
     float cssMeasStd = 1E-2;
     float gyroStd = 1E-3;
@@ -155,7 +162,6 @@ inline SunlineFilterConfig buildConfig(ConfigInputs const& in) {
                                        in.biasUpperBound,
                                        in.cssNHat,
                                        in.cssScaleFactor,
-                                       in.numberOfCss,
                                        in.sensorThreshold,
                                        in.cssMeasStd,
                                        in.gyroStd,

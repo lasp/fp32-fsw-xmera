@@ -5,7 +5,6 @@
 
 #include "msgPayloadDef/CSSArraySensorMsgF32Payload.h"
 #include "msgPayloadDef/CSSConfigMsgF32Payload.h"
-#include "msgPayloadDef/CSSUnitConfigMsgF32Payload.h"
 #include "msgPayloadDef/FilterMsgF32Payload.h"
 #include "msgPayloadDef/FilterResidualsMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
@@ -14,7 +13,6 @@
 
 #include <Eigen/Core>
 
-#include <cstdint>
 #include <memory>
 
 /*! @brief xmera adapter for the sunline SRuKF. Pack CSS and gyro
@@ -61,7 +59,6 @@ class SunlineFilter : public SysModel {
 
     std::unique_ptr<filtering::sunlineFilter::SunlineFilterAlgorithm> algorithm = nullptr;
 
-    uint32_t numberOfCss = 0;       //!< [-] CSS count latched from cssConfigInMsg at reset()
     double lastNavAttTimeTag = -1;  //!< [s] last NavAtt payload timeTag consumed; -1
     double lastCssTimeTag = -1;     //!< [s] last CSS payload timeTag consumed; -1
 };
