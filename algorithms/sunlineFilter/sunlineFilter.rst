@@ -88,6 +88,17 @@ predicted CSS measurements are:
 .. math::
     yMeas = b\,[\boldsymbol{H}]\,\hat{\boldsymbol{s}}
 
+Bias reset
+++++++++++
+After each update the heading is renormalized and the bias is checked against
+``[biasLowerBound, biasUpperBound]``. A bias outside the bounds is reset to its initial value, and its
+variance to the initial variance :math:`P_0(b, b)` with no correlation to the heading and rate; the
+heading and rate estimates and their covariance are kept. The reset is
+``SRuKF::reInitializeComponent<Bias<1>>()``, applied to the working estimate and to the last-measurement
+anchor that the next propagation starts from, so the filter restarts the
+bias estimation from its prior instead of holding it at a bound with a covariance that no longer
+matches it. The initial bias must therefore lie within the bounds.
+
 
 Module Architecture
 -------------------
@@ -144,15 +155,15 @@ Configuration parameters
       - finite, symmetric, positive semi-definite
     * - initialState
       - N-element initial state seed
-      - finite
+      - finite; bias within [biasLowerBound, biasUpperBound]
     * - initialCovariance
       - N x N initial covariance P0
       - finite, symmetric, positive semi-definite
     * - biasLowerBound
-      - lower clamp on the bias state
+      - lower bound on the bias state; below it the bias is reset
       - > 0 and < biasUpperBound
     * - biasUpperBound
-      - upper clamp on the bias state
+      - upper bound on the bias state; above it the bias is reset
       - > 0 and > biasLowerBound
     * - sensorThreshold
       - minimum cosValue for a CSS to be counted active
