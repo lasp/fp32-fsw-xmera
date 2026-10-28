@@ -7,7 +7,7 @@
 
 namespace filtering::flybyFilter {
 
-inline constexpr int BatchSize = 1;
+inline constexpr int BatchSize = 2;
 
 // State: [r_BN_N (3), v_BN_N (3)] in the inertial frame N. Internal units are km and km/s (the
 // adapter converts to/from SI at the message boundary).

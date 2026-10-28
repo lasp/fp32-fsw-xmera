@@ -23,6 +23,7 @@ from xmera.utilities import SimulationBaseClass, macros, orbitalMotion
 
 MU_SI = 42828.314 * 1E9  # Mars gravitational parameter [m^3/s^2]
 HEADING_STD = 1E-3       # heading (unit-vector) measurement noise std
+HEADING_COVAR_N = (HEADING_STD ** 2 * np.eye(3)).flatten().tolist()  # covar_N a cobConverter-style producer sends
 
 
 def add_time_column(time, data):
@@ -68,7 +69,7 @@ def setup_filter_data(module, initial_state_si):
     module.beta = 2.0
     module.unitConversion = 1E-3  # filter internally in km, km/s
     module.mu = MU_SI
-    module.headingMeasurementNoiseStd = HEADING_STD
+    module.measurementNoiseScale = 1.0
     module.initialState = list(initial_state_si)
     module.initialCovariance = np.diag([1000.0 * 1E6] * 3 + [0.1 * 1E6] * 3).tolist()  # m^2, (m/s)^2
     module.processNoise = np.diag([(1E-6) ** 2] * 3 + [(1E-8) ** 2] * 3).tolist()
@@ -175,6 +176,7 @@ def test_measurements(show_plots):
             rhat /= np.linalg.norm(rhat)
             opnav_payload.timeTag = i * dt
             opnav_payload.rhat_BN_N = rhat.tolist()
+            opnav_payload.covar_N = HEADING_COVAR_N
             opnav_payload.valid = True
             opnav_msg.write(opnav_payload, sim.TotalSim.getCurrentNanos())
         sim.ConfigureStopTime(macros.sec2nano((i + 1) * dt))
@@ -212,7 +214,7 @@ def test_measurements(show_plots):
         "measurement updates should reduce the residual"
 
 
-def _run_heading_scenario(unit_conversion, headings, n_steps=60, dt=1.0):
+def _run_heading_scenario(unit_conversion, headings, n_steps=60, dt=1.0, measurement_delay=0.0, scale=1.0):
     """Run the adapter for n_steps, writing the heading payloads supplied by `headings(i)` (which
     returns None for a step with no fresh reading). Returns (module, filter_log, res_log, nav_log)."""
     sim = SimulationBaseClass.SimBaseClass()
@@ -225,6 +227,8 @@ def _run_heading_scenario(unit_conversion, headings, n_steps=60, dt=1.0):
     r0, v0 = truth_rv()
     setup_filter_data(module, np.concatenate([r0, v0]))
     module.unitConversion = unit_conversion
+    module.measurementDelay = measurement_delay
+    module.measurementNoiseScale = scale
 
     filter_log = module.filterOutMsg.recorder()
     res_log = module.filterResOutMsg.recorder()
@@ -246,10 +250,11 @@ def _run_heading_scenario(unit_conversion, headings, n_steps=60, dt=1.0):
     return module, filter_log, res_log, nav_log
 
 
-def _heading_payload(time_tag, rhat, valid=True):
+def _heading_payload(time_tag, rhat, valid=True, covar_n=None):
     payload = messaging.OpNavUnitVecMsgF32Payload()
     payload.timeTag = time_tag
     payload.rhat_BN_N = list(rhat)
+    payload.covar_N = HEADING_COVAR_N if covar_n is None else list(covar_n)
     payload.valid = valid
     return payload
 
@@ -269,12 +274,41 @@ def test_nav_trans_output_matches_the_filter_state(show_plots):
     r_out = np.array(nav_log.r_BN_N)
     v_out = np.array(nav_log.v_BN_N)
 
-    np.testing.assert_allclose(r_out, state[:, 0:3], rtol=1E-12, atol=0.0,
-                               err_msg="navTransOutMsg position must match the filter state")
-    np.testing.assert_allclose(v_out, state[:, 3:6], rtol=1E-12, atol=0.0,
-                               err_msg="navTransOutMsg velocity must match the filter state")
+    # filterOutMsg carries the SI state in float and navTransOutMsg in double, so they agree once rounded to float.
+    np.testing.assert_array_equal(r_out.astype(np.float32), state[:, 0:3].astype(np.float32),
+                                  err_msg="navTransOutMsg position must match the filter state")
+    np.testing.assert_array_equal(v_out.astype(np.float32), state[:, 3:6].astype(np.float32),
+                                  err_msg="navTransOutMsg velocity must match the filter state")
     np.testing.assert_allclose(np.array(nav_log.timeTag), np.array(filter_log.timeTag), rtol=0.0, atol=0.0,
                                err_msg="navTransOutMsg and filterOutMsg must share a time tag")
+
+
+def test_measurement_noise_comes_from_the_message_covariance(show_plots):
+    """The heading noise is the message's covar_N times measurementNoiseScale: a reading without a
+    covariance (covar_N left at zero) is ignored, a larger covar_N shrinks the covariance less, and
+    scaling the config matches scaling covar_N."""
+    del show_plots
+    r0, _ = truth_rv()
+    rhat0 = r0 / np.linalg.norm(r0)
+    covar_small = (HEADING_STD ** 2 * np.eye(3)).flatten()
+
+    def run(covar_n, scale=1.0):
+        _, filter_log, res_log, _ = _run_heading_scenario(
+            1E-3, lambda i: _heading_payload((i + 1) * 1.0, rhat0, covar_n=covar_n) if i % 5 == 0 else None,
+            n_steps=20, scale=scale)
+        trace = float(np.trace(np.array(filter_log.covar)[-1, :36].reshape(6, 6)))
+        return trace, np.array(res_log.valid, dtype=bool)
+
+    trace_none, valid_none = run(np.zeros(9))
+    trace_small, valid_small = run(covar_small)
+    trace_large, _ = run(100.0 * covar_small)
+    trace_scaled, _ = run(covar_small, scale=100.0)
+
+    assert not valid_none.any(), "a heading without a positive-definite covar_N must be ignored"
+    assert valid_small.any(), "a heading with a covar_N must fire"
+    assert trace_small < trace_large < trace_none, "a larger covar_N must shrink the covariance less"
+    np.testing.assert_allclose(trace_scaled, trace_large, rtol=1E-3,
+                               err_msg="measurementNoiseScale must multiply covar_N")
 
 
 def test_heading_is_gated_on_validity_and_freshness(show_plots):
@@ -340,6 +374,29 @@ def test_delayed_measurement_anchors_to_its_time_tag(show_plots):
     _, _, res_stale, _ = _run_heading_scenario(1E-3, stale)
     assert np.count_nonzero(np.array(res_stale.valid, dtype=bool)) == 1, \
         "a measurement stamped before the anchor must be dropped"
+
+
+def test_measurement_delay_holds_each_heading(show_plots):
+    """measurementDelay reaches the filter through the adapter: with a delay d, a heading is applied d seconds after
+    its time tag instead of on the call that delivers it. A heading written at step i reaches the filter on the next
+    call, one step after its time tag."""
+    del show_plots
+    r0, _ = truth_rv()
+    rhat0 = r0 / np.linalg.norm(r0)
+    delay = 3.0
+
+    def every_image(i):
+        return _heading_payload(float(i), rhat0) if i % 10 == 5 else None  # one image every 10 s
+
+    def first_applied_time(res_log):
+        valid = np.array(res_log.valid, dtype=bool)
+        return res_log.times()[valid][0] * macros.NANO2SEC
+
+    _, _, res_now, _ = _run_heading_scenario(1E-3, every_image)
+    _, _, res_held, _ = _run_heading_scenario(1E-3, every_image, measurement_delay=delay)
+
+    assert first_applied_time(res_now) == pytest.approx(5.0 + 1.0), "without a delay the heading is applied on delivery"
+    assert first_applied_time(res_held) == pytest.approx(5.0 + delay), "a delay holds the heading until tag + delay"
 
 
 @pytest.mark.xfail(reason="float: the km and m runs round differently and the updates amplify it to ~8e-3 relative, "
