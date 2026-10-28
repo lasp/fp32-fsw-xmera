@@ -27,6 +27,8 @@ target_compile_features(filteringCore INTERFACE
   cxx_std_23
 )
 
-if(BUILD_TESTING)
+# Unit and fuzz tests build only in the xmera path, which provides GTest and
+# fuzztest. The standalone build has neither, so guard on the test target.
+if(TARGET GTest::gtest_main)
   add_subdirectory(_tests)
 endif()
