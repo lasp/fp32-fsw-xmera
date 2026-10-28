@@ -31,7 +31,8 @@ provides information on what this message is used for:
       - Input center of brightness message written out by the image processing module
     * - opnavFilterInMsg
       - :ref:`FilterMsgPayload`
-      - Input filter message (used for outlier detection and COM phase-angle uncertainty)
+      - Input flyby filter message, 8 states (position, velocity, two heading-bias angles); the position and its
+        covariance block are used for outlier detection and the COM phase-angle uncertainty
     * - navAttInMsg
       - :ref:`NavAttMsgPayload`
       - Input navigation message containing the spacecraft attitude in the inertial frame and the Sun direction in the body frame (e.g. the aggregated output of :ref:`navAggregate`)
