@@ -37,6 +37,10 @@ inline constexpr float kMu = 42828.314;
 inline constexpr float kAlpha = 0.02;
 inline constexpr float kBeta = 2.0;
 inline constexpr float kHeadingStd = 1E-4;
+inline constexpr float kNoiseScale = 1.0;
+
+//! Heading noise covariance a reading would carry (covar_N), isotropic with standard deviation `std`.
+inline Eigen::Matrix3f headingCovariance(float std = kHeadingStd) { return (std * std) * Eigen::Matrix3f::Identity(); }
 
 inline TestState makeState(Eigen::Vector3f const& r, Eigen::Vector3f const& v) {
     TestState s;
@@ -63,20 +67,31 @@ inline Eigen::Vector3f headingOf(TestState const& s) {
 inline TestState nominalTruth() { return makeState({3000.0, 1000.0, 500.0}, {1.0, -2.0, 0.5}); }
 
 inline FlybyFilterConfig baseConfig(TestState const& initial, Matrix6 const& P) {
-    return FlybyFilterConfig::create(kAlpha, kBeta, kMu, smallProcessNoise(), initial, P, kHeadingStd);
+    return FlybyFilterConfig::create(kAlpha, kBeta, kMu, smallProcessNoise(), initial, P, kNoiseScale);
 }
 
 inline FlybyFilterConfig configWithProcessNoise(TestState const& initial,
                                                 Matrix6 const& P,
                                                 Matrix6 const& processNoise) {
-    return FlybyFilterConfig::create(kAlpha, kBeta, kMu, processNoise, initial, P, kHeadingStd);
+    return FlybyFilterConfig::create(kAlpha, kBeta, kMu, processNoise, initial, P, kNoiseScale);
 }
 
-inline FlybyFilterConfig configWithHeadingStd(TestState const& initial, Matrix6 const& P, float headingStd) {
-    return FlybyFilterConfig::create(kAlpha, kBeta, kMu, smallProcessNoise(), initial, P, headingStd);
+inline FlybyFilterConfig configWithNoiseScale(TestState const& initial, Matrix6 const& P, float noiseScale) {
+    return FlybyFilterConfig::create(kAlpha, kBeta, kMu, smallProcessNoise(), initial, P, noiseScale);
 }
 
-//! Pack a heading observation with the noise covariance the filter would build from `headingStd`.
+//! A fresh heading reading carrying its own noise covariance, as the adapter builds it from the message.
+inline HeadingData makeHeadingData(double timeTag,
+                                   Eigen::Vector3f const& rhat,
+                                   Eigen::Matrix3f const& covar_N = headingCovariance()) {
+    HeadingData heading;
+    heading.timeTag = timeTag;
+    heading.rhat_BN_N = rhat;
+    heading.covar_N = covar_N;
+    return heading;
+}
+
+//! Pack a heading observation with an isotropic noise covariance of standard deviation `headingStd`.
 inline HeadingMeasurement makeHeadingMeasurement(double timeTag, Eigen::Vector3f const& rhat, float headingStd) {
     HeadingMeasurement m;
     m.timeTag = timeTag;
@@ -94,12 +109,19 @@ struct ConfigInputs {
     Matrix6 processNoise = smallProcessNoise();
     TestState initialState = nominalTruth();
     Matrix6 initialCovariance = diagCovariance(100.0, 0.1);
-    float headingStd = kHeadingStd;
+    float noiseScale = kNoiseScale;
+    float measurementDelay = 0.0;
 };
 
 inline FlybyFilterConfig buildConfig(ConfigInputs const& in) {
-    return FlybyFilterConfig::create(
-        in.alpha, in.beta, in.mu, in.processNoise, in.initialState, in.initialCovariance, in.headingStd);
+    return FlybyFilterConfig::create(in.alpha,
+                                     in.beta,
+                                     in.mu,
+                                     in.processNoise,
+                                     in.initialState,
+                                     in.initialCovariance,
+                                     in.noiseScale,
+                                     in.measurementDelay);
 }
 
 //! Turn arbitrary fuzz inputs into a guaranteed-valid config, or nullopt when they cannot make one.
@@ -109,9 +131,9 @@ inline std::optional<FlybyFilterConfig> tryFuzzConfig(Eigen::Vector3f const& rOf
                                                       float mu,
                                                       Vector6 const& covDiagRaw,
                                                       float q,
-                                                      float headingStd) {
+                                                      float noiseScale) {
     if (!rOffset.allFinite() || !vOffset.allFinite() || !covDiagRaw.allFinite() || !std::isfinite(mu) ||
-        !std::isfinite(q) || !std::isfinite(headingStd) || mu <= 0.0 || q < 0.0 || headingStd < 0.0) {
+        !std::isfinite(q) || !std::isfinite(noiseScale) || mu <= 0.0 || q < 0.0 || noiseScale <= 0.0) {
         return std::nullopt;
     }
     TestState const initial = makeState(nominalTruth().get<filtering::Position<3>>() + rOffset,
@@ -122,7 +144,7 @@ inline std::optional<FlybyFilterConfig> tryFuzzConfig(Eigen::Vector3f const& rOf
     // A strictly positive diagonal is symmetric positive definite, so the covariance always validates.
     Vector6 const covDiag = covDiagRaw.cwiseAbs() + Vector6::Constant(1E-6);
     return FlybyFilterConfig::create(
-        kAlpha, kBeta, mu, Matrix6::Identity() * q, initial, covDiag.asDiagonal(), headingStd);
+        kAlpha, kBeta, mu, Matrix6::Identity() * q, initial, covDiag.asDiagonal(), noiseScale);
 }
 
 inline bool finiteSymmetricPsd(Matrix6 const& P) {
@@ -140,7 +162,7 @@ inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3f const& rOffs
                                                     float q,
                                                     Eigen::Vector3f const& rhatRaw,
                                                     float dt) {
-    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, q, kHeadingStd);
+    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, q, kNoiseScale);
     if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3 || !std::isfinite(dt) || dt < 0.0) {
         return;
     }
@@ -149,6 +171,7 @@ inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3f const& rOffs
     HeadingData heading;
     heading.timeTag = dt;
     heading.rhat_BN_N = rhatRaw.stableNormalized();
+    heading.covar_N = headingCovariance();
     FlybyFilterOutput const out = algo.update(dt, heading);
 
     EXPECT_TRUE(algo.getState().raw().allFinite());
@@ -166,7 +189,7 @@ inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3f const& rO
                                                        float q,
                                                        Eigen::Vector3f const& rhat,
                                                        float dt) {
-    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, q, kHeadingStd);
+    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, q, kNoiseScale);
     if (!cfg || !std::isfinite(dt) || dt < 0.0) {
         return;
     }
@@ -175,6 +198,7 @@ inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3f const& rO
     HeadingData heading;
     heading.timeTag = dt;
     heading.rhat_BN_N = rhat;
+    heading.covar_N = headingCovariance();
     algo.update(dt, heading);
 
     EXPECT_TRUE(algo.getState().raw().allFinite());
@@ -189,7 +213,7 @@ inline void propertyMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f const& 
                                                          float mu,
                                                          Vector6 const& covDiagRaw,
                                                          Eigen::Vector3f const& rhatRaw) {
-    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, 0.0, kHeadingStd);
+    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, 0.0, kNoiseScale);
     if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3) {
         return;
     }

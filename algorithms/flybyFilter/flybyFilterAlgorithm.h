@@ -3,6 +3,7 @@
 
 #include "flybyFilterSpecs.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
+#include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/validPSDCheck.h"
 
 #include <filteringCore/measurementQueue.h>
@@ -14,10 +15,13 @@
 namespace filtering::flybyFilter {
 
 /*! Raw optical-navigation heading reading consumed by FlybyFilterAlgorithm::update().
- *  `timeTag` > 0 flags that the adapter saw a fresh reading this cycle. */
+ *  `timeTag` > 0 flags that the adapter saw a fresh reading this cycle. `covar_N` is the heading
+ *  noise covariance supplied with the reading (e.g. by cobConverter); a reading whose covariance is
+ *  not finite and positive definite is dropped, so the zero default never reaches the filter. */
 struct HeadingData {
     double timeTag = 0;
     Eigen::Vector3f rhat_BN_N = Eigen::Vector3f::Zero();
+    Eigen::Matrix3f covar_N = Eigen::Matrix3f::Zero();
 };
 
 /*! Snapshot returned by FlybyFilterAlgorithm::update(). Bundles the filter state with the
@@ -30,7 +34,7 @@ struct FlybyFilterOutput {
 
 /*! Validated, immutable configuration for FlybyFilterAlgorithm. create() validates every constrained
  *  parameter -- alpha/beta via the shared SRuKF validators, mu, the PSD process noise / initial
- *  covariance, and the heading measurement-noise std -- and throws on invalid input; the algorithm
+ *  covariance, and the measurement-noise scale -- and throws on invalid input; the algorithm
  *  trusts the Config thereafter. All values are in internal units (the adapter converts from SI).
  *  Only initialState has no meaningful constraint. */
 class FlybyFilterConfig final {
@@ -44,7 +48,8 @@ class FlybyFilterConfig final {
                                     StateMatrix const& processNoise,
                                     FlybyState const& initialState,
                                     StateMatrix const& initialCovariance,
-                                    float headingMeasurementNoiseStd) {
+                                    float measurementNoiseScale,
+                                    float measurementDelay = 0.0F) {
         if (!Srukf::alphaAndBetaAreValid(alpha, beta)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: alpha must be in (0, 1] and beta in [alpha^2, 2]");
         }
@@ -72,11 +77,14 @@ class FlybyFilterConfig final {
         if (!isValidInitialState(initialState)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: initial state must be finite");
         }
-        if (!isValidHeadingMeasurementNoiseStd(headingMeasurementNoiseStd)) {
-            FSW_THROW_INVALID_ARGUMENT(
-                "flybyFilter: heading measurement noise std must be positive, with a finite square");
+        if (!isValidMeasurementNoiseScale(measurementNoiseScale)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: measurement noise scale must be finite and positive");
         }
-        return {alpha, beta, mu, processNoise, initialState, initialCovariance, headingMeasurementNoiseStd};
+        if (measurementDelay < 0.0F) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: measurement delay must not be negative");
+        }
+        return {
+            alpha, beta, mu, processNoise, initialState, initialCovariance, measurementNoiseScale, measurementDelay};
     }
 
     static bool isValidMu(float mu) { return mu > 0.0F; }
@@ -89,9 +97,7 @@ class FlybyFilterConfig final {
         return covariance.allFinite() && isSymmetric<FlybyState::size>(covariance) &&
                isPositiveSemiDefinite<FlybyState::size>(covariance);
     }
-    static bool isValidHeadingMeasurementNoiseStd(float noiseStd) {
-        return Srukf::measurementNoiseStdIsValid(noiseStd);
-    }
+    static bool isValidMeasurementNoiseScale(float scale) { return fsw::is_finite(scale) && scale > 0.0F; }
 
     float getAlpha() const { return this->alpha; }
     float getBeta() const { return this->beta; }
@@ -99,7 +105,8 @@ class FlybyFilterConfig final {
     StateMatrix const& getProcessNoise() const { return this->processNoise; }
     FlybyState const& getInitialState() const { return this->initialState; }
     StateMatrix const& getInitialCovariance() const { return this->initialCovariance; }
-    float getHeadingMeasurementNoiseStd() const { return this->headingMeasNoiseStd; }
+    float getMeasurementNoiseScale() const { return this->measNoiseScale; }
+    float getMeasurementDelay() const { return this->measurementDelay; }
 
    private:
     FlybyFilterConfig(float alpha,
@@ -108,14 +115,16 @@ class FlybyFilterConfig final {
                       StateMatrix const& processNoise,
                       FlybyState const& initialState,
                       StateMatrix const& initialCovariance,
-                      float headingMeasurementNoiseStd)
+                      float measurementNoiseScale,
+                      float measurementDelay)
         : alpha(alpha),
           beta(beta),
           mu(mu),
           processNoise(processNoise),
           initialState(initialState),
           initialCovariance(initialCovariance),
-          headingMeasNoiseStd(headingMeasurementNoiseStd) {}
+          measNoiseScale(measurementNoiseScale),
+          measurementDelay(measurementDelay) {}
 
     float alpha;
     float beta;
@@ -123,7 +132,8 @@ class FlybyFilterConfig final {
     StateMatrix processNoise;
     FlybyState initialState;
     StateMatrix initialCovariance;
-    float headingMeasNoiseStd;
+    float measNoiseScale;  //!< [-] multiplies each reading's covar_N to form the measurement noise
+    float measurementDelay;
 };
 
 /*! @brief Angles-only flyby navigation square-root UKF. Estimates the inertial spacecraft position

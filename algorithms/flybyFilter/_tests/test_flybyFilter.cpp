@@ -28,6 +28,7 @@
 
 #include <Eigen/Dense>
 
+#include <array>
 #include <cmath>
 #include <limits>
 #include <memory>
@@ -140,24 +141,32 @@ TEST(FlybyFilterConfig, NamesWhichCovarianceCheckFails) {
     }
 }
 
-TEST(FlybyFilterConfig, RejectsNegativeHeadingNoiseStd) {
-    ConfigInputs in;
-    in.headingStd = -1E-3;
-    EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+TEST(FlybyFilterConfig, RejectsNonPositiveOrNonFiniteNoiseScale) {
+    for (float scale : {0.0F, -1.0F, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity()}) {
+        ConfigInputs in;
+        in.noiseScale = scale;
+        EXPECT_THROW(buildConfig(in), fsw::invalid_argument) << "scale=" << scale;
+    }
 }
 
-TEST(FlybyFilterConfig, RejectsZeroHeadingNoiseStd) {
-    ConfigInputs in;
-    in.headingStd = 0.0;
-    EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+TEST(FlybyFilterConfig, MeasurementDelayDefaultsToZeroAndIsValidated) {
+    EXPECT_FLOAT_EQ(buildConfig({}).getMeasurementDelay(), 0.0F);
+
+    ConfigInputs delayed;
+    delayed.measurementDelay = 3.0;
+    EXPECT_FLOAT_EQ(buildConfig(delayed).getMeasurementDelay(), 3.0F);
+
+    ConfigInputs negative;
+    negative.measurementDelay = -1.0;
+    EXPECT_THROW(buildConfig(negative), fsw::invalid_argument);
 }
 
 TEST(FlybyFilterConfig, StaticValidatorsCheckBoundaries) {
     EXPECT_TRUE(FlybyFilterConfig::isValidMu(1.0));
     EXPECT_FALSE(FlybyFilterConfig::isValidMu(0.0));
-    EXPECT_TRUE(FlybyFilterConfig::isValidHeadingMeasurementNoiseStd(1E-9));
-    EXPECT_FALSE(FlybyFilterConfig::isValidHeadingMeasurementNoiseStd(0.0));
-    EXPECT_FALSE(FlybyFilterConfig::isValidHeadingMeasurementNoiseStd(-1E-9));
+    EXPECT_TRUE(FlybyFilterConfig::isValidMeasurementNoiseScale(1E-6));
+    EXPECT_FALSE(FlybyFilterConfig::isValidMeasurementNoiseScale(0.0));
+    EXPECT_FALSE(FlybyFilterConfig::isValidMeasurementNoiseScale(-1E-5));
     EXPECT_TRUE(FlybyFilterConfig::isValidProcessNoise(Matrix6::Identity()));
     EXPECT_FALSE(FlybyFilterConfig::isValidProcessNoise(-Matrix6::Identity()));
     EXPECT_TRUE(FlybyFilterConfig::isValidInitialCovariance(Matrix6::Identity()));
@@ -174,7 +183,7 @@ TEST(FlybyFilterConfig, GettersRoundTrip) {
     EXPECT_FLOAT_EQ(cfg.getAlpha(), kAlpha);
     EXPECT_FLOAT_EQ(cfg.getBeta(), kBeta);
     EXPECT_FLOAT_EQ(cfg.getMu(), kMu);
-    EXPECT_FLOAT_EQ(cfg.getHeadingMeasurementNoiseStd(), kHeadingStd);
+    EXPECT_FLOAT_EQ(cfg.getMeasurementNoiseScale(), kNoiseScale);
     EXPECT_TRUE(cfg.getProcessNoise().isApprox(in.processNoise, 1E-12));
     EXPECT_TRUE(cfg.getInitialCovariance().isApprox(in.initialCovariance, 1E-12));
     EXPECT_TRUE(cfg.getInitialState().raw().isApprox(in.initialState.raw(), 1E-12));
@@ -202,6 +211,7 @@ TEST(FlybyFilterAlgorithmLifecycle, ReInitializeExceptPersistentStatesPreservesE
     HeadingData heading;
     heading.timeTag = 10.0;
     heading.rhat_BN_N = headingOf(initial);
+    heading.covar_N = headingCovariance();
     algo.update(20.0, heading);
 
     State const movedState = algo.getState();
@@ -226,11 +236,11 @@ TEST(FlybyFilterAlgorithmLifecycle, SetConfigReDerivesMu) {
 
     // A reference filter using a larger mu propagates to a different state.
     FlybyFilterAlgorithm reference(
-        FlybyFilterConfig::create(kAlpha, kBeta, 2.0 * kMu, smallProcessNoise(), initial, P0, kHeadingStd));
+        FlybyFilterConfig::create(kAlpha, kBeta, 2.0 * kMu, smallProcessNoise(), initial, P0, kNoiseScale));
     EXPECT_TRUE(reference.timeUpdate(dt));
 
     FlybyFilterAlgorithm algo(baseConfig(initial, P0));
-    algo.setConfig(FlybyFilterConfig::create(kAlpha, kBeta, 2.0 * kMu, smallProcessNoise(), initial, P0, kHeadingStd));
+    algo.setConfig(FlybyFilterConfig::create(kAlpha, kBeta, 2.0 * kMu, smallProcessNoise(), initial, P0, kNoiseScale));
     EXPECT_TRUE(algo.timeUpdate(dt));
     EXPECT_TRUE(algo.getState().raw().isApprox(reference.getState().raw(), 1E-9));
 }
@@ -295,6 +305,7 @@ TEST(FlybyFilterAlgorithmLifecycle, ClearRevertsToTheLastMeasurementAnchor) {
     HeadingData heading;
     heading.timeTag = 10.0;
     heading.rhat_BN_N = headingOf(initial);
+    heading.covar_N = headingCovariance();
     algo.update(10.0, heading);
     ASSERT_TRUE(algo.getLastHeadingResiduals().valid);
 
@@ -336,6 +347,7 @@ TEST(FlybyFilterAlgorithmOutput, UpdateSnapshotMatchesTheAccessors) {
     HeadingData heading;
     heading.timeTag = 10.0;
     heading.rhat_BN_N = headingOf(initial);
+    heading.covar_N = headingCovariance();
     FlybyFilterOutput const out = algo.update(20.0, heading);
 
     EXPECT_TRUE(out.filterState.state.isApprox(algo.getState().raw(), 1E-12));
@@ -392,6 +404,7 @@ TEST(FlybyFilterAlgorithmScheduler, NonPositiveTimeTagIsNotEnqueued) {
         HeadingData heading;
         heading.timeTag = staleTag;
         heading.rhat_BN_N = Eigen::Vector3f(0.0, 0.0, 1.0);  // deliberately far from the prior
+        heading.covar_N = headingCovariance();
         FlybyFilterOutput const out = algo.update(callTime, heading);
 
         EXPECT_FALSE(out.headingResiduals.valid) << "timeTag=" << staleTag;
@@ -409,6 +422,7 @@ TEST(FlybyFilterAlgorithmScheduler, MeasurementOlderThanTheAnchorIsDropped) {
     HeadingData fresh;
     fresh.timeTag = 100.0;
     fresh.rhat_BN_N = headingOf(initial);
+    fresh.covar_N = headingCovariance();
     ASSERT_TRUE(algo.update(100.0, fresh).headingResiduals.valid);
     TestState const anchor = algo.getState();
 
@@ -417,6 +431,7 @@ TEST(FlybyFilterAlgorithmScheduler, MeasurementOlderThanTheAnchorIsDropped) {
     HeadingData stale;
     stale.timeTag = 50.0;
     stale.rhat_BN_N = Eigen::Vector3f(0.0, 0.0, 1.0);
+    stale.covar_N = headingCovariance();
     FlybyFilterOutput const out = algo.update(110.0, stale);
 
     EXPECT_FALSE(out.headingResiduals.valid) << "a measurement older than the anchor must be dropped";
@@ -464,6 +479,7 @@ TEST(FlybyFilterAlgorithmSynchronization, MeasurementsAreProcessedRelativeToTheS
         HeadingData heading;
         heading.timeTag = timeTag;
         heading.rhat_BN_N = headingOf(initial);
+        heading.covar_N = headingCovariance();
         FlybyFilterOutput const first = algo.update(1000.0, heading);
         EXPECT_FALSE(first.headingResiduals.valid) << "the first call only synchronizes";
         EXPECT_TRUE(algo.getState().raw().isApprox(initial.raw(), 1E-12));
@@ -485,11 +501,13 @@ TEST(FlybyFilterAlgorithmScheduler, DelayedButNewerMeasurementIsAppliedAtItsOwnT
         HeadingData first;
         first.timeTag = 100.0;
         first.rhat_BN_N = headingOf(initial);
+        first.covar_N = headingCovariance();
         algo.update(100.0, first);
 
         HeadingData delayed;
         delayed.timeTag = 105.0;
         delayed.rhat_BN_N = headingOf(initial);
+        delayed.covar_N = headingCovariance();
         FlybyFilterOutput const out = algo.update(deliveryTime, delayed);
         EXPECT_TRUE(out.headingResiduals.valid) << "delivered at " << deliveryTime;
 
@@ -514,6 +532,7 @@ TEST(FlybyFilterAlgorithmScheduler, BadMeasurementIsRolledBackAndTheCycleStillPr
         HeadingData good;
         good.timeTag = 100.0;
         good.rhat_BN_N = headingOf(initial);
+        good.covar_N = headingCovariance();
         algo->update(100.0, good);
         return algo;
     };
@@ -525,6 +544,7 @@ TEST(FlybyFilterAlgorithmScheduler, BadMeasurementIsRolledBackAndTheCycleStillPr
     HeadingData bad;
     bad.timeTag = 110.0;
     bad.rhat_BN_N = Eigen::Vector3f::Constant(std::numeric_limits<float>::quiet_NaN());
+    bad.covar_N = headingCovariance();
     FlybyFilterOutput const out = poisoned->update(110.0, bad);
 
     auto untouched = anchored();
@@ -540,25 +560,53 @@ TEST(FlybyFilterAlgorithmScheduler, BadMeasurementIsRolledBackAndTheCycleStillPr
     HeadingData recovery;
     recovery.timeTag = 120.0;
     recovery.rhat_BN_N = headingOf(poisoned->getState());
+    recovery.covar_N = headingCovariance();
     EXPECT_TRUE(poisoned->update(120.0, recovery).headingResiduals.valid);
 }
 
-TEST(FlybyFilterAlgorithmScheduler, FullQueueKeepsTheNewestHeading) {
-    // BatchSize == 1: the flyby filter holds one heading. A full queue drops its oldest measurement, so a newer
-    // heading replaces the queued one, and a heading older than the queued one is the one dropped.
-    static_assert(BatchSize == 1, "flybyFilter processes a single heading measurement per cycle");
-
+TEST(FlybyFilterAlgorithmScheduler, FullQueueDropsTheOldestHeading) {
+    // The queue holds BatchSize headings; a newer heading enqueued into a full queue drops the oldest one, so the
+    // queue keeps the most recent BatchSize headings, and a heading older than every queued one is the one dropped.
     filtering::measurement_queue<Measurement, BatchSize> queue;
-    EXPECT_TRUE(queue.enqueue(1.0, makeHeadingMeasurement(1.0, Eigen::Vector3f::UnitX(), kHeadingStd)));
-    EXPECT_TRUE(queue.enqueue(2.0, makeHeadingMeasurement(2.0, Eigen::Vector3f::UnitY(), kHeadingStd)))
-        << "a newer heading replaces the queued one";
-    EXPECT_FALSE(queue.enqueue(0.5, makeHeadingMeasurement(0.5, Eigen::Vector3f::UnitZ(), kHeadingStd)))
-        << "a heading older than the queued one is dropped";
+    for (int i = 1; i <= BatchSize; ++i) {
+        EXPECT_TRUE(queue.enqueue(i, makeHeadingMeasurement(i, Eigen::Vector3f::UnitX(), kHeadingStd)));
+    }
+    ASSERT_TRUE(queue.isFull());
 
-    auto const kept = queue.popEarliest();
-    ASSERT_TRUE(kept.has_value());
-    EXPECT_DOUBLE_EQ(kept->first, 2.0) << "only the newest heading is kept";
-    EXPECT_TRUE(queue.isEmpty());
+    EXPECT_FALSE(queue.enqueue(0.5, makeHeadingMeasurement(0.5, Eigen::Vector3f::UnitZ(), kHeadingStd)))
+        << "a heading older than every queued one is dropped";
+    EXPECT_TRUE(
+        queue.enqueue(BatchSize + 1.0, makeHeadingMeasurement(BatchSize + 1.0, Eigen::Vector3f::UnitY(), kHeadingStd)))
+        << "a newer heading is kept when the queue is full";
+    auto const earliest = queue.popEarliest();
+    ASSERT_TRUE(earliest.has_value());
+    EXPECT_DOUBLE_EQ(earliest->first, 2.0) << "the oldest heading (t = 1) was dropped";
+}
+
+// A heading delivered 2.5 s after its time tag, one call after an on-time heading. Without a measurement delay the
+// on-time heading has already moved the anchor past it, so it is dropped; with a 3 s delay it is applied, in time
+// order, once the call time reaches its time tag plus the delay. The late heading is told apart by its observation.
+TEST(FlybyFilterAlgorithmScheduler, MeasurementDelayAppliesALateHeading) {
+    auto const lateHeadingIsApplied = [](float delay) {
+        ConfigInputs in;
+        in.measurementDelay = delay;
+        FlybyFilterAlgorithm algo(buildConfig(in));
+        algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
+        algo.update(10.0, makeHeadingData(10.0, headingOf(in.initialState)));
+
+        Eigen::Vector3f const lateHeading =
+            (headingOf(in.initialState) + Eigen::Vector3f(0.0F, 0.0F, 1E-3F)).stableNormalized();
+        bool applied = false;
+        for (double callTime = 11.0; callTime <= 15.0; callTime += 1.0) {
+            HeadingData const delivered = callTime == 11.0 ? makeHeadingData(8.5, lateHeading) : HeadingData{};
+            FlybyFilterOutput const out = algo.update(callTime, delivered);
+            applied = applied || (out.headingResiduals.valid && out.headingResiduals.observation.isApprox(lateHeading));
+        }
+        return applied;
+    };
+
+    EXPECT_FALSE(lateHeadingIsApplied(0.0F)) << "without a delay the late heading is behind the anchor";
+    EXPECT_TRUE(lateHeadingIsApplied(3.0F)) << "a 3 s delay covers the 2.5 s latency";
 }
 
 // ============================================================================
@@ -698,6 +746,7 @@ TEST(FlybyFilterAlgorithmMeasurements, HeadingDataFiresResidualOnlyWhenFresh) {
     HeadingData fresh;
     fresh.timeTag = 20.0;
     fresh.rhat_BN_N = headingOf(initial);
+    fresh.covar_N = headingCovariance();
     algo.update(20.0, fresh);
 
     HeadingResidualsOutput const& res = algo.getLastHeadingResiduals();
@@ -716,6 +765,7 @@ TEST(FlybyFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual) {
     HeadingData heading;
     heading.timeTag = 10.0;
     heading.rhat_BN_N = headingOf(truth);
+    heading.covar_N = headingCovariance();
     algo.update(10.0, heading);
 
     HeadingResidualsOutput const& res = algo.getLastHeadingResiduals();
@@ -723,26 +773,68 @@ TEST(FlybyFilterAlgorithmMeasurements, InformativeMeasurementReducesResidual) {
     EXPECT_LT(res.postFit.stableNorm(), res.preFit.stableNorm()) << "an informative update must shrink the residual";
 }
 
-TEST(FlybyFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovarianceLess) {
+TEST(FlybyFilterAlgorithmMeasurements, LargerReadingCovarianceShrinksCovarianceLess) {
     TestState const initial = nominalTruth();
     Matrix6 const P0 = diagCovariance(100.0, 0.1);
 
-    // The noise covariance is built inside packHeadingMeasurement() from the configured std, so a
-    // larger configured std must yield a smaller correction for the same reading.
+    // The measurement noise is the reading's own covar_N, so a larger supplied covariance must yield a
+    // smaller correction for the same heading.
     auto traceAfterUpdate = [&](float headingStd) {
-        FlybyFilterAlgorithm algo(configWithHeadingStd(initial, P0, headingStd));
+        FlybyFilterAlgorithm algo(baseConfig(initial, P0));
         algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
-        HeadingData heading;
-        heading.timeTag = 10.0;
-        heading.rhat_BN_N = headingOf(initial);
-        algo.update(10.0, heading);
+        algo.update(10.0, makeHeadingData(10.0, headingOf(initial), headingCovariance(headingStd)));
         return algo.getCovariance().trace();
     };
 
     float const tight = traceAfterUpdate(1E-5);
     float const loose = traceAfterUpdate(1E-1);
-    EXPECT_LT(tight, loose) << "a tighter measurement std should shrink the covariance more";
+    EXPECT_LT(tight, loose) << "a tighter reading covariance should shrink the covariance more";
     EXPECT_LT(loose, P0.trace()) << "even a loose measurement should not grow the covariance";
+}
+
+TEST(FlybyFilterAlgorithmMeasurements, NoiseScaleMultipliesTheReadingCovariance) {
+    TestState const initial = nominalTruth();
+    Matrix6 const P0 = diagCovariance(100.0, 0.1);
+
+    // R = scale * covar_N: scaling the config by 100 must match supplying a 100x larger covar_N.
+    auto covarianceAfterUpdate = [&](float noiseScale, Eigen::Matrix3f const& covar_N) {
+        FlybyFilterAlgorithm algo(configWithNoiseScale(initial, P0, noiseScale));
+        algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
+        algo.update(10.0, makeHeadingData(10.0, headingOf(initial), covar_N));
+        return algo.getCovariance();
+    };
+
+    Eigen::Matrix3f const covar_N = headingCovariance(1E-3);
+    Matrix6 const scaled = covarianceAfterUpdate(100.0, covar_N);
+    Matrix6 const supplied = covarianceAfterUpdate(1.0, 100.0F * covar_N);
+    EXPECT_TRUE(scaled.isApprox(supplied, 1E-4)) << "the noise scale must multiply covar_N";
+    EXPECT_FALSE(scaled.isApprox(covarianceAfterUpdate(1.0, covar_N), 1E-4)) << "the scale must matter";
+}
+
+TEST(FlybyFilterAlgorithmMeasurements, ReadingWithoutAPositiveDefiniteCovarianceIsDropped) {
+    TestState const initial = nominalTruth();
+    Matrix6 const P0 = diagCovariance(100.0, 0.1);
+    constexpr double callTime = 10.0;
+    TestState const reference = propagateOnly(initial, P0, callTime);
+
+    float const nan = std::numeric_limits<float>::quiet_NaN();
+    Eigen::Matrix3f asymmetric = headingCovariance();
+    asymmetric(0, 1) = 1E-3;
+    std::array<Eigen::Matrix3f, 5> const unusable = {
+        Eigen::Matrix3f::Zero(),                        // a message that never set covar_N
+        -headingCovariance(),                           // negative definite
+        Eigen::Vector3f(1E-8, 1E-8, 0.0).asDiagonal(),  // singular
+        Eigen::Matrix3f::Constant(nan),                 // non-finite
+        asymmetric,
+    };
+    for (std::size_t i = 0; i < unusable.size(); ++i) {
+        FlybyFilterAlgorithm algo(baseConfig(initial, P0));
+        algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
+        FlybyFilterOutput const out = algo.update(callTime, makeHeadingData(callTime, headingOf(initial), unusable[i]));
+        EXPECT_FALSE(out.headingResiduals.valid) << "case " << i << " must not fire a measurement";
+        EXPECT_TRUE(algo.getState().raw().isApprox(reference.raw(), 1E-6)) << "case " << i;
+        EXPECT_TRUE(finiteSymmetricPsd(algo.getCovariance())) << "case " << i;
+    }
 }
 
 TEST(FlybyFilterAlgorithmMeasurements, WithoutMeasurementsGrowsCovarianceMonotonically) {
@@ -774,7 +866,7 @@ TEST(FlybyFilterAlgorithmMeasurements, NearlySingularPropagatedCovarianceStaysPs
                       1000.0F,
                       (Vector6() << 0.0F, 0.0F, 0.0F, -1.0F, 1.0F, 1E4F).finished(),
                       0.0F,
-                      kHeadingStd);
+                      kNoiseScale);
     ASSERT_TRUE(cfg);
     double const dt = 54.035677089711527;
     FlybyFilterAlgorithm algo(*cfg);
@@ -782,6 +874,7 @@ TEST(FlybyFilterAlgorithmMeasurements, NearlySingularPropagatedCovarianceStaysPs
     HeadingData heading;
     heading.timeTag = dt;
     heading.rhat_BN_N = Eigen::Vector3f(0.43308985833708125F, -0.092944800406123296F, 0.0F).normalized();
+    heading.covar_N = headingCovariance();
     algo.update(dt, heading);
     algo.reInitialize();
     algo.update(dt + 1.0, HeadingData{});
@@ -925,6 +1018,7 @@ TEST(FlybyFilterAlgorithmConvergence, TracksHeadingAndShrinksCovarianceOverAnArc
         HeadingData heading;
         heading.timeTag = i * dt;
         heading.rhat_BN_N = headingOf(truth);  // exact heading measurement
+        heading.covar_N = headingCovariance();
         algo.update(i * dt, heading);
     }
 
@@ -961,6 +1055,7 @@ TEST(FlybyFilterAlgorithmConvergence, TracksHeadingUnderNoisyMeasurements) {
         HeadingData heading;
         heading.timeTag = i * dt;
         heading.rhat_BN_N = rhat;
+        heading.covar_N = headingCovariance();
         algo.update(i * dt, heading);
     }
 

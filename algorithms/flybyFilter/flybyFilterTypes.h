@@ -11,11 +11,13 @@ extern "C" {
 #endif
 
 /**
- * @brief C mirror of a raw optical-navigation heading reading. timeTag > 0 flags a fresh reading.
+ * @brief C mirror of a raw optical-navigation heading reading. timeTag > 0 flags a fresh reading; a
+ *        reading whose covar_N is not finite and positive definite is dropped.
  */
 typedef struct {
-    double timeTag;      /*!< [s] measurement time tag */
-    double rhat_BN_N[3]; /*!< heading unit vector (spacecraft -> body, inertial frame) */
+    double timeTag;       /*!< [s] measurement time tag */
+    double rhat_BN_N[3];  /*!< heading unit vector (spacecraft -> body, inertial frame) */
+    double covar_N[3][3]; /*!< [-] heading noise covariance, inertial frame (row-major) */
 } FlybyHeadingData_c;
 
 /**

@@ -43,7 +43,8 @@ uint32_t FlybyFilterAlgorithm_getNumStates(void);
  * @param processNoise               [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState               [km, km/s] N-element initial state seed.
  * @param initialCovariance          [-] N x N initial covariance P0; must be positive semi-definite.
- * @param headingMeasurementNoiseStd [-] heading measurement noise std; must be > 0.
+ * @param measurementNoiseScale      [-] scale applied to each reading's covar_N; must be finite and > 0.
+ * @param measurementDelay           [s] processing delay for late measurements; must be >= 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
@@ -53,7 +54,8 @@ bool FlybyFilterAlgorithm_validateConfig(double alpha,
                                          const FlybyFilterStateMatrix_c* processNoise,
                                          const FlybyFilterStateVector_c* initialState,
                                          const FlybyFilterStateMatrix_c* initialCovariance,
-                                         double headingMeasurementNoiseStd);
+                                         double measurementNoiseScale,
+                                         double measurementDelay);
 
 /**
  * @brief Construct a filter from a validated configuration and seed its state/covariance.
@@ -63,7 +65,8 @@ bool FlybyFilterAlgorithm_validateConfig(double alpha,
  * @param processNoise               [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState               [km, km/s] N-element initial state seed.
  * @param initialCovariance          [-] N x N initial covariance P0; must be positive semi-definite.
- * @param headingMeasurementNoiseStd [-] heading measurement noise std; must be > 0.
+ * @param measurementNoiseScale      [-] scale applied to each reading's covar_N; must be finite and > 0.
+ * @param measurementDelay           [s] processing delay for late measurements; must be >= 0.
  * @return owning handle to the new instance (destroy with FlybyFilterAlgorithm_destroy)
  * @note create() validates the config and throws on invalid input; the exception propagates to Ada.
  */
@@ -73,7 +76,8 @@ FlybyFilterAlgorithmHandle* FlybyFilterAlgorithm_create(double alpha,
                                                         const FlybyFilterStateMatrix_c* processNoise,
                                                         const FlybyFilterStateVector_c* initialState,
                                                         const FlybyFilterStateMatrix_c* initialCovariance,
-                                                        double headingMeasurementNoiseStd);
+                                                        double measurementNoiseScale,
+                                                        double measurementDelay);
 
 /**
  * @brief Destroy a filter instance.
@@ -90,7 +94,8 @@ void FlybyFilterAlgorithm_destroy(FlybyFilterAlgorithmHandle* self);
  * @param processNoise               [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState               [km, km/s] N-element initial state seed.
  * @param initialCovariance          [-] N x N initial covariance P0; must be positive semi-definite.
- * @param headingMeasurementNoiseStd [-] heading measurement noise std; must be > 0.
+ * @param measurementNoiseScale      [-] scale applied to each reading's covar_N; must be finite and > 0.
+ * @param measurementDelay           [s] processing delay for late measurements; must be >= 0.
  * @note setConfig() validates the config and throws on invalid input; the exception propagates to Ada.
  */
 void FlybyFilterAlgorithm_setConfig(FlybyFilterAlgorithmHandle* self,
@@ -100,7 +105,8 @@ void FlybyFilterAlgorithm_setConfig(FlybyFilterAlgorithmHandle* self,
                                     const FlybyFilterStateMatrix_c* processNoise,
                                     const FlybyFilterStateVector_c* initialState,
                                     const FlybyFilterStateMatrix_c* initialCovariance,
-                                    double headingMeasurementNoiseStd);
+                                    double measurementNoiseScale,
+                                    double measurementDelay);
 
 /**
  * @brief Clear the internal runtime state (pending measurements and residual snapshot); the filter
