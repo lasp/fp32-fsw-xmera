@@ -13,9 +13,9 @@ TEST(RegionsOfInterestPruneTest, SingleSpanEachAxis) {
 }
 
 // Three row spans (sums 50, 30, 10) pruned to top 2; three col spans (sums 20, 5, 1) pruned to top 2.
-// Exercises the pre-filter on both axes together with the cross-product and the
+// Exercises the top-span selection on both axes together with the cross-product and the
 // count-desc/distance-to-center-asc/area-asc sort tie-break.
-TEST(RegionsOfInterestPruneTest, PreFilterBothAxesThenCrossProduct) {
+TEST(RegionsOfInterestPruneTest, TopSpansBothAxesThenCrossProduct) {
     testRegionsOfInterestPrune(
         /* rowSums */ {0, 10, 10, 10, 10, 10, 0, 10, 10, 10, 0, 10},  // spans: (1,5,50) (7,3,30) (11,1,10)
         /* colSums */ {0, 0, 5, 5, 5, 5, 0, 0, 5, 0, 1},              // spans: (2,4,20) (8,1,5) (10,1,1)
@@ -23,10 +23,10 @@ TEST(RegionsOfInterestPruneTest, PreFilterBothAxesThenCrossProduct) {
         /* maxColSpans */ 2);
 }
 
-// Same spans as above but maxRowSpans=maxColSpans=1: only the single highest-sum row/col span
-// survives the pre-filter, so the sole candidate must be the true global rank-1 (argmax(R) x
-// argmax(C)) — the invariant the pre-filter's doc comment claims.
-TEST(RegionsOfInterestPruneTest, Rank1PreservedUnderAggressivePreFilter) {
+// Same spans as above but maxRowSpans=maxColSpans=1: only the single highest-sum row/col span is
+// kept by the scan, so the sole candidate must be the true global rank-1 (argmax(R) x argmax(C)) —
+// the invariant the Step 1 documentation claims.
+TEST(RegionsOfInterestPruneTest, Rank1PreservedWithSingleTopSpan) {
     testRegionsOfInterestPrune(/* rowSums */ {0, 10, 10, 10, 10, 10, 0, 10, 10, 10, 0, 10},
                                /* colSums */ {0, 0, 5, 5, 5, 5, 0, 0, 5, 0, 1},
                                /* maxRowSpans */ 1,
@@ -52,22 +52,23 @@ TEST(RegionsOfInterestPruneTest, SetupTest) { testRegionsOfInterestPruneSetup();
 // Property tests
 // ---------------------------------------------------------------------------
 
-// 25-candidate cross-product (5 row spans x 5 col spans) must truncate to exactly
-// ROI_CANDIDATES_MAX, never more.
+// 5 row spans x 5 col spans pre-filtered to ROW_SPANS_MAX x COL_SPANS_MAX must produce exactly
+// MAX_RAW_CANDIDATES candidates, never more than ROI_CANDIDATES_MAX.
 TEST(RegionsOfInterestPruneTest, NumCandidatesNeverExceedsMax) {
     const auto grid = fiveRowFiveColSpans();
-    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(5U, 5U)};
+    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(ROW_SPANS_MAX, COL_SPANS_MAX)};
     const RoiCandidates out = alg.update(grid.rowSums.data(),
                                          static_cast<uint32_t>(grid.rowSums.size()),
                                          grid.colSums.data(),
                                          static_cast<uint32_t>(grid.colSums.size()));
-    EXPECT_EQ(out.numCandidates, ROI_CANDIDATES_MAX);
+    EXPECT_EQ(out.numCandidates, MAX_RAW_CANDIDATES);
+    EXPECT_LE(out.numCandidates, ROI_CANDIDATES_MAX);
 }
 
 // Published candidates are sorted by count in non-increasing order.
 TEST(RegionsOfInterestPruneTest, CandidatesSortedByCountDescending) {
     const auto grid = fiveRowFiveColSpans();
-    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(5U, 5U)};
+    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(ROW_SPANS_MAX, COL_SPANS_MAX)};
     const RoiCandidates out = alg.update(grid.rowSums.data(),
                                          static_cast<uint32_t>(grid.rowSums.size()),
                                          grid.colSums.data(),
@@ -82,7 +83,7 @@ TEST(RegionsOfInterestPruneTest, CandidatesStayWithinInputBounds) {
     const auto grid = fiveRowFiveColSpans();
     const auto numRows = static_cast<uint32_t>(grid.rowSums.size());
     const auto numCols = static_cast<uint32_t>(grid.colSums.size());
-    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(5U, 5U)};
+    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(ROW_SPANS_MAX, COL_SPANS_MAX)};
     const RoiCandidates out = alg.update(grid.rowSums.data(), numRows, grid.colSums.data(), numCols);
     for (uint32_t i = 0; i < out.numCandidates; ++i) {
         const auto& c = out.candidates[i];
@@ -95,7 +96,7 @@ TEST(RegionsOfInterestPruneTest, CandidatesStayWithinInputBounds) {
 // input pixels over the candidate's own row/col footprint.
 TEST(RegionsOfInterestPruneTest, CandidateCountNeverExceedsActualPixelSums) {
     const auto grid = fiveRowFiveColSpans();
-    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(5U, 5U)};
+    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(ROW_SPANS_MAX, COL_SPANS_MAX)};
     const RoiCandidates out = alg.update(grid.rowSums.data(),
                                          static_cast<uint32_t>(grid.rowSums.size()),
                                          grid.colSums.data(),
@@ -137,49 +138,50 @@ TEST(RegionsOfInterestPruneTest, SinglePixelArrays) {
                                /* maxColSpans */ 1);
 }
 
-// 130 single-pixel row spans (separated by gaps) exceed MAX_SPANS (128): findSpans silently drops
-// spans beyond the cap (see the header's MAX_SPANS comment). With maxRowSpans set far above 130, the
-// pre-filter itself does no further pruning, so any surviving candidate must come from one of the
-// first 128 spans (positions 0, 2, ..., 254) — never from the two dropped spans at 256/258. All 130
-// row spans share the same sum, so which specific 16 of the resulting 128 candidates get published is
-// tie-break-order-dependent, but the bound below (row <= 254) and the truncated count are not.
-TEST(RegionsOfInterestPruneTest, SpansBeyondMaxSpansCapAreDropped) {
-    std::vector<uint16_t> rowSums(259, 0);
-    for (uint32_t k = 0; k < 130; ++k) {
-        rowSums[2 * k] = 7;
+// 150 single-pixel row spans with strictly increasing sums 1..150: the top ROW_SPANS_MAX are the
+// last four, all past index 128. The running top-K scan inspects every span, so spans late in the
+// array are never dropped (no fixed cap on the number of spans scanned).
+TEST(RegionsOfInterestPruneTest, LateHighSumSpansAreKept) {
+    std::vector<uint16_t> rowSums(300, 0);
+    for (uint32_t k = 0; k < 150; ++k) {
+        rowSums[2 * k] = static_cast<uint16_t>(k + 1);
     }
-    const std::vector<uint16_t> colSums = {9};
-
-    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(1000U, 1U)};
-    RoiCandidates out{};
-    EXPECT_NO_THROW(out = alg.update(rowSums.data(),
-                                     static_cast<uint32_t>(rowSums.size()),
-                                     colSums.data(),
-                                     static_cast<uint32_t>(colSums.size())));
-
-    EXPECT_EQ(out.numCandidates, ROI_CANDIDATES_MAX);
-    for (uint32_t i = 0; i < out.numCandidates; ++i) {
-        EXPECT_LE(out.candidates[i].row, 254U) << "candidate " << i << " references a dropped span";
-    }
+    testRegionsOfInterestPrune(rowSums,
+                               /* colSums */ {200},
+                               /* maxRowSpans */ ROW_SPANS_MAX,
+                               /* maxColSpans */ 1);
 }
 
-// maxRowSpans/maxColSpans far exceeding the actual span count must not prune anything and must not
-// misbehave (exercises the keep = std::min(keep, n) boundary at a large keep value).
-TEST(RegionsOfInterestPruneTest, HugeMaxSpansKeepsAllAvailableSpans) {
+// Equal sums at the keep cutoff: the scan only replaces the smallest kept span on a strictly greater
+// sum, so the earlier span wins the tie (matches the reference's stable sort).
+TEST(RegionsOfInterestPruneTest, EarlierSpanWinsTieAtCutoff) {
+    testRegionsOfInterestPrune(/* rowSums */ {9, 0, 5, 0, 5, 0, 5},  // spans sums 9,5,5,5 -> keep 9 + first 5
+                               /* colSums */ {20},
+                               /* maxRowSpans */ 2,
+                               /* maxColSpans */ 1);
+}
+
+// maxRowSpans/maxColSpans at their upper bound but exceeding the actual span count must not prune
+// anything and must not misbehave (exercises the keep = std::min(keep, n) boundary).
+TEST(RegionsOfInterestPruneTest, MaxSpansAboveSpanCountKeepsAllAvailableSpans) {
     testRegionsOfInterestPrune(
         /* rowSums */ {10, 10, 10, 0, 6},  // spans: (0,3,30) (4,1,6)
         /* colSums */ {8, 8, 0, 3, 3, 3},  // spans: (0,2,16) (3,3,9)
-        /* maxRowSpans */ 1000000U,
-        /* maxColSpans */ 1000000U);
+        /* maxRowSpans */ ROW_SPANS_MAX,
+        /* maxColSpans */ COL_SPANS_MAX);
 }
 
 // ---------------------------------------------------------------------------
-// Config test — round-trip at the top of the valid range (no upper bound is enforced)
+// Config test — round-trip at the top of the valid range, rejection just above it
 // ---------------------------------------------------------------------------
 
-TEST(RegionsOfInterestPruneTest, ConfigAcceptsLargeMaxSpanValues) {
+TEST(RegionsOfInterestPruneTest, ConfigEnforcesMaxSpanUpperBound) {
     RegionsOfInterestPruneConfig cfg = RegionsOfInterestPruneConfig::create(1U, 1U);
-    EXPECT_NO_THROW(cfg = RegionsOfInterestPruneConfig::create(UINT32_MAX, UINT32_MAX));
-    EXPECT_EQ(cfg.getMaxRowSpans(), UINT32_MAX);
-    EXPECT_EQ(cfg.getMaxColSpans(), UINT32_MAX);
+    EXPECT_NO_THROW(cfg = RegionsOfInterestPruneConfig::create(ROW_SPANS_MAX, COL_SPANS_MAX));
+    EXPECT_EQ(cfg.getMaxRowSpans(), ROW_SPANS_MAX);
+    EXPECT_EQ(cfg.getMaxColSpans(), COL_SPANS_MAX);
+
+    EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(ROW_SPANS_MAX + 1U, 1U), fsw::invalid_argument);
+    EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(1U, COL_SPANS_MAX + 1U), fsw::invalid_argument);
+    EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(UINT32_MAX, UINT32_MAX), fsw::invalid_argument);
 }

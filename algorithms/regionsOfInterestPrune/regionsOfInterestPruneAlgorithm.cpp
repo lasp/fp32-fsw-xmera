@@ -1,7 +1,6 @@
 #include "regionsOfInterestPruneAlgorithm.h"
 
 #include <algorithm>
-#include <functional>
 #include <iterator>
 
 RegionsOfInterestPruneAlgorithm::RegionsOfInterestPruneAlgorithm(const RegionsOfInterestPruneConfig& config)
@@ -12,7 +11,7 @@ RegionsOfInterestPruneAlgorithm::RegionsOfInterestPruneAlgorithm(const RegionsOf
 void RegionsOfInterestPruneAlgorithm::setConfig(const RegionsOfInterestPruneConfig& config) { this->cfg = config; }
 
 /*! Update method for the regions-of-interest pruning algorithm.  Orchestrates
- *  the four pipeline steps and returns a fully populated RoiCandidates.
+ *  the three pipeline steps and returns a fully populated RoiCandidates.
  @return RoiCandidates  Candidates sorted by estimated pixel count (descending), ties broken by
                         distance to image center (ascending) then window area (ascending).
  @param rowSums   Pointer to the per-row above-threshold pixel sums.
@@ -24,16 +23,15 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
                                                       uint32_t numRows,
                                                       const uint16_t* colSums,
                                                       uint32_t numCols) const {
-    // Step 1: locate contiguous non-zero spans and accumulate per-span pixel sums.
-    const auto [rowSpans, rowAccum] = findSpans(std::span<const uint16_t>(rowSums, numRows));
-    const auto [colSpans, colAccum] = findSpans(std::span<const uint16_t>(colSums, numCols));
+    // Step 1: locate contiguous non-zero spans, keeping only the highest-sum spans to bound the
+    // cross-product size.
+    const RowTopSpans rowSpans =
+        findTopSpans<ROW_SPANS_MAX>(std::span<const uint16_t>(rowSums, numRows), this->cfg.getMaxRowSpans());
+    const ColTopSpans colSpans =
+        findTopSpans<COL_SPANS_MAX>(std::span<const uint16_t>(colSums, numCols), this->cfg.getMaxColSpans());
 
-    // Step 2: keep only the highest-sum spans to bound the cross-product size.
-    const auto topRows = topIndices(rowAccum, this->cfg.getMaxRowSpans());
-    const auto topCols = topIndices(colAccum, this->cfg.getMaxColSpans());
-
-    // Steps 3–4: form bounding boxes, sort by estimated pixel count, truncate.
-    return packOutput(buildCandidates(rowSpans, rowAccum, topRows, colSpans, colAccum, topCols), numRows, numCols);
+    // Steps 2–3: form bounding boxes, sort by estimated pixel count, truncate.
+    return packOutput(buildCandidates(rowSpans, colSpans), numRows, numCols);
 }
 
 namespace {
@@ -56,15 +54,20 @@ float squaredDistanceToCenter(const RoiCandidateEntry& candidate, float centerRo
 // NOLINTEND(bugprone-easily-swappable-parameters)
 }  // namespace
 
-/*! Scans a 1-D sum array and returns all contiguous non-zero spans together
- *  with the accumulated sum for each span.  A single forward pass produces both.
- @return Pair of (spans, accum) where spans[i] = (start, length) and accum[i] = sum over that span.
- @param s  Span over the 1-D sum array.
+/*! Scans a 1-D sum array for contiguous non-zero spans and keeps the top-keep spans by accumulated
+ *  sum in a single forward pass.  Each finished span is insertion-sorted into a fixed-capacity buffer
+ *  (O(N * keep)); when the buffer is full, a span replaces the current smallest only if its sum is
+ *  strictly greater, so on ties the earlier span wins.
+ @return TopSpans holding at most keep spans, sorted by sum descending.
+ @param s     Span over the 1-D sum array.
+ @param keep  Maximum number of spans to retain (<= Capacity, enforced by the config).
 */
-std::pair<RegionsOfInterestPruneAlgorithm::SpanArray, RegionsOfInterestPruneAlgorithm::AccumArray>
-RegionsOfInterestPruneAlgorithm::findSpans(std::span<const uint16_t> s) {
-    SpanArray spans;
-    AccumArray accum;
+template <uint32_t Capacity>
+RegionsOfInterestPruneAlgorithm::TopSpans<Capacity> RegionsOfInterestPruneAlgorithm::findTopSpans(
+    std::span<const uint16_t> s,
+    uint32_t keep) {
+    TopSpans<Capacity> top;
+    keep = std::min(keep, Capacity);
     const auto n = static_cast<uint32_t>(s.size());
     uint32_t pos = 0;
     while (pos < n) {
@@ -79,78 +82,48 @@ RegionsOfInterestPruneAlgorithm::findSpans(std::span<const uint16_t> s) {
             sum += s[pos];
             ++pos;
         }
-        const uint32_t spanLength = pos - spanStart;
+        const SpanEntry span{.start = spanStart, .length = pos - spanStart, .sum = sum};
 
-        if (spans.count < MAX_SPANS) {
-            spans.data[spans.count] = {spanStart, spanLength};
-            accum.data[accum.count] = sum;
-            ++spans.count;
-            ++accum.count;
+        // Append if there is room, otherwise overwrite the smallest kept span if this one beats it.
+        uint32_t slot = 0;
+        if (top.count < keep) {
+            slot = top.count++;
+        } else if (sum > top.data[keep - 1].sum) {
+            slot = keep - 1;
+        } else {
+            continue;
         }
+        // Bubble the new span up past strictly smaller sums to keep data[0..count) sorted.
+        while (slot > 0 && top.data[slot - 1].sum < sum) {
+            top.data[slot] = top.data[slot - 1];
+            --slot;
+        }
+        top.data[slot] = span;
     }
-    return {spans, accum};
+    return top;
 }
 
-/*! Returns the indices of the top-keep entries of vals ordered by descending value.
- *  Uses std::ranges::partial_sort so only the retained portion is fully sorted (O(N log keep)).
- @return AccumArray of at most keep indices into vals, sorted by vals[i] descending.
- @param vals  Accumulator values to rank.
- @param keep  Maximum number of top entries to retain.
-*/
-RegionsOfInterestPruneAlgorithm::AccumArray RegionsOfInterestPruneAlgorithm::topIndices(const AccumArray& vals,
-                                                                                        uint32_t keep) {
-    AccumArray idx;
-    // vals.count <= MAX_SPANS is guaranteed because AccumArray values are produced by
-    // findSpans(), which caps the number of stored entries at MAX_SPANS.
-    const uint32_t n = vals.count;
-    for (uint32_t i = 0; i < n; ++i) {
-        idx.data[i] = i;
-    }
-    keep = std::min(keep, n);  // use logical count
-    std::ranges::partial_sort(idx.data.begin(),
-                              std::next(idx.data.begin(), keep),
-                              std::next(idx.data.begin(), n),
-                              std::greater{},
-                              [&vals](uint32_t i) { return vals.data[i]; });  // sort only valid slots
-    idx.count = keep;                                                         // record logical size
-
-    return idx;
-}
-
-/*! Forms bounding-box candidates from the cross-product of the filtered row and col spans.
+/*! Forms bounding-box candidates from the cross-product of the top row and col spans.
  *  The estimated pixel count for each box is min(R[k], C[l]) — the tightest upper bound
  *  obtainable from 1-D projections alone.
- @return CandidateArray of RoiCandidateEntry, one per (rowIdx × colIdx) pair.
- @param rowSpans  All detected row spans.
- @param R         Per-row-span accumulator sums.
- @param rowIdx    Indices into rowSpans / R selected by the pre-filter (Step 2).
- @param colSpans  All detected col spans.
- @param C         Per-col-span accumulator sums.
- @param colIdx    Indices into colSpans / C selected by the pre-filter (Step 2).
+ @return CandidateArray of RoiCandidateEntry, one per (row span × col span) pair.
+ @param rowSpans  Top row spans selected by findTopSpans (Step 1).
+ @param colSpans  Top col spans selected by findTopSpans (Step 1).
 */
-// NOLINTBEGIN(bugprone-easily-swappable-parameters) -- R/rowIdx and C/colIdx are legitimately paired,
-// documented adjacent inputs (an accumulator plus its pre-filtered index list); this shape is intentional.
 RegionsOfInterestPruneAlgorithm::CandidateArray RegionsOfInterestPruneAlgorithm::buildCandidates(
-    const SpanArray& rowSpans,
-    const AccumArray& R,
-    const AccumArray& rowIdx,
-    const SpanArray& colSpans,
-    const AccumArray& C,
-    const AccumArray& colIdx) {
+    const RowTopSpans& rowSpans,
+    const ColTopSpans& colSpans) {
     CandidateArray candidates;
-    for (uint32_t a = 0; a < rowIdx.count; ++a) {
-        const uint32_t ki = rowIdx.data[a];
-        for (uint32_t b = 0; b < colIdx.count; ++b) {
-            const uint32_t li = colIdx.data[b];
-            const auto [r, h] = rowSpans.data[ki];
-            const auto [c, w] = colSpans.data[li];
+    for (uint32_t a = 0; a < rowSpans.count; ++a) {
+        const SpanEntry& r = rowSpans.data[a];
+        for (uint32_t b = 0; b < colSpans.count; ++b) {
+            const SpanEntry& c = colSpans.data[b];
             candidates.data[candidates.count++] = {
-                .row = r, .col = c, .height = h, .width = w, .count = std::min(R.data[ki], C.data[li])};
+                .row = r.start, .col = c.start, .height = r.length, .width = c.length, .count = std::min(r.sum, c.sum)};
         }
     }
     return candidates;
 }
-// NOLINTEND(bugprone-easily-swappable-parameters)
 
 /*! Sorts candidates by estimated pixel count (descending); ties are broken first by squared distance
  *  from the candidate's box center to the image center (ascending — closer wins), then by window area
