@@ -188,7 +188,8 @@ Configuration parameters
 
 The measurement queue holds ``BatchSize = 5`` measurements. Each call enqueues the new readings before it processes
 the due ones, so the queue must hold every reading received within the delay, plus the new ones. With one attitude
-and one rate reading per call, that is two readings per call of delay: a delay up to 2 s at a 1 Hz call rate fits.
+and one rate reading per call, that is two readings per call of delay: at a 1 Hz call rate, a delay up to 1 s fits
+(four readings), while 2 s would need six.
 When the queue is full, the oldest measurement is dropped. See "Heterogeneous rates share one anchor" in
 ``filteringCore.rst`` for how the delay works.
 
