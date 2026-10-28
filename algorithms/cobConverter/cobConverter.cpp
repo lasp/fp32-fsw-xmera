@@ -4,7 +4,7 @@
 #include <stdexcept>
 
 namespace {
-constexpr int kFilterStates = 6;  //!< [-] states of the flyby filter solution: position and velocity
+constexpr int kFilterStates = 8;  //!< [-] flyby filter solution states: position, velocity, two heading-bias angles
 }  // namespace
 
 /**
@@ -29,7 +29,7 @@ void CobConverter::reset(uint64_t currentSimNanos) {
     // state size is.
     if (this->opnavFilterInMsg.isLinked() && this->opnavFilterInMsg.isWritten() &&
         this->opnavFilterInMsg().numberOfStates != kFilterStates) {
-        throw std::invalid_argument("CobConverter.opnavFilterInMsg: numberOfStates must be 6.");
+        throw std::invalid_argument("CobConverter.opnavFilterInMsg: numberOfStates must be 8.");
     }
 
     this->algorithm = std::make_unique<CobConverterAlgorithm>(this->toConfig());
@@ -105,7 +105,8 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
 
     FilterState filter;
     filter.filterVehPosition = cArrayToEigenVector3<double>(filterMsg.state);
-    filter.filterVehPositionCovariance = cArrayToEigenMatrix<double, 6, 6>(filterMsg.covar).topLeftCorner<3, 3>();
+    filter.filterVehPositionCovariance =
+        cArrayToEigenMatrix<double, kFilterStates, kFilterStates>(filterMsg.covar).topLeftCorner<3, 3>();
 
     const auto [out, diag] = this->algorithm->updateState(cob, attitude, filter);
 
