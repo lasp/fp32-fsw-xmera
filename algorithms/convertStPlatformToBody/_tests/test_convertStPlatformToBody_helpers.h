@@ -37,9 +37,9 @@ inline Eigen::Vector4f toScalarLast(const Eigen::Vector4d& ep) {
 }
 
 /*!
- * @brief Convert a case-frame angular velocity to a unit delta quaternion (scalar-last).
+ * @brief Pack a case-frame angular velocity into an angular velocity quaternion (scalar-last).
  *
- * Uses a one-sample interval (Δt = 1) so θ = ‖ω‖ and axis = ω/‖ω‖. The result is
+ * The angle element is the rate itself, so θ = ‖ω‖ and axis = ω/‖ω‖. The result is
  * dq = [sin(θ/2)·axis, cos(θ/2)], matching the scalar-last convention consumed by
  * ConvertStPlatformToBodyAlgorithm. Returns [0, 0, 0, 1] (identity rotation) when
  * ‖ω‖ is below a small threshold.

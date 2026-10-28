@@ -158,7 +158,7 @@ TEST(ConvertStPlatformToBody, IdentityDeltaQuaternion_ProducesZeroOmega) {
 TEST(ConvertStPlatformToBody, ZeroDeltaQuaternion_ProducesZeroOmega) {
     // dq_CN = [0, 0, 0, 0] is what a default-initialized PlatformAngularVelocity carries.
     // The algorithm's ‖vec‖ > 0 guard must fire and produce ω = 0 without letting the
-    // dq[3]=0 branch (acos(0)=π/2) combine with a zero denominator to emit NaN/Inf.
+    // dq[3]=0 branch (atan2(0, 0)) combine with a zero denominator to emit NaN/Inf.
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
 
     const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
@@ -191,7 +191,7 @@ TEST(ConvertStPlatformToBody, DeltaQuaternionHalfPi_MatchesExpectedOmega) {
 
 TEST(ConvertStPlatformToBody, DeltaQuaternionNearPi_MatchesExpectedOmega) {
     // θ ≈ π − 0.01 about (1,2,3)/‖(1,2,3)‖. Near-π is a well-conditioned regime for
-    // acos (derivative ≈ −1 near dq_CN[3] ≈ 0), so tight OMEGA_TOLERANCE is appropriate.
+    // atan2 (dq_CN[3] ≈ 0), so tight OMEGA_TOLERANCE is appropriate.
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
 
     const double theta = M_PI - 0.01;
