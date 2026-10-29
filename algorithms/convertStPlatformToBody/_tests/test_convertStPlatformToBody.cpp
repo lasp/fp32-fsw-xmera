@@ -119,3 +119,31 @@ TEST(ConvertStPlatformToBodyTest, SetupTest) {
     EXPECT_FALSE(ConvertStPlatformToBodyConfig::isValidSigma_CB(infSigma));
     EXPECT_TRUE(ConvertStPlatformToBodyConfig::isValidSigma_CB(Eigen::Vector3f::Zero()));
 }
+
+TEST(ConvertStPlatformToBodyTest, SetConfigAppliesNewMounting) {
+    // Input: identity attitude, omega_CN_C about x; setConfig() changes the mounting from identity to 90 deg about z.
+    // Expected: before, sigma_BN = sigma_CN = 0 and omega_BN_B = omega_CN_C; after, sigma_BN = -sigma_CB and
+    // omega_BN_B = [CB]^T omega_CN_C (the cached sigma_BC and dcm_BC are recomputed).
+    const Eigen::Vector4f q_CN{0.0F, 0.0F, 0.0F, 1.0F};  // identity attitude (scalar-last)
+    const Eigen::Vector3d omega_CN_C{0.1, 0.0, 0.0};     // [rad/s] about the case x-axis
+    const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
+
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
+    const StAttitudeOutput before = algorithm.update(q_CN, dq_CN);
+    EXPECT_TRUE(before.sigma_BN.isZero(ATTITUDE_TOLERANCE));
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(before.omega_BN_B[i], static_cast<float>(omega_CN_C(i)), OMEGA_TOLERANCE);
+    }
+
+    // 90-degree mounting rotation about z
+    const Eigen::Vector3f sigma_CB = prvToMrp<double>(90.0 * degToRad * Eigen::Vector3d::UnitZ()).cast<float>();
+    algorithm.setConfig(ConvertStPlatformToBodyConfig::create(sigma_CB));
+    const StAttitudeOutput after = algorithm.update(q_CN, dq_CN);
+
+    // After setConfig(): sigma_BN = -sigma_CB and omega_BN_B = [CB]^T omega_CN_C
+    const Eigen::Vector3f omega_BN_B_expected = mrpToDcm<float>(sigma_CB).transpose() * omega_CN_C.cast<float>();
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(after.sigma_BN[i], -sigma_CB[i], ATTITUDE_TOLERANCE);
+        EXPECT_NEAR(after.omega_BN_B[i], omega_BN_B_expected[i], OMEGA_TOLERANCE);
+    }
+}
