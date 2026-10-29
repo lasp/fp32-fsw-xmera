@@ -16,12 +16,12 @@
 // Independently reimplements the span / pre-filter / cross-product / sort pipeline using
 // std::vector, sharing no code with the algorithm under test.
 //
-// Tie-break note: the algorithm's pre-filter (topIndices) uses std::ranges::partial_sort, which is
-// not stable, so which spans win a tie in accumulator sum at the maxRowSpans/maxColSpans cutoff is
-// implementation-defined. Likewise the final sort (packOutput) is a plain std::ranges::sort, so a
-// full tie on (count, distance-to-center, area) is also implementation-defined. Callers of
-// referenceRegionsOfInterestPrune intended for exact-match regression comparisons must choose inputs
-// with no ties at either boundary.
+// Tie-break note: the algorithm's running top-K span scan (findTopSpans) only replaces a kept span on a
+// strictly greater sum, so on a tie in accumulator sum at the maxRowSpans/maxColSpans cutoff the
+// earlier span wins — matching referenceTopSpans' stable sort. The final sort (packOutput), however,
+// is a plain std::ranges::sort, so a full tie on (count, distance-to-center, area) is
+// implementation-defined. Callers of referenceRegionsOfInterestPrune intended for exact-match
+// regression comparisons must choose inputs with no ties at that final-sort boundary.
 
 struct RefSpan {
     uint32_t start{};
@@ -117,7 +117,7 @@ inline RoiCandidates referenceRegionsOfInterestPrune(const std::vector<uint16_t>
 // ---------------------------------------------------------------------------
 
 // Drive the algorithm on (rowSums, colSums) and compare its output to the independent reference.
-// Inputs should have no ties at the maxRowSpans/maxColSpans cutoff (see tie-break note above) so the
+// Inputs should have no full ties at the final-sort boundary (see tie-break note above) so the
 // comparison is exact.
 inline void testRegionsOfInterestPrune(const std::vector<uint16_t>& rowSums,
                                        const std::vector<uint16_t>& colSums,
@@ -151,15 +151,16 @@ inline void testRegionsOfInterestPrune(const std::vector<uint16_t>& rowSums,
 
 inline void testRegionsOfInterestPruneSetup() {
     EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(1U, 1U));
+    EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(2U, 3U));
     EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(DEFAULT_MAX_ROW_SPANS, DEFAULT_MAX_COL_SPANS));
 
     EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(0U, 1U), fsw::invalid_argument);
     EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(1U, 0U), fsw::invalid_argument);
     EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(0U, 0U), fsw::invalid_argument);
 
-    const RegionsOfInterestPruneConfig cfg = RegionsOfInterestPruneConfig::create(5U, 7U);
-    EXPECT_EQ(cfg.getMaxRowSpans(), 5U);
-    EXPECT_EQ(cfg.getMaxColSpans(), 7U);
+    const RegionsOfInterestPruneConfig cfg = RegionsOfInterestPruneConfig::create(2U, 4U);
+    EXPECT_EQ(cfg.getMaxRowSpans(), 2U);
+    EXPECT_EQ(cfg.getMaxColSpans(), 4U);
 }
 
 // ---------------------------------------------------------------------------
@@ -172,9 +173,10 @@ struct GridInputs {
 };
 
 // 5 row spans (sums 100,90,80,70,60) x 5 col spans (sums 50,40,30,20,10): every col sum is below
-// every row sum, so count = min(row,col) = col always, and the 25-candidate cross-product exceeds
-// ROI_CANDIDATES_MAX (16) — used by the property tests below, which only check bound/order/count
-// invariants that hold regardless of which candidates win a count tie.
+// every row sum, so count = min(row,col) = col always; with the pre-filter at ROW_SPANS_MAX x
+// COL_SPANS_MAX both axes are pruned and the cross-product yields MAX_RAW_CANDIDATES — used by
+// the property tests below, which only check bound/order/count invariants that hold regardless of
+// which candidates win a count tie.
 inline GridInputs fiveRowFiveColSpans() {
     return {
         {100, 0, 90, 0, 80, 0, 70, 0, 60},
@@ -196,9 +198,9 @@ inline uint32_t rangeSum(const std::vector<uint16_t>& v, uint32_t start, uint32_
 // ---------------------------------------------------------------------------
 //
 // Unlike testRegionsOfInterestPrune (exact-match against the reference), these only check invariants
-// that hold for ANY input regardless of which candidates win a tie at the pre-filter or final-sort
-// boundary (see the tie-break note above) — safe to fuzz with arbitrary row/col sum arrays, which are
-// highly likely to contain ties.
+// that hold for ANY input regardless of how full ties are ordered at the final-sort boundary (see the
+// tie-break note above) — safe to fuzz with arbitrary row/col sum arrays, which are highly likely to
+// contain ties.
 
 // Output is well-formed: never throws, never exceeds ROI_CANDIDATES_MAX, sorted by count descending,
 // and every candidate's bounding box lies within the input arrays.

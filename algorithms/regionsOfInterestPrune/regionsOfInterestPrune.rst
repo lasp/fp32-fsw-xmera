@@ -24,21 +24,17 @@ Pipeline stages::
     rowColSumInMsg
          |
          v
-    1. Find spans        --  Find every unbroken run of non-zero values in the list,
-                                and for each one, record its position, its length,
-                                and the total of its values
+    1. Find top spans    --  in a single scan, find every unbroken run of non-zero
+                                values, record its position, length and total, and
+                                keep only the top maxRowSpans row spans / top
+                                maxColSpans col spans (ranked by sum)
          |
          v
-    2. Pre-filter        --  keep only the top maxRowSpans row spans, top maxColSpans
-                                col spans (ranked by sum)
-
-         |
-         v
-    3. Build candidates  --  form a box from each row/col pair and use the smaller sum
+    2. Build candidates  --  form a box from each row/col pair and use the smaller sum
                                 as a safe estimate
          |
          v
-    4. Sort & truncate   --  rank by count, then closeness to center, then size; keep
+    3. Sort & truncate   --  rank by count, then closeness to center, then size; keep
                                 top ROI_CANDIDATES_MAX
          |
          v
@@ -54,32 +50,32 @@ payload, a ``float``/``int`` cast for publication, or the adapter's ``MAX_NUMBER
 job ends at producing up to ``ROI_CANDIDATES_MAX`` (16) ranked candidates in corner-coordinate form
 (top-left ``row``/``col`` plus ``height``/``width``).
 
-**Step 1: span detection and accumulation**
+**Step 1: span detection, accumulation and top-K selection (single pass)**
 
 A *span* is a maximal contiguous run of non-zero entries in a 1-D sum array. Each row span
 ``(r, h)`` and col span ``(c, w)`` marks the start and length of a group of image rows or columns
-that contain at least one above-threshold pixel. The per-span accumulator sum ``R[k]`` (or ``C[l]``)
-is computed in the same single forward pass as span detection, up to a hard cap of ``MAX_SPANS``
-(128) stored spans per axis any further spans found beyond that cap are still scanned past, just not stored.
+that contain at least one above-threshold pixel, and its sum ``R[k]`` (or ``C[l]``) is accumulated
+as the span is scanned.
 
 .. image:: _Documentation/Figures/roi_prune_overview.png
+   :width: 100%
    :alt: Thresholded image with row/column sums, grid indices, and span accumulation example
 
-**Step 2: candidate filtering**
-
-If every row span were paired with every column span, the number of combinations could grow very
-large as the image becomes more complex. To keep the computation manageable, the module keeps only
-the strongest ``maxRowSpans`` row spans (ranked by their sums, ``R[k]``) and the strongest
-``maxColSpans`` column spans (ranked by ``C[l]``). Pairing these reduced sets limits the total number
-of candidates to at most ``maxRowSpans × maxColSpans``, regardless of image size.
+Pairing every row span with every column span could produce a very large number of candidates in a
+complex image, so only the strongest ``maxRowSpans`` row spans and ``maxColSpans`` column spans
+(ranked by sum) are kept. This happens during the same scan: each finished span is insertion-sorted
+into a small fixed-size buffer that always holds the best spans seen so far, so every span is
+considered without storing them all. On a tie in sum at the cutoff, the earlier span is kept. Both
+limits are capped at ``ROW_SPANS_MAX`` = ``COL_SPANS_MAX`` = 4, so there are at most
+``ROI_CANDIDATES_MAX`` (16) candidates and memory use does not depend on image size.
 
 This is safe because the best rank-1 candidate is always formed by the row span with the highest sum
 and the column span with the highest sum. Since both are always included in the reduced sets, the
 best candidate is never discarded.
 
-**Step 3: cross-product and pixel count estimation**
+**Step 2: cross-product and pixel count estimation**
 
-Every combination of a filtered row span ``k`` and a filtered col span ``l`` defines a bounding box
+Every combination of a kept row span ``k`` and a kept col span ``l`` defines a bounding box
 candidate ``(r, h, c, w)`` where ``r`` / ``h`` are the start row and height from span ``k``, and
 ``c`` / ``w`` are the start column and width from span ``l``. The estimated pixel count for each box
 is:
@@ -89,12 +85,9 @@ is:
 * ``count = min(R[k], C[l])`` — the tightest upper bound obtainable from 1-D projections alone. The
   true count may be lower, but never higher
 
-.. image:: _Documentation/Figures/build_candidates_cross_product.png
-   :alt: Cross-product of top row and column spans, showing real vs. ghost ROI candidates
+**Step 3: sort and truncate**
 
-**Step 4 — sort and truncate**
-
-All candidates from Step 3 are ranked by three keys, in order:
+All candidates from Step 2 are ranked by three keys, in order:
 
 #. ``count``, (descending), higher estimated pixel count ranks first.
 #. Squared distance from the candidate's box center to the image center (``numRows/2``,
@@ -127,7 +120,7 @@ Adapter Layer
 candidates, but ``RegionsIdentified​MsgF32Payload`` only has room for ``MAX_NUMBER_REGIONS`` (3). The
 adapter publishes ``min(candidates.numCandidates, MAX_NUMBER_REGIONS)`` i.e. only the top 3 of the
 algorithm's up-to-16 ranked candidates ever reach the published message; the rest are computed
-internally (as part of Step 2's pre-filter safeguard) but never published.
+internally (as part of Step 1's pre-filter safeguard) but never published.
 
 
 Message Connection Descriptions
@@ -165,14 +158,14 @@ Config Parameters
     * - ``maxRowSpans``
       - ``uint32_t``
       - 3
-      - ``> 0`` — number of top row spans kept by the Step 2 pre-filter.
+      - ``1`` to ``ROW_SPANS_MAX`` (4) — number of top row spans kept by Step 1.
     * - ``maxColSpans``
       - ``uint32_t``
       - 3
-      - ``> 0`` — number of top col spans kept by the Step 2 pre-filter.
+      - ``1`` to ``COL_SPANS_MAX`` (4) — number of top col spans kept by Step 1.
 
 Both properties are validated together by ``RegionsOfInterestPruneConfig::create()`` — an invalid
-value (0) throws at ``reset()``/``reconfigure()`` time rather than silently misbehaving.
+value (0, or above 4) throws at ``reset()``/``reconfigure()`` time rather than silently misbehaving.
 
 
 User Guide
@@ -188,8 +181,8 @@ User Guide
     pruner.ModelTag = "roiPrune"
 
     # Optional: tune the pre-filter safeguard (defaults: 3 each)
-    pruner.maxRowSpans = 10
-    pruner.maxColSpans = 10
+    pruner.maxRowSpans = 4
+    pruner.maxColSpans = 4
 
 #. Connect to the upstream pipeline::
 
@@ -211,7 +204,7 @@ User Guide
 #. To change ``maxRowSpans``/``maxColSpans`` after ``reset()`` has already run, set the property and
    call ``reconfigure()`` — the change does not take effect until then::
 
-    pruner.maxRowSpans = 5
+    pruner.maxRowSpans = 2
     pruner.reconfigure()
 
 
@@ -219,12 +212,8 @@ Assumptions and Limitations
 =============================
 
 * ``count`` is an upper-bound estimate derived from 1-D row/column projections, never an exact 2-D
-  pixel count see Step 3.
-* Both span-detection axes are capped at ``MAX_SPANS`` (128) stored spans; any spans beyond that cap
-  are silently dropped, not stored, and cannot become candidates.
+  pixel count see Step 2.
+* At most ``ROW_SPANS_MAX`` (4) row spans and ``COL_SPANS_MAX`` (4) col spans are retained per
+  update, so at most ``ROI_CANDIDATES_MAX`` (16) candidates are ever formed.
 * Only the top ``MAX_NUMBER_REGIONS`` (3) of the algorithm's up-to-16 ranked candidates are ever
   published see "Truncation to the message's capacity" above.
-* ``reset()`` is startup-only; per this codebase's lifecycle contract, a state-transition
-  ``reInitialize()`` hook is not implemented for this module. This algorithm carries no persistent
-  state between calls (it is a pure function of its inputs each ``updateState()``), so this gap has
-  no behavioral effect in this module's current usage.

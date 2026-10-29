@@ -38,8 +38,8 @@ typedef struct {
 
 /**
  * @brief Plain-old-data mirror of the C++ RegionsOfInterestPruneConfig.
- *  - maxRowSpans, maxColSpans: pre-filter span counts kept before the cross-product; both must
- *    be > 0.
+ *  - maxRowSpans, maxColSpans: pre-filter span counts kept before the cross-product; each must
+ *    be in [1, 4] (ROW_SPANS_MAX / COL_SPANS_MAX in regionsOfInterestPruneAlgorithm.h).
  */
 typedef struct {
     uint32_t maxRowSpans;
