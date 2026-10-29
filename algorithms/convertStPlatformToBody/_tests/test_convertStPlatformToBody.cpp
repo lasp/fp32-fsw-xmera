@@ -5,13 +5,6 @@
 #include <cstdint>
 #include <limits>
 
-TEST(ConvertStPlatformToBodyTest, ReferenceTestIdentity) {
-    // With identity mounting and identity quaternion, output MRP and omega should be zero
-    testConvertStPlatformToBodyRegression(Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},  // q_CN
-                                          Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},  // dq_CN
-                                          Eigen::Vector3f::Zero());                 // sigma_CB
-}
-
 TEST(ConvertStPlatformToBodyTest, ReferenceTestMountingArbitraryAxis) {
     // Arbitrary mounting rotation
     testConvertStPlatformToBodyRegression(
@@ -20,12 +13,27 @@ TEST(ConvertStPlatformToBodyTest, ReferenceTestMountingArbitraryAxis) {
         prvToMrp<double>(40.0 * degToRad * Eigen::Vector3d(1, -2, 0.5).stableNormalized()).cast<float>());  // sigma_CB
 }
 
-TEST(ConvertStPlatformToBodyTest, ReferenceTestMounting180DegFlip) {
-    // 180-degree flip about x-axis (common boresight flip)
-    testConvertStPlatformToBodyRegression(
-        Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},                                       // q_CN
-        omegaToDeltaQuaternion(Eigen::Vector3d{0.0, 0.0, 0.05}),                       // dq_CN
-        prvToMrp<double>(180.0 * degToRad * Eigen::Vector3d::UnitX()).cast<float>());  // sigma_CB
+TEST(ConvertStPlatformToBodyTest, IdentityProducesZeroOutput) {
+    // Input: identity attitude, zero rate, identity mounting. Quaternions are scalar-last as the micro-ASC ICD sends
+    // them, so the identity is [0, 0, 0, 1] (read scalar-first it would be a 180-deg rotation).
+    // Expected: sigma_BN = 0 and omega_BN_B = 0.
+    testConvertStPlatformToBodyExpectedOutput(Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},  // q_CN
+                                              Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},  // dq_CN
+                                              Eigen::Vector3f::Zero(),                  // sigma_CB
+                                              Eigen::Vector3f::Zero(),                  // sigma_BN expected
+                                              Eigen::Vector3f::Zero());                 // omega_BN_B expected
+}
+
+TEST(ConvertStPlatformToBodyTest, Mounting180DegFlipProducesKnownOutput) {
+    // Input: identity attitude, omega_CN_C = (0, 0, 0.05) rad/s, 180-deg mounting about x (|sigma_CB| = 1 boundary).
+    // Expected: sigma_BN = -sigma_CB (its shadow set is the same attitude) and omega_BN_B = (0, 0, -0.05), since
+    // [CB]^T = diag(1, -1, -1).
+    const Eigen::Vector3f sigma_CB = prvToMrp<double>(180.0 * degToRad * Eigen::Vector3d::UnitX()).cast<float>();
+    testConvertStPlatformToBodyExpectedOutput(Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},                  // q_CN
+                                              omegaToDeltaQuaternion(Eigen::Vector3d{0.0, 0.0, 0.05}),  // dq_CN
+                                              sigma_CB,                                                 // sigma_CB
+                                              -sigma_CB,                             // sigma_BN expected
+                                              Eigen::Vector3f{0.0F, 0.0F, -0.05F});  // omega_BN_B expected
 }
 
 TEST(ConvertStPlatformToBodyTest, IdentityDeltaQuaternionProducesZeroOmega) {

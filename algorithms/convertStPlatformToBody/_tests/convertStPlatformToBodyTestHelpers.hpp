@@ -138,4 +138,31 @@ inline void testConvertStPlatformToBodyRegression(const Eigen::Vector4f& q_CN,
     }
 }
 
+/*!
+ * @brief Run the algorithm and check its output against a known expected attitude and angular velocity.
+ *
+ * The attitude is compared as a DCM, so an expected MRP and its shadow set (the same attitude, e.g. at 180 deg)
+ * both pass.
+ */
+inline void testConvertStPlatformToBodyExpectedOutput(const Eigen::Vector4f& q_CN,
+                                                      const Eigen::Vector4f& dq_CN,
+                                                      const Eigen::Vector3f& sigma_CB,
+                                                      const Eigen::Vector3f& sigma_BN_expected,
+                                                      const Eigen::Vector3f& omega_BN_B_expected) {
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB)};
+    StAttitudeOutput result;
+    EXPECT_NO_THROW(result = algorithm.update(q_CN, dq_CN));
+
+    const Eigen::Matrix3f dcmOut = mrpToDcm<float>(result.sigma_BN);
+    const Eigen::Matrix3f dcmExpected = mrpToDcm<float>(sigma_BN_expected);
+    for (int r = 0; r < 3; ++r) {
+        for (int c = 0; c < 3; ++c) {
+            EXPECT_NEAR(dcmOut(r, c), dcmExpected(r, c), DCM_TOLERANCE);
+        }
+    }
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(result.omega_BN_B[i], omega_BN_B_expected[i], OMEGA_TOLERANCE);
+    }
+}
+
 #endif
