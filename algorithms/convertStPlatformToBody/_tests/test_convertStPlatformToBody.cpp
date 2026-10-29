@@ -1,12 +1,13 @@
 #include "convertStPlatformToBodyTestHelpers.hpp"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
+#include <gtest/gtest.h>
 #include <cmath>
-#include <cstdint>
 #include <limits>
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestMountingArbitraryAxis) {
-    // Arbitrary mounting rotation
+    // Input: arbitrary attitude, rate and mounting.
+    // Expected: FP32 output matches the FP64 reference (precision check, not a known physical output).
     testConvertStPlatformToBodyRegression(
         toScalarLast(axisAngleToEp(Eigen::Vector3d(0.5, -0.3, 0.8), 70.0 * degToRad)),                      // q_CN
         omegaToDeltaQuaternion(Eigen::Vector3d{-0.03, 0.015, 0.008}),                                       // dq_CN
@@ -65,8 +66,8 @@ TEST(ConvertStPlatformToBodyTest, SigmaNormBounded) {
 }
 
 TEST(ConvertStPlatformToBodyTest, IdentityDeltaQuaternionProducesZeroOmega) {
-    // dq_CN = [0, 0, 0, 1] (scalar-last identity rotation) must map to zero angular
-    // velocity for any mounting orientation.
+    // Input: dq_CN = [0, 0, 0, 1] (no rotation), nonzero mounting.
+    // Expected: omega_BN_B = 0.
     const Eigen::Vector3f sigma_CB =
         prvToMrp<double>(50.0 * degToRad * Eigen::Vector3d(0.3, -0.7, 0.5).stableNormalized()).cast<float>();
     const ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB)};
@@ -81,9 +82,8 @@ TEST(ConvertStPlatformToBodyTest, IdentityDeltaQuaternionProducesZeroOmega) {
 }
 
 TEST(ConvertStPlatformToBodyTest, ZeroDeltaQuaternionProducesZeroOmega) {
-    // dq_CN = [0, 0, 0, 0] is what a default-initialized PlatformAngularVelocity carries.
-    // The algorithm's ‖vec‖ > 0 guard must fire and produce ω = 0 without letting the
-    // dq[3]=0 branch (atan2(0, 0)) combine with a zero denominator to emit NaN/Inf.
+    // Input: dq_CN = [0, 0, 0, 0], what a default-initialized PlatformAngularVelocity carries.
+    // Expected: omega_BN_B = 0 and finite; the zero-rate guard avoids dividing by ‖dq_v‖ = 0.
     const ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
 
     const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
@@ -97,12 +97,12 @@ TEST(ConvertStPlatformToBodyTest, ZeroDeltaQuaternionProducesZeroOmega) {
 }
 
 TEST(ConvertStPlatformToBodyTest, ZeroedInputPayload) {
+    // Input: q_CN = 0 and dq_CN = 0 (not a valid quaternion), identity mounting.
+    // Expected: sigma_BN and omega_BN_B are finite.
     const ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
-    // All zeros — invalid quaternion and zero-vector delta quaternion, but algorithm
-    // must not crash or emit non-finite outputs.
     StAttitudeOutput result = algorithm.update(Eigen::Vector4f::Zero(), Eigen::Vector4f::Zero());
     for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(result.sigma_BN[i]) || result.sigma_BN[i] == 0.0F);
+        EXPECT_TRUE(std::isfinite(result.sigma_BN[i]));
         EXPECT_TRUE(std::isfinite(result.omega_BN_B[i]));
     }
 }
