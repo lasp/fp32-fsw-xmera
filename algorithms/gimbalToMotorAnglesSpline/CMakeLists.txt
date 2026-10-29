@@ -1,0 +1,5 @@
+set(module "fp32.gimbalToMotorAnglesSplineF32")
+xmera_is_module_enabled("${module}" _is_enabled)
+if(_is_enabled)
+  add_subdirectory(_tests)
+endif()
