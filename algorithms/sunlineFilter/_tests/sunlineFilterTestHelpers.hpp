@@ -20,7 +20,7 @@
 namespace filtering::sunlineFilter {
 
 // Bound for comparing two float computations of the same quantity: a few operations of roundoff
-// with the 3-10x margin of docs/PRECISION_GUIDELINES.md (10 * epsilon ~ 1.2e-6).
+// with a 3-10x margin (10 * epsilon ~ 1.2e-6).
 inline constexpr float kRoundoffTol = 10.0F * std::numeric_limits<float>::epsilon();
 
 using TestState = SunlineFilterAlgorithm::State;
