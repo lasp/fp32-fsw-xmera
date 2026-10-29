@@ -12,8 +12,8 @@ n1 = S1(u, v) and n2 = S2(u, v).
 
 The rhombus is centered at the gimbal angles (psi0, phi0), and its half-diagonals are a along tip and b along tilt.
 The tool selects the center and the half-diagonals together: the addressable rhombus is the rhombus of largest area,
-2 a b, that is inscribed in the populated table cells. The tool reports how much of the required circle of radius
-REQUIRED_RADIUS about zero gimbal angles the rhombus contains.
+2 a b, that is inscribed in the populated table cells. The figures also draw the required circle of radius
+REQUIRED_RADIUS about zero gimbal angles, and the tool reports how much of it the rhombus contains.
 
 S1 and S2 are uniform cubic B-splines with N intervals per axis on [-1, 1], with the knot vector extended by three
 knots past each end (not clamped). This gives N + 3 control coefficients per axis for each surface.
@@ -31,13 +31,17 @@ Usage:
 
 import argparse
 import os
+import tomllib
 
 import numpy as np
 from scipy.interpolate import BSpline, NdBSpline, RegularGridInterpolator
 from scipy.optimize import differential_evolution
 
 SPLINE_DEGREE = 3
-REQUIRED_RADIUS = 13.5  # [deg] Radius of the required circle of gimbal angles about zero
+REQUIRED_RADIUS = 13.5  # [deg] Radius of the required circle of gimbal angles about zero, drawn in the figures
+# [deg] Center (psi0, phi0) and half-diagonals (a, b) of the rhombus in the rhombus mapping figure. The figure only
+# shows the mapping, so it uses this made-up rhombus and not the one found from the lookup table.
+MAPPING_FIGURE_RHOMBUS = (3.0, -2.0, 12.0, 18.0)
 TOOL_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_TABLE_DIR = os.path.join(TOOL_DIR, "..", "_tests")
 
@@ -112,6 +116,33 @@ class GimbalTable:
         table give NaN."""
         steps = np.column_stack([n2, n1])
         return self.tip(steps), self.tilt(steps)
+
+
+def load_switches(path):
+    """Load the reference switch positions [steps] from a TOML file.
+
+    Each table [switches.<NAME>_<MOTOR>_<KIND>] gives the steps of one motor at the points of one switch, keyed by the
+    point name. Only the tables with KIND N are loaded. The motor 1 and motor 2 tables of a switch must name the same
+    points.
+
+    Args:
+        path: Path to the .toml file.
+
+    Returns:
+        Dict of switch name to a list of (point name, motor 1 steps, motor 2 steps).
+    """
+    with open(path, "rb") as file:
+        tables = tomllib.load(file)["switches"]
+    switches = {}
+    for key, motor1 in tables.items():
+        if not key.endswith("_1_N"):
+            continue
+        name = key[:-len("_1_N")]
+        motor2 = tables[f"{name}_2_N"]
+        if motor1.keys() != motor2.keys():
+            raise ValueError(f"The motor 1 and motor 2 tables of switch {name} must name the same points.")
+        switches[name] = [(point, motor1[point], motor2[point]) for point in motor1]
+    return switches
 
 
 class Rhombus:
@@ -381,6 +412,305 @@ def emit(tables, rhombus, intervals, out_dir, num_reference, seed):
           f"max fit error vs table={np.max(np.abs(err)):.3f} steps")
 
 
+def save_figure(fig, out_dir, name):
+    """Write the figure to out_dir as name.pdf for the LaTeX documentation and name.svg for the HTML documentation."""
+    for extension in ("pdf", "svg"):
+        fig.savefig(os.path.join(out_dir, f"{name}.{extension}"))
+
+
+def mapping_figure(rhombus, out_dir=None, show=False):
+    """Plot how the gimbal angles map to the normalized coordinates in three steps.
+
+    1. The rhombus in gimbal angles (psi, phi) [deg].
+    2. Center and normalize: x = (psi - psi0) / a, y = (phi - phi0) / b gives the unit rhombus |x| + |y| <= 1.
+    3. Rotate by 45 deg and scale by sqrt(2): (v, u) = (x - y, x + y) gives the square |u| <= 1, |v| <= 1. The
+       square is drawn with v on the horizontal axis and u on the vertical axis, so this step is a pure rotation.
+
+    Args:
+        rhombus: Rhombus [deg] to draw in the first panel.
+        out_dir: Directory to write rhombusMapping.pdf and .svg to, or None to skip writing it.
+        show: Open the figure in an interactive window.
+    """
+    import matplotlib
+
+    if not show:
+        matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import ConnectionPatch
+
+    # Every curve is defined in (u, v) and mapped to each panel, so the three panels show the same points
+    def to_panels(u, v):
+        x, y = (u + v) / 2.0, (u - v) / 2.0
+        gimbal = (rhombus.psi0 + rhombus.a * x, rhombus.phi0 + rhombus.b * y)
+        return [gimbal, (x, y), (v, u)]
+
+    s = np.linspace(-1.0, 1.0, 2)
+    one = np.ones_like(s)
+    edges = [  # (u, v) of the edge, color, label
+        ((one, s), "tab:red", r"$u = +1$"),
+        ((s, one), "tab:blue", r"$v = +1$"),
+        ((-one, s), "tab:green", r"$u = -1$"),
+        ((s, -one), "tab:orange", r"$v = -1$"),
+    ]
+    vertices = [((1.0, 1.0), r"$A$ (+tip)"), ((1.0, -1.0), r"$B$ (+tilt)"), ((-1.0, -1.0), r"$C$ (-tip)"),
+                ((-1.0, 1.0), r"$D$ (-tilt)")]
+    grid = [-0.5, 0.0, 0.5]
+    point = (0.5, -0.25)  # (u, v) of the example point P
+
+    fig, axes = plt.subplots(1, 3, figsize=(13.0, 5.0))
+    titles = ["1. Gimbal angles", "2. Center and normalize", "3. Rotate 45 deg and scale"]
+    labels = [(r"Gimbal tip angle $\psi$ [deg]", r"Gimbal tilt angle $\phi$ [deg]"), (r"$x$", r"$y$"),
+              (r"$v = x - y$", r"$u = x + y$")]
+    for panel, ax in enumerate(axes):
+        for level in grid:
+            for uv in ((level * one, s), (s, level * one)):
+                ax.plot(*to_panels(*uv)[panel], color="0.75", linewidth=0.7, linestyle="--", zorder=1)
+        for uv, color, label in edges:
+            ax.plot(*to_panels(*uv)[panel], color=color, linewidth=2.5, label=label, zorder=2)
+        cx, cy = to_panels(np.zeros(1), np.zeros(1))[panel]
+        for (u, v), name in vertices:
+            px, py = to_panels(np.array([u]), np.array([v]))[panel]
+            ax.plot(px, py, "ko", markersize=4, zorder=3)
+            # Place the name outside the shape, away from the center
+            dx, dy = np.sign(np.round(px[0] - cx[0], 6)), np.sign(np.round(py[0] - cy[0], 6))
+            ax.annotate(name, (px[0], py[0]), xytext=(7 * dx, 7 * dy), textcoords="offset points", fontsize=9,
+                        ha={1.0: "left", 0.0: "center", -1.0: "right"}[dx],
+                        va={1.0: "bottom", 0.0: "center", -1.0: "top"}[dy])
+        px, py = to_panels(np.array([point[0]]), np.array([point[1]]))[panel]
+        ax.plot(px, py, marker="*", color="k", markersize=11, zorder=4)
+        ax.annotate(r"$P$", (px[0], py[0]), xytext=(6, 4), textcoords="offset points", fontsize=10)
+        ax.plot(cx, cy, "k+", markersize=9, zorder=3)
+        ax.set_title(titles[panel], fontsize=11)
+        ax.set_xlabel(labels[panel][0])
+        ax.set_ylabel(labels[panel][1])
+        ax.set_aspect("equal")
+        ax.axhline(cy[0], color="0.4", linewidth=0.5, zorder=0)
+        ax.axvline(cx[0], color="0.4", linewidth=0.5, zorder=0)
+
+    # Half-diagonals and center of the gimbal rhombus
+    r = rhombus
+    ax = axes[0]
+    ax.annotate("", (r.psi0 + r.a, r.phi0 - 0.2 * r.b), (r.psi0, r.phi0 - 0.2 * r.b),
+                arrowprops={"arrowstyle": "<->", "color": "k"})
+    ax.text(r.psi0 + r.a / 2.0, r.phi0 - 0.22 * r.b, r"$a$", ha="center", va="top", fontsize=11)
+    ax.plot([r.psi0 - 1.15 * r.a, r.psi0], [r.phi0 + r.b] * 2, color="0.4", linewidth=0.5, linestyle=":")
+    ax.annotate("", (r.psi0 - 1.1 * r.a, r.phi0 + r.b), (r.psi0 - 1.1 * r.a, r.phi0),
+                arrowprops={"arrowstyle": "<->", "color": "k"})
+    ax.text(r.psi0 - 1.2 * r.a, r.phi0 + r.b / 2.0, r"$b$", ha="right", va="center", fontsize=11)
+    ax.annotate(r"$(\psi_0, \phi_0)$", (r.psi0, r.phi0), xytext=(-4, -4), textcoords="offset points", fontsize=9,
+                ha="right", va="top")
+    for ax, (cx, cy), lim in zip(axes, to_panels(np.zeros(1), np.zeros(1)), [1.3 * max(r.a, r.b), 1.6, 1.45]):
+        ax.set_xlim(cx[0] - lim, cx[0] + lim)
+        ax.set_ylim(cy[0] - lim, cy[0] + lim)
+    axes[1].set_xticks([-1, 0, 1])
+    axes[1].set_yticks([-1, 0, 1])
+    axes[2].set_xticks([-1, 0, 1])
+    axes[2].set_yticks([-1, 0, 1])
+    fig.legend(*axes[2].get_legend_handles_labels(), loc="lower center", ncol=4, fontsize=9, handlelength=2.0)
+
+    fig.tight_layout(rect=(0.0, 0.06, 1.0, 0.9), w_pad=4.0)
+    steps = [r"$x = (\psi - \psi_0)/a$" "\n" r"$y = (\phi - \phi_0)/b$",
+             r"$u = x + y$" "\n" r"$v = x - y$"]
+    for i, text in enumerate(steps):
+        arrow = ConnectionPatch((1.03, 1.08), (-0.03, 1.08), "axes fraction", "axes fraction", axesA=axes[i],
+                                axesB=axes[i + 1], arrowstyle="-|>", mutation_scale=15, linewidth=1.5)
+        fig.add_artist(arrow)
+        x0 = axes[i].get_position().x1
+        x1 = axes[i + 1].get_position().x0
+        y = axes[i].get_position().y1 + 0.08 * axes[i].get_position().height
+        fig.text((x0 + x1) / 2.0, y + 0.015, text, ha="center", va="bottom", fontsize=10)
+
+    if out_dir:
+        save_figure(fig, out_dir, "rhombusMapping")
+        print(f"Wrote rhombusMapping.pdf and .svg to {out_dir}")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
+
+def basis_figure(out_dir=None, show=False):
+    """Plot the four cubic B-spline basis functions that are not zero on one interval k.
+
+    The left panel shows the four basis functions of the coefficients c_k to c_{k+3} over the knots, with interval k
+    shaded. The right panel shows the parts of these functions on interval k as the weights B_0(t) to B_3(t).
+
+    Args:
+        out_dir: Directory to write basisFunctions.pdf and .svg to, or None to skip writing it.
+        show: Open the figure in an interactive window.
+    """
+    import matplotlib
+
+    if not show:
+        matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    colors = ["tab:purple", "tab:blue", "tab:green", "tab:orange"]
+    # The knots are at the integers, in units of h, with interval k from 0 to 1
+    fig, (left, right) = plt.subplots(1, 2, figsize=(12.0, 4.5), gridspec_kw={"width_ratios": [1.6, 1.0]})
+    left.axvspan(0.0, 1.0, color="0.9", zorder=0)
+    left.text(0.5, 0.75, f"interval $k$", ha="center", fontsize=10)
+    for p, color in enumerate(colors):
+        # The basis function of c_{k+p} is not zero from knot k + p - 3 to knot k + p + 1
+        bump = BSpline.basis_element(np.arange(p - 3, p + 2, dtype=float), extrapolate=False)
+        x = np.linspace(p - 3.0, p + 1.0, 400)
+        left.plot(x, bump(x), color=color, linewidth=1.2, alpha=0.6)
+        on_interval = np.linspace(0.0, 1.0, 100)
+        left.plot(on_interval, bump(on_interval), color=color, linewidth=3.0)
+        left.annotate(fr"$c_{{k+{p}}}$" if p else r"$c_k$", (p - 1.0, 2.0 / 3.0), xytext=(0, 5),
+                      textcoords="offset points", ha="center", color=color, fontsize=11)
+    left.set_xticks(range(-3, 5))
+    left.set_xticklabels([r"$k$" if j == 0 else fr"$k{j:+d}$" for j in range(-3, 5)])
+    left.set_xlim(-3.2, 4.2)
+    left.set_ylim(0.0, 0.82)
+    left.set_xlabel(r"Knot (spacing $h$)")
+    left.set_ylabel("Basis function value")
+    left.set_title(r"Basis functions of $c_k$ to $c_{k+3}$", fontsize=11)
+
+    t = np.linspace(0.0, 1.0, 200)
+    weights = [(1.0 - t) ** 3 / 6.0, (3.0 * t**3 - 6.0 * t**2 + 4.0) / 6.0,
+               (-3.0 * t**3 + 3.0 * t**2 + 3.0 * t + 1.0) / 6.0, t**3 / 6.0]
+    for p, (weight, color) in enumerate(zip(weights, colors)):
+        right.plot(t, weight, color=color, linewidth=2.5, label=fr"$B_{p}(t)$, weight of " +
+                   (fr"$c_{{k+{p}}}$" if p else r"$c_k$"))
+    right.plot(t, sum(weights), "k--", linewidth=1.0, label="Sum of the weights")
+    right.set_yticks([0.0, 1.0 / 6.0, 4.0 / 6.0, 1.0])
+    right.set_yticklabels(["0", "1/6", "4/6", "1"])
+    right.grid(axis="y", color="0.85", linewidth=0.7)
+    right.set_xlim(0.0, 1.0)
+    right.set_ylim(0.0, 1.08)
+    right.set_xlabel(r"Local coordinate $t$ in interval $k$")
+    right.set_ylabel("Weight")
+    right.set_title(r"Weights on interval $k$", fontsize=11)
+    right.legend(loc="upper center", bbox_to_anchor=(0.5, 0.88), ncol=2, fontsize=8)
+
+    fig.tight_layout()
+    if out_dir:
+        save_figure(fig, out_dir, "basisFunctions")
+        print(f"Wrote basisFunctions.pdf and .svg to {out_dir}")
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
+
+def figures(tables, gimbal, rhombus, intervals, switches=None, out_dir=None, show=False):
+    """Plot the domain and motor 1 table, the gimbal angle error map, and the 3D motor 1 fit surface colored by the
+    gimbal angle error.
+
+    Args:
+        switches: Reference switch positions [steps] from load_switches, drawn in the domain figure, or None.
+        out_dir: Directory to write the PDF figures to, or None to skip writing them.
+        show: Open the figures in interactive windows.
+    """
+    import matplotlib
+
+    if not show:
+        matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    mapping_figure(Rhombus(*MAPPING_FIGURE_RHOMBUS), out_dir, show)
+    basis_figure(out_dir, show)
+    fit = SplineFit(tables, rhombus, intervals)
+
+    def finish(fig, name):
+        fig.tight_layout()
+        if out_dir:
+            save_figure(fig, out_dir, name)
+        if not show:
+            plt.close(fig)
+
+    def outline(r):
+        tip = r.psi0 + np.array([r.a, 0.0, -r.a, 0.0, r.a])
+        tilt = r.phi0 + np.array([0.0, r.b, 0.0, -r.b, 0.0])
+        return tip, tilt
+
+    def circle():
+        angle = np.linspace(0.0, 2.0 * np.pi, 361)
+        return REQUIRED_RADIUS * np.cos(angle), REQUIRED_RADIUS * np.sin(angle)
+
+    # The table cells are faded and the overlays use colors that are not in the viridis colormap, so the overlays stand
+    # out from the cells
+    point_alpha = 0.45
+
+    def plot_overlays(ax):
+        ax.plot(*outline(rhombus), color="black", linewidth=2.5, label="Addressable rhombus", zorder=3)
+        ax.plot(*circle(), color="#e6007e", linewidth=2.5,
+                label=f"Required circle (radius {REQUIRED_RADIUS:g} deg about zero)", zorder=4)
+        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=2, fontsize=8, frameon=False)
+
+    # Each switch has its own marker shape and fill, so the switches differ without color
+    switch_styles = [{"marker": "^", "color": "#d62728"}, {"marker": "s", "color": "white"}]
+
+    def plot_switches(ax):
+        for (name, points), style in zip((switches or {}).items(), switch_styles):
+            names, motor1, motor2 = zip(*points)
+            tip, tilt = gimbal.gimbal_angles(np.array(motor1, dtype=float), np.array(motor2, dtype=float))
+            if np.isnan(tip).any():
+                raise ValueError(f"Switch {name} has motor steps outside the motor-steps-to-gimbal table.")
+            ax.scatter(tip, tilt, s=70, marker=style["marker"], facecolor=style["color"], edgecolor="black",
+                       linewidth=1.0, label=f"{name} (N)", zorder=5)
+            # One label for each group of points closer than 1 deg, so that close points do not overlap
+            groups = []
+            for point, x, y in zip(names, tip, tilt):
+                group = next((g for g in groups if np.hypot(x - g[1], y - g[2]) < 1.0), None)
+                if group is None:
+                    groups.append([[point], x, y])
+                else:
+                    group[0].append(point)
+            for group_names, x, y in groups:
+                ax.annotate(f"{name} {', '.join(group_names)}", (x, y), xytext=(0, 9), textcoords="offset points",
+                            fontsize=7, ha="center", va="bottom", zorder=6,
+                            bbox={"boxstyle": "round,pad=0.15", "facecolor": "white", "edgecolor": "none",
+                                  "alpha": 0.8})
+
+    fig, ax = plt.subplots(figsize=(6.0, 6.5))
+    points = ax.scatter(tables.tip, tables.tilt, c=tables.motor1, s=4, cmap="viridis", alpha=point_alpha)
+    plot_switches(ax)
+    plot_overlays(ax)
+    ax.set_xlabel("Gimbal tip angle [deg]")
+    ax.set_ylabel("Gimbal tilt angle [deg]")
+    ax.set_aspect("equal")
+    fig.colorbar(points, ax=ax, label="Measured motor 1 steps [steps]")
+    finish(fig, "gimbalDomain")
+
+    sel = fit.in_domain
+    n1, _ = fit.motor_steps(tables.tip[sel], tables.tilt[sel])
+    err = np.hypot(*fit.gimbal_errors(tables, gimbal))
+    limit = np.max(err)
+    fig, ax = plt.subplots(figsize=(6.0, 6.5))
+    points = ax.scatter(tables.tip[sel], tables.tilt[sel], c=err, s=6, cmap="viridis", vmin=0.0, vmax=limit,
+                        alpha=point_alpha)
+    plot_overlays(ax)
+    ax.set_xlabel("Gimbal tip angle [deg]")
+    ax.set_ylabel("Gimbal tilt angle [deg]")
+    ax.set_aspect("equal")
+    fig.colorbar(points, ax=ax, label="Gimbal angle error [deg]")
+    finish(fig, "fitError")
+
+    # Spline surface on the in-domain table cells, each triangle colored by the mean error of its three vertices
+    from matplotlib.tri import Triangulation
+
+    tip, tilt, motor1 = tables.tip[sel], tables.tilt[sel], tables.motor1[sel]
+    tri = Triangulation(tip, tilt)
+    fig = plt.figure(figsize=(8.0, 6.5))
+    ax = fig.add_subplot(projection="3d")
+    surface = ax.plot_trisurf(tri, n1, cmap="viridis", linewidth=0.0, antialiased=False)
+    surface.set_array(err[tri.triangles].mean(axis=1))
+    surface.set_clim(0.0, limit)
+    ax.scatter(tip, tilt, motor1, c="k", s=0.5, alpha=0.4, depthshade=False, label="Lookup table (truth)")
+    ax.set_xlabel("Gimbal tip angle [deg]")
+    ax.set_ylabel("Gimbal tilt angle [deg]")
+    ax.set_zlabel("Motor 1 steps [steps]")
+    ax.legend(loc="upper left", fontsize=8)
+    fig.colorbar(surface, ax=ax, shrink=0.7, pad=0.1, label="Gimbal angle error [deg]")
+    finish(fig, "fitSurface3d")
+    if out_dir:
+        print(f"Wrote figures to {out_dir}")
+    if show:
+        plt.show()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--steps-table",
@@ -393,6 +723,10 @@ def main():
     parser.add_argument("--sweep", action="store_true", help="print the study over N")
     parser.add_argument("--report", action="store_true", help="print the metrics for N")
     parser.add_argument("--emit", metavar="DIR", help="write the test fixtures for N")
+    parser.add_argument("--figures", metavar="DIR", help="write the documentation figures for N")
+    parser.add_argument("--switches", default=os.path.join(DEFAULT_TABLE_DIR, "referenceSwitches.toml"),
+                        help="reference switch positions [steps] drawn in the domain figure, if the file exists")
+    parser.add_argument("--show", action="store_true", help="open the figures in interactive windows")
     parser.add_argument("--num-reference", type=int, default=200, help="number of random reference points")
     parser.add_argument("--seed", type=int, default=2026)
     args = parser.parse_args()
@@ -410,6 +744,9 @@ def main():
         sweep(tables, gimbal, rhombus, [args.intervals])
     if args.emit:
         emit(tables, rhombus, args.intervals, args.emit, args.num_reference, args.seed)
+    if args.figures or args.show:
+        switches = load_switches(args.switches) if os.path.exists(args.switches) else None
+        figures(tables, gimbal, rhombus, args.intervals, switches, args.figures, args.show)
 
 
 if __name__ == "__main__":
