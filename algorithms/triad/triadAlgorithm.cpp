@@ -51,7 +51,7 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
             const float n3HatSign = (this->cfg.getN3Axis() == N3Axis::plusZHat_N) ? 1.0F : -1.0F;
             const Eigen::Vector3f n3Hat_N = (n3HatSign * Eigen::Vector3f::UnitZ()).stableNormalized();
 
-            /*! Keep the default current attitude if the fallback inertial z-axis is nearly parallel to the thrust
+            /*! Keep the zero MRP (identity attitude) if the fallback inertial z-axis is nearly parallel to the thrust
              * reference direction (undefined) */
             const float zToThrustRefAngle = safeAcosf(fabsf(n3Hat_N.dot(d2Hat_N)));
             isFallbackValid = zToThrustRefAngle >= kParallelThresholdRad;

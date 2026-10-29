@@ -153,7 +153,7 @@ columns:
 Triad Frame in Inertial Coordinates
 """""""""""""""""""""""""""""""""""
 
-The second triad frame is expressed in inertial frame :math:`\mathcal{N}` components. The frame is build from the
+The second triad frame is expressed in inertial frame :math:`\mathcal{N}` components. The frame is built from the
 reference inertial thrust direction and the inertial Sun direction:
 
 .. math::
@@ -193,7 +193,7 @@ align as close to the inertial Z-axis as possible.
 
     Because the spacecraft trajectory never passes directly beneath the Sun, the new cross products should never be
     zero. However, in the case where the thrust reference and sun direction are both nearly parallel to the fallback
-    Z-axis, the new cross products will be zero. The current spacecraft attitude is returned in this case because this
+    Z-axis, the new cross products will be zero. The zero MRP (identity attitude) is returned in this case because this
     is an impossible configuration.
 
 .. _triad-reorthogonalization:
@@ -289,7 +289,7 @@ The final angle between the inertial SADA axis and the Sun direction can be comp
 
 .. math::
 
-        \phi = \arccos \left( \left| {}^\mathcal{N}\hat{a} \cdot {}^\mathcal{N}\hat{r}_{S/B} \right| \right) = 100.55 ^{\circ}
+        \phi = \arccos \left( {}^\mathcal{N}\hat{a} \cdot {}^\mathcal{N}\hat{r}_{S/B} \right) = 100.55 ^{\circ}
 
 Subtracting 90 degrees from the above result gives the Sun-array offset angle, which is 10.55 degrees and indeed less
 than the thrust offset angle :math:`\theta = 15^{\circ}`, as expected. In the nominal case, the following condition
@@ -333,7 +333,7 @@ Property Tests
 
 - SolarArraySunOffsetBoundedByBodyThrustOffset
     - Checks that the solar array offset from the Sun direction is bounded by the body thrust vector offset angle from
-    the plane normal to the solar array drive axis
+      the plane normal to the solar array drive axis
     - An example for this property is illustrated in Figure 3: Nominal Case
 
 Edge Case Tests
@@ -349,7 +349,7 @@ Edge Case Tests
     - Checks that the algorithm correctly returns the zero MRP (identity attitude) when the SADA axis is aligned with the body thrust direction.
 
 - SunAlignedWithThrustRefUsesFallbackZAxis
-    - Checks that when the Sun direction is aligned with the thrust inertial reference, the fallback inertial Z-axis is used in triad body frame computation.
+    - Checks that when the Sun direction is aligned with the thrust inertial reference, the fallback inertial Z-axis is used in the inertial triad frame computation.
 
 - SadaOrthogonalToSunWhenOrthogonalToBodyThrust
     - Checks that the solar array-Sun orthogonality constraint is met when the SADA axis is orthogonal to the body thrust axis.
