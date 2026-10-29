@@ -80,7 +80,7 @@ void fuzzConvertStPlatformToBodyEdgeCases(double angle,
     if (axis.stableNorm() < 1e-12) {
         axis = Eigen::Vector3d::UnitZ();
     }
-    Eigen::Vector4d ep_CN = axisAngleToEp(axis, angle);
+    Eigen::Vector4d ep_CN = prvToEp<double>(angle * axis.stableNormalized());
     Eigen::Vector3d omega_CN_C(wx, wy, wz);
     Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
 
@@ -100,7 +100,7 @@ FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyEdgeCases)
 
 /*! @brief Fuzz extreme mounting rotations */
 void fuzzConvertStPlatformToBodyMountingEdges(double yaw, double pitch, double roll) {
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitZ(), 0.5);
+    Eigen::Vector4d ep_CN = prvToEp<double>(0.5 * Eigen::Vector3d::UnitZ());
     Eigen::Vector3d omega_CN_C(0.01, -0.02, 0.03);
     Eigen::Vector3d sigma_CB = makeSigma(yaw, pitch, roll);
 
