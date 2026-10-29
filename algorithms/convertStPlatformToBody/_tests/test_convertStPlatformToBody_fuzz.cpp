@@ -2,7 +2,7 @@
  Fuzz tests for ConvertStPlatformToBodyAlgorithm
  */
 
-#include "test_convertStPlatformToBody_helpers.h"
+#include "convertStPlatformToBodyTestHelpers.hpp"
 #include <fuzztest/fuzztest.h>
 #include <Eigen/Geometry>
 #include <cmath>
