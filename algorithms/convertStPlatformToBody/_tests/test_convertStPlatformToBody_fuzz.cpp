@@ -46,6 +46,7 @@ void fuzzConvertStPlatformToBody(double q0,
     const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
     const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
     EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_CN, dq_CN, sigma_CB));
+    propertyOutputIsFinite(q_CN, dq_CN, sigma_CB);
 }
 
 // Keep ‖ω‖ < π so the helper's ω→δq conversion stays single-valued:
@@ -79,6 +80,7 @@ void fuzzConvertStPlatformToBodyEdgeCases(double angle,
     const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
     const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
     EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_CN, dq_CN, sigma_CB.cast<float>()));
+    propertyOutputIsFinite(q_CN, dq_CN, sigma_CB.cast<float>());
 }
 
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyEdgeCases)
@@ -100,6 +102,7 @@ void fuzzConvertStPlatformToBodyMountingEdges(const Eigen::Vector3f& sigma_CB) {
     const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
     const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
     EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_CN, dq_CN, sigma_CB));
+    propertyOutputIsFinite(q_CN, dq_CN, sigma_CB);
 }
 
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyMountingEdges)

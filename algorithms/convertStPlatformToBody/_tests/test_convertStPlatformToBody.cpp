@@ -36,6 +36,15 @@ TEST(ConvertStPlatformToBodyTest, Mounting180DegFlipProducesKnownOutput) {
                                               Eigen::Vector3f{0.0F, 0.0F, -0.05F});  // omega_BN_B expected
 }
 
+TEST(ConvertStPlatformToBodyTest, OutputIsFinite) {
+    // Input: arbitrary attitude, rate and mounting.
+    // Expected: all sigma_BN and omega_BN_B components are finite.
+    propertyOutputIsFinite(
+        toScalarLast(axisAngleToEp(Eigen::Vector3d(0.5, -0.3, 0.8), 70.0 * degToRad)),                      // q_CN
+        omegaToDeltaQuaternion(Eigen::Vector3d{-0.03, 0.015, 0.008}),                                       // dq_CN
+        prvToMrp<double>(40.0 * degToRad * Eigen::Vector3d(1, -2, 0.5).stableNormalized()).cast<float>());  // sigma_CB
+}
+
 TEST(ConvertStPlatformToBodyTest, IdentityDeltaQuaternionProducesZeroOmega) {
     // dq_CN = [0, 0, 0, 1] (scalar-last identity rotation) must map to zero angular
     // velocity for any mounting orientation.

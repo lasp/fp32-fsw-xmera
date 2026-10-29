@@ -130,12 +130,6 @@ inline void testConvertStPlatformToBodyRegression(const Eigen::Vector4f& q_CN,
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(result.omega_BN_B[i], static_cast<float>(ref.omega_BN_B(i)), OMEGA_TOLERANCE);
     }
-
-    // Verify all outputs are finite
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(result.sigma_BN[i]));
-        EXPECT_TRUE(std::isfinite(result.omega_BN_B[i]));
-    }
 }
 
 /*!
@@ -162,6 +156,19 @@ inline void testConvertStPlatformToBodyExpectedOutput(const Eigen::Vector4f& q_C
     }
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(result.omega_BN_B[i], omega_BN_B_expected[i], OMEGA_TOLERANCE);
+    }
+}
+
+// All output components are finite for valid inputs.
+inline void propertyOutputIsFinite(const Eigen::Vector4f& q_CN,
+                                   const Eigen::Vector4f& dq_CN,
+                                   const Eigen::Vector3f& sigma_CB) {
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB)};
+    const StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(result.sigma_BN[i]));
+        EXPECT_TRUE(std::isfinite(result.omega_BN_B[i]));
     }
 }
 
