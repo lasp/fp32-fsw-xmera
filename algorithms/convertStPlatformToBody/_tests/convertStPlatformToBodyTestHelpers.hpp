@@ -172,4 +172,13 @@ inline void propertyOutputIsFinite(const Eigen::Vector4f& q_CN,
     }
 }
 
+// For a unit q_CN, sigma_BN stays in the principal MRP set (norm <= 1).
+inline void propertySigmaNormBounded(const Eigen::Vector4f& q_CN,
+                                     const Eigen::Vector4f& dq_CN,
+                                     const Eigen::Vector3f& sigma_CB) {
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB)};
+    const StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
+    EXPECT_LE(result.sigma_BN.stableNorm(), 1.0F + 1e-6F);
+}
+
 #endif

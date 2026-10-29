@@ -45,6 +45,14 @@ TEST(ConvertStPlatformToBodyTest, OutputIsFinite) {
         prvToMrp<double>(40.0 * degToRad * Eigen::Vector3d(1, -2, 0.5).stableNormalized()).cast<float>());  // sigma_CB
 }
 
+TEST(ConvertStPlatformToBodyTest, SigmaNormBounded) {
+    // Input: 170-deg attitude and -90-deg mounting about z, a total rotation of 260 deg (past 180 deg).
+    // Expected: |sigma_BN| <= 1 (principal MRP set).
+    propertySigmaNormBounded(toScalarLast(axisAngleToEp(Eigen::Vector3d::UnitZ(), 170.0 * degToRad)),       // q_CN
+                             Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},                                       // dq_CN
+                             prvToMrp<double>(-90.0 * degToRad * Eigen::Vector3d::UnitZ()).cast<float>());  // sigma_CB
+}
+
 TEST(ConvertStPlatformToBodyTest, IdentityDeltaQuaternionProducesZeroOmega) {
     // dq_CN = [0, 0, 0, 1] (scalar-last identity rotation) must map to zero angular
     // velocity for any mounting orientation.
