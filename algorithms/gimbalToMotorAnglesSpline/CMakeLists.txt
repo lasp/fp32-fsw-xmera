@@ -5,6 +5,7 @@ if(_is_enabled)
   target_sources("${module}" PRIVATE
     gimbalToMotorAnglesSpline.cpp
     gimbalToMotorAnglesSplineAlgorithm.cpp
+    gimbalToMotorAnglesSplineAlgorithm_c.cpp
   )
 
   target_include_directories("${module}" PUBLIC
