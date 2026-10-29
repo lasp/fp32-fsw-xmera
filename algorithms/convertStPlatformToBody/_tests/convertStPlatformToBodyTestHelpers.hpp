@@ -8,7 +8,6 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <cmath>
-#include <cstdint>
 #include <numbers>
 
 /// Degrees to radians, for readable test angles
