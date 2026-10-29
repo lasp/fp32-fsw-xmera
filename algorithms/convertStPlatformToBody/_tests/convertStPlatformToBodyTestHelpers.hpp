@@ -159,6 +159,54 @@ inline void testConvertStPlatformToBodyExpectedOutput(const Eigen::Vector4f& q_C
     }
 }
 
+/*!
+ * @brief Build the sensor inputs from a known attitude, rate and mounting, and check the algorithm against the
+ *        expected answer computed without rigidBodyKinematics.
+ *
+ * The attitude and the mounting are given as principal rotations. The expected attitude and rate come from
+ * Eigen::AngleAxisd: [CN] and [CB] are the transposes of the active rotation matrices, the expected attitude is
+ * [BN] = [CB]^T [CN], and the expected rate is ω_B = [CB]^T ω_C. The attitude is compared as a DCM, which is
+ * unique through 180 deg where the MRP has two representations.
+ *
+ * @param axis_CN     Rotation axis of the case frame relative to inertial
+ * @param angle_CN    [rad] Rotation angle of the case frame relative to inertial
+ * @param omega_CN_C  [rad/s] Angular velocity of the case frame w.r.t. inertial, in case-frame components
+ * @param axis_CB     Rotation axis of the case frame relative to the body frame (mounting)
+ * @param angle_CB    [rad] Rotation angle of the case frame relative to the body frame (mounting)
+ */
+inline void testConvertStPlatformToBodyAnalytical(const Eigen::Vector3d& axis_CN,
+                                                  const double angle_CN,
+                                                  const Eigen::Vector3d& omega_CN_C,
+                                                  const Eigen::Vector3d& axis_CB,
+                                                  const double angle_CB) {
+    // Sensor inputs: attitude quaternion, rate quaternion, and the mounting MRP σ = ê tan(Φ/4)
+    const Eigen::Vector4f q_CN = toScalarLast(axisAngleToEp(axis_CN, angle_CN));
+    const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
+    const Eigen::Vector3f sigma_CB = (std::tan(angle_CB / 4.0) * axis_CB.stableNormalized()).cast<float>();
+
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB)};
+    StAttitudeOutput result;
+    EXPECT_NO_THROW(result = algorithm.update(q_CN, dq_CN));
+
+    // Expected answer from Eigen's rotations
+    const Eigen::Matrix3d dcm_CN =
+        Eigen::AngleAxisd(angle_CN, axis_CN.stableNormalized()).toRotationMatrix().transpose();
+    const Eigen::Matrix3d dcm_CB =
+        Eigen::AngleAxisd(angle_CB, axis_CB.stableNormalized()).toRotationMatrix().transpose();
+    const Eigen::Matrix3d dcm_BN = dcm_CB.transpose() * dcm_CN;
+    const Eigen::Vector3d omega_BN_B = dcm_CB.transpose() * omega_CN_C;
+
+    const Eigen::Matrix3f dcmOut = mrpToDcm<float>(result.sigma_BN);
+    for (int r = 0; r < 3; ++r) {
+        for (int c = 0; c < 3; ++c) {
+            EXPECT_NEAR(dcmOut(r, c), static_cast<float>(dcm_BN(r, c)), DCM_TOLERANCE);
+        }
+    }
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(result.omega_BN_B[i], static_cast<float>(omega_BN_B(i)), OMEGA_TOLERANCE);
+    }
+}
+
 // All output components are finite for valid inputs.
 inline void propertyOutputIsFinite(const Eigen::Vector4f& q_CN,
                                    const Eigen::Vector4f& dq_CN,

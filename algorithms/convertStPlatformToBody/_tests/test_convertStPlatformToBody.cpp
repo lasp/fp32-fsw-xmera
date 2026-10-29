@@ -36,6 +36,17 @@ TEST(ConvertStPlatformToBodyTest, Mounting180DegFlipProducesKnownOutput) {
                                               Eigen::Vector3f{0.0F, 0.0F, -0.05F});  // omega_BN_B expected
 }
 
+TEST(ConvertStPlatformToBodyTest, AnalyticalTestSmallRate) {
+    // Input: a representative small rate of order 1e-4 rad/s, with nonzero attitude and mounting.
+    // Expected: omega_BN_B = [CB]^T omega_CN_C, not rounded to zero. Fails with acos decoding (cos(θ/2) rounds to 1 in
+    // float) or a coarse zero-rate guard.
+    testConvertStPlatformToBodyAnalytical(Eigen::Vector3d(0.5, -0.3, 0.8),           // attitude axis
+                                          70.0 * degToRad,                           // attitude angle
+                                          Eigen::Vector3d{1.0e-4, -5.0e-5, 2.0e-5},  // omega_CN_C [rad/s]
+                                          Eigen::Vector3d(1, -2, 0.5),               // mounting axis
+                                          40.0 * degToRad);                          // mounting angle
+}
+
 TEST(ConvertStPlatformToBodyTest, OutputIsFinite) {
     // Input: arbitrary attitude, rate and mounting.
     // Expected: all sigma_BN and omega_BN_B components are finite.
