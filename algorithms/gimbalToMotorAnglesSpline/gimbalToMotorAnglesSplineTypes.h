@@ -13,6 +13,24 @@ extern "C" {
 #define NUM_SPLINE_COEFFS_PER_AXIS (NUM_SPLINE_INTERVALS + SPLINE_DEGREE)
 #define NUM_SPLINE_COEFFS (NUM_SPLINE_COEFFS_PER_AXIS * NUM_SPLINE_COEFFS_PER_AXIS)
 
+/*! @brief POD mirror of the C++ GimbalRhombusDomain (addressable gimbal rhombus centered at zero [rad]). */
+typedef struct GimbalRhombusDomain_c {
+    float halfDiagonalTip;  /*!< [rad] Half of the rhombus diagonal along the gimbal tip axis */
+    float halfDiagonalTilt; /*!< [rad] Half of the rhombus diagonal along the gimbal tilt axis */
+    float thetaMax;         /*!< [rad] Maximum requested thrust cone angle. Must fit inside the rhombus. */
+} GimbalRhombusDomain_c;
+
+/*! @brief POD representation of the spline control coefficients of one motor surface. */
+typedef struct SplineCoefficients_c {
+    float data[NUM_SPLINE_COEFFS]; /*!< [steps] Coefficient c[i][j] at index i * NUM_SPLINE_COEFFS_PER_AXIS + j */
+} SplineCoefficients_c;
+
+/*! @brief Plain-old-data mirror of the C++ GimbalToMotorAnglesSplineOutput. */
+typedef struct {
+    float motorAngle1; /*!< [rad] Motor 1 angle */
+    float motorAngle2; /*!< [rad] Motor 2 angle */
+} GimbalToMotorAnglesSplineOutput_c;
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif
