@@ -9,6 +9,10 @@
 #include <Eigen/Geometry>
 #include <cmath>
 #include <cstdint>
+#include <numbers>
+
+/// Degrees to radians, for readable test angles
+inline constexpr double degToRad = std::numbers::pi_v<double> / 180.0;
 
 /// Tolerance for float-precision attitude computations
 inline constexpr float ATTITUDE_TOLERANCE = 1e-6F;

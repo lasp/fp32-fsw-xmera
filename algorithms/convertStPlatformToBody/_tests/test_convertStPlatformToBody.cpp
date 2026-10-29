@@ -16,7 +16,7 @@ TEST(ConvertStPlatformToBodyTest, ReferenceTestIdentity) {
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestIdentityMounting) {
     // 30-degree rotation about z-axis, identity mounting
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitZ(), M_PI / 6.0);
+    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitZ(), 30.0 * degToRad);
     Eigen::Vector3d omega_CN_C(0.01, -0.02, 0.03);
     Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
 
@@ -25,7 +25,7 @@ TEST(ConvertStPlatformToBodyTest, ReferenceTestIdentityMounting) {
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestIdentityMountingLargeRotation) {
     // 170-degree rotation about [1,1,1]/sqrt(3)
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d(1, 1, 1), 170.0 * M_PI / 180.0);
+    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d(1, 1, 1), 170.0 * degToRad);
     Eigen::Vector3d omega_CN_C(0.1, -0.05, 0.2);
     Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
 
@@ -33,21 +33,21 @@ TEST(ConvertStPlatformToBodyTest, ReferenceTestIdentityMountingLargeRotation) {
 }
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestMounting45DegAboutZ) {
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitX(), M_PI / 4.0);
+    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitX(), 45.0 * degToRad);
     Eigen::Vector3d omega_CN_C(0.01, 0.02, -0.01);
 
     // 45-degree rotation about z
-    Eigen::Vector3d sigma_CB = epToMrp(axisAngleToEp(Eigen::Vector3d::UnitZ(), M_PI / 4.0));
+    Eigen::Vector3d sigma_CB = prvToMrp<double>(45.0 * degToRad * Eigen::Vector3d::UnitZ());
 
     testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB);
 }
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestMountingArbitraryAxis) {
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d(0.5, -0.3, 0.8), 1.2);
+    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d(0.5, -0.3, 0.8), 70.0 * degToRad);
     Eigen::Vector3d omega_CN_C(-0.03, 0.015, 0.008);
 
     // Arbitrary mounting rotation
-    Eigen::Vector3d sigma_CB = epToMrp(axisAngleToEp(Eigen::Vector3d(1, -2, 0.5), 0.7));
+    Eigen::Vector3d sigma_CB = prvToMrp<double>(40.0 * degToRad * Eigen::Vector3d(1, -2, 0.5).stableNormalized());
 
     testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB);
 }
@@ -57,15 +57,15 @@ TEST(ConvertStPlatformToBodyTest, ReferenceTestMounting180DegFlip) {
     Eigen::Vector4d ep_CN(1.0, 0.0, 0.0, 0.0);
     Eigen::Vector3d omega_CN_C(0.0, 0.0, 0.05);
 
-    Eigen::Vector3d sigma_CB = epToMrp(axisAngleToEp(Eigen::Vector3d::UnitX(), M_PI));
+    Eigen::Vector3d sigma_CB = prvToMrp<double>(180.0 * degToRad * Eigen::Vector3d::UnitX());
 
     testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB);
 }
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestZeroOmega) {
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitY(), 0.5);
+    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitY(), 30.0 * degToRad);
     Eigen::Vector3d omega_CN_C = Eigen::Vector3d::Zero();
-    Eigen::Vector3d sigma_CB = epToMrp(axisAngleToEp(Eigen::Vector3d::UnitZ(), 0.3));
+    Eigen::Vector3d sigma_CB = prvToMrp<double>(15.0 * degToRad * Eigen::Vector3d::UnitZ());
 
     testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB);
 }
@@ -76,14 +76,17 @@ TEST(ConvertStPlatformToBodyTest, ScalarLastAttitudeMatchesKnownMrp) {
     // different rotation, so this pins the input ordering.
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
 
-    const float halfAngle = static_cast<float>(M_PI / 4.0);
-    const Eigen::Vector4f q_CN(0.0F, 0.0F, std::sin(halfAngle), std::cos(halfAngle));
+    const double angle = 90.0 * degToRad;
+    const Eigen::Vector4f q_CN(
+        0.0F, 0.0F, static_cast<float>(std::sin(angle / 2.0)), static_cast<float>(std::cos(angle / 2.0)));
     const Eigen::Vector4f dq_CN(0.0F, 0.0F, 0.0F, 1.0F);
 
     StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
     EXPECT_NEAR(result.sigma_BN[0], 0.0F, ATTITUDE_TOLERANCE);
     EXPECT_NEAR(result.sigma_BN[1], 0.0F, ATTITUDE_TOLERANCE);
-    EXPECT_NEAR(result.sigma_BN[2], static_cast<float>(std::tan(M_PI / 8.0)), ATTITUDE_TOLERANCE);
+    EXPECT_NEAR(result.sigma_BN[2],
+                static_cast<float>(prvToMrp<double>(angle * Eigen::Vector3d::UnitZ())(2)),
+                ATTITUDE_TOLERANCE);
 }
 
 TEST(ConvertStPlatformToBodyTest, DeltaQuaternionHalfPiMatchesExpectedOmega) {
@@ -92,7 +95,7 @@ TEST(ConvertStPlatformToBodyTest, DeltaQuaternionHalfPiMatchesExpectedOmega) {
     // identity sigma_CB
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
 
-    const double theta = M_PI / 2.0;
+    const double theta = 90.0 * degToRad;
     const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
 
     const Eigen::Vector4f dq_CN(
@@ -109,7 +112,7 @@ TEST(ConvertStPlatformToBodyTest, DeltaQuaternionNearPiMatchesExpectedOmega) {
     // atan2 (dq_CN[3] ≈ 0), so tight OMEGA_TOLERANCE is appropriate.
     ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
 
-    const double theta = M_PI - 0.01;
+    const double theta = std::numbers::pi - 0.01;
     const Eigen::Vector3d axis = Eigen::Vector3d(1.0, 2.0, 3.0).stableNormalized();
     const Eigen::Vector3d omegaExpected = theta * axis;
 
@@ -130,7 +133,8 @@ TEST(ConvertStPlatformToBodyTest, DeltaQuaternionNearPiMatchesExpectedOmega) {
 TEST(ConvertStPlatformToBodyTest, IdentityDeltaQuaternionProducesZeroOmega) {
     // dq_CN = [0, 0, 0, 1] (scalar-last identity rotation) must map to zero angular
     // velocity for any mounting orientation.
-    Eigen::Vector3f sigma_CB = epToMrp(axisAngleToEp(Eigen::Vector3d(0.3, -0.7, 0.5), 0.9)).cast<float>();
+    const Eigen::Vector3f sigma_CB =
+        prvToMrp<double>(50.0 * degToRad * Eigen::Vector3d(0.3, -0.7, 0.5).stableNormalized()).cast<float>();
     const ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB)};
 
     const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
@@ -171,15 +175,15 @@ TEST(ConvertStPlatformToBodyTest, ZeroedInputPayload) {
 
 TEST(ConvertStPlatformToBodyTest, SetupTest) {
     // Config round-trip: a 90-degree rotation about z is stored as given
-    const Eigen::Vector3f sigma_CB{0.0F, 0.0F, static_cast<float>(std::tan(M_PI / 8.0))};
+    const Eigen::Vector3f sigma_CB = prvToMrp<double>(90.0 * degToRad * Eigen::Vector3d::UnitZ()).cast<float>();
     const auto config = ConvertStPlatformToBodyConfig::create(sigma_CB);
     EXPECT_EQ(config.getSigma_CB(), sigma_CB);
 
     // A shadow-set MRP describes the same rotation and is stored as its principal set
-    const auto shadowConfig = ConvertStPlatformToBodyConfig::create(Eigen::Vector3f{0.0F, 0.0F, 2.0F});
-    EXPECT_NEAR(shadowConfig.getSigma_CB()[0], 0.0F, ATTITUDE_TOLERANCE);
-    EXPECT_NEAR(shadowConfig.getSigma_CB()[1], 0.0F, ATTITUDE_TOLERANCE);
-    EXPECT_NEAR(shadowConfig.getSigma_CB()[2], -0.5F, ATTITUDE_TOLERANCE);
+    const Eigen::Vector3f shadowSigma{0.0F, 0.0F, 2.0F};
+    const Eigen::Vector3f principalSigma = -shadowSigma / shadowSigma.squaredNorm();
+    const auto shadowConfig = ConvertStPlatformToBodyConfig::create(shadowSigma);
+    EXPECT_TRUE(shadowConfig.getSigma_CB().isApprox(principalSigma, ATTITUDE_TOLERANCE));
 
     // Non-finite sigma_CB should throw
     const Eigen::Vector3f nanSigma{std::numeric_limits<float>::quiet_NaN(), 0.0F, 0.0F};
