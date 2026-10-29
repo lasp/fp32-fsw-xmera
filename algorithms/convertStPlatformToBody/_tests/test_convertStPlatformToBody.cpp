@@ -2,7 +2,7 @@
  Unit tests for ConvertStPlatformToBodyAlgorithm
  */
 
-#include "test_convertStPlatformToBody_helpers.h"
+#include "convertStPlatformToBodyTestHelpers.hpp"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <cmath>
