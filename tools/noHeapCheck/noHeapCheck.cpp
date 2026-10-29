@@ -192,7 +192,7 @@ void checkFlybyFilter() {
     x0.set<filtering::Velocity<3>>(Eigen::Vector3f(1.0F, 0.5F, -0.5F));
 
     begin();
-    auto const cfg = fbf::FlybyFilterConfig::create(0.1, 2.0, 3.986e14, q, x0, p, 1e-3);
+    auto const cfg = fbf::FlybyFilterConfig::create(0.1, 2.0, 3.986e14, q, x0, p, 1e-3, 1e-2, 2.5e-3);
     fbf::FlybyFilterAlgorithm filt(cfg);
     endExpectClean("flybyFilter construct");
 
@@ -204,6 +204,7 @@ void checkFlybyFilter() {
         hd.timeTag = t;
         hd.rhat_BN_N = Eigen::Vector3f(0.267F, 0.535F, 0.802F);
         hd.covar_N = Eigen::Matrix3f::Identity() * 1e-6F;  // a positive definite R, so the update runs
+        hd.shat_N = Eigen::Vector3f(1.0F, 0.0F, 0.0F);     // off the line of sight, so the bias rotation runs
         auto const out = filt.update(t, hd);
         (void)out.filterState.state.sum();
     }
