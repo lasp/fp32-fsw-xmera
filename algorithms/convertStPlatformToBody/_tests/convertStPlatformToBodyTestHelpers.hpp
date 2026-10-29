@@ -69,11 +69,11 @@ inline Eigen::Vector4f omegaToDeltaQuaternion(const Eigen::Vector3d& omega_CN_C)
  * @param sigma_BN    [out] Expected MRP from inertial to body
  * @param omega_BN_B  [out] Expected angular velocity of body w.r.t. inertial, in body frame
  */
-inline void computeTruthValues(const Eigen::Vector4d& ep_CN,
-                               const Eigen::Vector3d& omega_CN_C,
-                               const Eigen::Vector3d& sigma_CB,
-                               Eigen::Vector3d& sigma_BN,
-                               Eigen::Vector3d& omega_BN_B) {
+inline void referenceConvertStPlatformToBody(const Eigen::Vector4d& ep_CN,
+                                             const Eigen::Vector3d& omega_CN_C,
+                                             const Eigen::Vector3d& sigma_CB,
+                                             Eigen::Vector3d& sigma_BN,
+                                             Eigen::Vector3d& omega_BN_B) {
     // Case-frame attitude as MRP
     Eigen::Vector3d sigma_CN = epToMrp(ep_CN);
 
@@ -96,13 +96,13 @@ inline void computeTruthValues(const Eigen::Vector4d& ep_CN,
  * delta-quaternion representation the algorithm consumes, then confirms the algorithm
  * recovers the expected body-frame attitude and angular velocity.
  */
-inline void testConvertStPlatformToBody(const Eigen::Vector4d& ep_CN,
-                                        const Eigen::Vector3d& omega_CN_C,
-                                        const Eigen::Vector3d& sigma_CB) {
+inline void testConvertStPlatformToBodyRegression(const Eigen::Vector4d& ep_CN,
+                                                  const Eigen::Vector3d& omega_CN_C,
+                                                  const Eigen::Vector3d& sigma_CB) {
     // Compute truth in double precision
     Eigen::Vector3d sigma_BN_truth;
     Eigen::Vector3d omega_BN_B_truth;
-    computeTruthValues(ep_CN, omega_CN_C, sigma_CB, sigma_BN_truth, omega_BN_B_truth);
+    referenceConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB, sigma_BN_truth, omega_BN_B_truth);
 
     // Build float-precision Eigen inputs
     const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
