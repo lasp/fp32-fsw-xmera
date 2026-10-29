@@ -7,67 +7,56 @@
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestIdentity) {
     // With identity mounting and identity quaternion, output MRP and omega should be zero
-    Eigen::Vector4d ep_CN(1.0, 0.0, 0.0, 0.0);
-    Eigen::Vector3d omega_CN_C(0.0, 0.0, 0.0);
-    Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
-
-    testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB);
+    testConvertStPlatformToBodyRegression(Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},  // q_CN
+                                          Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},  // dq_CN
+                                          Eigen::Vector3f::Zero());                 // sigma_CB
 }
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestIdentityMounting) {
     // 30-degree rotation about z-axis, identity mounting
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitZ(), 30.0 * degToRad);
-    Eigen::Vector3d omega_CN_C(0.01, -0.02, 0.03);
-    Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
-
-    testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB);
+    testConvertStPlatformToBodyRegression(
+        toScalarLast(axisAngleToEp(Eigen::Vector3d::UnitZ(), 30.0 * degToRad)),  // q_CN
+        omegaToDeltaQuaternion(Eigen::Vector3d{0.01, -0.02, 0.03}),              // dq_CN
+        Eigen::Vector3f::Zero());                                                // sigma_CB
 }
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestIdentityMountingLargeRotation) {
     // 170-degree rotation about [1,1,1]/sqrt(3)
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d(1, 1, 1), 170.0 * degToRad);
-    Eigen::Vector3d omega_CN_C(0.1, -0.05, 0.2);
-    Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
-
-    testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB);
+    testConvertStPlatformToBodyRegression(
+        toScalarLast(axisAngleToEp(Eigen::Vector3d(1, 1, 1), 170.0 * degToRad)),  // q_CN
+        omegaToDeltaQuaternion(Eigen::Vector3d{0.1, -0.05, 0.2}),                 // dq_CN
+        Eigen::Vector3f::Zero());                                                 // sigma_CB
 }
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestMounting45DegAboutZ) {
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitX(), 45.0 * degToRad);
-    Eigen::Vector3d omega_CN_C(0.01, 0.02, -0.01);
-
     // 45-degree rotation about z
-    Eigen::Vector3d sigma_CB = prvToMrp<double>(45.0 * degToRad * Eigen::Vector3d::UnitZ());
-
-    testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB);
+    testConvertStPlatformToBodyRegression(
+        toScalarLast(axisAngleToEp(Eigen::Vector3d::UnitX(), 45.0 * degToRad)),       // q_CN
+        omegaToDeltaQuaternion(Eigen::Vector3d{0.01, 0.02, -0.01}),                   // dq_CN
+        prvToMrp<double>(45.0 * degToRad * Eigen::Vector3d::UnitZ()).cast<float>());  // sigma_CB
 }
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestMountingArbitraryAxis) {
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d(0.5, -0.3, 0.8), 70.0 * degToRad);
-    Eigen::Vector3d omega_CN_C(-0.03, 0.015, 0.008);
-
     // Arbitrary mounting rotation
-    Eigen::Vector3d sigma_CB = prvToMrp<double>(40.0 * degToRad * Eigen::Vector3d(1, -2, 0.5).stableNormalized());
-
-    testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB);
+    testConvertStPlatformToBodyRegression(
+        toScalarLast(axisAngleToEp(Eigen::Vector3d(0.5, -0.3, 0.8), 70.0 * degToRad)),                      // q_CN
+        omegaToDeltaQuaternion(Eigen::Vector3d{-0.03, 0.015, 0.008}),                                       // dq_CN
+        prvToMrp<double>(40.0 * degToRad * Eigen::Vector3d(1, -2, 0.5).stableNormalized()).cast<float>());  // sigma_CB
 }
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestMounting180DegFlip) {
     // 180-degree flip about x-axis (common boresight flip)
-    Eigen::Vector4d ep_CN(1.0, 0.0, 0.0, 0.0);
-    Eigen::Vector3d omega_CN_C(0.0, 0.0, 0.05);
-
-    Eigen::Vector3d sigma_CB = prvToMrp<double>(180.0 * degToRad * Eigen::Vector3d::UnitX());
-
-    testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB);
+    testConvertStPlatformToBodyRegression(
+        Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},                                       // q_CN
+        omegaToDeltaQuaternion(Eigen::Vector3d{0.0, 0.0, 0.05}),                       // dq_CN
+        prvToMrp<double>(180.0 * degToRad * Eigen::Vector3d::UnitX()).cast<float>());  // sigma_CB
 }
 
 TEST(ConvertStPlatformToBodyTest, ReferenceTestZeroOmega) {
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitY(), 30.0 * degToRad);
-    Eigen::Vector3d omega_CN_C = Eigen::Vector3d::Zero();
-    Eigen::Vector3d sigma_CB = prvToMrp<double>(15.0 * degToRad * Eigen::Vector3d::UnitZ());
-
-    testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB);
+    testConvertStPlatformToBodyRegression(
+        toScalarLast(axisAngleToEp(Eigen::Vector3d::UnitY(), 30.0 * degToRad)),       // q_CN
+        Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},                                      // dq_CN
+        prvToMrp<double>(15.0 * degToRad * Eigen::Vector3d::UnitZ()).cast<float>());  // sigma_CB
 }
 
 TEST(ConvertStPlatformToBodyTest, ScalarLastAttitudeMatchesKnownMrp) {

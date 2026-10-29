@@ -3,9 +3,14 @@
  */
 
 #include "convertStPlatformToBodyTestHelpers.hpp"
+#include "utilities/testUtilities/eigenFuzzDomains.hpp"
 #include <fuzztest/fuzztest.h>
-#include <Eigen/Geometry>
 #include <cmath>
+
+namespace {
+// The mounting range covers the principal MRP set and more, which create() changes to the principal set.
+constexpr float kMrpLimit = 2.0F;
+}  // namespace
 
 /*!
  * @brief Build a unit quaternion from four arbitrary doubles, normalizing them.
@@ -26,16 +31,6 @@ static Eigen::Vector4d makeUnitQuaternion(double q0, double q1, double q2, doubl
     return ep;
 }
 
-/*!
- * @brief Build a mounting MRP from three Euler angles (3-2-1 sequence).
- */
-static Eigen::Vector3d makeSigma(double yaw, double pitch, double roll) {
-    Eigen::Matrix3d dcm;
-    dcm = Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()) * Eigen::AngleAxisd(pitch, Eigen::Vector3d::UnitY()) *
-          Eigen::AngleAxisd(roll, Eigen::Vector3d::UnitX());
-    return dcmToMrp<double>(dcm);
-}
-
 /*! @brief Fuzz the algorithm across a wide range of quaternions, angular velocities, and mounting orientations */
 void fuzzConvertStPlatformToBody(double q0,
                                  double q1,
@@ -44,29 +39,26 @@ void fuzzConvertStPlatformToBody(double q0,
                                  double wx,
                                  double wy,
                                  double wz,
-                                 double yaw,
-                                 double pitch,
-                                 double roll) {
+                                 const Eigen::Vector3f& sigma_CB) {
     Eigen::Vector4d ep_CN = makeUnitQuaternion(q0, q1, q2, q3);
     Eigen::Vector3d omega_CN_C(wx, wy, wz);
-    Eigen::Vector3d sigma_CB = makeSigma(yaw, pitch, roll);
 
-    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB));
+    const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
+    const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
+    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_CN, dq_CN, sigma_CB));
 }
 
 // Keep ‖ω‖ < π so the helper's ω→δq conversion stays single-valued:
 // ‖ω‖ ≤ √3 · 0.9 ≈ 1.56 rad, well under π.
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBody)
-    .WithDomains(fuzztest::InRange(-1.0, 1.0),                              // q0
-                 fuzztest::InRange(-1.0, 1.0),                              // q1
-                 fuzztest::InRange(-1.0, 1.0),                              // q2
-                 fuzztest::InRange(-1.0, 1.0),                              // q3
-                 fuzztest::InRange(-0.9, 0.9),                              // wx [rad/s]
-                 fuzztest::InRange(-0.9, 0.9),                              // wy
-                 fuzztest::InRange(-0.9, 0.9),                              // wz
-                 fuzztest::InRange(0.0, 2.0 * M_PI),                        // yaw
-                 fuzztest::InRange(-M_PI / 2.0 + 0.01, M_PI / 2.0 - 0.01),  // pitch (avoid gimbal lock)
-                 fuzztest::InRange(0.0, 2.0 * M_PI));                       // roll
+    .WithDomains(fuzztest::InRange(-1.0, 1.0),                          // q0
+                 fuzztest::InRange(-1.0, 1.0),                          // q1
+                 fuzztest::InRange(-1.0, 1.0),                          // q2
+                 fuzztest::InRange(-1.0, 1.0),                          // q3
+                 fuzztest::InRange(-0.9, 0.9),                          // wx [rad/s]
+                 fuzztest::InRange(-0.9, 0.9),                          // wy
+                 fuzztest::InRange(-0.9, 0.9),                          // wz
+                 xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit));  // sigma_CB (MRP)
 
 /*! @brief Fuzz with edge-case quaternions: near-identity and near-180-degree rotations */
 void fuzzConvertStPlatformToBodyEdgeCases(double angle,
@@ -84,7 +76,9 @@ void fuzzConvertStPlatformToBodyEdgeCases(double angle,
     Eigen::Vector3d omega_CN_C(wx, wy, wz);
     Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
 
-    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB));
+    const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
+    const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
+    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_CN, dq_CN, sigma_CB.cast<float>()));
 }
 
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyEdgeCases)
@@ -98,21 +92,18 @@ FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyEdgeCases)
                  fuzztest::InRange(-0.5, 0.5),                          // wy
                  fuzztest::InRange(-0.5, 0.5));                         // wz
 
-/*! @brief Fuzz extreme mounting rotations */
-void fuzzConvertStPlatformToBodyMountingEdges(double yaw, double pitch, double roll) {
+/*! @brief Fuzz the mounting MRP, principal and shadow sets, with a fixed attitude and rate */
+void fuzzConvertStPlatformToBodyMountingEdges(const Eigen::Vector3f& sigma_CB) {
     Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitZ(), 0.5);
     Eigen::Vector3d omega_CN_C(0.01, -0.02, 0.03);
-    Eigen::Vector3d sigma_CB = makeSigma(yaw, pitch, roll);
 
-    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB));
+    const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
+    const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
+    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_CN, dq_CN, sigma_CB));
 }
 
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyMountingEdges)
-    .WithDomains(fuzztest::OneOf(fuzztest::InRange(0.0, 0.01),                           // Near-zero yaw
-                                 fuzztest::InRange(M_PI - 0.01, M_PI)),                  // Near-180 yaw
-                 fuzztest::OneOf(fuzztest::InRange(-0.01, 0.01),                         // Near-zero pitch
-                                 fuzztest::InRange(M_PI / 2 - 0.01, M_PI / 2 - 0.001)),  // Near-90 pitch
-                 fuzztest::InRange(0.0, 2.0 * M_PI));                                    // Full roll range
+    .WithDomains(xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit));  // sigma_CB (MRP)
 
 /*!
  * @brief Fuzz the algorithm with delta quaternions supplied directly.
@@ -127,9 +118,7 @@ void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
                                                 double dqy,
                                                 double dqz,
                                                 double dqw,
-                                                double yaw,
-                                                double pitch,
-                                                double roll) {
+                                                const Eigen::Vector3f& sigma_CB) {
     Eigen::Vector4d dq(dqx, dqy, dqz, dqw);
     const double norm = dq.stableNorm();
     if (norm < 1e-12) {
@@ -138,8 +127,7 @@ void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
         dq /= norm;
     }
 
-    ConvertStPlatformToBodyAlgorithm algorithm{
-        ConvertStPlatformToBodyConfig::create(makeSigma(yaw, pitch, roll).cast<float>())};
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB)};
 
     const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);  // identity inertial attitude (scalar-last) — isolate δq path
     const Eigen::Vector4f dq_CN(
@@ -154,10 +142,8 @@ void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
 }
 
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyDeltaQuaternion)
-    .WithDomains(fuzztest::InRange(-1.0, 1.0),                              // dqx
-                 fuzztest::InRange(-1.0, 1.0),                              // dqy
-                 fuzztest::InRange(-1.0, 1.0),                              // dqz
-                 fuzztest::InRange(-1.0, 1.0),                              // dqw (scalar part)
-                 fuzztest::InRange(0.0, 2.0 * M_PI),                        // yaw
-                 fuzztest::InRange(-M_PI / 2.0 + 0.01, M_PI / 2.0 - 0.01),  // pitch
-                 fuzztest::InRange(0.0, 2.0 * M_PI));                       // roll
+    .WithDomains(fuzztest::InRange(-1.0, 1.0),                          // dqx
+                 fuzztest::InRange(-1.0, 1.0),                          // dqy
+                 fuzztest::InRange(-1.0, 1.0),                          // dqz
+                 fuzztest::InRange(-1.0, 1.0),                          // dqw (scalar part)
+                 xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit));  // sigma_CB (MRP)

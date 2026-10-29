@@ -18,6 +18,8 @@ inline constexpr double degToRad = std::numbers::pi_v<double> / 180.0;
 inline constexpr float ATTITUDE_TOLERANCE = 1e-6F;
 /// Tolerance for angular velocity computations
 inline constexpr float OMEGA_TOLERANCE = 1e-6F;
+/// Tolerance for comparing attitudes as DCM elements (same as the hillPoint DCM comparison)
+inline constexpr float DCM_TOLERANCE = 1e-5F;
 
 /*!
  * @brief Build a unit quaternion [q0, q1, q2, q3] from an axis-angle rotation.
@@ -61,75 +63,72 @@ inline Eigen::Vector4f omegaToDeltaQuaternion(const Eigen::Vector3d& omega_CN_C)
             static_cast<float>(std::cos(angle / 2.0))};
 }
 
+/*! @brief Double-precision output of referenceConvertStPlatformToBody. */
+struct ReferenceStAttitudeOutput {
+    Eigen::Vector3d sigma_BN;    //!< [-] MRP from inertial to body frame
+    Eigen::Vector3d omega_BN_B;  //!< [rad/s] body-frame angular velocity w.r.t. inertial
+};
+
 /*!
- * @brief Compute the expected output of ConvertStPlatformToBodyAlgorithm in double precision.
+ * @brief Reference implementation that reproduces the algorithm's steps in double precision, used to verify the
+ *        FP32 output to within float tolerance. It takes the same inputs as the algorithm and shares the
+ *        rigidBodyKinematics functions with it, so it checks precision.
  *
- * Given a star tracker sensor input (quaternion, omega) and a mounting MRP,
- * compute the expected body-frame attitude (MRP) and angular velocity.
- *
- * @param ep_CN       Quaternion from inertial to case frame [q0, q1, q2, q3]
- * @param omega_CN_C  Angular velocity of case frame w.r.t. inertial, in case frame [rad/s]
- * @param sigma_CB    MRP of the case frame relative to the body frame
- * @param sigma_BN    [out] Expected MRP from inertial to body
- * @param omega_BN_B  [out] Expected angular velocity of body w.r.t. inertial, in body frame
+ * @param q_CN      Quaternion from inertial to case frame (scalar-last)
+ * @param dq_CN     Case-frame angular velocity quaternion (scalar-last)
+ * @param sigma_CB  MRP of the case frame relative to the body frame
  */
-inline void referenceConvertStPlatformToBody(const Eigen::Vector4d& ep_CN,
-                                             const Eigen::Vector3d& omega_CN_C,
-                                             const Eigen::Vector3d& sigma_CB,
-                                             Eigen::Vector3d& sigma_BN,
-                                             Eigen::Vector3d& omega_BN_B) {
+inline ReferenceStAttitudeOutput referenceConvertStPlatformToBody(const Eigen::Vector4d& q_CN,
+                                                                  const Eigen::Vector4d& dq_CN,
+                                                                  const Eigen::Vector3d& sigma_CB) {
+    ReferenceStAttitudeOutput ref;
+
     // Case-frame attitude as MRP
-    Eigen::Vector3d sigma_CN = epToMrp(ep_CN);
+    const Eigen::Vector4d ep_CN{q_CN(3), q_CN(0), q_CN(1), q_CN(2)};
+    const Eigen::Vector3d sigma_CN = epToMrp(ep_CN);
 
     // Case-to-body offset as MRP, through the mounting DCM
     const Eigen::Matrix3d dcm_CB = mrpToDcm(sigma_CB);
-    Eigen::Vector3d sigma_BC = dcmToMrp<double>(dcm_CB.transpose());
+    const Eigen::Vector3d sigma_BC = dcmToMrp<double>(dcm_CB.transpose());
 
     // Compose: sigma_BN = sigma_CN + sigma_BC
-    sigma_BN = addMrp(sigma_CN, sigma_BC);
+    ref.sigma_BN = addMrp(sigma_CN, sigma_BC);
 
-    // Rotate angular velocity to body frame
-    omega_BN_B = dcm_CB.transpose() * omega_CN_C;
+    // Unpack the rate quaternion, then rotate the angular velocity to the body frame
+    const Eigen::Vector3d dqVec = dq_CN.head<3>();
+    const double dqVecNorm = dqVec.stableNorm();
+    const double omegaScale = (dqVecNorm > 0.0) ? 2.0 * std::atan2(dqVecNorm, dq_CN(3)) / dqVecNorm : 0.0;
+    ref.omega_BN_B = dcm_CB.transpose() * (omegaScale * dqVec);
+
+    return ref;
 }
 
 /*!
- * @brief Run the algorithm with the given inputs and verify against double-precision truth.
- *
- * Tests express the sensor measurement in physical units (scalar-first quaternion + angular
- * velocity); this harness reorders the quaternion to scalar-last and converts ω to the
- * delta-quaternion representation the algorithm consumes, then confirms the algorithm
- * recovers the expected body-frame attitude and angular velocity.
+ * @brief Run the algorithm and the double-precision reference on the same inputs and compare their outputs.
  */
-inline void testConvertStPlatformToBodyRegression(const Eigen::Vector4d& ep_CN,
-                                                  const Eigen::Vector3d& omega_CN_C,
-                                                  const Eigen::Vector3d& sigma_CB) {
-    // Compute truth in double precision
-    Eigen::Vector3d sigma_BN_truth;
-    Eigen::Vector3d omega_BN_B_truth;
-    referenceConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB, sigma_BN_truth, omega_BN_B_truth);
+inline void testConvertStPlatformToBodyRegression(const Eigen::Vector4f& q_CN,
+                                                  const Eigen::Vector4f& dq_CN,
+                                                  const Eigen::Vector3f& sigma_CB) {
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB)};
+    StAttitudeOutput result;
+    EXPECT_NO_THROW(result = algorithm.update(q_CN, dq_CN));
 
-    // Build float-precision Eigen inputs
-    const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
-    const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
+    const ReferenceStAttitudeOutput ref =
+        referenceConvertStPlatformToBody(q_CN.cast<double>(), dq_CN.cast<double>(), sigma_CB.cast<double>());
 
-    // Configure and run algorithm
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB.cast<float>())};
-    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
-
-    // Verify MRP (account for shadow set ambiguity near |σ|=1)
-    Eigen::Vector3f sigma_result = result.sigma_BN;
-    Eigen::Vector3f sigma_expected = sigma_BN_truth.cast<float>();
-    if ((sigma_result - mrpShadow(sigma_expected)).squaredNorm() < (sigma_result - sigma_expected).squaredNorm()) {
-        sigma_expected = mrpShadow(sigma_expected);
-    }
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(sigma_result(i), sigma_expected(i), ATTITUDE_TOLERANCE) << "sigma_BN[" << i << "] mismatch";
+    // Compare attitudes as DCMs rather than MRP components: the MRP has two representations near |sigma| = 1
+    // (the 180-deg boundary), while the DCM is unique.
+    const Eigen::Matrix3f dcmOut = mrpToDcm<float>(result.sigma_BN);
+    const Eigen::Matrix3f dcmRef = mrpToDcm<double>(ref.sigma_BN).cast<float>();
+    for (int r = 0; r < 3; ++r) {
+        for (int c = 0; c < 3; ++c) {
+            EXPECT_NEAR(dcmOut(r, c), dcmRef(r, c), DCM_TOLERANCE);
+        }
     }
 
     // Verify angular velocity
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(result.omega_BN_B[i], static_cast<float>(omega_BN_B_truth(i)), OMEGA_TOLERANCE)
-            << "omega_BN_B[" << i << "] mismatch";
+        EXPECT_NEAR(result.omega_BN_B[i], static_cast<float>(ref.omega_BN_B(i)), OMEGA_TOLERANCE);
     }
 
     // Verify all outputs are finite
