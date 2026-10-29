@@ -9,24 +9,15 @@
 #include <Eigen/Geometry>
 #include <cmath>
 #include <cstdint>
+#include <numbers>
+
+/// Degrees to radians, for readable test angles
+inline constexpr double degToRad = std::numbers::pi_v<double> / 180.0;
 
 /// Tolerance for float-precision attitude computations
 inline constexpr float ATTITUDE_TOLERANCE = 1e-6F;
 /// Tolerance for angular velocity computations
 inline constexpr float OMEGA_TOLERANCE = 1e-6F;
-
-/*!
- * @brief Build a unit quaternion [q0, q1, q2, q3] from an axis-angle rotation.
- *
- * The quaternion convention is scalar-first: q = [cos(theta/2), sin(theta/2)*axis].
- */
-inline Eigen::Vector4d axisAngleToEp(const Eigen::Vector3d& axis, double angle) {
-    Eigen::Vector3d n = axis.stableNormalized();
-    Eigen::Vector4d ep;
-    ep(0) = std::cos(angle / 2.0);
-    ep.tail<3>() = std::sin(angle / 2.0) * n;
-    return ep;
-}
 
 /*!
  * @brief Reorder a scalar-first quaternion [q0, q1, q2, q3] to the scalar-last float form
