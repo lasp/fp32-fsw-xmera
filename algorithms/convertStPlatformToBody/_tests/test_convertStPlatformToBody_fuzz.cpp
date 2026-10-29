@@ -51,7 +51,7 @@ void fuzzConvertStPlatformToBody(double q0,
     Eigen::Vector3d omega_CN_C(wx, wy, wz);
     Eigen::Vector3d sigma_CB = makeSigma(yaw, pitch, roll);
 
-    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB));
+    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB));
 }
 
 // Keep ‖ω‖ < π so the helper's ω→δq conversion stays single-valued:
@@ -84,7 +84,7 @@ void fuzzConvertStPlatformToBodyEdgeCases(double angle,
     Eigen::Vector3d omega_CN_C(wx, wy, wz);
     Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
 
-    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB));
+    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB));
 }
 
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyEdgeCases)
@@ -104,7 +104,7 @@ void fuzzConvertStPlatformToBodyMountingEdges(double yaw, double pitch, double r
     Eigen::Vector3d omega_CN_C(0.01, -0.02, 0.03);
     Eigen::Vector3d sigma_CB = makeSigma(yaw, pitch, roll);
 
-    EXPECT_NO_THROW(testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB));
+    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(ep_CN, omega_CN_C, sigma_CB));
 }
 
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyMountingEdges)
