@@ -16,7 +16,7 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
     Eigen::Vector3f sigma_RN = Eigen::Vector3f::Zero();
 
     /*! Compute angle between solar array drive axis and thrust direction */
-    const Eigen::Vector3f sadaHat_B = this->cfg.getSadaHat_B().stableNormalized();
+    const Eigen::Vector3f sadaHat_B = this->cfg.getSadaHat_B();
     const float sadaAxisToThrustAngle = safeAcosf(fabsf(sadaHat_B.dot(thrustHat_B)));
 
     /*! Triad is resolveable only if the solar array drive axis and thrust direction are not nearly parallel and
@@ -27,8 +27,9 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
     if (isTriadResolved) {
         /*! Triad (D frame) basis vectors in hub reference frame */
         const Eigen::Vector3f d2Hat_B = thrustHat_B.stableNormalized();
-        const Eigen::Vector3f d3Hat_B = sadaHat_B.cross(d2Hat_B).stableNormalized();
+        Eigen::Vector3f d3Hat_B = sadaHat_B.cross(d2Hat_B).stableNormalized();
         const Eigen::Vector3f d1Hat_B = d2Hat_B.cross(d3Hat_B).stableNormalized();
+        d3Hat_B = d1Hat_B.cross(d2Hat_B).stableNormalized();
         Eigen::Matrix3f dcm_BD;
         dcm_BD.col(0) = d1Hat_B;
         dcm_BD.col(1) = d2Hat_B;
@@ -50,7 +51,7 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
             const float n3HatSign = (this->cfg.getN3Axis() == N3Axis::plusZHat_N) ? 1.0F : -1.0F;
             const Eigen::Vector3f n3Hat_N = (n3HatSign * Eigen::Vector3f::UnitZ()).stableNormalized();
 
-            /*! Keep the default current attitude if the fallback inertial z-axis is nearly parallel to the thrust
+            /*! Keep the zero MRP (identity attitude) if the fallback inertial z-axis is nearly parallel to the thrust
              * reference direction (undefined) */
             const float zToThrustRefAngle = safeAcosf(fabsf(n3Hat_N.dot(d2Hat_N)));
             isFallbackValid = zToThrustRefAngle >= kParallelThresholdRad;
@@ -62,6 +63,7 @@ Eigen::Vector3f TriadAlgorithm::update(const Eigen::Vector3f& rHat_SB_N, const E
             // Normal triad otherwise
             d1Hat_N = rHat_SB_N.cross(d2Hat_N).stableNormalized();
             d3Hat_N = d1Hat_N.cross(d2Hat_N).stableNormalized();
+            d1Hat_N = d2Hat_N.cross(d3Hat_N).stableNormalized();
         }
 
         if (isFallbackValid) {

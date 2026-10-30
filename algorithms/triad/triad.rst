@@ -121,7 +121,7 @@ a zero MRP (identity :math:`[\mathcal{RN}]`) is returned.
 
 - Edge Case 3: Solar array drive axis :math:`{}^\mathcal{B}\hat{a}` and incoming thrust direction :math:`{}^\mathcal{B}\hat{t}` are nearly parallel.
 
-    Triggered when the angle between the solar array drive axis and the body thrust direction is less than a 5 degree threshold ``kParallelThresholdRad``.
+    Triggered when the angle between the solar array drive axis and the body thrust direction is less than a 0.5 degree threshold ``kParallelThresholdRad``.
 
     .. math::
 
@@ -140,32 +140,39 @@ the body thrust direction and the solar array drive axis:
 .. math::
 
     {}^\mathcal{B}\hat{d}_2 &= {}^\mathcal{B}\hat{t} \\
-    {}^\mathcal{B}\hat{d}_3 &= \frac{ {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 } { \| {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 \| } \\
-    {}^\mathcal{B}\hat{d}_1 &= {}^\mathcal{B}\hat{d}_2 \times {}^\mathcal{B}\hat{d}_3
+    {}^\mathcal{B}\hat{d}_3' &= \frac{ {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 } { \| {}^\mathcal{B}\hat{a} \times {}^\mathcal{B}\hat{d}_2 \| } \\
+    {}^\mathcal{B}\hat{d}_1 &= {}^\mathcal{B}\hat{d}_2 \times {}^\mathcal{B}\hat{d}_3' \\
+    {}^\mathcal{B}\hat{d}_3 &= {}^\mathcal{B}\hat{d}_1 \times {}^\mathcal{B}\hat{d}_2
 
-Each axis is normalized. The matrix :math:`[\mathcal{BD}]` is constructed using the triad frame axes as columns:
+Each axis is normalized. The third axis is computed twice: the intermediate
+:math:`{}^\mathcal{B}\hat{d}_3'` is replaced by a value rebuilt from the two clean axes, for the reason given in
+:ref:`triad-reorthogonalization`. The matrix :math:`[\mathcal{BD}]` is constructed using the triad frame axes as
+columns:
 :math:`[\mathcal{BD}] = \big[\, {}^\mathcal{B}\hat{d}_1, \;\; {}^\mathcal{B}\hat{d}_2, \;\; {}^\mathcal{B}\hat{d}_3 \,\big]`.
 
 Triad Frame in Inertial Coordinates
 """""""""""""""""""""""""""""""""""
 
-The second triad frame is expressed in inertial frame :math:`\mathcal{N}` components. The frame is build from the
+The second triad frame is expressed in inertial frame :math:`\mathcal{N}` components. The frame is built from the
 reference inertial thrust direction and the inertial Sun direction:
 
 .. math::
 
     {}^\mathcal{N}\hat{d}_2 &= {}^\mathcal{N}\hat{t}_\text{ref} \\
-    {}^\mathcal{N}\hat{d}_1 &= \frac{ {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 } { \| {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 \| }\\
-    {}^\mathcal{N}\hat{d}_3 &= {}^\mathcal{N}\hat{d}_1 \times {}^\mathcal{N}\hat{d}_2
+    {}^\mathcal{N}\hat{d}_1' &= \frac{ {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 } { \| {}^\mathcal{N}\hat{r}_{S/B} \times {}^\mathcal{N}\hat{d}_2 \| }\\
+    {}^\mathcal{N}\hat{d}_3 &= {}^\mathcal{N}\hat{d}_1' \times {}^\mathcal{N}\hat{d}_2 \\
+    {}^\mathcal{N}\hat{d}_1 &= {}^\mathcal{N}\hat{d}_2 \times {}^\mathcal{N}\hat{d}_3
 
-Each axis is normalized. The matrix :math:`[\mathcal{ND}]` is constructed using the triad frame axes as columns:
+Each axis is normalized. As in the body frame, the intermediate :math:`{}^\mathcal{N}\hat{d}_1'` is replaced by a
+value rebuilt from the two clean axes; see :ref:`triad-reorthogonalization`. The matrix :math:`[\mathcal{ND}]` is
+constructed using the triad frame axes as columns:
 :math:`[\mathcal{ND}] = \big[\, {}^\mathcal{N}\hat{d}_1, \;\; {}^\mathcal{N}\hat{d}_2, \;\; {}^\mathcal{N}\hat{d}_3 \,\big]`.
 
 Edge Case Guard 2
 """""""""""""""""
 
 Before constructing the second triad frame, the algorithm checks whether the Sun direction and the thrust inertial
-reference direction are nearly parallel using the same 5 degree threshold ``kParallelThresholdRad``.
+reference direction are nearly parallel using the same 0.5 degree threshold ``kParallelThresholdRad``.
 
 .. math::
 
@@ -186,8 +193,23 @@ align as close to the inertial Z-axis as possible.
 
     Because the spacecraft trajectory never passes directly beneath the Sun, the new cross products should never be
     zero. However, in the case where the thrust reference and sun direction are both nearly parallel to the fallback
-    Z-axis, the new cross products will be zero. The current spacecraft attitude is returned in this case because this
+    Z-axis, the new cross products will be zero. The zero MRP (identity attitude) is returned in this case because this
     is an impossible configuration.
+
+.. _triad-reorthogonalization:
+
+Triad Re-orthogonalization
+""""""""""""""""""""""""""
+
+Any time a frame is built from cross products whose inputs can be near-parallel, the axis from the first cross product
+is rebuilt from the two clean axes. This is the "twice is enough" rule for Gram-Schmidt: one pass with cancellation
+leaves an orthogonality error of about :math:`\epsilon/\sin\theta`, where :math:`\theta` is the angle between the
+inputs, and a second pass brings it back to about :math:`\epsilon`.
+
+Both triads need the rebuild, because :math:`\theta` is bounded below only by ``kParallelThresholdRad``: the body
+triad rebuilds :math:`{}^\mathcal{B}\hat{d}_3`, and the inertial triad rebuilds :math:`{}^\mathcal{N}\hat{d}_1`. The
+fallback in Edge Case Guard 2 does not need it, because its first cross product uses the exact axis vector
+:math:`\pm{}^\mathcal{N}\hat{n}_3` and has no cancellation.
 
 Commanded Attitude
 """"""""""""""""""
@@ -267,7 +289,7 @@ The final angle between the inertial SADA axis and the Sun direction can be comp
 
 .. math::
 
-        \phi = \arccos \left( \left| {}^\mathcal{N}\hat{a} \cdot {}^\mathcal{N}\hat{r}_{S/B} \right| \right) = 100.55 ^{\circ}
+        \phi = \arccos \left( {}^\mathcal{N}\hat{a} \cdot {}^\mathcal{N}\hat{r}_{S/B} \right) = 100.55 ^{\circ}
 
 Subtracting 90 degrees from the above result gives the Sun-array offset angle, which is 10.55 degrees and indeed less
 than the thrust offset angle :math:`\theta = 15^{\circ}`, as expected. In the nominal case, the following condition
@@ -311,7 +333,7 @@ Property Tests
 
 - SolarArraySunOffsetBoundedByBodyThrustOffset
     - Checks that the solar array offset from the Sun direction is bounded by the body thrust vector offset angle from
-    the plane normal to the solar array drive axis
+      the plane normal to the solar array drive axis
     - An example for this property is illustrated in Figure 3: Nominal Case
 
 Edge Case Tests
@@ -327,7 +349,7 @@ Edge Case Tests
     - Checks that the algorithm correctly returns the zero MRP (identity attitude) when the SADA axis is aligned with the body thrust direction.
 
 - SunAlignedWithThrustRefUsesFallbackZAxis
-    - Checks that when the Sun direction is aligned with the thrust inertial reference, the fallback inertial Z-axis is used in triad body frame computation.
+    - Checks that when the Sun direction is aligned with the thrust inertial reference, the fallback inertial Z-axis is used in the inertial triad frame computation.
 
 - SadaOrthogonalToSunWhenOrthogonalToBodyThrust
     - Checks that the solar array-Sun orthogonality constraint is met when the SADA axis is orthogonal to the body thrust axis.

@@ -18,7 +18,6 @@
 class RwMotorTorque : public SysModel {
    public:
     RwMotorTorque() = default;
-    ~RwMotorTorque() final = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
