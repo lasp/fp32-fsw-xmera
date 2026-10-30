@@ -31,22 +31,11 @@ inline Eigen::Vector4f toScalarLast(const Eigen::Vector4d& ep) {
 /*!
  * @brief Pack a platform-frame angular velocity into an angular velocity quaternion (scalar-last).
  *
- * The angle element is the rate itself, so θ = ‖ω‖ and axis = ω/‖ω‖. The result is
- * rateQuaternion = [sin(θ/2)·axis, cos(θ/2)], matching the scalar-last convention consumed by
- * StPlatformAttitudeAlgorithm. Returns [0, 0, 0, 1] (identity rotation) when
- * ‖ω‖ is below a small threshold.
+ * The angle element is the rate itself, so ω is packed like a principal rotation vector:
+ * rateQuaternion = [sin(‖ω‖/2)·ω/‖ω‖, cos(‖ω‖/2)], reordered to scalar-last.
  */
 inline Eigen::Vector4f omegaToRateQuaternion(const Eigen::Vector3d& omega_PN_P) {
-    const double angle = omega_PN_P.stableNorm();
-    if (angle < 1e-12) {
-        return {0.0F, 0.0F, 0.0F, 1.0F};
-    }
-    const Eigen::Vector3d axis = omega_PN_P / angle;
-    const double s = std::sin(angle / 2.0);
-    return {static_cast<float>(s * axis(0)),
-            static_cast<float>(s * axis(1)),
-            static_cast<float>(s * axis(2)),
-            static_cast<float>(std::cos(angle / 2.0))};
+    return toScalarLast(prvToEp<double>(omega_PN_P));
 }
 
 /*! @brief Double-precision output of referenceStPlatformAttitude. */
@@ -69,9 +58,11 @@ inline ReferenceStAttitudeOutput referenceStPlatformAttitude(const Eigen::Vector
                                                              const Eigen::Vector3d& sigma_PB) {
     ReferenceStAttitudeOutput ref;
 
+    // The inputs are scalar-last; rigidBodyKinematics.hpp expects scalar-first.
+    const auto toScalarFirst = [](const Eigen::Vector4d& q) { return Eigen::Vector4d{q(3), q(0), q(1), q(2)}; };
+
     // Platform-frame attitude as MRP
-    const Eigen::Vector4d ep_PN{q_PN(3), q_PN(0), q_PN(1), q_PN(2)};
-    const Eigen::Vector3d sigma_PN = epToMrp(ep_PN);
+    const Eigen::Vector3d sigma_PN = epToMrp(toScalarFirst(q_PN));
 
     // Platform-to-body offset as MRP, through the mounting DCM
     const Eigen::Matrix3d dcm_PB = mrpToDcm(sigma_PB);
@@ -80,14 +71,8 @@ inline ReferenceStAttitudeOutput referenceStPlatformAttitude(const Eigen::Vector
     // Compose: sigma_BN = sigma_PN + sigma_BP
     ref.sigma_BN = addMrp(sigma_PN, sigma_BP);
 
-    // Unpack the rate quaternion, then rotate the angular velocity to the body frame
-    const Eigen::Vector3d rateQuaternionVec = rateQuaternion_PN.head<3>();
-    const double rateQuaternionVecNorm = rateQuaternionVec.stableNorm();
-    const double omegaScale =
-        (rateQuaternionVecNorm > 0.0)
-            ? 2.0 * std::atan2(rateQuaternionVecNorm, rateQuaternion_PN(3)) / rateQuaternionVecNorm
-            : 0.0;
-    ref.omega_BN_B = dcm_PB.transpose() * (omegaScale * rateQuaternionVec);
+    // Angular velocity is the PRV of the rate quaternion, rotated to the body frame
+    ref.omega_BN_B = dcm_PB.transpose() * epToPrv(toScalarFirst(rateQuaternion_PN));
 
     return ref;
 }
