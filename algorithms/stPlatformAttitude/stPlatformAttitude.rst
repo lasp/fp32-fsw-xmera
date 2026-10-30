@@ -1,7 +1,7 @@
 Executive Summary
 -----------------
 
-The ``convertStPlatformToBody`` module converts a star tracker attitude measurement from the star tracker platform
+The ``stPlatformAttitude`` module converts a star tracker attitude measurement from the star tracker platform
 frame into the spacecraft body frame. It takes the inertial-to-platform attitude quaternion and platform-frame angular
 velocity quaternion from the star tracker platform solution (``StPlatformAttitudeMsgF32Payload``) and converts them
 using a configured mounting MRP.
@@ -20,16 +20,16 @@ Module Architecture
 The module is split into a thin adapter that handles framework integration and an algorithm class that contains the
 pure math.
 
-The algorithm class is ``ConvertStPlatformToBodyAlgorithm``. It keeps no cycle-to-cycle measurement state.
+The algorithm class is ``StPlatformAttitudeAlgorithm``. It keeps no cycle-to-cycle measurement state.
 ``setConfig()`` computes the inverse mounting MRP (``sigma_BP``) and the platform-to-body DCM (``dcm_BP``) once per
 configuration change.
 
 Adapter Layer
 ~~~~~~~~~~~~~
 
-The adapter class is ``ConvertStPlatformToBody``. It inherits from ``SysModel`` and owns the input and output
+The adapter class is ``StPlatformAttitude``. It inherits from ``SysModel`` and owns the input and output
 messages. Each ``updateState()`` copies ``platformAttitude`` and ``platformAngularVelocity`` into ``q_PN`` and
-``dq_PN`` without conversion or reordering, passes them to the algorithm, and publishes ``sigma_BN`` and
+``rateQuaternion_PN`` without conversion or reordering, passes them to the algorithm, and publishes ``sigma_BN`` and
 ``omega_BN_B`` with ``solutionTimestamp`` as the time tag in seconds (``double``). The output message is written every
 cycle. If the input message has not been written, zero quaternions and a zero time tag are used, so the output is
 ``sigma_BP`` with zero angular velocity and a zero time tag.
@@ -52,7 +52,7 @@ cycle. If the input message has not been written, zero quaternions and a zero ti
 Configuration
 ~~~~~~~~~~~~~
 
-``sigma_PB`` is validated in ``ConvertStPlatformToBodyConfig::create()`` when the adapter's ``reset()`` or
+``sigma_PB`` is validated in ``StPlatformAttitudeConfig::create()`` when the adapter's ``reset()`` or
 ``reconfigure()`` runs; the algorithm never sees an invalid configuration.
 
 .. list-table:: Configuration parameters
@@ -80,7 +80,7 @@ the module to the simulation task; nothing is checked in this phase and the algo
 ``reset()``, called by ``InitializeSimulation()``, checks that ``stSensorInMsg`` is connected, validates ``sigma_PB``,
 and builds the algorithm. It throws if either check fails::
 
-    module = convertStPlatformToBodyF32.ConvertStPlatformToBody()
+    module = stPlatformAttitudeF32.StPlatformAttitude()
     module.modelTag = "stPlatformToBody"
     module.sigma_PB = sigma_PB
     module.stSensorInMsg.subscribeTo(stSensorMsg)
@@ -146,7 +146,7 @@ and sends that rotation as a scalar-last quaternion,
                         \cos\!\left(\tfrac{\Phi}{2}\right)\right]
                       = [q_{\omega,0},\ q_{\omega,1},\ q_{\omega,2},\ q_{\omega,3}].
 
-The angle :math:`\Phi` has the numerical value of the rate in rad/s. ``dq_PN`` is therefore a rotation
+The angle :math:`\Phi` has the numerical value of the rate in rad/s. ``rateQuaternion_PN`` is therefore a rotation
 representation that carries a rate. It is not a quaternion derivative and not the rotation accumulated over a sample
 interval, so no time step is involved and nothing is divided by :math:`\Delta t`.
 
