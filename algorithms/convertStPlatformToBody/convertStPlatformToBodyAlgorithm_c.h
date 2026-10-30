@@ -17,20 +17,20 @@ typedef struct ConvertStPlatformToBodyAlgorithmHandle ConvertStPlatformToBodyAlg
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param sigma_CB MRP of the case frame relative to the body frame; must be finite.
+ * @param sigma_PB MRP of the platform frame relative to the body frame; must be finite.
  * @return true if the configuration is valid. Never throws, so it can guard the
  *         throwing create/setConfig from an invalid configuration.
  * @note The accepted value ranges are defined by ConvertStPlatformToBodyConfig::create; this
  *       predicate reports whether a candidate set would be accepted, without throwing.
  */
-bool ConvertStPlatformToBodyAlgorithm_validateConfig(Vector3f_c sigma_CB);
+bool ConvertStPlatformToBodyAlgorithm_validateConfig(Vector3f_c sigma_PB);
 
 /**
  * @brief Construct a new ConvertStPlatformToBodyAlgorithm instance from the supplied configuration.
- * @param sigma_CB MRP of the case frame relative to the body frame; must be finite.
+ * @param sigma_PB MRP of the platform frame relative to the body frame; must be finite.
  * @return Pointer to a new instance (must be destroyed). Validated; throws on invalid input.
  */
-ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(Vector3f_c sigma_CB);
+ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(Vector3f_c sigma_PB);
 
 /**
  * @brief Destroy a previously created ConvertStPlatformToBodyAlgorithm.
@@ -41,16 +41,16 @@ void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHa
 /**
  * @brief Apply a new configuration.
  * @param self     Pointer to the instance.
- * @param sigma_CB MRP of the case frame relative to the body frame; must be finite.
+ * @param sigma_PB MRP of the platform frame relative to the body frame; must be finite.
  * Validated; throws on invalid input.
  */
-void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self, Vector3f_c sigma_CB);
+void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self, Vector3f_c sigma_PB);
 
 /**
  * @brief Run the update step.
  * @param self        Pointer to the instance.
- * @param measurement Pointer to the time-tagged inertial-to-case attitude quaternion and
- *                    case-frame delta quaternion, both scalar-last as the sensor emits them.
+ * @param measurement Pointer to the time-tagged inertial-to-platform attitude quaternion and
+ *                    platform-frame angular velocity quaternion, both scalar-last as the sensor emits them.
  * @return StAttitudeOutput_c  The computed star tracker attitude output.
  */
 StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithmHandle* self,

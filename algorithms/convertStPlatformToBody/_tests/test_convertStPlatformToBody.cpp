@@ -1,213 +1,160 @@
-/*
- Unit tests for ConvertStPlatformToBodyAlgorithm
- */
-
-#include "test_convertStPlatformToBody_helpers.h"
+#include "convertStPlatformToBodyTestHelpers.hpp"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
+#include <gtest/gtest.h>
 #include <cmath>
-#include <cstdint>
 #include <limits>
 
-// ─── Config Tests ───────────────────────────────────────────────────────────
-
-TEST(ConvertStPlatformToBody, ConfigRoundTripsSigma) {
-    // 90-degree rotation about z-axis
-    const Eigen::Vector3f sigma_CB{0.0F, 0.0F, static_cast<float>(std::tan(M_PI / 8.0))};
-    const auto config = ConvertStPlatformToBodyConfig::create(sigma_CB);
-    EXPECT_EQ(config.getSigma_CB(), sigma_CB);
+TEST(ConvertStPlatformToBodyTest, ReferenceTestMountingArbitraryAxis) {
+    // Input: arbitrary attitude, rate and mounting.
+    // Expected: FP32 output matches the FP64 reference (precision check, not a known physical output).
+    testConvertStPlatformToBodyRegression(
+        toScalarLast(axisAngleToEp(Eigen::Vector3d(0.5, -0.3, 0.8), 70.0 * degToRad)),                      // q_PN
+        omegaToDeltaQuaternion(Eigen::Vector3d{-0.03, 0.015, 0.008}),                                       // dq_PN
+        prvToMrp<double>(40.0 * degToRad * Eigen::Vector3d(1, -2, 0.5).stableNormalized()).cast<float>());  // sigma_PB
 }
 
-TEST(ConvertStPlatformToBody, ConfigStoresPrincipalSigma) {
-    // A shadow-set MRP describes the same rotation and is stored as its principal set
-    const auto config = ConvertStPlatformToBodyConfig::create(Eigen::Vector3f{0.0F, 0.0F, 2.0F});
-    EXPECT_NEAR(config.getSigma_CB()[0], 0.0F, ATTITUDE_TOLERANCE);
-    EXPECT_NEAR(config.getSigma_CB()[1], 0.0F, ATTITUDE_TOLERANCE);
-    EXPECT_NEAR(config.getSigma_CB()[2], -0.5F, ATTITUDE_TOLERANCE);
+TEST(ConvertStPlatformToBodyTest, IdentityProducesZeroOutput) {
+    // Input: identity attitude, zero rate, identity mounting. Quaternions are scalar-last as the micro-ASC ICD sends
+    // them, so the identity is [0, 0, 0, 1] (read scalar-first it would be a 180-deg rotation).
+    // Expected: sigma_BN = 0 and omega_BN_B = 0.
+    testConvertStPlatformToBodyExpectedOutput(Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},  // q_PN
+                                              Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},  // dq_PN
+                                              Eigen::Vector3f::Zero(),                  // sigma_PB
+                                              Eigen::Vector3f::Zero(),                  // sigma_BN expected
+                                              Eigen::Vector3f::Zero());                 // omega_BN_B expected
 }
 
-TEST(ConvertStPlatformToBody, ConfigRejectsNonFiniteSigma) {
-    const Eigen::Vector3f nanSigma{std::numeric_limits<float>::quiet_NaN(), 0.0F, 0.0F};
-    const Eigen::Vector3f infSigma{0.0F, std::numeric_limits<float>::infinity(), 0.0F};
-    EXPECT_FALSE(ConvertStPlatformToBodyConfig::isValidSigma_CB(nanSigma));
-    EXPECT_FALSE(ConvertStPlatformToBodyConfig::isValidSigma_CB(infSigma));
-    EXPECT_THROW(ConvertStPlatformToBodyConfig::create(nanSigma), fsw::invalid_argument);
-    EXPECT_THROW(ConvertStPlatformToBodyConfig::create(infSigma), fsw::invalid_argument);
-    EXPECT_TRUE(ConvertStPlatformToBodyConfig::isValidSigma_CB(Eigen::Vector3f::Zero()));
+TEST(ConvertStPlatformToBodyTest, Mounting180DegFlipProducesKnownOutput) {
+    // Input: identity attitude, omega_PN_P = (0, 0, 0.05) rad/s, 180-deg mounting about x (|sigma_PB| = 1 boundary).
+    // Expected: sigma_BN = -sigma_PB (its shadow set is the same attitude) and omega_BN_B = (0, 0, -0.05), since
+    // [PB]^T = diag(1, -1, -1).
+    const Eigen::Vector3f sigma_PB = prvToMrp<double>(180.0 * degToRad * Eigen::Vector3d::UnitX()).cast<float>();
+    testConvertStPlatformToBodyExpectedOutput(Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},                  // q_PN
+                                              omegaToDeltaQuaternion(Eigen::Vector3d{0.0, 0.0, 0.05}),  // dq_PN
+                                              sigma_PB,                                                 // sigma_PB
+                                              -sigma_PB,                             // sigma_BN expected
+                                              Eigen::Vector3f{0.0F, 0.0F, -0.05F});  // omega_BN_B expected
 }
 
-// ─── Identity Mounting Tests ────────────────────────────────────────────────
-
-TEST(ConvertStPlatformToBody, IdentityMounting_IdentityQuaternion) {
-    // With identity mounting and identity quaternion, output MRP and omega should be zero
-    Eigen::Vector4d ep_CN(1.0, 0.0, 0.0, 0.0);
-    Eigen::Vector3d omega_CN_C(0.0, 0.0, 0.0);
-    Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
-
-    testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB);
+TEST(ConvertStPlatformToBodyTest, AnalyticalTestSmallRate) {
+    // Input: a representative small rate of order 1e-4 rad/s, with nonzero attitude and mounting.
+    // Expected: omega_BN_B = [PB]^T omega_PN_P, not rounded to zero. Fails with acos decoding (cos(θ/2) rounds to 1 in
+    // float) or a coarse zero-rate guard.
+    testConvertStPlatformToBodyAnalytical(Eigen::Vector3d(0.5, -0.3, 0.8),           // attitude axis
+                                          70.0 * degToRad,                           // attitude angle
+                                          Eigen::Vector3d{1.0e-4, -5.0e-5, 2.0e-5},  // omega_PN_P [rad/s]
+                                          Eigen::Vector3d(1, -2, 0.5),               // mounting axis
+                                          40.0 * degToRad);                          // mounting angle
 }
 
-TEST(ConvertStPlatformToBody, IdentityMounting_NonTrivialAttitude) {
-    // 30-degree rotation about z-axis, identity mounting
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitZ(), M_PI / 6.0);
-    Eigen::Vector3d omega_CN_C(0.01, -0.02, 0.03);
-    Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
-
-    testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB);
+TEST(ConvertStPlatformToBodyTest, OutputIsFinite) {
+    // Input: arbitrary attitude, rate and mounting.
+    // Expected: all sigma_BN and omega_BN_B components are finite.
+    propertyOutputIsFinite(
+        toScalarLast(axisAngleToEp(Eigen::Vector3d(0.5, -0.3, 0.8), 70.0 * degToRad)),                      // q_PN
+        omegaToDeltaQuaternion(Eigen::Vector3d{-0.03, 0.015, 0.008}),                                       // dq_PN
+        prvToMrp<double>(40.0 * degToRad * Eigen::Vector3d(1, -2, 0.5).stableNormalized()).cast<float>());  // sigma_PB
 }
 
-TEST(ConvertStPlatformToBody, IdentityMounting_LargeRotation) {
-    // 170-degree rotation about [1,1,1]/sqrt(3)
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d(1, 1, 1), 170.0 * M_PI / 180.0);
-    Eigen::Vector3d omega_CN_C(0.1, -0.05, 0.2);
-    Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
-
-    testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB);
+TEST(ConvertStPlatformToBodyTest, SigmaNormBounded) {
+    // Input: 170-deg attitude and -90-deg mounting about z, a total rotation of 260 deg (past 180 deg).
+    // Expected: |sigma_BN| <= 1 (principal MRP set).
+    propertySigmaNormBounded(toScalarLast(axisAngleToEp(Eigen::Vector3d::UnitZ(), 170.0 * degToRad)),       // q_PN
+                             Eigen::Vector4f{0.0F, 0.0F, 0.0F, 1.0F},                                       // dq_PN
+                             prvToMrp<double>(-90.0 * degToRad * Eigen::Vector3d::UnitZ()).cast<float>());  // sigma_PB
 }
 
-// ─── Non-trivial Mounting Tests ─────────────────────────────────────────────
+TEST(ConvertStPlatformToBodyTest, IdentityDeltaQuaternionProducesZeroOmega) {
+    // Input: dq_PN = [0, 0, 0, 1] (no rotation), nonzero mounting.
+    // Expected: omega_BN_B = 0.
+    const Eigen::Vector3f sigma_PB =
+        prvToMrp<double>(50.0 * degToRad * Eigen::Vector3d(0.3, -0.7, 0.5).stableNormalized()).cast<float>();
+    const ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_PB)};
 
-TEST(ConvertStPlatformToBody, RotatedMounting_45DegAboutZ) {
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitX(), M_PI / 4.0);
-    Eigen::Vector3d omega_CN_C(0.01, 0.02, -0.01);
+    const Eigen::Vector4f q_PN(0.0F, 0.0F, 0.0F, 1.0F);
+    const Eigen::Vector4f dq_PN(0.0F, 0.0F, 0.0F, 1.0F);
 
-    // 45-degree rotation about z
-    Eigen::Vector3d sigma_CB = epToMrp(axisAngleToEp(Eigen::Vector3d::UnitZ(), M_PI / 4.0));
-
-    testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB);
+    StAttitudeOutput result = algorithm.update(q_PN, dq_PN);
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(result.omega_BN_B[i], 0.0F, OMEGA_TOLERANCE);
+    }
 }
 
-TEST(ConvertStPlatformToBody, RotatedMounting_ArbitraryAxis) {
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d(0.5, -0.3, 0.8), 1.2);
-    Eigen::Vector3d omega_CN_C(-0.03, 0.015, 0.008);
+TEST(ConvertStPlatformToBodyTest, ZeroDeltaQuaternionProducesZeroOmega) {
+    // Input: dq_PN = [0, 0, 0, 0], what a default-initialized PlatformAngularVelocity carries.
+    // Expected: omega_BN_B = 0 and finite; the zero-rate guard avoids dividing by ‖dq_v‖ = 0.
+    const ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
 
-    // Arbitrary mounting rotation
-    Eigen::Vector3d sigma_CB = epToMrp(axisAngleToEp(Eigen::Vector3d(1, -2, 0.5), 0.7));
+    const Eigen::Vector4f q_PN(0.0F, 0.0F, 0.0F, 1.0F);
+    const Eigen::Vector4f dq_PN = Eigen::Vector4f::Zero();  // all four dq_PN components = 0
 
-    testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB);
+    StAttitudeOutput result = algorithm.update(q_PN, dq_PN);
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_TRUE(std::isfinite(result.omega_BN_B[i]));
+        EXPECT_NEAR(result.omega_BN_B[i], 0.0F, OMEGA_TOLERANCE);
+    }
 }
 
-TEST(ConvertStPlatformToBody, RotatedMounting_180DegFlip) {
-    // 180-degree flip about x-axis (common boresight flip)
-    Eigen::Vector4d ep_CN(1.0, 0.0, 0.0, 0.0);
-    Eigen::Vector3d omega_CN_C(0.0, 0.0, 0.05);
-
-    Eigen::Vector3d sigma_CB = epToMrp(axisAngleToEp(Eigen::Vector3d::UnitX(), M_PI));
-
-    testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB);
-}
-
-// ─── Zero Omega Tests ───────────────────────────────────────────────────────
-
-TEST(ConvertStPlatformToBody, ZeroOmega_NonTrivialAttitude) {
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitY(), 0.5);
-    Eigen::Vector3d omega_CN_C = Eigen::Vector3d::Zero();
-    Eigen::Vector3d sigma_CB = epToMrp(axisAngleToEp(Eigen::Vector3d::UnitZ(), 0.3));
-
-    testConvertStPlatformToBody(ep_CN, omega_CN_C, sigma_CB);
-}
-
-// ─── Zero Input Tests ───────────────────────────────────────────────────────
-
-TEST(ConvertStPlatformToBody, ZeroedInputPayload) {
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
-    // All zeros — invalid quaternion and zero-vector delta quaternion, but algorithm
-    // must not crash or emit non-finite outputs.
+TEST(ConvertStPlatformToBodyTest, ZeroedInputPayload) {
+    // Input: q_PN = 0 and dq_PN = 0 (not a valid quaternion), identity mounting.
+    // Expected: sigma_BN and omega_BN_B are finite.
+    const ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
     StAttitudeOutput result = algorithm.update(Eigen::Vector4f::Zero(), Eigen::Vector4f::Zero());
     for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(result.sigma_BN[i]) || result.sigma_BN[i] == 0.0F);
+        EXPECT_TRUE(std::isfinite(result.sigma_BN[i]));
         EXPECT_TRUE(std::isfinite(result.omega_BN_B[i]));
     }
 }
 
-// ─── Quaternion Ordering Tests ──────────────────────────────────────────────
+TEST(ConvertStPlatformToBodyTest, SetupTest) {
+    // Config round-trip: a 90-degree rotation about z is stored as given
+    const Eigen::Vector3f sigma_PB = prvToMrp<double>(90.0 * degToRad * Eigen::Vector3d::UnitZ()).cast<float>();
+    const auto config = ConvertStPlatformToBodyConfig::create(sigma_PB);
+    EXPECT_EQ(config.getSigma_PB(), sigma_PB);
 
-TEST(ConvertStPlatformToBody, ScalarLastAttitude_MatchesKnownMrp) {
-    // q_CN = [0, 0, sin(45°), cos(45°)] is a 90° rotation about z in scalar-last order.
-    // With identity mounting, σ_BN = tan(90°/4)·ẑ. A scalar-first read would see a
-    // different rotation, so this pins the input ordering.
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
+    // A shadow-set MRP describes the same rotation and is stored as its principal set
+    const Eigen::Vector3f shadowSigma{0.0F, 0.0F, 2.0F};
+    const Eigen::Vector3f principalSigma = -shadowSigma / shadowSigma.squaredNorm();
+    const auto shadowConfig = ConvertStPlatformToBodyConfig::create(shadowSigma);
+    EXPECT_TRUE(shadowConfig.getSigma_PB().isApprox(principalSigma, ATTITUDE_TOLERANCE));
 
-    const float halfAngle = static_cast<float>(M_PI / 4.0);
-    const Eigen::Vector4f q_CN(0.0F, 0.0F, std::sin(halfAngle), std::cos(halfAngle));
-    const Eigen::Vector4f dq_CN(0.0F, 0.0F, 0.0F, 1.0F);
+    // Non-finite sigma_PB should throw
+    const Eigen::Vector3f nanSigma{std::numeric_limits<float>::quiet_NaN(), 0.0F, 0.0F};
+    const Eigen::Vector3f infSigma{0.0F, std::numeric_limits<float>::infinity(), 0.0F};
+    EXPECT_THROW(ConvertStPlatformToBodyConfig::create(nanSigma), fsw::invalid_argument);
+    EXPECT_THROW(ConvertStPlatformToBodyConfig::create(infSigma), fsw::invalid_argument);
 
-    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
-    EXPECT_NEAR(result.sigma_BN[0], 0.0F, ATTITUDE_TOLERANCE);
-    EXPECT_NEAR(result.sigma_BN[1], 0.0F, ATTITUDE_TOLERANCE);
-    EXPECT_NEAR(result.sigma_BN[2], static_cast<float>(std::tan(M_PI / 8.0)), ATTITUDE_TOLERANCE);
+    // Static validators
+    EXPECT_FALSE(ConvertStPlatformToBodyConfig::isValidSigma_PB(nanSigma));
+    EXPECT_FALSE(ConvertStPlatformToBodyConfig::isValidSigma_PB(infSigma));
+    EXPECT_TRUE(ConvertStPlatformToBodyConfig::isValidSigma_PB(Eigen::Vector3f::Zero()));
 }
 
-// ─── Delta Quaternion Tests ─────────────────────────────────────────────────
+TEST(ConvertStPlatformToBodyTest, SetConfigAppliesNewMounting) {
+    // Input: identity attitude, omega_PN_P about x; setConfig() changes the mounting from identity to 90 deg about z.
+    // Expected: before, sigma_BN = sigma_PN = 0 and omega_BN_B = omega_PN_P; after, sigma_BN = -sigma_PB and
+    // omega_BN_B = [PB]^T omega_PN_P (the cached sigma_BP and dcm_BP are recomputed).
+    const Eigen::Vector4f q_PN{0.0F, 0.0F, 0.0F, 1.0F};  // identity attitude (scalar-last)
+    const Eigen::Vector3d omega_PN_P{0.1, 0.0, 0.0};     // [rad/s] about the platform x-axis
+    const Eigen::Vector4f dq_PN = omegaToDeltaQuaternion(omega_PN_P);
 
-TEST(ConvertStPlatformToBody, IdentityDeltaQuaternion_ProducesZeroOmega) {
-    // dq_CN = [0, 0, 0, 1] (scalar-last identity rotation) must map to zero angular
-    // velocity for any mounting orientation.
-    Eigen::Vector3f sigma_CB = epToMrp(axisAngleToEp(Eigen::Vector3d(0.3, -0.7, 0.5), 0.9)).cast<float>();
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB)};
-
-    const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
-    const Eigen::Vector4f dq_CN(0.0F, 0.0F, 0.0F, 1.0F);
-
-    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
+    const StAttitudeOutput before = algorithm.update(q_PN, dq_PN);
+    EXPECT_TRUE(before.sigma_BN.isZero(ATTITUDE_TOLERANCE));
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(result.omega_BN_B[i], 0.0F, OMEGA_TOLERANCE);
+        EXPECT_NEAR(before.omega_BN_B[i], static_cast<float>(omega_PN_P(i)), OMEGA_TOLERANCE);
     }
-}
 
-TEST(ConvertStPlatformToBody, ZeroDeltaQuaternion_ProducesZeroOmega) {
-    // dq_CN = [0, 0, 0, 0] is what a default-initialized PlatformAngularVelocity carries.
-    // The algorithm's ‖vec‖ > 0 guard must fire and produce ω = 0 without letting the
-    // dq[3]=0 branch (acos(0)=π/2) combine with a zero denominator to emit NaN/Inf.
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
+    // 90-degree mounting rotation about z
+    const Eigen::Vector3f sigma_PB = prvToMrp<double>(90.0 * degToRad * Eigen::Vector3d::UnitZ()).cast<float>();
+    algorithm.setConfig(ConvertStPlatformToBodyConfig::create(sigma_PB));
+    const StAttitudeOutput after = algorithm.update(q_PN, dq_PN);
 
-    const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
-    const Eigen::Vector4f dq_CN = Eigen::Vector4f::Zero();  // all four dq_CN components = 0
-
-    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
+    // After setConfig(): sigma_BN = -sigma_PB and omega_BN_B = [PB]^T omega_PN_P
+    const Eigen::Vector3f omega_BN_B_expected = mrpToDcm<float>(sigma_PB).transpose() * omega_PN_P.cast<float>();
     for (int i = 0; i < 3; ++i) {
-        EXPECT_TRUE(std::isfinite(result.omega_BN_B[i]));
-        EXPECT_NEAR(result.omega_BN_B[i], 0.0F, OMEGA_TOLERANCE);
-    }
-}
-
-TEST(ConvertStPlatformToBody, DeltaQuaternionHalfPi_MatchesExpectedOmega) {
-    // Drive the algorithm with an explicit unit delta quaternion for θ = π/2 about +x.
-    // Expected recovered angular velocity is (π/2, 0, 0) with identity mounting.
-    // identity sigma_CB
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
-
-    const double theta = M_PI / 2.0;
-    const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
-
-    const Eigen::Vector4f dq_CN(
-        static_cast<float>(std::sin(theta / 2.0)), 0.0F, 0.0F, static_cast<float>(std::cos(theta / 2.0)));
-
-    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
-    EXPECT_NEAR(result.omega_BN_B[0], static_cast<float>(theta), OMEGA_TOLERANCE);
-    EXPECT_NEAR(result.omega_BN_B[1], 0.0F, OMEGA_TOLERANCE);
-    EXPECT_NEAR(result.omega_BN_B[2], 0.0F, OMEGA_TOLERANCE);
-}
-
-TEST(ConvertStPlatformToBody, DeltaQuaternionNearPi_MatchesExpectedOmega) {
-    // θ ≈ π − 0.01 about (1,2,3)/‖(1,2,3)‖. Near-π is a well-conditioned regime for
-    // acos (derivative ≈ −1 near dq_CN[3] ≈ 0), so tight OMEGA_TOLERANCE is appropriate.
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(Eigen::Vector3f::Zero())};
-
-    const double theta = M_PI - 0.01;
-    const Eigen::Vector3d axis = Eigen::Vector3d(1.0, 2.0, 3.0).stableNormalized();
-    const Eigen::Vector3d omegaExpected = theta * axis;
-
-    const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);
-
-    const double s = std::sin(theta / 2.0);
-    const Eigen::Vector4f dq_CN(static_cast<float>(s * axis(0)),
-                                static_cast<float>(s * axis(1)),
-                                static_cast<float>(s * axis(2)),
-                                static_cast<float>(std::cos(theta / 2.0)));
-
-    StAttitudeOutput result = algorithm.update(q_CN, dq_CN);
-    for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(result.omega_BN_B[i], static_cast<float>(omegaExpected(i)), OMEGA_TOLERANCE);
+        EXPECT_NEAR(after.sigma_BN[i], -sigma_PB[i], ATTITUDE_TOLERANCE);
+        EXPECT_NEAR(after.omega_BN_B[i], omega_BN_B_expected[i], OMEGA_TOLERANCE);
     }
 }

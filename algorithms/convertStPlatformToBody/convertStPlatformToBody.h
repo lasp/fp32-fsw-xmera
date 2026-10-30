@@ -1,9 +1,9 @@
-#ifndef F32XIMERA_CONVERT_ST_PLATFORM_TO_BODY_H
-#define F32XIMERA_CONVERT_ST_PLATFORM_TO_BODY_H
+#ifndef F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_H
+#define F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_H
 
 #include "convertStPlatformToBodyAlgorithm.h"
+#include "msgPayloadDef/AscPlatformAttitudeTmMsgF32Payload.h"
 #include "msgPayloadDef/STAttMsgF32Payload.h"
-#include "msgPayloadDef/STSensorMsgF32Payload.h"
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
@@ -14,7 +14,7 @@
 
 #include <memory>
 
-/*! @brief Convert STSensorMsgF32Payload to STAttMsgF32Payload Class */
+/*! @brief Convert AscPlatformAttitudeTmMsgF32Payload to STAttMsgF32Payload Class */
 class ConvertStPlatformToBody : public SysModel {
    public:
     ConvertStPlatformToBody() = default;
@@ -25,10 +25,10 @@ class ConvertStPlatformToBody : public SysModel {
 
     void reconfigure() const;
 
-    Eigen::Vector3f sigma_CB = Eigen::Vector3f::Zero();  //!< [-] MRP of the case frame relative to the body frame
+    Eigen::Vector3f sigma_PB = Eigen::Vector3f::Zero();  //!< [-] MRP of the platform frame relative to the body frame
 
-    ReadFunctor<STSensorMsgF32Payload> stSensorInMsg;  //!< Input msg
-    Message<STAttMsgF32Payload> stAttOutMsg;           //!< Output msg
+    ReadFunctor<AscPlatformAttitudeTmMsgF32Payload> stSensorInMsg;  //!< Input msg
+    Message<STAttMsgF32Payload> stAttOutMsg;                        //!< Output msg
 
    private:
     ConvertStPlatformToBodyConfig toConfig() const;
