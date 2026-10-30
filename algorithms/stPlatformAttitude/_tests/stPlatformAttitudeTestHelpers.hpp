@@ -1,7 +1,7 @@
-#ifndef F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_TEST_HELPERS_HPP
-#define F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_TEST_HELPERS_HPP
+#ifndef F32XMERA_ST_PLATFORM_ATTITUDE_TEST_HELPERS_HPP
+#define F32XMERA_ST_PLATFORM_ATTITUDE_TEST_HELPERS_HPP
 
-#include "../convertStPlatformToBodyAlgorithm.h"
+#include "../stPlatformAttitudeAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 
 #include <gtest/gtest.h>
@@ -22,7 +22,7 @@ inline constexpr float DCM_TOLERANCE = 1e-5F;
 
 /*!
  * @brief Reorder a scalar-first quaternion [q0, q1, q2, q3] to the scalar-last float form
- *        [q1, q2, q3, q0] that ConvertStPlatformToBodyAlgorithm takes.
+ *        [q1, q2, q3, q0] that StPlatformAttitudeAlgorithm takes.
  */
 inline Eigen::Vector4f toScalarLast(const Eigen::Vector4d& ep) {
     return {static_cast<float>(ep(1)), static_cast<float>(ep(2)), static_cast<float>(ep(3)), static_cast<float>(ep(0))};
@@ -32,11 +32,11 @@ inline Eigen::Vector4f toScalarLast(const Eigen::Vector4d& ep) {
  * @brief Pack a platform-frame angular velocity into an angular velocity quaternion (scalar-last).
  *
  * The angle element is the rate itself, so θ = ‖ω‖ and axis = ω/‖ω‖. The result is
- * dq = [sin(θ/2)·axis, cos(θ/2)], matching the scalar-last convention consumed by
- * ConvertStPlatformToBodyAlgorithm. Returns [0, 0, 0, 1] (identity rotation) when
+ * rateQuaternion = [sin(θ/2)·axis, cos(θ/2)], matching the scalar-last convention consumed by
+ * StPlatformAttitudeAlgorithm. Returns [0, 0, 0, 1] (identity rotation) when
  * ‖ω‖ is below a small threshold.
  */
-inline Eigen::Vector4f omegaToDeltaQuaternion(const Eigen::Vector3d& omega_PN_P) {
+inline Eigen::Vector4f omegaToRateQuaternion(const Eigen::Vector3d& omega_PN_P) {
     const double angle = omega_PN_P.stableNorm();
     if (angle < 1e-12) {
         return {0.0F, 0.0F, 0.0F, 1.0F};
@@ -49,7 +49,7 @@ inline Eigen::Vector4f omegaToDeltaQuaternion(const Eigen::Vector3d& omega_PN_P)
             static_cast<float>(std::cos(angle / 2.0))};
 }
 
-/*! @brief Double-precision output of referenceConvertStPlatformToBody. */
+/*! @brief Double-precision output of referenceStPlatformAttitude. */
 struct ReferenceStAttitudeOutput {
     Eigen::Vector3d sigma_BN;    //!< [-] MRP from inertial to body frame
     Eigen::Vector3d omega_BN_B;  //!< [rad/s] body-frame angular velocity w.r.t. inertial
@@ -61,12 +61,12 @@ struct ReferenceStAttitudeOutput {
  *        rigidBodyKinematics functions with it, so it checks precision.
  *
  * @param q_PN      Quaternion from inertial to platform frame (scalar-last)
- * @param dq_PN     Platform-frame angular velocity quaternion (scalar-last)
+ * @param rateQuaternion_PN     Platform-frame angular velocity quaternion (scalar-last)
  * @param sigma_PB  MRP of the platform frame relative to the body frame
  */
-inline ReferenceStAttitudeOutput referenceConvertStPlatformToBody(const Eigen::Vector4d& q_PN,
-                                                                  const Eigen::Vector4d& dq_PN,
-                                                                  const Eigen::Vector3d& sigma_PB) {
+inline ReferenceStAttitudeOutput referenceStPlatformAttitude(const Eigen::Vector4d& q_PN,
+                                                             const Eigen::Vector4d& rateQuaternion_PN,
+                                                             const Eigen::Vector3d& sigma_PB) {
     ReferenceStAttitudeOutput ref;
 
     // Platform-frame attitude as MRP
@@ -81,10 +81,13 @@ inline ReferenceStAttitudeOutput referenceConvertStPlatformToBody(const Eigen::V
     ref.sigma_BN = addMrp(sigma_PN, sigma_BP);
 
     // Unpack the rate quaternion, then rotate the angular velocity to the body frame
-    const Eigen::Vector3d dqVec = dq_PN.head<3>();
-    const double dqVecNorm = dqVec.stableNorm();
-    const double omegaScale = (dqVecNorm > 0.0) ? 2.0 * std::atan2(dqVecNorm, dq_PN(3)) / dqVecNorm : 0.0;
-    ref.omega_BN_B = dcm_PB.transpose() * (omegaScale * dqVec);
+    const Eigen::Vector3d rateQuaternionVec = rateQuaternion_PN.head<3>();
+    const double rateQuaternionVecNorm = rateQuaternionVec.stableNorm();
+    const double omegaScale =
+        (rateQuaternionVecNorm > 0.0)
+            ? 2.0 * std::atan2(rateQuaternionVecNorm, rateQuaternion_PN(3)) / rateQuaternionVecNorm
+            : 0.0;
+    ref.omega_BN_B = dcm_PB.transpose() * (omegaScale * rateQuaternionVec);
 
     return ref;
 }
@@ -92,15 +95,15 @@ inline ReferenceStAttitudeOutput referenceConvertStPlatformToBody(const Eigen::V
 /*!
  * @brief Run the algorithm and the double-precision reference on the same inputs and compare their outputs.
  */
-inline void testConvertStPlatformToBodyRegression(const Eigen::Vector4f& q_PN,
-                                                  const Eigen::Vector4f& dq_PN,
-                                                  const Eigen::Vector3f& sigma_PB) {
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_PB)};
+inline void testStPlatformAttitudeRegression(const Eigen::Vector4f& q_PN,
+                                             const Eigen::Vector4f& rateQuaternion_PN,
+                                             const Eigen::Vector3f& sigma_PB) {
+    StPlatformAttitudeAlgorithm algorithm{StPlatformAttitudeConfig::create(sigma_PB)};
     StAttitudeOutput result;
-    EXPECT_NO_THROW(result = algorithm.update(q_PN, dq_PN));
+    EXPECT_NO_THROW(result = algorithm.update(q_PN, rateQuaternion_PN));
 
     const ReferenceStAttitudeOutput ref =
-        referenceConvertStPlatformToBody(q_PN.cast<double>(), dq_PN.cast<double>(), sigma_PB.cast<double>());
+        referenceStPlatformAttitude(q_PN.cast<double>(), rateQuaternion_PN.cast<double>(), sigma_PB.cast<double>());
 
     // Compare attitudes as DCMs rather than MRP components: the MRP has two representations near |sigma| = 1
     // (the 180-deg boundary), while the DCM is unique.
@@ -124,14 +127,14 @@ inline void testConvertStPlatformToBodyRegression(const Eigen::Vector4f& q_PN,
  * The attitude is compared as a DCM, so an expected MRP and its shadow set (the same attitude, e.g. at 180 deg)
  * both pass.
  */
-inline void testConvertStPlatformToBodyExpectedOutput(const Eigen::Vector4f& q_PN,
-                                                      const Eigen::Vector4f& dq_PN,
-                                                      const Eigen::Vector3f& sigma_PB,
-                                                      const Eigen::Vector3f& sigma_BN_expected,
-                                                      const Eigen::Vector3f& omega_BN_B_expected) {
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_PB)};
+inline void testStPlatformAttitudeExpectedOutput(const Eigen::Vector4f& q_PN,
+                                                 const Eigen::Vector4f& rateQuaternion_PN,
+                                                 const Eigen::Vector3f& sigma_PB,
+                                                 const Eigen::Vector3f& sigma_BN_expected,
+                                                 const Eigen::Vector3f& omega_BN_B_expected) {
+    StPlatformAttitudeAlgorithm algorithm{StPlatformAttitudeConfig::create(sigma_PB)};
     StAttitudeOutput result;
-    EXPECT_NO_THROW(result = algorithm.update(q_PN, dq_PN));
+    EXPECT_NO_THROW(result = algorithm.update(q_PN, rateQuaternion_PN));
 
     const Eigen::Matrix3f dcmOut = mrpToDcm<float>(result.sigma_BN);
     const Eigen::Matrix3f dcmExpected = mrpToDcm<float>(sigma_BN_expected);
@@ -147,10 +150,10 @@ inline void testConvertStPlatformToBodyExpectedOutput(const Eigen::Vector4f& q_P
 
 // All output components are finite for valid inputs.
 inline void propertyOutputIsFinite(const Eigen::Vector4f& q_PN,
-                                   const Eigen::Vector4f& dq_PN,
+                                   const Eigen::Vector4f& rateQuaternion_PN,
                                    const Eigen::Vector3f& sigma_PB) {
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_PB)};
-    const StAttitudeOutput result = algorithm.update(q_PN, dq_PN);
+    StPlatformAttitudeAlgorithm algorithm{StPlatformAttitudeConfig::create(sigma_PB)};
+    const StAttitudeOutput result = algorithm.update(q_PN, rateQuaternion_PN);
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(result.sigma_BN[i]));
@@ -160,10 +163,10 @@ inline void propertyOutputIsFinite(const Eigen::Vector4f& q_PN,
 
 // For a unit q_PN, sigma_BN stays in the principal MRP set (norm <= 1).
 inline void propertySigmaNormBounded(const Eigen::Vector4f& q_PN,
-                                     const Eigen::Vector4f& dq_PN,
+                                     const Eigen::Vector4f& rateQuaternion_PN,
                                      const Eigen::Vector3f& sigma_PB) {
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_PB)};
-    const StAttitudeOutput result = algorithm.update(q_PN, dq_PN);
+    StPlatformAttitudeAlgorithm algorithm{StPlatformAttitudeConfig::create(sigma_PB)};
+    const StAttitudeOutput result = algorithm.update(q_PN, rateQuaternion_PN);
     EXPECT_LE(result.sigma_BN.stableNorm(), 1.0F + 1e-6F);
 }
 

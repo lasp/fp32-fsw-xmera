@@ -1,9 +1,9 @@
-#ifndef F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_H
-#define F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_H
+#ifndef F32XMERA_ST_PLATFORM_ATTITUDE_H
+#define F32XMERA_ST_PLATFORM_ATTITUDE_H
 
-#include "convertStPlatformToBodyAlgorithm.h"
 #include "msgPayloadDef/STAttMsgF32Payload.h"
 #include "msgPayloadDef/StPlatformAttitudeMsgF32Payload.h"
+#include "stPlatformAttitudeAlgorithm.h"
 
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
@@ -15,10 +15,10 @@
 #include <memory>
 
 /*! @brief Convert StPlatformAttitudeMsgF32Payload to STAttMsgF32Payload Class */
-class ConvertStPlatformToBody : public SysModel {
+class StPlatformAttitude : public SysModel {
    public:
-    ConvertStPlatformToBody() = default;
-    ~ConvertStPlatformToBody() override = default;
+    StPlatformAttitude() = default;
+    ~StPlatformAttitude() override = default;
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
@@ -31,8 +31,8 @@ class ConvertStPlatformToBody : public SysModel {
     Message<STAttMsgF32Payload> stAttOutMsg;                     //!< Output msg
 
    private:
-    ConvertStPlatformToBodyConfig toConfig() const;
-    std::unique_ptr<ConvertStPlatformToBodyAlgorithm> algorithm = nullptr;
+    StPlatformAttitudeConfig toConfig() const;
+    std::unique_ptr<StPlatformAttitudeAlgorithm> algorithm = nullptr;
 };
 
 #endif
