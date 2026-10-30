@@ -7,13 +7,14 @@ from xmera.utilities import macros
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
 
+def to_scalar_last(ep):
+    """Reorder a scalar-first quaternion [q0, q1, q2, q3] to the scalar-last form [q1, q2, q3, q0] the sensor sends."""
+    return [ep[1], ep[2], ep[3], ep[0]]
+
+
 def pack_angular_rate_quaternion(omega_PN_P):
-    """Pack a rate into the star tracker rate quaternion [axis*sin(|w|/2), cos(|w|/2)] (scalar-last)."""
-    angle = np.linalg.norm(omega_PN_P)
-    if angle == 0.0:
-        return [0.0, 0.0, 0.0, 1.0]
-    axis = omega_PN_P / angle
-    return [*(axis * np.sin(angle / 2.0)), np.cos(angle / 2.0)]
+    """Pack a rate into the star tracker rate quaternion: omega as a PRV, converted to a scalar-last quaternion."""
+    return to_scalar_last(rbk.PRV2EP(np.asarray(omega_PN_P, dtype=float)))
 
 
 def test_identity_mounting():
@@ -34,12 +35,12 @@ def test_identity_mounting():
 
     # Build a star tracker sensor input: 30-deg rotation about z, small omega
     angle = np.pi/6.0
-    ep_PN = np.array([np.cos(angle/2), 0, 0, np.sin(angle/2)])
+    ep_PN = rbk.PRV2EP(angle * np.array([0.0, 0.0, 1.0]))
     omega_PN_P = np.array([0.01, -0.02, 0.03])
 
     sensor_data = messaging.StPlatformAttitudeMsgF32Payload()
     sensor_data.solutionTimestamp = 100.0
-    sensor_data.platformAttitude = [ep_PN[1], ep_PN[2], ep_PN[3], ep_PN[0]]
+    sensor_data.platformAttitude = to_scalar_last(ep_PN)
     sensor_data.platformAngularVelocity = pack_angular_rate_quaternion(omega_PN_P)
     sensor_in_msg = messaging.StPlatformAttitudeMsgF32().write(sensor_data)
 
@@ -82,18 +83,17 @@ def test_rotated_mounting():
 
     # 45-degree rotation about z for the mounting orientation
     mount_angle = np.pi/4.0
-    ep_mount = np.array([np.cos(mount_angle/2), 0, 0, np.sin(mount_angle/2)])
-    sigma_PB = rbk.EP2MRP(ep_mount)
+    sigma_PB = rbk.PRV2MRP(mount_angle * np.array([0.0, 0.0, 1.0]))
     module.sigma_PB = sigma_PB
 
     # Star tracker reports 60-degree rotation about x, with some angular velocity
     st_angle = np.pi/3.0
-    ep_PN = np.array([np.cos(st_angle/2), np.sin(st_angle/2), 0, 0])
+    ep_PN = rbk.PRV2EP(st_angle * np.array([1.0, 0.0, 0.0]))
     omega_PN_P = np.array([-0.015, 0.008, 0.022])
 
     sensor_data = messaging.StPlatformAttitudeMsgF32Payload()
     sensor_data.solutionTimestamp = 200.0
-    sensor_data.platformAttitude = [ep_PN[1], ep_PN[2], ep_PN[3], ep_PN[0]]
+    sensor_data.platformAttitude = to_scalar_last(ep_PN)
     sensor_data.platformAngularVelocity = pack_angular_rate_quaternion(omega_PN_P)
     sensor_in_msg = messaging.StPlatformAttitudeMsgF32().write(sensor_data)
 
@@ -138,7 +138,7 @@ def test_never_written_input():
     sim.AddModelToTask(task_name, module)
 
     # 90-degree mounting rotation about z
-    sigma_PB = np.array([0.0, 0.0, np.tan(np.pi/8.0)])
+    sigma_PB = rbk.PRV2MRP(np.pi/2.0 * np.array([0.0, 0.0, 1.0]))
     module.sigma_PB = sigma_PB
 
     # Connected, but never written
@@ -196,7 +196,7 @@ def test_reconfigure():
                                err_msg="omega mismatch with identity mounting")
 
     # 90-degree mounting rotation about z, applied through reconfigure()
-    sigma_PB = np.array([0.0, 0.0, np.tan(np.pi/8.0)])
+    sigma_PB = rbk.PRV2MRP(np.pi/2.0 * np.array([0.0, 0.0, 1.0]))
     module.sigma_PB = sigma_PB
     module.reconfigure()
     sim.ConfigureStopTime(macros.sec2nano(1.0))
@@ -233,8 +233,7 @@ def test_sigma_pass_through():
 
     # Set a 30-degree rotation about z
     angle = np.pi/6.0
-    ep = np.array([np.cos(angle/2), 0, 0, np.sin(angle/2)])
-    sigma_PB = rbk.EP2MRP(ep)
+    sigma_PB = rbk.PRV2MRP(angle * np.array([0.0, 0.0, 1.0]))
     module.sigma_PB = sigma_PB
 
     sigma_out = np.ravel(module.sigma_PB)

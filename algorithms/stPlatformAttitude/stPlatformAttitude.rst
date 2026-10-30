@@ -35,7 +35,7 @@ cycle. If the input message has not been written, zero quaternions and a zero ti
 ``sigma_BP`` with zero angular velocity and a zero time tag.
 
 .. list-table:: Module I/O Messages
-    :widths: 24 32 44
+    :widths: 24 53 23
     :header-rows: 1
 
     * - Msg Variable Name
@@ -166,10 +166,19 @@ and combining them gives
     \frac{2\,\mathrm{atan2}\!\left(\lVert\mathbf{q}_{\omega,v}\rVert,\ q_{\omega,3}\right)}{\lVert\mathbf{q}_{\omega,v}\rVert}\,
     \mathbf{q}_{\omega,v}.
 
-The scalar factor :math:`\Phi / \lVert\mathbf{q}_{\omega,v}\rVert` is ``omegaScale`` in the code. The four-quadrant
-arctangent is used in place of :math:`\arccos` so that small rates (where :math:`q_{\omega,3} \approx 1`) retain
-float32 precision. When :math:`\lVert\mathbf{q}_{\omega,v}\rVert = 0` the angular velocity is set to zero, avoiding a
-divide-by-zero.
+In the code, the rate quaternion is reordered to scalar-first and passed to ``epToPrv`` from ``rigidBodyKinematics.hpp``,
+which computes :math:`\Phi` and :math:`\hat{\mathbf{e}}` this way. When
+:math:`\lVert\mathbf{q}_{\omega,v}\rVert = 0` the angular velocity is set to zero, avoiding a divide-by-zero.
+
+A common way to invert this packing uses the arccosine of the scalar part,
+
+.. math::
+
+    k = \frac{2\arccos\left(q_{\omega,3}\right)}{\sqrt{q_{\omega,0}^2 + q_{\omega,1}^2 + q_{\omega,2}^2}}, \qquad
+    {}^{\mathcal{P}}\boldsymbol{\omega}_{P/N} = k\,\mathbf{q}_{\omega,v}.
+
+At small rates the scalar part is close to 1, where the arccosine loses float32 precision. To avoid that, the module
+uses the four-quadrant arctangent shown above.
 
 Body-Frame Angular Velocity
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
