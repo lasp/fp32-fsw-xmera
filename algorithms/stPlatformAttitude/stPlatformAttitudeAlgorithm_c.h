@@ -1,7 +1,7 @@
-#ifndef F32XMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
-#define F32XMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
+#ifndef F32XMERA_STPLATFORMATTITUDEALGORITHM_C_H
+#define F32XMERA_STPLATFORMATTITUDEALGORITHM_C_H
 
-#include "convertStPlatformToBodyTypes.h"
+#include "stPlatformAttitudeTypes.h"
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
 #include <stdbool.h>
@@ -11,32 +11,32 @@ extern "C" {
 #endif
 
 /**
- * @brief Opaque handle to the C++ ConvertStPlatformToBodyAlgorithm instance.
+ * @brief Opaque handle to the C++ StPlatformAttitudeAlgorithm instance.
  */
-typedef struct ConvertStPlatformToBodyAlgorithmHandle ConvertStPlatformToBodyAlgorithmHandle;
+typedef struct StPlatformAttitudeAlgorithmHandle StPlatformAttitudeAlgorithmHandle;
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param sigma_PB MRP of the platform frame relative to the body frame; must be finite.
  * @return true if the configuration is valid. Never throws, so it can guard the
  *         throwing create/setConfig from an invalid configuration.
- * @note The accepted value ranges are defined by ConvertStPlatformToBodyConfig::create; this
+ * @note The accepted value ranges are defined by StPlatformAttitudeConfig::create; this
  *       predicate reports whether a candidate set would be accepted, without throwing.
  */
-bool ConvertStPlatformToBodyAlgorithm_validateConfig(Vector3f_c sigma_PB);
+bool StPlatformAttitudeAlgorithm_validateConfig(Vector3f_c sigma_PB);
 
 /**
- * @brief Construct a new ConvertStPlatformToBodyAlgorithm instance from the supplied configuration.
+ * @brief Construct a new StPlatformAttitudeAlgorithm instance from the supplied configuration.
  * @param sigma_PB MRP of the platform frame relative to the body frame; must be finite.
  * @return Pointer to a new instance (must be destroyed). Validated; throws on invalid input.
  */
-ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(Vector3f_c sigma_PB);
+StPlatformAttitudeAlgorithmHandle* StPlatformAttitudeAlgorithm_create(Vector3f_c sigma_PB);
 
 /**
- * @brief Destroy a previously created ConvertStPlatformToBodyAlgorithm.
+ * @brief Destroy a previously created StPlatformAttitudeAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHandle* self);
+void StPlatformAttitudeAlgorithm_destroy(StPlatformAttitudeAlgorithmHandle* self);
 
 /**
  * @brief Apply a new configuration.
@@ -44,7 +44,7 @@ void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHa
  * @param sigma_PB MRP of the platform frame relative to the body frame; must be finite.
  * Validated; throws on invalid input.
  */
-void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self, Vector3f_c sigma_PB);
+void StPlatformAttitudeAlgorithm_setConfig(StPlatformAttitudeAlgorithmHandle* self, Vector3f_c sigma_PB);
 
 /**
  * @brief Run the update step.
@@ -53,11 +53,11 @@ void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithm
  *                    platform-frame angular velocity quaternion, both scalar-last as the sensor emits them.
  * @return StAttitudeOutput_c  The computed star tracker attitude output.
  */
-StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithmHandle* self,
-                                                           const StPlatformMeasurement_c* measurement);
+StAttitudeOutput_c StPlatformAttitudeAlgorithm_update(StPlatformAttitudeAlgorithmHandle* self,
+                                                      const StPlatformMeasurement_c* measurement);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // F32XMERA_CONVERTSTPLATFORMTOBODYALGORITHM_C_H
+#endif  // F32XMERA_STPLATFORMATTITUDEALGORITHM_C_H

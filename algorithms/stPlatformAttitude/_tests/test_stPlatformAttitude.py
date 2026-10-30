@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from xmera.utilities import SimulationBaseClass
-from xmera.fp32 import convertStPlatformToBodyF32
+from xmera.fp32 import stPlatformAttitudeF32
 from xmera.utilities import macros
 from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
@@ -26,8 +26,8 @@ def test_identity_mounting():
     test_proc = sim.CreateNewProcess(process_name)
     test_proc.addTask(sim.CreateNewTask(task_name, process_rate))
 
-    module = convertStPlatformToBodyF32.ConvertStPlatformToBody()
-    module.modelTag = "convertStPlatformToBody"
+    module = stPlatformAttitudeF32.StPlatformAttitude()
+    module.modelTag = "stPlatformAttitude"
     sim.AddModelToTask(task_name, module)
 
     # Zero mounting MRP (default)
@@ -76,8 +76,8 @@ def test_rotated_mounting():
     test_proc = sim.CreateNewProcess(process_name)
     test_proc.addTask(sim.CreateNewTask(task_name, process_rate))
 
-    module = convertStPlatformToBodyF32.ConvertStPlatformToBody()
-    module.modelTag = "convertStPlatformToBody"
+    module = stPlatformAttitudeF32.StPlatformAttitude()
+    module.modelTag = "stPlatformAttitude"
     sim.AddModelToTask(task_name, module)
 
     # 45-degree rotation about z for the mounting orientation
@@ -133,8 +133,8 @@ def test_never_written_input():
     test_proc = sim.CreateNewProcess(process_name)
     test_proc.addTask(sim.CreateNewTask(task_name, process_rate))
 
-    module = convertStPlatformToBodyF32.ConvertStPlatformToBody()
-    module.modelTag = "convertStPlatformToBody"
+    module = stPlatformAttitudeF32.StPlatformAttitude()
+    module.modelTag = "stPlatformAttitude"
     sim.AddModelToTask(task_name, module)
 
     # 90-degree mounting rotation about z
@@ -171,8 +171,8 @@ def test_reconfigure():
     test_proc = sim.CreateNewProcess(process_name)
     test_proc.addTask(sim.CreateNewTask(task_name, process_rate))
 
-    module = convertStPlatformToBodyF32.ConvertStPlatformToBody()
-    module.modelTag = "convertStPlatformToBody"
+    module = stPlatformAttitudeF32.StPlatformAttitude()
+    module.modelTag = "stPlatformAttitude"
     sim.AddModelToTask(task_name, module)
 
     # Identity attitude, rate about the platform x-axis, identity mounting
@@ -219,8 +219,8 @@ def test_unlinked_input_raises():
     test_proc = sim.CreateNewProcess(process_name)
     test_proc.addTask(sim.CreateNewTask(task_name, process_rate))
 
-    module = convertStPlatformToBodyF32.ConvertStPlatformToBody()
-    module.modelTag = "convertStPlatformToBody"
+    module = stPlatformAttitudeF32.StPlatformAttitude()
+    module.modelTag = "stPlatformAttitude"
     sim.AddModelToTask(task_name, module)
 
     with pytest.raises(RuntimeError):
@@ -229,7 +229,7 @@ def test_unlinked_input_raises():
 
 def test_sigma_pass_through():
     """Verify the mounting MRP setter/getter round-trips correctly through the wrapper."""
-    module = convertStPlatformToBodyF32.ConvertStPlatformToBody()
+    module = stPlatformAttitudeF32.StPlatformAttitude()
 
     # Set a 30-degree rotation about z
     angle = np.pi/6.0
