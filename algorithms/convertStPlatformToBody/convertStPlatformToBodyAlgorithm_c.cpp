@@ -8,25 +8,25 @@
 #include <Eigen/Core>
 
 namespace {
-ConvertStPlatformToBodyConfig configFromC(const Vector3f_c& sigma_CB) {
-    return ConvertStPlatformToBodyConfig::create(cArrayToEigenVector3<float>(sigma_CB.data));
+ConvertStPlatformToBodyConfig configFromC(const Vector3f_c& sigma_PB) {
+    return ConvertStPlatformToBodyConfig::create(cArrayToEigenVector3<float>(sigma_PB.data));
 }
 }  // namespace
 
-bool ConvertStPlatformToBodyAlgorithm_validateConfig(const Vector3f_c sigma_CB) {
+bool ConvertStPlatformToBodyAlgorithm_validateConfig(const Vector3f_c sigma_PB) {
     // Attempt to build the config through the real create path; success means valid,
     // a throw means invalid. Reusing configFromC keeps validation from drifting.
     try {
-        (void)configFromC(sigma_CB);
+        (void)configFromC(sigma_PB);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
     }
 }
 
-ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(const Vector3f_c sigma_CB) {
+ConvertStPlatformToBodyAlgorithmHandle* ConvertStPlatformToBodyAlgorithm_create(const Vector3f_c sigma_PB) {
     return fsw::createHandle<::ConvertStPlatformToBodyAlgorithm, ConvertStPlatformToBodyAlgorithmHandle>(
-        configFromC(sigma_CB));
+        configFromC(sigma_PB));
 }
 
 void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHandle* self) {
@@ -34,16 +34,16 @@ void ConvertStPlatformToBodyAlgorithm_destroy(ConvertStPlatformToBodyAlgorithmHa
 }
 
 void ConvertStPlatformToBodyAlgorithm_setConfig(ConvertStPlatformToBodyAlgorithmHandle* self,
-                                                const Vector3f_c sigma_CB) {
-    fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->setConfig(configFromC(sigma_CB));
+                                                const Vector3f_c sigma_PB) {
+    fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->setConfig(configFromC(sigma_PB));
 }
 
 StAttitudeOutput_c ConvertStPlatformToBodyAlgorithm_update(ConvertStPlatformToBodyAlgorithmHandle* self,
                                                            const StPlatformMeasurement_c* measurement) {
-    const Eigen::Vector4f q_CN = cArrayToEigenVector(measurement->q_CN);
-    const Eigen::Vector4f dq_CN = cArrayToEigenVector(measurement->dq_CN);
+    const Eigen::Vector4f q_PN = cArrayToEigenVector(measurement->q_PN);
+    const Eigen::Vector4f dq_PN = cArrayToEigenVector(measurement->dq_PN);
 
-    const StAttitudeOutput out = fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->update(q_CN, dq_CN);
+    const StAttitudeOutput out = fsw::fromHandle<::ConvertStPlatformToBodyAlgorithm>(self)->update(q_PN, dq_PN);
 
     StAttitudeOutput_c result{};
     // The algorithm computes only sigma/omega; the measurement time tag is a

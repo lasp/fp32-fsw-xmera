@@ -15,27 +15,27 @@ struct StAttitudeOutput {
 /*!
  * @brief Validated configuration for the platform-to-body conversion algorithm.
  *
- * An instance can only exist with a finite MRP of the case frame relative to the body frame.
+ * An instance can only exist with a finite MRP of the platform frame relative to the body frame.
  * Construct via ConvertStPlatformToBodyConfig::create(...).
  */
 class ConvertStPlatformToBodyConfig final {
    public:
-    static ConvertStPlatformToBodyConfig create(const Eigen::Vector3f& sigma_CB) {
-        if (!isValidSigma_CB(sigma_CB)) {
-            FSW_THROW_INVALID_ARGUMENT("convertStPlatformToBody: sigma_CB must be finite");
+    static ConvertStPlatformToBodyConfig create(const Eigen::Vector3f& sigma_PB) {
+        if (!isValidSigma_PB(sigma_PB)) {
+            FSW_THROW_INVALID_ARGUMENT("convertStPlatformToBody: sigma_PB must be finite");
         }
         // The shadow set describes the same rotation, so store the principal one (norm <= 1).
-        return ConvertStPlatformToBodyConfig{mrpSwitch(sigma_CB)};
+        return ConvertStPlatformToBodyConfig{mrpSwitch(sigma_PB)};
     }
 
-    static bool isValidSigma_CB(const Eigen::Vector3f& sigma_CB) { return sigma_CB.allFinite(); }
+    static bool isValidSigma_PB(const Eigen::Vector3f& sigma_PB) { return sigma_PB.allFinite(); }
 
-    const Eigen::Vector3f& getSigma_CB() const { return sigma_CB; }
+    const Eigen::Vector3f& getSigma_PB() const { return sigma_PB; }
 
    private:
-    explicit ConvertStPlatformToBodyConfig(const Eigen::Vector3f& sigma_CB) : sigma_CB(sigma_CB) {}
+    explicit ConvertStPlatformToBodyConfig(const Eigen::Vector3f& sigma_PB) : sigma_PB(sigma_PB) {}
 
-    Eigen::Vector3f sigma_CB;
+    Eigen::Vector3f sigma_PB;
 };
 
 class ConvertStPlatformToBodyAlgorithm final {
@@ -43,14 +43,14 @@ class ConvertStPlatformToBodyAlgorithm final {
     explicit ConvertStPlatformToBodyAlgorithm(const ConvertStPlatformToBodyConfig& config);
     void setConfig(const ConvertStPlatformToBodyConfig& config);
 
-    //! @param q_CN  inertial-to-case attitude quaternion (scalar-last, sensor native)
-    //! @param dq_CN case-frame angular velocity quaternion (scalar-last, see module documentation)
-    StAttitudeOutput update(const Eigen::Vector4f& q_CN, const Eigen::Vector4f& dq_CN) const;
+    //! @param q_PN  inertial-to-platform attitude quaternion (scalar-last, sensor native)
+    //! @param dq_PN platform-frame angular velocity quaternion (scalar-last, see module documentation)
+    StAttitudeOutput update(const Eigen::Vector4f& q_PN, const Eigen::Vector4f& dq_PN) const;
 
    private:
     ConvertStPlatformToBodyConfig cfg;
-    Eigen::Vector3f sigma_BC{Eigen::Vector3f::Zero()};    //!< [-] MRP of the body frame B relative to the case frame C
-    Eigen::Matrix3f dcm_BC{Eigen::Matrix3f::Identity()};  //!< [-] DCM from the case frame C to the body frame B
+    Eigen::Vector3f sigma_BP{Eigen::Vector3f::Zero()};    //!< [-] MRP of the body frame B relative to platform frame P
+    Eigen::Matrix3f dcm_BP{Eigen::Matrix3f::Identity()};  //!< [-] DCM from the platform frame P to the body frame B
 };
 
 #endif

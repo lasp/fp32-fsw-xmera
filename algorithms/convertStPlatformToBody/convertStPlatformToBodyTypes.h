@@ -9,12 +9,12 @@
 extern "C" {
 #endif
 
-/*! @brief Star tracker case-frame attitude and rate solution consumed by the platform-to-body
+/*! @brief Star tracker platform-frame attitude and rate solution consumed by the platform-to-body
  *         conversion algorithm. */
 typedef struct {
     uint64_t timeTag; /*!< [ns] time tag of the measurement, passed through to the output */
-    float q_CN[4];    /*!< [-] quaternion from inertial to case frame (scalar-last) */
-    float dq_CN[4];   /*!< [-] case-frame angular velocity quaternion (scalar-last) */
+    float q_PN[4];    /*!< [-] quaternion from inertial to platform frame (scalar-last) */
+    float dq_PN[4];   /*!< [-] platform-frame angular velocity quaternion (scalar-last) */
 } StPlatformMeasurement_c;
 
 /*! @brief Star tracker body-frame attitude output from the platform-to-body conversion algorithm. */
