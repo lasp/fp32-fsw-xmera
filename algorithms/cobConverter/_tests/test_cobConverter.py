@@ -206,8 +206,8 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.opnavCOBInMsg.subscribeTo(cobInMsg)
 
     # Set filter message
-    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01])
-    inputFilter.numberOfStates = 6
+    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01, 1e-6, 1e-6])
+    inputFilter.numberOfStates = 8
     inputFilter.state = np.array([r_BdyZero_N, v_BdyZero_N]).flatten()
     inputFilter.covar = full_covariance.flatten()
     position_covar = full_covariance[:3,:3]
@@ -276,7 +276,7 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     rhat_COM_B_true = dcm_CB.T @ rhat_COM_C_true
     covar_att_N = 16. * dcm_BN.T @ skew(rhat_COM_B_true) @ covar_att_B @ skew(rhat_COM_B_true).T @ dcm_BN
 
-    covar_N_true = (dcm_NC @ covar_COM_C_true @ dcm_NC.T + covar_att_N).flatten() * goodPixels
+    covar_physical_N_true = (dcm_NC @ covar_COM_C_true @ dcm_NC.T + covar_att_N) * goodPixels
 
     # Center of Mass Message and Unit Vector. comValid mirrors
     # CobConverterAlgorithm::updateState: valid whenever the resulting COM pixel location is finite.
@@ -285,6 +285,11 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
         rhat_COM_N_true = np.dot(dcm_NC, rhat_COM_C_true)
     else:
         rhat_COM_N_true = rhat_COB_N_true
+    # The published covariance adds the mean cross-sight variance along the line of sight (cobConverter.rst).
+    covar_N_true = (
+        covar_physical_N_true
+        + 0.5 * np.trace(covar_physical_N_true) * np.outer(rhat_COM_N_true, rhat_COM_N_true)
+    ).flatten()
 
     # module output
     com = dataLogCOM.centerOfMass[0]
@@ -297,6 +302,13 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     tolerance = 1e-6  #atol=1e-9 due to floating point precision limits
     np.testing.assert_((np.linalg.norm(covar_COM_C_true) + tolerance >= np.linalg.norm(covar_pixel_C_true)), "Some elements in A are less than in B")
 
+
+    if goodPixels:
+        # The published covariance must be positive definite in float, for the flyby filter's Cholesky
+        covar_N_matrix = np.array(covar_N, dtype=np.float32).reshape(3, 3)
+        np.linalg.cholesky(covar_N_matrix)
+        r = np.array(rhat_COM_N, dtype=np.float64)
+        np.testing.assert_allclose(r @ covar_N_matrix @ r, 0.5 * np.trace(covar_physical_N_true), rtol=1e-4)
 
     # covar_N entries are ~1e-6 and up [rad^2]; rtol covers fp32 error on large entries, atol the near-zero ones.
     np.testing.assert_allclose(covar_N,
@@ -400,8 +412,8 @@ def test_coberror_outlier(
     module.opnavCOBInMsg.subscribeTo(cobInMsg)
 
     # Set filter message
-    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01])
-    inputFilter.numberOfStates = 6
+    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01, 1e-6, 1e-6])
+    inputFilter.numberOfStates = 8
     inputFilter.state = np.array([r_BdyZero_N, v_BdyZero_N]).flatten()
     inputFilter.covar = full_covariance.flatten()
     filterInMsg = messaging.FilterMsgF32().write(inputFilter)
@@ -569,8 +581,8 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     cobInMsg = messaging.OpNavCOBMsgF32().write(inputCob)
     module.opnavCOBInMsg.subscribeTo(cobInMsg)
 
-    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01])
-    inputFilter.numberOfStates = 6
+    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01, 1e-6, 1e-6])
+    inputFilter.numberOfStates = 8
     inputFilter.state = np.array([r_BdyZero_N, v_BdyZero_N]).flatten()
     inputFilter.covar = full_covariance.flatten()
     filterInMsg = messaging.FilterMsgF32().write(inputFilter)
@@ -660,6 +672,64 @@ def test_undistort_normalized_coordinate_vs_opencv(k1, k2, k3, p1, p2, label, xD
     assert result.valid, f"{label}: solver did not converge"
     np.testing.assert_allclose([result.xUndistorted, result.yUndistorted], expected, rtol=0, atol=1e-5,
                                err_msg=f"{label}: undistortNormalizedCoordinate vs OpenCV")
+
+
+
+def test_unwritten_filter_message_gives_an_invalid_heading():
+    """A filter that resets after the cob converter has not written yet: reset() accepts it, and the module publishes
+    an invalid heading instead of one computed from a zero position. Once the filter writes, processing resumes (here
+    the outlier gate then rejects the arbitrary geometry, which is not what this test checks)."""
+    unitTestSim = SimulationBaseClass.SimBaseClass()
+    testProcessRate = macros.sec2nano(0.5)
+    testProc = unitTestSim.CreateNewProcess("TestProcess")
+    testProc.addTask(unitTestSim.CreateNewTask("unitTask", testProcessRate))
+
+    module = cobConverter.CobConverter()
+    module.radius = 25.0e3
+    module.attitudeCovariance = np.zeros((3, 3))
+    module.fieldOfViewX = np.deg2rad(20.0)
+    module.fieldOfViewY = np.deg2rad(20.0)
+    module.resolutionX = 512
+    module.resolutionY = 512
+    module.outlierDetectionEnabled = True
+    unitTestSim.AddModelToTask("unitTask", module)
+
+    inputCob = messaging.OpNavCOBMsgF32Payload()
+    inputCob.centerOfBrightness = [256, 256]
+    inputCob.pixelsFound = 75
+    inputCob.timeTag = 12345
+    inputCob.valid = True
+    cobInMsg = messaging.OpNavCOBMsgF32().write(inputCob)
+    module.opnavCOBInMsg.subscribeTo(cobInMsg)
+
+    filterInMsg = messaging.FilterMsgF32()  # linked, never written before reset
+    module.opnavFilterInMsg.subscribeTo(filterInMsg)
+
+    inputAtt = messaging.NavAttMsgF32Payload()
+    inputAtt.vehSunPntBdy = [1.0, 0.0, 0.0]
+    attInMsg = messaging.NavAttMsgF32().write(inputAtt)
+    module.navAttInMsg.subscribeTo(attInMsg)
+
+    dataLogUnitVec = module.opnavUnitVecOutMsg.recorder()
+    unitTestSim.AddModelToTask("unitTask", dataLogUnitVec)
+    dataDiagnostic = module.cobConverterDiagnosticOutMsg.recorder()
+    unitTestSim.AddModelToTask("unitTask", dataDiagnostic)
+
+    unitTestSim.InitializeSimulation()
+    unitTestSim.ConfigureStopTime(testProcessRate)
+    unitTestSim.ExecuteSimulation()
+    assert not np.any(dataLogUnitVec.valid), "a heading was published without a filter solution"
+    assert not np.any(dataDiagnostic.comValid), "the COM was computed without a filter solution"
+    assert np.all(np.isfinite(dataLogUnitVec.rhat_BN_N))
+
+    inputFilter = messaging.FilterMsgF32Payload()
+    inputFilter.numberOfStates = 8
+    inputFilter.state = [-36.0e6, -300.0e3, 0.0, 8.0e3, 0.0, 0.0]
+    inputFilter.covar = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01, 1e-6, 1e-6]).flatten()
+    filterInMsg.write(inputFilter)
+    unitTestSim.ConfigureStopTime(3 * testProcessRate)
+    unitTestSim.ExecuteSimulation()
+    assert dataDiagnostic.comValid[-1], "no processing once the filter solution is written"
 
 
 if __name__ == '__main__':

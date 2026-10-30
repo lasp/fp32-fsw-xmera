@@ -37,8 +37,8 @@ def get_analytical_sigma(sunDirection, distance):
     inputFilter = messaging.FilterMsgF32Payload()
     inputEphem = messaging.EphemerisMsgPayload()
 
-    full_covariance = np.diag([sigma_r**2, sigma_r**2, sigma_r**2, 0.01, 0.01, 0.01])
-    inputFilter.numberOfStates = 6
+    full_covariance = np.diag([sigma_r**2, sigma_r**2, sigma_r**2, 0.01, 0.01, 0.01, 1e-6, 1e-6])
+    inputFilter.numberOfStates = 8
     inputFilter.covar = full_covariance.flatten()
     position_covar = full_covariance[:3,:3]
 

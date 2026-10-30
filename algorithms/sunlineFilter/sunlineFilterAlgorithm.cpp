@@ -3,7 +3,6 @@
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/validPSDCheck.h"
 
-#include <algorithm>
 #include <utility>
 #include <variant>
 
@@ -122,8 +121,9 @@ SunlineFilterOutput SunlineFilterAlgorithm::update(double currentSeconds,
         this->measurements.enqueue(rateData.timeTag, this->packRateMeasurement(rateData));
     }
     applySequentialRobust(this->measurements, *this, currentSeconds);
-    this->srukf.setState(this->regularize(this->srukf.getState()));
-    this->srukf.setStateLastMeasurement(this->regularize(this->srukf.getStateAtLastMeasurement()));
+    this->srukf.setState(regularize(this->srukf.getState()));
+    this->srukf.setStateLastMeasurement(regularize(this->srukf.getStateAtLastMeasurement()));
+    this->resetBiasOutsideBounds();
 
     return SunlineFilterOutput{
         .filterState = this->getFilterOutput(),
@@ -224,17 +224,30 @@ RateMeasurement SunlineFilterAlgorithm::packRateMeasurement(RateData const& rate
     return packed;
 }
 
-/*! Renormalize the heading and clamp the bias to its configured bounds.
+/*! Renormalize the heading.
  *  @return sanitized copy of State
  *  @param state [-] state to regularize */
-SunlineFilterAlgorithm::State SunlineFilterAlgorithm::regularize(State const& state) const {
+SunlineFilterAlgorithm::State SunlineFilterAlgorithm::regularize(State const& state) {
     State outputState = state;
     outputState.set<filtering::Position<3>>(outputState.get<filtering::Position<3>>().stableNormalized());
-    Eigen::Vector<float, 1> biasVec;
-    biasVec(0) = std::clamp(
-        outputState.get<filtering::Bias<1>>()(0), this->cfg.getBiasLowerBound(), this->cfg.getBiasUpperBound());
-    outputState.set<filtering::Bias<1>>(biasVec);
     return outputState;
+}
+
+/*! Re-seed the bias from the initial conditions when it left [biasLowerBound, biasUpperBound] in the working
+ *  state or in the last-measurement anchor (which the next propagation starts from): its value returns to the
+ *  initial bias and its variance to the initial variance, uncorrelated with the heading and rate, which keep
+ *  their estimate and covariance. */
+void SunlineFilterAlgorithm::resetBiasOutsideBounds() {
+    float const lowerBound = this->cfg.getBiasLowerBound();
+    float const upperBound = this->cfg.getBiasUpperBound();
+    float const bias = this->srukf.getState().get<filtering::Bias<1>>()(0);
+    float const anchorBias = this->srukf.getStateAtLastMeasurement().get<filtering::Bias<1>>()(0);
+
+    bool const biasIsWithinBounds = bias >= lowerBound && bias <= upperBound;
+    bool const anchorBiasIsWithinBounds = anchorBias >= lowerBound && anchorBias <= upperBound;
+    if (!(biasIsWithinBounds && anchorBiasIsWithinBounds)) {
+        this->srukf.reInitializeComponent<filtering::Bias<1>>();
+    }
 }
 
 /*! Bundle the SRuKF's current state and covariance into the output POD.

@@ -15,6 +15,7 @@ EIGEN_MAT_WRAP(filtering::flybyFilter::StateColumn, 165)
 %include "flybyFilter.h"
 
 %include "msgPayloadDef/OpNavUnitVecMsgF32Payload.h"
+%include "msgPayloadDef/NavAttMsgF32Payload.h"
 %include "msgPayloadDef/NavTransMsgF32Payload.h"
 %include "msgPayloadDef/FilterMsgF32Payload.h"
 %include "msgPayloadDef/FilterResidualsMsgF32Payload.h"

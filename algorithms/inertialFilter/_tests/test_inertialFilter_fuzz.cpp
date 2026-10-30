@@ -25,6 +25,7 @@
 
 #include <Eigen/Core>
 
+#include <algorithm>
 #include <cmath>
 
 namespace filtering::inertialFilter {
@@ -41,9 +42,10 @@ State makeState(Eigen::Vector3f const& sigma, Eigen::Vector3f const& omega) {
 }
 
 // Build a validated configuration from fuzzed scalars. Domains below keep every argument
-// inside its valid range so create() never throws.
+// inside its valid range so create() never throws. Beta is drawn as a fraction of its valid range
+// [alpha^2, 2], which depends on alpha.
 InertialFilterConfig makeConfig(float alpha,
-                                float beta,
+                                float betaFraction,
                                 float pAtt,
                                 float pRate,
                                 float q,
@@ -54,6 +56,7 @@ InertialFilterConfig makeConfig(float alpha,
     diag << pAtt, pAtt, pAtt, pRate, pRate, pRate;
     Matrix6 const initialCovariance = diag.asDiagonal();
     Matrix6 const processNoise = q * Matrix6::Identity();
+    float const beta = std::min(alpha * alpha + betaFraction * (2.0F - alpha * alpha), 2.0F);
     return InertialFilterConfig::create(alpha, beta, processNoise, initial, initialCovariance, stStd, rateStd);
 }
 
@@ -77,7 +80,7 @@ constexpr float kMoveTowardRelTol = 1e-2;
 // the covariance symmetric + PSD + finite.
 // ============================================================================
 void fuzzTimeAndMeasurementUpdates(float alpha,
-                                   float beta,
+                                   float betaFraction,
                                    float pAtt,
                                    float pRate,
                                    float q,
@@ -97,7 +100,7 @@ void fuzzTimeAndMeasurementUpdates(float alpha,
                                    float mwz,
                                    float dt) {
     InertialFilterAlgorithm algo(
-        makeConfig(alpha, beta, pAtt, pRate, q, stStd, rateStd, makeState({s0x, s0y, s0z}, {w0x, w0y, w0z})));
+        makeConfig(alpha, betaFraction, pAtt, pRate, q, stStd, rateStd, makeState({s0x, s0y, s0z}, {w0x, w0y, w0z})));
 
     Eigen::Vector3f const stObservation(msx, msy, msz);
     Eigen::Vector3f const rateObservation(mwx, mwy, mwz);
@@ -147,7 +150,7 @@ void fuzzTimeAndMeasurementUpdates(float alpha,
 }
 FUZZ_TEST(InertialFilterFuzz, fuzzTimeAndMeasurementUpdates)
     .WithDomains(fuzztest::InRange(1e-2F, 1.0F),   // alpha in (0, 1]
-                 fuzztest::InRange(0.0F, 2.0F),    // beta
+                 fuzztest::InRange(0.0F, 1.0F),    // beta, as a fraction of [alpha^2, 2]
                  fuzztest::InRange(1e-4F, 1e-1F),  // initial attitude variance
                  fuzztest::InRange(1e-6F, 1e-2F),  // initial rate variance
                  fuzztest::InRange(0.0F, 1e-4F),   // process noise
@@ -172,7 +175,7 @@ FUZZ_TEST(InertialFilterFuzz, fuzzTimeAndMeasurementUpdates)
 // to the covariance (no smaller than a noise-free propagation; stays symmetric + PSD + finite).
 // ============================================================================
 void fuzzTimeUpdatePropagatesStateAndGrowsCovariance(float alpha,
-                                                     float beta,
+                                                     float betaFraction,
                                                      float pAtt,
                                                      float pRate,
                                                      float q,
@@ -184,7 +187,7 @@ void fuzzTimeUpdatePropagatesStateAndGrowsCovariance(float alpha,
                                                      float w0z,
                                                      float dt) {
     State const initial = makeState({s0x, s0y, s0z}, {w0x, w0y, w0z});
-    InertialFilterAlgorithm algo(makeConfig(alpha, beta, pAtt, pRate, q, 1e-3, 1e-3, initial));
+    InertialFilterAlgorithm algo(makeConfig(alpha, betaFraction, pAtt, pRate, q, 1e-3, 1e-3, initial));
 
     ASSERT_TRUE(algo.timeUpdate(dt)) << "timeUpdate should be valid";
 
@@ -198,14 +201,14 @@ void fuzzTimeUpdatePropagatesStateAndGrowsCovariance(float alpha,
     EXPECT_TRUE(finiteSymmetricPsd(P)) << "covariance after timeUpdate";
 
     // Compare against the same propagation with no process noise: P(withQ) = P(noQ) + Q.
-    InertialFilterAlgorithm algoNoProcessNoise(makeConfig(alpha, beta, pAtt, pRate, 0.0, 1e-3, 1e-3, initial));
+    InertialFilterAlgorithm algoNoProcessNoise(makeConfig(alpha, betaFraction, pAtt, pRate, 0.0, 1e-3, 1e-3, initial));
     ASSERT_TRUE(algoNoProcessNoise.timeUpdate(dt)) << "noise-free timeUpdate should be valid";
     float const traceWithoutProcessNoise = algoNoProcessNoise.getCovariance().trace();
     EXPECT_GE(P.trace(), traceWithoutProcessNoise - kTol) << "process noise should not shrink the covariance";
 }
 FUZZ_TEST(InertialFilterFuzz, fuzzTimeUpdatePropagatesStateAndGrowsCovariance)
     .WithDomains(fuzztest::InRange(1e-2F, 1.0F),   // alpha in (0, 1]
-                 fuzztest::InRange(0.0F, 2.0F),    // beta
+                 fuzztest::InRange(0.0F, 1.0F),    // beta, as a fraction of [alpha^2, 2]
                  fuzztest::InRange(1e-4F, 1e-1F),  // initial attitude variance
                  fuzztest::InRange(1e-6F, 1e-2F),  // initial rate variance
                  fuzztest::InRange(0.0F, 1e-4F),   // process noise

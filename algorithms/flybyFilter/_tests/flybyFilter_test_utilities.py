@@ -17,7 +17,8 @@ except Exception:  # pragma: no cover - plotting is optional
 
 m2km = 1.0 / 1000.0
 
-STATE_LABELS = ['pos x (m)', 'pos y (m)', 'pos z (m)', 'vel x (m/s)', 'vel y (m/s)', 'vel z (m/s)']
+STATE_LABELS = ['pos x (m)', 'pos y (m)', 'pos z (m)', 'vel x (m/s)', 'vel y (m/s)', 'vel z (m/s)',
+                'bias across (rad)', 'bias along (rad)']
 
 
 def _enabled(show_plots):
@@ -29,7 +30,7 @@ def _seconds(nanos):
 
 
 def states(x, testName, show_plots):
-    """Per-component state (or state-error) traces. `x` is [time_ns, s0..s5] per row."""
+    """Per-component state (or state-error) traces. `x` is [time_ns, s0..s(n-1)] per row."""
     if not _enabled(show_plots):
         return
     t = _seconds(x[:, 0])
@@ -37,7 +38,7 @@ def states(x, testName, show_plots):
 
     plt.figure(figsize=(10, 10))
     for k in range(num_states):
-        plt.subplot(3, 2, k + 1)
+        plt.subplot((num_states + 1) // 2, 2, k + 1)
         plt.plot(t, x[:, k + 1], "b")
         plt.xlabel('t (s)')
         plt.title(STATE_LABELS[k] + ' ' + testName)
@@ -76,7 +77,7 @@ def state_covar(x, Pflat, testName, show_plots):
     plt.figure(figsize=(10, 10))
     for k in range(num_states):
         sigma = np.sqrt(np.abs(P[:, k, k]))
-        plt.subplot(3, 2, k + 1)
+        plt.subplot((num_states + 1) // 2, 2, k + 1)
         plt.plot(t, x[:, k + 1], "b")
         plt.plot(t, x[:, k + 1] + 3 * sigma, 'r--')
         plt.plot(t, x[:, k + 1] - 3 * sigma, 'r--')
