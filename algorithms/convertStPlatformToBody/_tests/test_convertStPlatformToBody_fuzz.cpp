@@ -39,15 +39,15 @@ void fuzzConvertStPlatformToBody(double q0,
                                  double wx,
                                  double wy,
                                  double wz,
-                                 const Eigen::Vector3f& sigma_CB) {
-    Eigen::Vector4d ep_CN = makeUnitQuaternion(q0, q1, q2, q3);
-    Eigen::Vector3d omega_CN_C(wx, wy, wz);
+                                 const Eigen::Vector3f& sigma_PB) {
+    Eigen::Vector4d ep_PN = makeUnitQuaternion(q0, q1, q2, q3);
+    Eigen::Vector3d omega_PN_P(wx, wy, wz);
 
-    const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
-    const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
-    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_CN, dq_CN, sigma_CB));
-    propertyOutputIsFinite(q_CN, dq_CN, sigma_CB);
-    propertySigmaNormBounded(q_CN, dq_CN, sigma_CB);
+    const Eigen::Vector4f q_PN = toScalarLast(ep_PN);
+    const Eigen::Vector4f dq_PN = omegaToDeltaQuaternion(omega_PN_P);
+    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_PN, dq_PN, sigma_PB));
+    propertyOutputIsFinite(q_PN, dq_PN, sigma_PB);
+    propertySigmaNormBounded(q_PN, dq_PN, sigma_PB);
 }
 
 // Keep ‖ω‖ < π so the helper's ω→δq conversion stays single-valued:
@@ -60,7 +60,7 @@ FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBody)
                  fuzztest::InRange(-0.9, 0.9),                          // wx [rad/s]
                  fuzztest::InRange(-0.9, 0.9),                          // wy
                  fuzztest::InRange(-0.9, 0.9),                          // wz
-                 xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit));  // sigma_CB (MRP)
+                 xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit));  // sigma_PB (MRP)
 
 /*! @brief Fuzz with edge-case quaternions: near-identity and near-180-degree rotations */
 void fuzzConvertStPlatformToBodyEdgeCases(double angle,
@@ -74,15 +74,15 @@ void fuzzConvertStPlatformToBodyEdgeCases(double angle,
     if (axis.stableNorm() < 1e-12) {
         axis = Eigen::Vector3d::UnitZ();
     }
-    Eigen::Vector4d ep_CN = axisAngleToEp(axis, angle);
-    Eigen::Vector3d omega_CN_C(wx, wy, wz);
-    Eigen::Vector3d sigma_CB = Eigen::Vector3d::Zero();
+    Eigen::Vector4d ep_PN = axisAngleToEp(axis, angle);
+    Eigen::Vector3d omega_PN_P(wx, wy, wz);
+    Eigen::Vector3d sigma_PB = Eigen::Vector3d::Zero();
 
-    const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
-    const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
-    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_CN, dq_CN, sigma_CB.cast<float>()));
-    propertyOutputIsFinite(q_CN, dq_CN, sigma_CB.cast<float>());
-    propertySigmaNormBounded(q_CN, dq_CN, sigma_CB.cast<float>());
+    const Eigen::Vector4f q_PN = toScalarLast(ep_PN);
+    const Eigen::Vector4f dq_PN = omegaToDeltaQuaternion(omega_PN_P);
+    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_PN, dq_PN, sigma_PB.cast<float>()));
+    propertyOutputIsFinite(q_PN, dq_PN, sigma_PB.cast<float>());
+    propertySigmaNormBounded(q_PN, dq_PN, sigma_PB.cast<float>());
 }
 
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyEdgeCases)
@@ -97,19 +97,19 @@ FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyEdgeCases)
                  fuzztest::InRange(-0.5, 0.5));                         // wz
 
 /*! @brief Fuzz the mounting MRP, principal and shadow sets, with a fixed attitude and rate */
-void fuzzConvertStPlatformToBodyMountingEdges(const Eigen::Vector3f& sigma_CB) {
-    Eigen::Vector4d ep_CN = axisAngleToEp(Eigen::Vector3d::UnitZ(), 0.5);
-    Eigen::Vector3d omega_CN_C(0.01, -0.02, 0.03);
+void fuzzConvertStPlatformToBodyMountingEdges(const Eigen::Vector3f& sigma_PB) {
+    Eigen::Vector4d ep_PN = axisAngleToEp(Eigen::Vector3d::UnitZ(), 0.5);
+    Eigen::Vector3d omega_PN_P(0.01, -0.02, 0.03);
 
-    const Eigen::Vector4f q_CN = toScalarLast(ep_CN);
-    const Eigen::Vector4f dq_CN = omegaToDeltaQuaternion(omega_CN_C);
-    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_CN, dq_CN, sigma_CB));
-    propertyOutputIsFinite(q_CN, dq_CN, sigma_CB);
-    propertySigmaNormBounded(q_CN, dq_CN, sigma_CB);
+    const Eigen::Vector4f q_PN = toScalarLast(ep_PN);
+    const Eigen::Vector4f dq_PN = omegaToDeltaQuaternion(omega_PN_P);
+    EXPECT_NO_THROW(testConvertStPlatformToBodyRegression(q_PN, dq_PN, sigma_PB));
+    propertyOutputIsFinite(q_PN, dq_PN, sigma_PB);
+    propertySigmaNormBounded(q_PN, dq_PN, sigma_PB);
 }
 
 FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyMountingEdges)
-    .WithDomains(xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit));  // sigma_CB (MRP)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit));  // sigma_PB (MRP)
 
 /*!
  * @brief Fuzz the algorithm with delta quaternions supplied directly.
@@ -124,7 +124,7 @@ void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
                                                 double dqy,
                                                 double dqz,
                                                 double dqw,
-                                                const Eigen::Vector3f& sigma_CB) {
+                                                const Eigen::Vector3f& sigma_PB) {
     Eigen::Vector4d dq(dqx, dqy, dqz, dqw);
     const double norm = dq.stableNorm();
     if (norm < 1e-12) {
@@ -133,14 +133,14 @@ void fuzzConvertStPlatformToBodyDeltaQuaternion(double dqx,
         dq /= norm;
     }
 
-    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_CB)};
+    ConvertStPlatformToBodyAlgorithm algorithm{ConvertStPlatformToBodyConfig::create(sigma_PB)};
 
-    const Eigen::Vector4f q_CN(0.0F, 0.0F, 0.0F, 1.0F);  // identity inertial attitude (scalar-last) — isolate δq path
-    const Eigen::Vector4f dq_CN(
+    const Eigen::Vector4f q_PN(0.0F, 0.0F, 0.0F, 1.0F);  // identity inertial attitude (scalar-last) — isolate δq path
+    const Eigen::Vector4f dq_PN(
         static_cast<float>(dq(0)), static_cast<float>(dq(1)), static_cast<float>(dq(2)), static_cast<float>(dq(3)));
 
     StAttitudeOutput result;
-    EXPECT_NO_THROW(result = algorithm.update(q_CN, dq_CN));
+    EXPECT_NO_THROW(result = algorithm.update(q_PN, dq_PN));
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(result.sigma_BN[i]));
         EXPECT_TRUE(std::isfinite(result.omega_BN_B[i]));
@@ -152,4 +152,4 @@ FUZZ_TEST(ConvertStPlatformToBodyFuzz, fuzzConvertStPlatformToBodyDeltaQuaternio
                  fuzztest::InRange(-1.0, 1.0),                          // dqy
                  fuzztest::InRange(-1.0, 1.0),                          // dqz
                  fuzztest::InRange(-1.0, 1.0),                          // dqw (scalar part)
-                 xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit));  // sigma_CB (MRP)
+                 xmera::fuzz::Vector3fInRange(-kMrpLimit, kMrpLimit));  // sigma_PB (MRP)

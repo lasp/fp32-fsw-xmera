@@ -25,7 +25,7 @@ class ConvertStPlatformToBody : public SysModel {
 
     void reconfigure() const;
 
-    Eigen::Vector3f sigma_CB = Eigen::Vector3f::Zero();  //!< [-] MRP of the case frame relative to the body frame
+    Eigen::Vector3f sigma_PB = Eigen::Vector3f::Zero();  //!< [-] MRP of the platform frame relative to the body frame
 
     ReadFunctor<AscPlatformAttitudeTmMsgF32Payload> stSensorInMsg;  //!< Input msg
     Message<STAttMsgF32Payload> stAttOutMsg;                        //!< Output msg

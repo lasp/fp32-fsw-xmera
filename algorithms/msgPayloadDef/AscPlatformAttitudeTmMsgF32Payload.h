@@ -31,8 +31,8 @@ typedef struct {
     uint16_t dpuApId;                  //!< [-] DPU application process ID
     uint16_t sequenceCtlCount;         //!< [-] packet sequence count
     uint16_t reportId;                 //!< [-] report ID (platform attitude)
-    float platformAttitude[4];         //!< [-] q_CN, inertial-to-case quaternion (scalar-last)
-    float platformAngularVelocity[4];  //!< [-] dq_CN, case-frame rate encoded as a quaternion (scalar-last)
+    float platformAttitude[4];         //!< [-] q_PN, inertial-to-platform quaternion (scalar-last)
+    float platformAngularVelocity[4];  //!< [-] dq_PN, platform-frame rate encoded as a quaternion (scalar-last)
     float linearAcceleration[3];       //!< [m/s^2] linear acceleration
     AscPlatformSolutionInfoF32 info;   //!< [-] solution health
     double solutionTimestamp;          //!< [s] solution time tag (center of image integration)
