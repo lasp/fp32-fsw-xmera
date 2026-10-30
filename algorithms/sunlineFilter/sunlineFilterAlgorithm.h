@@ -61,14 +61,23 @@ class SunlineFilterConfig final {
                                       float cssMeasurementNoiseStd,
                                       float gyroMeasurementNoiseStd,
                                       float measurementDelay = 0.0F) {
-        if (!Srukf::alphaIsValid(alpha)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: alpha must be in (0, 1]");
+        if (!Srukf::alphaAndBetaAreValid(alpha, beta)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: alpha must be in (0, 1] and beta in [alpha^2, 2]");
         }
-        if (!Srukf::betaIsValid(beta)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: beta must be in [0, 2]");
+        if (!processNoise.allFinite()) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: process noise must be finite");
+        }
+        if (!isSymmetric<SunlineState::size>(processNoise)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: process noise must be symmetric");
         }
         if (!isValidProcessNoise(processNoise)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: process noise must be positive semi-definite");
+        }
+        if (!initialCovariance.allFinite()) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial covariance must be finite");
+        }
+        if (!isSymmetric<SunlineState::size>(initialCovariance)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial covariance must be symmetric");
         }
         if (!isValidInitialCovariance(initialCovariance)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial covariance must be positive semi-definite");
@@ -119,11 +128,13 @@ class SunlineFilterConfig final {
     }
 
     static bool isValidProcessNoise(StateMatrix const& processNoise) {
-        return isPositiveSemiDefinite<SunlineState::size>(processNoise);
+        return processNoise.allFinite() && isSymmetric<SunlineState::size>(processNoise) &&
+               isPositiveSemiDefinite<SunlineState::size>(processNoise);
     }
     static bool isValidInitialState(SunlineState const& initialState) { return initialState.allFinite(); }
     static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return covariance.allFinite() && isPositiveSemiDefinite<SunlineState::size>(covariance);
+        return covariance.allFinite() && isSymmetric<SunlineState::size>(covariance) &&
+               isPositiveSemiDefinite<SunlineState::size>(covariance);
     }
     static bool isValidBiasLowerBound(float bound) { return bound > 0.0F; }
     static bool isValidBiasUpperBound(float bound) { return bound > 0.0F; }

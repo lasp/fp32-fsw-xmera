@@ -138,16 +138,16 @@ Configuration parameters
       - 0 < alpha <= 1
     * - beta
       - prior-knowledge tunable
-      - any
+      - alpha^2 <= beta <= 2
     * - processNoise
       - N x N process noise covariance Q
-      - positive semi-definite
+      - finite, symmetric, positive semi-definite
     * - initialState
       - N-element initial state seed
       - finite
     * - initialCovariance
       - N x N initial covariance P0
-      - positive semi-definite
+      - finite, symmetric, positive semi-definite
     * - biasLowerBound
       - lower clamp on the bias state
       - > 0 and < biasUpperBound

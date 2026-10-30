@@ -38,7 +38,7 @@ uint32_t InertialFilterAlgorithm_getNumStates(void);
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param alpha                   [-] sigma-point spread.
- * @param beta                    [-] prior-knowledge tunable.
+ * @param beta                    [-] prior-knowledge tunable, in [alpha^2, 2].
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
@@ -58,7 +58,7 @@ bool InertialFilterAlgorithm_validateConfig(double alpha,
 /**
  * @brief Construct a filter from a validated configuration and seed its state/covariance.
  * @param alpha                   [-] sigma-point spread.
- * @param beta                    [-] prior-knowledge tunable.
+ * @param beta                    [-] prior-knowledge tunable, in [alpha^2, 2].
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
@@ -85,7 +85,7 @@ void InertialFilterAlgorithm_destroy(InertialFilterAlgorithmHandle* self);
  * @brief Replace the algorithm's configuration and re-derive filter parameters.
  * @param self                    [-] filter handle
  * @param alpha                   [-] sigma-point spread.
- * @param beta                    [-] prior-knowledge tunable.
+ * @param beta                    [-] prior-knowledge tunable, in [alpha^2, 2].
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.

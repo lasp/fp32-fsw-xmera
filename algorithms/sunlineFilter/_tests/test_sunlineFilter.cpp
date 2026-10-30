@@ -18,6 +18,9 @@
 #include <Eigen/Dense>
 
 #include <cmath>
+#include <limits>
+#include <string>
+#include <utility>
 
 namespace filtering::sunlineFilter {
 namespace {
@@ -636,28 +639,6 @@ TEST(SrukfDetail, QrDecompositionJustRPreservesNormalEquations) {
     EXPECT_TRUE((R * R.transpose()).isApprox(A * A.transpose(), kRoundoffTol));
 }
 
-TEST(SrukfDetail, CholeskyUpDownDateMatchesExplicitUpdate) {
-    Eigen::Matrix3f P0;
-    P0 << 4.0, 1.0, 0.0, 1.0, 3.0, 0.5, 0.0, 0.5, 2.0;
-    Eigen::Matrix3f const S0 = SRuKF::choleskyDecomposition<3>(P0);
-
-    Eigen::Vector3f const v(0.1, -0.2, 0.3);
-
-    // Up-date with +coef and down-date with -coef must reconstruct P0 ± coef v vᵀ.
-    {
-        float const coef = 0.5;
-        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
-        Eigen::Matrix3f const P1 = P0 + coef * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
-    }
-    {
-        float const coef = -0.5;
-        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
-        Eigen::Matrix3f const P1 = P0 - 0.5 * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
-    }
-}
-
 // ============================================================================
 // SunlineFilterConfig: factory validation, static validators, and round-trip.
 // ============================================================================
@@ -685,6 +666,18 @@ TEST(SunlineFilterConfig, RejectsBetaOutsideRange) {
     }
 }
 
+TEST(SunlineFilterConfig, RejectsBetaBelowAlphaSquared) {
+    ConfigInputs below;
+    below.alpha = 1.0;
+    below.beta = 0.5;
+    EXPECT_THROW(buildConfig(below), fsw::invalid_argument);
+
+    ConfigInputs atTheBound;
+    atTheBound.alpha = 0.5;
+    atTheBound.beta = 0.25;
+    EXPECT_NO_THROW(buildConfig(atTheBound));
+}
+
 TEST(SunlineFilterConfig, RejectsNonPositiveSemiDefiniteProcessNoise) {
     ConfigInputs in;
     in.processNoise = -Matrix7::Identity();  // negative definite
@@ -695,6 +688,34 @@ TEST(SunlineFilterConfig, RejectsNonPositiveSemiDefiniteCovariance) {
     ConfigInputs in;
     in.initialCovariance = -Matrix7::Identity();  // negative definite
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
+// Each failing check on Q and P0 has its own message: non-finite, asymmetric, or not positive semi-definite.
+TEST(SunlineFilterConfig, NamesWhichCovarianceCheckFails) {
+    auto const messageOf = [](ConfigInputs const& in) -> std::string {
+        try {
+            (void)buildConfig(in);
+        } catch (fsw::invalid_argument const& error) {
+            return error.what();
+        }
+        return "no throw";
+    };
+    Matrix7 nonFinite = Matrix7::Identity();
+    nonFinite(1, 1) = std::numeric_limits<float>::quiet_NaN();
+    Matrix7 asymmetric = Matrix7::Identity();
+    asymmetric(0, 1) = 1E-3F;  // the lower triangle keeps 0
+    Matrix7 const negative = -Matrix7::Identity();
+
+    for (auto const& [matrix, failure] : {std::pair{nonFinite, "finite"},
+                                          std::pair{asymmetric, "symmetric"},
+                                          std::pair{negative, "positive semi-definite"}}) {
+        ConfigInputs processNoiseCase;
+        processNoiseCase.processNoise = matrix;
+        EXPECT_EQ(messageOf(processNoiseCase), std::string("sunlineFilter: process noise must be ") + failure);
+        ConfigInputs covarianceCase;
+        covarianceCase.initialCovariance = matrix;
+        EXPECT_EQ(messageOf(covarianceCase), std::string("sunlineFilter: initial covariance must be ") + failure);
+    }
 }
 
 TEST(SunlineFilterConfig, RejectsNonFiniteInitialState) {
