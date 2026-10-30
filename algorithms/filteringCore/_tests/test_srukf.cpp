@@ -22,10 +22,9 @@
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 
-#include <cfenv>
+#include <array>
 #include <cmath>
 #include <limits>
-#include <optional>
 
 namespace filtering {
 
@@ -73,6 +72,63 @@ struct MrpMeasurement {
 };
 static_assert(Measurement<MrpMeasurement, MrpState>);
 
+// Nonlinear dynamics and measurement model, so that the sigma points have a nonzero mean offset.
+struct QuadraticDynamics {
+    TestState operator()(float, TestState const& s) const {
+        Eigen::Vector3f const x = s.raw();
+        return TestState(Eigen::Vector3f(x(1) * x(2), -x(0) * x(2), 0.5F * x(0) * x(1)));
+    }
+};
+using QuadraticSRuKF = SRuKF<TestState, QuadraticDynamics>;
+struct QuadraticMeasurement {
+    static constexpr int size = 3;
+    Eigen::Vector3f observed = Eigen::Vector3f::Zero();
+    Eigen::Matrix3f noiseCov = Eigen::Matrix3f::Identity();
+    Eigen::Vector3f observation() const { return observed; }
+    Eigen::Vector3f model(TestState const& s) const {
+        Eigen::Vector3f const x = s.raw();
+        return {x(0) * x(0), x(0) * x(1), x(2) + x(1) * x(1)};
+    }
+    Eigen::Matrix3f noise() const { return noiseCov; }
+    Eigen::Vector3f subtract(Eigen::Vector3f const& a, Eigen::Vector3f const& b) const { return a - b; }
+};
+static_assert(Measurement<QuadraticMeasurement, TestState>);
+
+// The standard unscented transform in double, with the textbook weights (w^c_0 = w^m_0 + 1 - alpha^2 + beta).
+struct UnscentedReference {
+    double alpha;
+    double beta;
+    static constexpr int n = 3;
+    double lambda() const { return n * (alpha * alpha - 1.0); }
+    double wm(int i) const { return i == 0 ? lambda() / (n + lambda()) : 1.0 / (2.0 * (n + lambda())); }
+    double wc(int i) const { return i == 0 ? wm(0) + 1.0 - alpha * alpha + beta : wm(i); }
+    // Sigma points of (x, P), in float as the filter draws them.
+    std::array<Eigen::Vector3f, 2 * n + 1> sigmaPoints(Eigen::Vector3f const& x, Eigen::Matrix3f const& P) const {
+        Eigen::Matrix3f const S = Eigen::LLT<Eigen::Matrix3f>(P).matrixL();
+        auto const eta = static_cast<float>(std::sqrt(n + lambda()));
+        std::array<Eigen::Vector3f, 2 * n + 1> X;
+        X[0] = x;
+        for (int i = 0; i < n; ++i) {
+            X[1 + i] = x + eta * S.col(i);
+            X[1 + n + i] = x - eta * S.col(i);
+        }
+        return X;
+    }
+    Eigen::Vector3d mean(std::array<Eigen::Vector3f, 2 * n + 1> const& X) const {
+        Eigen::Vector3d m = Eigen::Vector3d::Zero();
+        for (int i = 0; i < 2 * n + 1; ++i) m += wm(i) * X[i].cast<double>();
+        return m;
+    }
+    Eigen::Matrix3d crossCovariance(std::array<Eigen::Vector3f, 2 * n + 1> const& X,
+                                    std::array<Eigen::Vector3f, 2 * n + 1> const& Y) const {
+        Eigen::Vector3d const xBar = mean(X);
+        Eigen::Vector3d const yBar = mean(Y);
+        Eigen::Matrix3d C = Eigen::Matrix3d::Zero();
+        for (int i = 0; i < 2 * n + 1; ++i)
+            C += wc(i) * (X[i].cast<double>() - xBar) * (Y[i].cast<double>() - yBar).transpose();
+        return C;
+    }
+};
 }  // namespace
 
 // Test all of the static functions
@@ -112,6 +168,36 @@ TEST(SrukfStatic, CholeskyDecompositionReconstructsP) {
     }
 }
 
+// A singular PSD matrix (zero process noise on some states, or a rank-deficient covariance) still factors: a
+// zero pivot gives a zero column, and the factor of the remaining states is unaffected.
+TEST(SrukfStatic, CholeskyDecompositionFactorsASingularPositiveSemiDefiniteMatrix) {
+    Eigen::Matrix<float, 3, 2> B;
+    B << 1.0F, 0.5F, -2.0F, 1.0F, 0.25F, 3.0F;
+    Eigen::Matrix3f const zeroInTheMiddle = Eigen::Vector3f(4.0F, 0.0F, 9.0F).asDiagonal();
+    Eigen::Matrix3f const zeroFirst = Eigen::Vector3f(0.0F, 4.0F, 9.0F).asDiagonal();
+    Eigen::Matrix3f const rankTwo = B * B.transpose();
+
+    for (Eigen::Matrix3f const& P : {zeroInTheMiddle, zeroFirst, rankTwo}) {
+        Eigen::Matrix3f const L = SRuKFType::choleskyDecomposition<3>(P);
+        ASSERT_TRUE(L.allFinite()) << "P =\n" << P;
+        EXPECT_LE((L * L.transpose() - P).norm(), kRoundoffTol * P.norm()) << "L·L^T must equal P =\n" << P;
+        EXPECT_TRUE(L.isLowerTriangular()) << "P =\n" << P;
+        EXPECT_GE(L.diagonal().minCoeff(), 0.0F) << "P =\n" << P;
+    }
+    EXPECT_TRUE(SRuKFType::choleskyDecomposition<3>(Eigen::Matrix3f::Zero()).isZero()) << "zero process noise";
+}
+
+// A zero pivot is judged against that state's own variance, so small variances next to a much larger one are kept.
+TEST(SrukfStatic, CholeskyDecompositionKeepsSmallVariancesNextToALargeOne) {
+    Eigen::Matrix3f P = Eigen::Vector3f(1e10F, 1e-4F, 2e-4F).asDiagonal();
+    P(1, 2) = P(2, 1) = 1e-4F;
+
+    Eigen::Matrix3f const L = SRuKFType::choleskyDecomposition<3>(P);
+
+    Eigen::Matrix2f const smallBlock = (L * L.transpose()).bottomRightCorner<2, 2>();
+    EXPECT_TRUE(smallBlock.isApprox(P.bottomRightCorner<2, 2>(), kRoundoffTol)) << smallBlock;
+}
+
 TEST(SrukfStatic, QrDecompositionJustRReturnsLowerTriangularSatisfyingNormalEquations) {
     Eigen::Matrix<float, 3, 9> A;
     A << 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 2.0, -1.0, 0.0, 1.0,
@@ -128,79 +214,29 @@ TEST(SrukfStatic, QrDecompositionJustRReturnsLowerTriangularSatisfyingNormalEqua
         << "R·R^T must equal A·A^T (normal equations preserved)";
 }
 
-TEST(SrukfStatic, CholeskyUpDownDateMatchesExplicitUpdate) {
-    Eigen::Matrix3f P0;
-    P0 << 4.0, 1.0, 0.0, 1.0, 3.0, 0.5, 0.0, 0.5, 2.0;
-    Eigen::Matrix3f const S0 = SRuKFType::choleskyDecomposition<3>(P0);
-    Eigen::Vector3f const v(0.1, -0.2, 0.3);
-
-    // Up-date with +coef: chol(P + |coef|·v·v^T).
-    {
-        float const coef = 0.5;
-        Eigen::Matrix3f const S1 = SRuKFType::choleskyUpDownDate<3>(S0, v, coef).value();
-        Eigen::Matrix3f const P1 = P0 + coef * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol)) << "up-date";
-    }
-    // Down-date with -coef: chol(P - |coef|·v·v^T).
-    {
-        float const coef = -0.5;
-        Eigen::Matrix3f const S1 = SRuKFType::choleskyUpDownDate<3>(S0, v, coef).value();
-        Eigen::Matrix3f const P1 = P0 - 0.5 * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol)) << "down-date";
-    }
-}
-
-// An ill-conditioned factor: P = S0 S0^T has a variance of 1e-6 in one direction next to 1e4, a condition number of
-// about 1e13. Forming P in float rounds the small direction away (2500 + 1e-6 == 2500); rotating the rank-1 term into
-// the columns of S0 keeps it. The result is compared with a double-precision reference.
-TEST(SrukfStatic, CholeskyUpDownDateKeepsTheSmallDirectionOfAnIllConditionedFactor) {
+// Adding a column to the QR decomposition keeps the small direction of an ill-conditioned factor: P = S0 S0^T has a
+// variance of 1e-6 in one direction next to 1e4, a condition number of about 1e13. Forming P in float rounds the small
+// direction away (2500 + 1e-6 == 2500); the QR works on the factor's entries and keeps it. This is how the filter adds
+// the mean-offset term. The result is compared with a double-precision reference.
+TEST(SrukfStatic, QrDecompositionKeepsTheSmallDirectionWhenAddingAColumn) {
     Eigen::Matrix3f S0;
     S0 << 100.0F, 0.0F, 0.0F, 50.0F, 1e-3F, 0.0F, 0.0F, 0.0F, 1.0F;
     Eigen::Vector3f const v(1.0F, 0.5F, 0.3F);
+    float const coef = 0.5F;
 
-    for (float const coef : {0.5F, -0.5F}) {
-        Eigen::Matrix3f const S1 = SRuKFType::choleskyUpDownDate<3>(S0, v, coef).value();
+    Eigen::Matrix<float, 3, 4> A;
+    A << S0, sqrtf(coef) * v;
+    Eigen::Matrix3f const S1 = SRuKFType::qrDecompositionJustR<3, 4>(A);
 
-        Eigen::Matrix3d const S0d = S0.cast<double>();
-        Eigen::Vector3d const vd = v.cast<double>();
-        Eigen::Matrix3d const P1 = S0d * S0d.transpose() + static_cast<double>(coef) * vd * vd.transpose();
-        Eigen::Matrix3d const expected = Eigen::LLT<Eigen::Matrix3d>(P1).matrixL();
-
-        Eigen::Matrix3d const actual = S1.cast<double>();
-        for (int i = 0; i < 3; ++i) {
-            // Compare magnitudes: a valid factor may differ from the LLT one by the sign of a column.
-            EXPECT_NEAR(std::abs(actual(i, i)), expected(i, i), 1e-4 * expected(i, i))
-                << "diagonal " << i << " of the factor, coef " << coef;
-        }
+    Eigen::Matrix3d const S0d = S0.cast<double>();
+    Eigen::Vector3d const vd = v.cast<double>();
+    Eigen::Matrix3d const P1 = S0d * S0d.transpose() + static_cast<double>(coef) * vd * vd.transpose();
+    Eigen::Matrix3d const expected = Eigen::LLT<Eigen::Matrix3d>(P1).matrixL();
+    Eigen::Matrix3d const actual = S1.cast<double>();
+    for (int i = 0; i < 3; ++i) {
+        // Compare magnitudes: a valid factor may differ from the LLT one by the sign of a column.
+        EXPECT_NEAR(std::abs(actual(i, i)), expected(i, i), 1e-4 * expected(i, i)) << "diagonal " << i;
     }
-}
-
-// The downdates that would leave the factor indefinite or singular -- a zero diagonal (a zero-variance state), a
-// downdate of exactly the whole diagonal, more than the diagonal, a NaN weight -- fail without evaluating a division
-// by zero, so that the caller reports a bad update; an update of a zero diagonal is a valid rotation. The inputs go
-// through a volatile so that the compiler cannot fold the divisions away.
-TEST(SrukfStatic, CholeskyUpDownDateFailsInsteadOfDividingByZero) {
-    volatile float opaqueOne = 1.0F;
-    float const one = opaqueOne;  // not a compile-time constant
-    auto const upDownDate = [&](Eigen::Matrix3f const& S, Eigen::Vector3f const& v, float coef) {
-        std::feclearexcept(FE_DIVBYZERO);
-        std::optional<Eigen::Matrix3f> const S1 = SRuKFType::choleskyUpDownDate<3>(S * one, v * one, coef * one);
-        EXPECT_FALSE(std::fetestexcept(FE_DIVBYZERO)) << "division by zero, coef " << coef;
-        return S1;
-    };
-
-    Eigen::Matrix3f const singular = Eigen::Vector3f(1.0F, 0.0F, 1.0F).asDiagonal();
-    EXPECT_FALSE(upDownDate(singular, Eigen::Vector3f(0.0F, 1.0F, 0.0F), -0.5F)) << "zero diagonal";
-    EXPECT_FALSE(upDownDate(Eigen::Matrix3f::Identity(), Eigen::Vector3f::UnitX(), -1.0F)) << "singular result";
-    EXPECT_FALSE(upDownDate(Eigen::Matrix3f::Identity(), Eigen::Vector3f::UnitX(), -4.0F)) << "indefinite result";
-    EXPECT_FALSE(
-        upDownDate(Eigen::Matrix3f::Identity(), Eigen::Vector3f::UnitX(), std::numeric_limits<float>::quiet_NaN()))
-        << "NaN weight";
-
-    Eigen::Vector3f const v(1.0F, 2.0F, 3.0F);
-    std::optional<Eigen::Matrix3f> const S1 = upDownDate(Eigen::Matrix3f::Zero(), v, 1.0F);
-    ASSERT_TRUE(S1) << "an update of a zero factor is a valid rotation";
-    EXPECT_TRUE((*S1 * S1->transpose()).isApprox(v * v.transpose(), kRoundoffTol));
 }
 
 // Test setters/getters and reset
@@ -216,18 +252,32 @@ TEST(SrukfApi, SetGetRoundtripsForAlphaAndBeta) {
 
 // Valid inputs. The validators are static: they take the term to check and can be called
 // without an SRuKF instance (e.g. from a filter's config validation in another file).
-TEST(SrukfApi, ValidityChecks) {
-    // (1) alphaIsValid: true iff alpha in (0, 1] -- zero excluded, one included.
-    EXPECT_TRUE(SRuKFType::alphaIsValid(0.5)) << "alpha=0.5 in range";
-    EXPECT_TRUE(SRuKFType::alphaIsValid(1.0)) << "alpha=1 is the inclusive upper bound";
-    EXPECT_FALSE(SRuKFType::alphaIsValid(0.0)) << "alpha=0 excluded";
-    EXPECT_FALSE(SRuKFType::alphaIsValid(-0.1)) << "alpha<0";
-    EXPECT_FALSE(SRuKFType::alphaIsValid(1.5)) << "alpha>1";
+// The measurement noise std must give R = std^2 * I positive definite: positive, with a square that neither
+// underflows to zero nor overflows.
+TEST(SrukfApi, MeasurementNoiseStdIsValidOnlyForAPositiveFiniteVariance) {
+    EXPECT_TRUE(SRuKFType::measurementNoiseStdIsValid(1E-9F));
+    EXPECT_TRUE(SRuKFType::measurementNoiseStdIsValid(1.0F));
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(0.0F));
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(-1.0F));
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(1E-30F)) << "the variance underflows to zero";
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(1E30F)) << "the variance overflows";
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(std::numeric_limits<float>::infinity()));
+    EXPECT_FALSE(SRuKFType::measurementNoiseStdIsValid(std::numeric_limits<float>::quiet_NaN()));
+}
 
-    // (2) betaIsValid: true iff beta in [0, 2].
-    EXPECT_TRUE(SRuKFType::betaIsValid(1.0)) << "beta=1 in range";
-    EXPECT_FALSE(SRuKFType::betaIsValid(-0.5)) << "beta<0";
-    EXPECT_FALSE(SRuKFType::betaIsValid(2.5)) << "beta>2";
+TEST(SrukfApi, ValidityChecks) {
+    // alphaAndBetaAreValid: true iff alpha in (0, 1] and beta in [alpha^2, 2].
+    EXPECT_TRUE(SRuKFType::alphaAndBetaAreValid(0.02F, 2.0F)) << "the flight tuning";
+    EXPECT_TRUE(SRuKFType::alphaAndBetaAreValid(1.0F, 1.0F)) << "alpha = 1 and beta = alpha^2 are inclusive bounds";
+    EXPECT_TRUE(SRuKFType::alphaAndBetaAreValid(0.5F, 0.25F)) << "beta = alpha^2 is the inclusive lower bound";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(0.0F, 2.0F)) << "alpha = 0 excluded";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(-0.1F, 2.0F)) << "alpha < 0";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(1.5F, 2.0F)) << "alpha > 1";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(0.5F, 2.5F)) << "beta > 2";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(1.0F, 0.5F)) << "beta < alpha^2";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(0.02F, 0.0F)) << "beta = 0 is below alpha^2 for any alpha";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(std::numeric_limits<float>::quiet_NaN(), 2.0F)) << "NaN alpha";
+    EXPECT_FALSE(SRuKFType::alphaAndBetaAreValid(0.5F, std::numeric_limits<float>::quiet_NaN())) << "NaN beta";
 }
 
 // Reset
@@ -254,6 +304,74 @@ TEST(SrukfApi, ResetCopiesInitialStateAndCovarianceToWorkingState) {
 
     // Working covariance is covarianceInitial.
     EXPECT_TRUE(filter.getCovariance().isApprox(P0, 1e-12)) << "covariance";
+}
+
+// A position plus a dimensionless bias: the component scaling touches only the named component, and
+// reInitializeComponent() re-seeds only the addressed one.
+using BiasedState = StateVector<Position<3>, Bias<3>>;
+struct BiasedZeroDynamics {
+    BiasedState operator()(float, BiasedState const& s) const { return s.scale(0.0); }
+};
+struct BiasedPositionMeasurement {
+    static constexpr int size = 3;
+    Eigen::Vector3f observed = Eigen::Vector3f::Zero();
+    Eigen::Vector3f observation() const { return observed; }
+    Eigen::Vector3f model(BiasedState const& s) const { return s.get<Position<3>>() + s.get<Bias<3>>(); }
+    Eigen::Matrix3f noise() const { return 0.01F * Eigen::Matrix3f::Identity(); }
+    Eigen::Vector3f subtract(Eigen::Vector3f const& a, Eigen::Vector3f const& b) const { return a - b; }
+};
+static_assert(Measurement<BiasedPositionMeasurement, BiasedState>);
+
+TEST(StateVectorApi, ScaleComponentScalesOnlyTheNamedComponent) {
+    EXPECT_EQ(BiasedState::offsetOf<Bias<3>>(), 3);
+
+    Eigen::Vector<double, 6> x;
+    x << 1.0, 2.0, 3.0, 4.0, 5.0, 6.0;
+    BiasedState::scaleComponent<Position<3>>(x, 1E-3);
+    Eigen::Vector<double, 6> expectedX;
+    expectedX << 1E-3, 2E-3, 3E-3, 4.0, 5.0, 6.0;
+    EXPECT_EQ(x, expectedX);
+
+    // The covariance of the scaled state is S P S with S = diag(k, k, k, 1, 1, 1).
+    Eigen::Matrix<double, 6, 6> P = Eigen::Matrix<double, 6, 6>::Constant(2.0);
+    Eigen::Vector<double, 6> s;
+    s << 1E-3, 1E-3, 1E-3, 1.0, 1.0, 1.0;
+    Eigen::Matrix<double, 6, 6> const expectedP = s.asDiagonal() * P * s.asDiagonal();
+    BiasedState::scaleCovarianceComponent<Position<3>>(P, 1E-3);
+    EXPECT_TRUE(P.isApprox(expectedP, 1E-15));
+}
+
+TEST(SrukfApi, ReInitializeComponentReseedsOnlyThatComponent) {
+    SRuKF<BiasedState, BiasedZeroDynamics> filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    Eigen::Matrix<float, 6, 6> const P0 = Eigen::Matrix<float, 6, 6>::Identity();
+    filter.setInitialState(BiasedState{});
+    filter.setInitialCovariance(P0);
+    filter.setProcessNoise(1E-6F * Eigen::Matrix<float, 6, 6>::Identity());
+    filter.configure();
+    filter.reInitialize();
+
+    // A measurement of position + bias moves both and correlates them.
+    ASSERT_TRUE(filter.timeUpdate(0.0));
+    ASSERT_TRUE(filter.measurementUpdate(BiasedPositionMeasurement{{1.0F, 2.0F, 3.0F}}).has_value());
+    BiasedState const before = filter.getState();
+    Eigen::Matrix<float, 6, 6> const covarBefore = filter.getCovariance();
+    ASSERT_FALSE((covarBefore.topRightCorner<3, 3>().isZero()));
+
+    filter.reInitializeComponent<Bias<3>>();
+    EXPECT_TRUE(filter.getState().get<Bias<3>>().isZero());
+    EXPECT_EQ(filter.getState().get<Position<3>>(), before.get<Position<3>>());
+    EXPECT_TRUE(filter.getStateAtLastMeasurement().get<Bias<3>>().isZero());
+    Eigen::Matrix<float, 6, 6> const P = filter.getCovariance();
+    EXPECT_EQ((P.topLeftCorner<3, 3>()), (covarBefore.topLeftCorner<3, 3>()));
+    EXPECT_EQ((P.bottomRightCorner<3, 3>()), (P0.bottomRightCorner<3, 3>()));
+    EXPECT_TRUE((P.topRightCorner<3, 3>().isZero()));
+    EXPECT_TRUE((P.bottomLeftCorner<3, 3>().isZero()));
+
+    // The re-seeded anchor carries through the next time update.
+    ASSERT_TRUE(filter.timeUpdate(0.0));
+    EXPECT_TRUE((filter.getCovariance().topRightCorner<3, 3>().isZero()));
 }
 
 // timeUpdate tests
@@ -302,7 +420,126 @@ TEST(SrukfTimeUpdate, CovarianceUnderTimeUpdate) {
     Eigen::Matrix3f const P = filter.getCovariance();
     EXPECT_GT(P.trace(), P0.trace()) << "dt>0 should grow covariance";
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<3>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
+}
+
+// With nonlinear dynamics the propagated sigma points have a nonzero mean offset. The covariance after the time update
+// matches the standard unscented transform in double, mean-offset term included; leaving that term out (beta = alpha^2
+// in the reference) gives a covariance off by far more than the tolerance.
+TEST(SrukfTimeUpdate, MatchesTheStandardUnscentedTransform) {
+    float const alpha = 0.5F;
+    float const beta = 2.0F;
+    Eigen::Vector3f const x0(1.0F, 0.5F, -0.3F);
+    Eigen::Matrix3f P0;
+    P0 << 0.25F, 0.05F, 0.0F, 0.05F, 0.36F, -0.02F, 0.0F, -0.02F, 0.16F;
+    Eigen::Matrix3f const Q = 1e-3F * Eigen::Matrix3f::Identity();
+    float const dt = 1.0F;
+
+    QuadraticSRuKF filter;
+    filter.setAlpha(alpha);
+    filter.setBeta(beta);
+    filter.setInitialState(TestState(x0));
+    filter.setInitialCovariance(P0);
+    filter.setProcessNoise(Q);
+    filter.reInitialize();
+    filter.configure();
+    ASSERT_TRUE(filter.timeUpdate(dt));
+
+    UnscentedReference const reference{alpha, beta};
+    auto X = reference.sigmaPoints(x0, P0);
+    for (auto& Xi : X) {
+        Xi = filtering::propagate(QuadraticDynamics{}, TestState(Xi), {0.0F, dt}).raw();
+    }
+    Eigen::Matrix3d const expected = reference.crossCovariance(X, X) + Q.cast<double>();
+    Eigen::Matrix3d const actual = filter.getCovariance().cast<double>();
+    EXPECT_LE((actual - expected).norm(), 1e-5 * expected.norm()) << "actual\n" << actual << "\nexpected\n" << expected;
+
+    Eigen::Matrix3d const withoutMeanOffsetTerm =
+        UnscentedReference{alpha, alpha * alpha}.crossCovariance(X, X) + Q.cast<double>();
+    EXPECT_GT((withoutMeanOffsetTerm - expected).norm(), 100.0 * 1e-5 * expected.norm())
+        << "the mean-offset term is too small for this test to see it";
+}
+
+// At beta == alpha^2 the mean-offset weight is zero, but beta - alpha * alpha can round (or be fused into one
+// multiply-add) to -1 ulp: the weight is clamped, so the time update stays valid instead of taking sqrt(-1 ulp).
+TEST(SrukfTimeUpdate, BetaEqualToAlphaSquaredKeepsAValidUpdate) {
+    for (float const alpha : {0.357269615F, 0.1F, 0.3F, 0.7F, 1.0F}) {
+        QuadraticSRuKF filter;
+        filter.setAlpha(alpha);
+        filter.setBeta(alpha * alpha);
+        filter.setInitialState(TestState(Eigen::Vector3f(1.0F, 0.5F, -0.3F)));
+        filter.setInitialCovariance(0.01F * Eigen::Matrix3f::Identity());
+        filter.setProcessNoise(1e-4F * Eigen::Matrix3f::Identity());
+        filter.reInitialize();
+        filter.configure();
+        EXPECT_TRUE(filter.timeUpdate(0.5F)) << "alpha " << alpha;
+        EXPECT_TRUE(filter.getCovariance().allFinite()) << "alpha " << alpha;
+    }
+}
+
+// A nonlinear measurement model gives a nonzero predicted-measurement offset, which enters S_y and the posterior. The
+// state and covariance after the update match the standard unscented update in double.
+TEST(SrukfMeasurementUpdate, MatchesTheStandardUnscentedUpdate) {
+    float const alpha = 0.5F;
+    float const beta = 2.0F;
+    Eigen::Vector3f const x0(1.0F, 0.5F, -0.3F);
+    Eigen::Matrix3f P0;
+    P0 << 0.04F, 0.01F, 0.0F, 0.01F, 0.09F, -0.005F, 0.0F, -0.005F, 0.01F;
+
+    QuadraticSRuKF filter;
+    filter.setAlpha(alpha);
+    filter.setBeta(beta);
+    filter.setInitialState(TestState(x0));
+    filter.setInitialCovariance(P0);
+    filter.setProcessNoise(Eigen::Matrix3f::Zero());
+    filter.reInitialize();
+    filter.configure();
+    ASSERT_TRUE(filter.timeUpdate(0.0F));
+
+    QuadraticMeasurement m;
+    m.observed = Eigen::Vector3f(1.1F, 0.6F, 0.0F);
+    m.noiseCov = Eigen::Vector3f(1e-2F, 2e-2F, 5e-3F).asDiagonal();
+    ASSERT_TRUE(filter.measurementUpdate(m).has_value());
+
+    UnscentedReference const reference{alpha, beta};
+    auto const X = reference.sigmaPoints(x0, P0);
+    std::array<Eigen::Vector3f, 7> Y;
+    for (int i = 0; i < 7; ++i) {
+        Y[i] = m.model(TestState(X[i]));
+    }
+    Eigen::Matrix3d const pYY = reference.crossCovariance(Y, Y) + m.noiseCov.cast<double>();
+    Eigen::Matrix3d const pXY = reference.crossCovariance(X, Y);
+    Eigen::Matrix3d const K = pXY * pYY.inverse();
+    Eigen::Vector3d const xExpected = reference.mean(X) + K * (m.observed.cast<double>() - reference.mean(Y));
+    Eigen::Matrix3d const pExpected = reference.crossCovariance(X, X) - K * pYY * K.transpose();
+
+    Eigen::Vector3d const xActual = filter.getState().raw().cast<double>();
+    Eigen::Matrix3d const pActual = filter.getCovariance().cast<double>();
+    EXPECT_LE((xActual - xExpected).norm(), 1e-5 * xExpected.norm())
+        << xActual.transpose() << " vs " << xExpected.transpose();
+    EXPECT_LE((pActual - pExpected).norm(), 1e-4 * pExpected.norm()) << "actual\n"
+                                                                     << pActual << "\nexpected\n"
+                                                                     << pExpected;
+}
+
+// Zero process noise on a state in the middle adds Q exactly: with zero dynamics the covariance after a time update
+// is P0 + Q. A factor of Q that stopped at the zero pivot would add 0.3^2 instead of 0.3 to the last state.
+TEST(SrukfTimeUpdate, PartlyZeroProcessNoiseAddsExactlyQ) {
+    SRuKFType filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    Eigen::Matrix3f const P0 = Eigen::Matrix3f::Identity();
+    Eigen::Matrix3f const Q = Eigen::Vector3f(0.1F, 0.0F, 0.3F).asDiagonal();
+    filter.setInitialCovariance(P0);
+    filter.setProcessNoise(Q);
+    filter.reInitialize();
+    filter.configure();
+
+    ASSERT_TRUE(filter.timeUpdate(1.0));
+
+    Eigen::Matrix3f const P = filter.getCovariance();
+    EXPECT_TRUE(P.isApprox(P0 + Q, kRoundoffTol)) << P;
 }
 
 // A covariance that overflows float must fail the time update: the prior and the process noise are finite, but
@@ -352,6 +589,7 @@ TEST(SrukfMeasurementUpdate, InformativeMeasurementUpdatesStateAndShrinksCovaria
     Eigen::Matrix3f const P = filter.getCovariance();
     EXPECT_LT(P.trace(), 3.0) << "covariance should shrink";
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<3>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
 
     // Last-measurement state moved forward
@@ -407,6 +645,7 @@ TEST(SrukfMeasurementUpdate, PreciseMeasurementKeepsAPositivePosteriorCovariance
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(P(i, i), expectedVariance, 1e-3F * expectedVariance) << "posterior variance " << i;
     }
+    EXPECT_TRUE(isSymmetric<3>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
 }
 
@@ -450,6 +689,26 @@ TEST(SrukfMeasurementUpdate, NaNMeasurementReturnsNoValue) {
 
     EXPECT_FALSE(filter.measurementUpdate(m).has_value())
         << "measurementUpdate should not return a value for a bad (NaN) update";
+}
+
+// A measurement noise that is not positive definite (here zero noise on one axis) is a bad update: no residuals,
+// and the estimate is left as it was for the caller to clear.
+TEST(SrukfMeasurementUpdate, SingularMeasurementNoiseReturnsNoValue) {
+    SRuKFType filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    filter.setInitialCovariance(Eigen::Matrix3f::Identity());
+    filter.setProcessNoise(Eigen::Matrix3f::Zero());
+    filter.reInitialize();
+    filter.configure();
+    filter.timeUpdate(0.0);
+
+    PositionMeasurement m;
+    m.observed = Eigen::Vector3f(0.1F, -0.2F, 0.3F);
+    m.noiseCov = Eigen::Vector3f(0.01F, 0.0F, 0.01F).asDiagonal();
+
+    EXPECT_FALSE(filter.measurementUpdate(m).has_value());
+    EXPECT_TRUE(filter.getStateAtLastMeasurement().raw().isZero()) << "the last-measurement state is unchanged";
 }
 
 // An MRP measurement must still pull the state onto the observation when |sigma| is large.

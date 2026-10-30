@@ -52,8 +52,9 @@ relative to the central body. It is composed from filteringCore state tags as
     \boldsymbol{x} = \left\{ \begin{matrix} \boldsymbol{r}_{B/N} \\
     \boldsymbol{v}_{B/N} \end{matrix} \right\}.
 
-The measurement queue holds a single entry (``BatchSize = 1``), so the filter processes at most one
-heading per cycle. A full queue drops its oldest measurement: a newer heading replaces the queued one. A reading whose time tag is not newer than the last accepted one, or whose
+The measurement queue holds ``BatchSize = 2`` headings. Each call enqueues the new reading before it processes the
+due ones, so the queue must hold every reading received within the ``measurementDelay``, plus the new one: with one
+heading per call, a delay up to one call period fits. A full queue drops its oldest measurement. A reading whose time tag is not newer than the last accepted one, or whose
 ``valid`` flag is clear, is ignored by the adapter; a reading older than the filter's measurement
 anchor is dropped by the scheduler. A reading stamped in the past but still newer than the anchor is
 applied **at its own time tag**, and the estimate is then propagated forward to the call time.
@@ -98,7 +99,9 @@ vector ``rhat_BN_N``, and the measurement model is the normalized position:
     \boldsymbol{h}(\boldsymbol{x}) = \frac{\boldsymbol{r}_{B/N}}{\lVert \boldsymbol{r}_{B/N} \rVert}.
 
 The innovation is the plain vector difference of the measured and predicted unit vectors. The measurement
-noise covariance is diagonal, built from the configured ``headingMeasurementNoiseStd``. Because a heading
+noise covariance is the reading's own ``covar_N`` (e.g. from cobConverter) times the configured
+``measurementNoiseScale``. A reading whose ``covar_N`` is not finite, symmetric and positive definite is dropped,
+so a message that never set it does not reach the filter. Because a heading
 only observes two of the three position degrees of freedom (the transverse directions), range is only
 weakly observable instantaneously and is resolved through the two-body dynamics over a measurement arc.
 
@@ -145,7 +148,7 @@ the problem-specific types and lets the core provide the estimator machinery. Th
 Because the module selects the *robust* scheduler, ``FlybyFilterAlgorithm`` fulfils that scheduler's
 contract: its ``timeUpdate`` and ``measurementUpdate`` return a ``bool`` validity, and it implements
 ``clear()`` to roll back to the last-good state after a bad update. The config validators reuse the
-``SRuKF`` static checks (``alphaIsValid``/``betaIsValid``) so the valid ranges stay defined in one place.
+``SRuKF`` static check (``alphaAndBetaAreValid``) so the valid ranges stay defined in one place.
 
 Lifecycle
 +++++++++
@@ -195,7 +198,7 @@ Configuration parameters
       - 0 < alpha <= 1
     * - beta
       - prior-knowledge tunable
-      - 0 <= beta <= 2
+      - alpha^2 <= beta <= 2
     * - mu
       - central-body gravitational parameter [m^3/s^2]
       - > 0
@@ -204,15 +207,19 @@ Configuration parameters
       - > 0
     * - processNoise
       - N x N process noise covariance Q
-      - positive semi-definite
+      - finite, symmetric, positive semi-definite
     * - initialState
       - N-element initial state seed [m, m/s]
       - finite
     * - initialCovariance
       - N x N initial covariance P0
-      - finite, positive semi-definite
-    * - headingMeasurementNoiseStd
-      - heading (unit-vector) measurement noise standard deviation
+      - finite, symmetric, positive semi-definite
+    * - measurementNoiseScale
+      - scales the heading message's ``covar_N`` into the filter measurement noise
+      - finite, > 0 (default 1)
+    * - measurementDelay
+      - processing delay [s]: a measurement is processed only once the filter time is at least its time tag
+        plus the delay (default 0, no delay)
       - >= 0
 
 
@@ -227,7 +234,7 @@ configuration::
     filter.beta = 2.0
     filter.unitConversion = 1e-3           # filter internally in km, km/s
     filter.mu = 42828.314 * 1e9            # [m^3/s^2] central-body gravitational parameter
-    filter.headingMeasurementNoiseStd = 1e-3
+    filter.measurementNoiseScale = 1.0     # R = scale * covar_N of each heading message
     filter.initialState = [r_x, r_y, r_z, v_x, v_y, v_z]   # [m, m/s]
     filter.initialCovariance = np.diag([1000.*1e6]*3 + [0.1*1e6]*3).tolist()
     filter.processNoise = np.diag([(1e-6)**2]*3 + [(1e-8)**2]*3).tolist()

@@ -383,8 +383,12 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
             const Eigen::Vector3f rhatCOB_C = -xy1COBCorrected.stableNormalized();
             const Eigen::Vector3f rhatCOB_N = rotations.dcm_NC * rhatCOB_C;
 
+            const float lineOfSightVariance = 0.5F * covarRHat_N_Buffer.trace();
+            const Eigen::Matrix3f covarPublished_N =
+                covarRHat_N_Buffer + (lineOfSightVariance * (rhatCOM_SC_N_Buffer * rhatCOM_SC_N_Buffer.transpose()));
+
             result.output.rhat_BN_N = rhatCOM_SC_N_Buffer;
-            result.output.covar_N = covarRHat_N_Buffer;
+            result.output.covar_N = 0.5F * (covarPublished_N + covarPublished_N.transpose());
             result.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
             result.output.unitVecValid = correction.validCom && goodOutlierCheck && brownConradyCOMValid;
 

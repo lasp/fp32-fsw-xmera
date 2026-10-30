@@ -13,6 +13,7 @@
 #include <math.h>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 
 namespace filtering {
@@ -87,6 +88,15 @@ struct PendulumDyn {
         out.set<Position<1>>(s.get<Velocity<1>>());
         out.set<Velocity<1>>(Eigen::Vector<float, 1>(-sinf(s.get<Position<1>>()(0))));
         return out;
+    }
+};
+
+// Counts its calls, to check how many dynamics evaluations a propagation makes.
+struct CountingPendulumDyn {
+    int* calls;
+    SpringMassState operator()(float time, SpringMassState const& s) const {
+        ++*calls;
+        return PendulumDyn{}(time, s);
     }
 };
 
@@ -193,13 +203,15 @@ TEST(Propagate, KahanCompensationRemovesTheRoundingBiasOfALargeState) {
 // sigma point loses. Here the position deviation grows by 2e-5 per sub-step, below one ulp of 5e5 (0.03125).
 // The deviation rate is still formed as f(reference + deviation) - f(reference), which rounds the velocity
 // deviation to one ulp of the reference velocity, so the position deviation is accurate to ulp(7) * span.
-TEST(PropagateDeviation, KeepsASmallDeviationNextToALargeState) {
+TEST(PropagateDeviations, KeepsASmallDeviationNextToALargeState) {
     SpringMassState const reference = makeSpringMassState(5e5F, 7.0F);
     SpringMassState const deviation = makeSpringMassState(0.0F, 1e-4F);
     FreeMotionDyn const d;
     std::array<float, 2> const interval = {0.0F, 20.0F};
 
-    SpringMassState const propagated = propagateDeviation(d, reference, deviation, interval);
+    std::array<SpringMassState, 1> deviations = {deviation};
+    (void)propagateDeviations(d, reference, deviations, interval);
+    SpringMassState const propagated = deviations[0];
     float const rateUlp = nextafterf(7.0F, 8.0F) - 7.0F;
     EXPECT_NEAR(propagated.get<Position<1>>()(0), 2e-3F, rateUlp * interval[1]) << "position deviation";
     EXPECT_NEAR(propagated.get<Velocity<1>>()(0), 1e-4F, 1e-4F * kRoundoffTol) << "velocity deviation";
@@ -211,20 +223,81 @@ TEST(PropagateDeviation, KeepsASmallDeviationNextToALargeState) {
         << "absolute propagation was expected to lose the deviation";
 }
 
-// propagateDeviation() does not linearize the dynamics: for a deviation that is not small, it gives the difference
+// propagateDeviations() does not linearize the dynamics: for a deviation that is not small, it gives the difference
 // of the two absolute propagations of a nonlinear system, to float roundoff.
-TEST(PropagateDeviation, MatchesAbsolutePropagationForNonlinearDynamics) {
+TEST(PropagateDeviations, MatchesAbsolutePropagationForNonlinearDynamics) {
     SpringMassState const reference = makeSpringMassState(1.0F, 0.0F);
     SpringMassState const deviation = makeSpringMassState(0.5F, -0.3F);
     PendulumDyn const d;
     std::array<float, 2> const interval = {0.0F, 5.0F};
 
-    SpringMassState const propagated = propagateDeviation(d, reference, deviation, interval);
+    std::array<SpringMassState, 1> deviations = {deviation};
+    (void)propagateDeviations(d, reference, deviations, interval);
+    SpringMassState const propagated = deviations[0];
     SpringMassState const absolute =
         propagate(d, reference.add(deviation), interval).add(propagate(d, reference, interval).scale(-1.0F));
     EXPECT_TRUE(propagated.raw().isApprox(absolute.raw(), 1e-5F))
         << "deviation propagation differs from the absolute propagation: " << propagated.raw().transpose() << " vs "
         << absolute.raw().transpose();
+}
+
+// The reference comes out of propagateDeviations() exactly as propagate() gives it, Kahan compensation included,
+// for a nonlinear system and for a large state with sub-ulp increments.
+TEST(PropagateDeviations, ReferenceIsExactlyThePropagatedReference) {
+    std::array<float, 2> const interval = {0.0F, 7.3F};
+    std::array<SpringMassState, 2> pendulumDeviations = {makeSpringMassState(0.5F, -0.3F),
+                                                         makeSpringMassState(-0.2F, 0.1F)};
+    SpringMassState const pendulumReference = makeSpringMassState(1.0F, 0.0F);
+    SpringMassState const pendulum =
+        propagateDeviations(PendulumDyn{}, pendulumReference, pendulumDeviations, interval);
+    EXPECT_EQ(pendulum.raw(), propagate(PendulumDyn{}, pendulumReference, interval).raw());
+
+    std::array<SpringMassState, 1> largeDeviations = {makeSpringMassState(0.0F, 1e-4F)};
+    SpringMassState const largeReference = makeSpringMassState(5e5F, 7.0F);
+    SpringMassState const large = propagateDeviations(FreeMotionDyn{}, largeReference, largeDeviations, interval);
+    EXPECT_EQ(large.raw(), propagate(FreeMotionDyn{}, largeReference, interval).raw());
+}
+
+// The deviations do not interact: each comes out exactly as it does when it is propagated alone.
+TEST(PropagateDeviations, EachDeviationComesOutAsWhenPropagatedAlone) {
+    std::array<float, 2> const interval = {0.0F, 5.0F};
+    SpringMassState const reference = makeSpringMassState(1.0F, 0.0F);
+    std::array<SpringMassState, 4> const initial = {makeSpringMassState(0.5F, -0.3F),
+                                                    makeSpringMassState(-0.5F, 0.3F),
+                                                    makeSpringMassState(1e-3F, 0.0F),
+                                                    makeSpringMassState(0.0F, -2e-3F)};
+    std::array<SpringMassState, 4> together = initial;
+    (void)propagateDeviations(PendulumDyn{}, reference, together, interval);
+
+    for (std::size_t i = 0; i < initial.size(); ++i) {
+        std::array<SpringMassState, 1> alone = {initial[i]};
+        (void)propagateDeviations(PendulumDyn{}, reference, alone, interval);
+        EXPECT_EQ(together[i].raw(), alone[0].raw()) << "deviation " << i;
+    }
+}
+
+// Sharing the reference stages halves the dynamics calls: 4 + 4 M per sub-step, against 4 + 8 M for propagate() plus
+// one propagation of each deviation alone, which integrates the reference again every time.
+TEST(PropagateDeviations, MakesFourPlusFourDynamicsCallsPerDeviationAndSubStep) {
+    std::array<float, 2> const interval = {0.0F, 2.0F};  // 10 sub-steps of kIntegrationStep
+    unsigned int const subSteps = integrationSteps(interval, kIntegrationStep).first;
+    ASSERT_EQ(subSteps, 10U);
+    SpringMassState const reference = makeSpringMassState(1.0F, 0.0F);
+    constexpr std::size_t M = 12;  // 2N deviations for a 6-state filter
+    std::array<SpringMassState, M> deviations;
+    deviations.fill(makeSpringMassState(1e-3F, -1e-3F));
+
+    int sharedCalls = 0;
+    (void)propagateDeviations(CountingPendulumDyn{&sharedCalls}, reference, deviations, interval);
+    EXPECT_EQ(sharedCalls, static_cast<int>(subSteps * (4 + 4 * M)));
+
+    int separateCalls = 0;
+    (void)propagate(CountingPendulumDyn{&separateCalls}, reference, interval);
+    for (SpringMassState const& deviation : deviations) {
+        std::array<SpringMassState, 1> alone = {deviation};
+        (void)propagateDeviations(CountingPendulumDyn{&separateCalls}, reference, alone, interval);
+    }
+    EXPECT_EQ(separateCalls, static_cast<int>(subSteps * (4 + 8 * M)));
 }
 
 }  // namespace filtering

@@ -75,6 +75,7 @@ void fuzzMeasurementUpdateInvariants(float x0, float obs, float pDiag, float rDi
     // Covariance stays symmetric PSD.
     Eigen::Matrix3f const P = filter.getCovariance();
     EXPECT_TRUE(P.isApprox(P.transpose(), 1e-5)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<3>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
 
     // Covariance does not grow under a measurement update.
@@ -86,35 +87,42 @@ FUZZ_TEST(SrukfFuzz, fuzzMeasurementUpdateInvariants)
                  fuzztest::InRange(1e-3, 1e3),   // P_diag
                  fuzztest::InRange(1e-3, 1e3));  // R_diag
 
-// For any lower-triangular factor (zeros and non-finite entries included), vector and weight, the rank-1 up/down date
-// never evaluates a division by zero: a downdate that would divide by zero fails instead, for the caller to report a
-// bad update. The inputs go through a volatile so that the compiler cannot fold the divisions away.
-void fuzzCholeskyUpDownDateNeverDividesByZero(Eigen::Matrix3f S, Eigen::Vector3f v, float coef) {
+// For any prior variances and measurement noise (zeros included), a measurement update never evaluates a division by
+// zero: a singular measurement noise or innovation covariance is a bad update, for the caller to clear. The inputs go
+// through a volatile so that the compiler cannot fold the divisions away.
+void fuzzMeasurementUpdateNeverDividesByZero(Eigen::Vector3f pDiag, Eigen::Vector3f rDiag, Eigen::Vector3f obs) {
     volatile float opaqueOne = 1.0F;
     float const one = opaqueOne;  // not a compile-time constant
-    Eigen::Matrix3f const S0 = S.triangularView<Eigen::Lower>().toDenseMatrix() * one;
+    SRuKFType filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    filter.setInitialCovariance(Eigen::Matrix3f((pDiag * one).asDiagonal()));
+    filter.setProcessNoise(Eigen::Matrix3f::Zero());
+    filter.reInitialize();
+    filter.configure();
+    filter.timeUpdate(0.0F);
+
+    PositionMeasurement m;
+    m.observed = obs * one;
+    m.noiseCov = (rDiag * one).asDiagonal();
+
     std::feclearexcept(FE_DIVBYZERO);
-    (void)SRuKFType::choleskyUpDownDate<3>(S0, v * one, coef * one);
+    auto const residuals = filter.measurementUpdate(m);
     EXPECT_FALSE(std::fetestexcept(FE_DIVBYZERO)) << "division by zero";
+    if (residuals) {
+        EXPECT_TRUE(filter.getCovariance().allFinite()) << "an accepted update has a finite covariance";
+    }
 }
-FUZZ_TEST(SrukfFuzz, fuzzCholeskyUpDownDateNeverDividesByZero)
-    .WithDomains(
-        fuzztest::Map(
-            [](std::vector<float> const& e) { return Eigen::Matrix3f(Eigen::Map<const Eigen::Matrix3f>(e.data())); },
-            fuzztest::VectorOf(fuzztest::OneOf(fuzztest::InRange(-1e3F, 1e3F),
-                                               fuzztest::ElementOf<float>({0.0F,
-                                                                           -0.0F,
-                                                                           1.0F,
-                                                                           -1.0F,
-                                                                           std::numeric_limits<float>::quiet_NaN(),
-                                                                           std::numeric_limits<float>::infinity()})))
-                .WithSize(9)),
-        fuzztest::Map(
-            [](std::vector<float> const& e) { return Eigen::Vector3f(Eigen::Map<const Eigen::Vector3f>(e.data())); },
-            fuzztest::VectorOf(fuzztest::OneOf(fuzztest::InRange(-1e3F, 1e3F),
-                                               fuzztest::ElementOf<float>({0.0F, 1.0F, -1.0F})))
-                .WithSize(3)),
-        fuzztest::OneOf(fuzztest::InRange(-4.0F, 4.0F),
-                        fuzztest::ElementOf<float>({0.0F, -1.0F, 1.0F, std::numeric_limits<float>::quiet_NaN()})));
+FUZZ_TEST(SrukfFuzz, fuzzMeasurementUpdateNeverDividesByZero)
+    .WithDomains(fuzztest::Map([](std::vector<float> const& e) { return Eigen::Vector3f(e[0], e[1], e[2]); },
+                               fuzztest::VectorOf(fuzztest::OneOf(fuzztest::InRange(1e-6F, 1e3F),
+                                                                  fuzztest::ElementOf<float>({0.0F})))
+                                   .WithSize(3)),
+                 fuzztest::Map([](std::vector<float> const& e) { return Eigen::Vector3f(e[0], e[1], e[2]); },
+                               fuzztest::VectorOf(fuzztest::OneOf(fuzztest::InRange(1e-6F, 1e3F),
+                                                                  fuzztest::ElementOf<float>({0.0F})))
+                                   .WithSize(3)),
+                 fuzztest::Map([](std::vector<float> const& e) { return Eigen::Vector3f(e[0], e[1], e[2]); },
+                               fuzztest::VectorOf(fuzztest::InRange(-1e3F, 1e3F)).WithSize(3)));
 
 }  // namespace filtering

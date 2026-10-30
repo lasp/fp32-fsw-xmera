@@ -73,6 +73,13 @@ class StateVector {
     StateVector() : data(Storage::Zero()) {}
     explicit StateVector(Storage const& s) : data(s) {}
 
+    /*! @return offset of the component addressed by its tag type in the flat vector */
+    template <class Component>
+        requires detail::contains<Component, Components...>
+    static constexpr int offsetOf() {
+        return detail::offsetOf<Component, Components...>::value;
+    }
+
     /*! @return component value addressed by its tag type */
     template <class Component>
         requires detail::contains<Component, Components...>
@@ -94,6 +101,26 @@ class StateVector {
 
     /*! @return true iff every element of the underlying vector is finite */
     bool allFinite() const { return this->data.allFinite(); }
+
+    /*! Scale one component of a flat state vector in place, e.g. for a change of unit of that component.
+     *  @param x [-] flat state vector (any scalar type)
+     *  @param factor [-] multiplier of the component's elements */
+    template <class Component, class Derived>
+        requires detail::contains<Component, Components...>
+    static void scaleComponent(Eigen::MatrixBase<Derived>& x, typename Derived::Scalar factor) {
+        x.template segment<Component::size>(offsetOf<Component>()) *= factor;
+    }
+
+    /*! Scale the rows and columns of one component in a state covariance (or process noise) in place: the
+     *  covariance of a state whose component is scaled by `factor`.
+     *  @param covar [-] size x size covariance (any scalar type)
+     *  @param factor [-] multiplier of the component's elements */
+    template <class Component, class Derived>
+        requires detail::contains<Component, Components...>
+    static void scaleCovarianceComponent(Eigen::MatrixBase<Derived>& covar, typename Derived::Scalar factor) {
+        covar.template middleRows<Component::size>(offsetOf<Component>()) *= factor;
+        covar.template middleCols<Component::size>(offsetOf<Component>()) *= factor;
+    }
 
     StateVector add(StateVector const& other) const { return StateVector(this->data + other.data); }
     StateVector subtract(StateVector const& other) const { return StateVector(this->data - other.data); }

@@ -38,12 +38,13 @@ uint32_t InertialFilterAlgorithm_getNumStates(void);
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param alpha                   [-] sigma-point spread.
- * @param beta                    [-] prior-knowledge tunable.
+ * @param beta                    [-] prior-knowledge tunable, in [alpha^2, 2].
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
- * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be >= 0.
- * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be >= 0.
+ * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be > 0.
+ * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be > 0.
+ * @param measurementDelay        [s] processing delay for late measurements; must be >= 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
@@ -53,17 +54,19 @@ bool InertialFilterAlgorithm_validateConfig(double alpha,
                                             const InertialFilterStateVector_c* initialState,
                                             const InertialFilterStateMatrix_c* initialCovariance,
                                             double stMeasurementNoiseStd,
-                                            double rateMeasurementNoiseStd);
+                                            double rateMeasurementNoiseStd,
+                                            double measurementDelay);
 
 /**
  * @brief Construct a filter from a validated configuration and seed its state/covariance.
  * @param alpha                   [-] sigma-point spread.
- * @param beta                    [-] prior-knowledge tunable.
+ * @param beta                    [-] prior-knowledge tunable, in [alpha^2, 2].
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
- * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be >= 0.
- * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be >= 0.
+ * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be > 0.
+ * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be > 0.
+ * @param measurementDelay        [s] processing delay for late measurements; must be >= 0.
  * @return owning handle to the new instance (destroy with InertialFilterAlgorithm_destroy)
  * @note create() validates the config and throws on invalid input; the exception propagates to Ada.
  */
@@ -73,7 +76,8 @@ InertialFilterAlgorithmHandle* InertialFilterAlgorithm_create(double alpha,
                                                               const InertialFilterStateVector_c* initialState,
                                                               const InertialFilterStateMatrix_c* initialCovariance,
                                                               double stMeasurementNoiseStd,
-                                                              double rateMeasurementNoiseStd);
+                                                              double rateMeasurementNoiseStd,
+                                                              double measurementDelay);
 
 /**
  * @brief Destroy a filter instance.
@@ -85,12 +89,13 @@ void InertialFilterAlgorithm_destroy(InertialFilterAlgorithmHandle* self);
  * @brief Replace the algorithm's configuration and re-derive filter parameters.
  * @param self                    [-] filter handle
  * @param alpha                   [-] sigma-point spread.
- * @param beta                    [-] prior-knowledge tunable.
+ * @param beta                    [-] prior-knowledge tunable, in [alpha^2, 2].
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
  * @param initialState            [-] N-element initial state seed.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
- * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be >= 0.
- * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be >= 0.
+ * @param stMeasurementNoiseStd   [-] star-tracker attitude measurement noise std; must be > 0.
+ * @param rateMeasurementNoiseStd [rad/s] rate measurement noise std; must be > 0.
+ * @param measurementDelay        [s] processing delay for late measurements; must be >= 0.
  * @note setConfig() validates the config and throws on invalid input; the exception propagates to Ada.
  */
 void InertialFilterAlgorithm_setConfig(InertialFilterAlgorithmHandle* self,
@@ -100,7 +105,8 @@ void InertialFilterAlgorithm_setConfig(InertialFilterAlgorithmHandle* self,
                                        const InertialFilterStateVector_c* initialState,
                                        const InertialFilterStateMatrix_c* initialCovariance,
                                        double stMeasurementNoiseStd,
-                                       double rateMeasurementNoiseStd);
+                                       double rateMeasurementNoiseStd,
+                                       double measurementDelay);
 
 /**
  * @brief Clear the internal runtime state (pending measurements and residual snapshots); the filter
