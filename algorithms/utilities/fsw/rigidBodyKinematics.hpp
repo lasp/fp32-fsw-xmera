@@ -310,20 +310,34 @@ Eigen::Vector3<ScalarT> dcmToMrp(const Eigen::Matrix<ScalarT, 3, 3>& dcm) {
 }
 
 /**
- * Translates a Euler parameter vector into a principal rotation vector.
- * @param ep
+ * Translates an Euler parameter vector into a principal rotation vector.
+ *
+ * The function calculates the angle as 2*atan2(|ep(1:3)|, ep(0)). It does not use 2*acos(ep(0)).
+ * For a unit quaternion, the magnitude of the vector part is sin(angle/2). Thus atan2 receives the
+ * sine and the cosine of the half angle. This gives two results.
+ *
+ * First, for a rotation of less than approximately 2e-8 radians, ep(0) becomes equal to 1. Then
+ * acos gives 0 and the previous code gave a zero vector. atan2 calculates the angle from the vector
+ * part and keeps the rotation. Second, atan2 accepts an ep(0) that is more than 1. A decode step or
+ * a normalize step can make this value, and acos gives NaN for it.
+ *
+ * The result is a zero vector only when the vector part is exactly zero, which is the identity
+ * quaternion. Every other input has a direction, and the division by the norm gives a unit vector
+ * for it. stableNorm scales the terms before it squares them, so the norm of a vector part that is
+ * near the smallest number of the scalar type is not zero.
+ *
+ * @param ep Euler parameters, scalar part first
  * @return Eigen::Vector3d
  */
 template <typename ScalarT>
-Eigen::Vector3<ScalarT> epToPrv(const Eigen::Vector4<ScalarT>& ep, ScalarT localEps = ScalarT(1e-12)) {
-    Eigen::Vector3<ScalarT> prv;
-    ScalarT angle = std::acos(ep(0));
-    ScalarT sin_angle = std::sin(angle);
-    if (std::abs(sin_angle) < localEps) {
-        return prv.setZero();
+Eigen::Vector3<ScalarT> epToPrv(const Eigen::Vector4<ScalarT>& ep) {
+    const Eigen::Vector3<ScalarT> vec = ep.template tail<3>();
+    const ScalarT vecNorm = vec.stableNorm();
+    if (vecNorm == ScalarT(0)) {
+        return Eigen::Vector3<ScalarT>::Zero();
     }
-    prv = ep.template tail<3>() / sin_angle * 2.0 * angle;
-    return prv;
+    const ScalarT angle = ScalarT(2) * std::atan2(vecNorm, ep(0));
+    return vec / vecNorm * angle;
 }
 
 /**
@@ -339,6 +353,13 @@ Eigen::Vector3<ScalarT> dcmToPrv(const Eigen::Matrix3<ScalarT>& dcm) {
 
 /**
  * Translate a direction cosine matrix into the corresponding 321 Euler angle set.
+ *
+ * The function calculates the pitch with atan2(sin(pitch), cos(pitch)). It does not use
+ * asin(sin(pitch)). The cosine comes from the norm of the two other entries of row 0. This keeps
+ * more precision when the pitch is almost +/-90 degrees. Also, the argument stays in the domain of
+ * the function. If the direction cosine matrix has rounding error, -dcm(0, 2) can be more than 1,
+ * and asin gives NaN.
+ *
  * @param dcm
  * @return Eigen::Vector3d
  */
@@ -347,7 +368,7 @@ Eigen::Vector3<ScalarT> dcmToEulerAngles321(const Eigen::Matrix3<ScalarT>& dcm) 
     Eigen::Vector3<ScalarT> euler321;
 
     euler321[0] = std::atan2(dcm(0, 1), dcm(0, 0));
-    euler321[1] = std::asin(-dcm(0, 2));
+    euler321[1] = std::atan2(-dcm(0, 2), std::sqrt(dcm(0, 0) * dcm(0, 0) + dcm(0, 1) * dcm(0, 1)));
     euler321[2] = std::atan2(dcm(1, 2), dcm(2, 2));
 
     return euler321;
@@ -495,6 +516,12 @@ Eigen::Vector3<ScalarT> epToMrp(const Eigen::Vector4<ScalarT>& ep) {
 
 /**
  * Translate a Euler parameter vector into the corresponding 321 Euler angle set.
+ *
+ * The function calculates the pitch with atan2(sin(pitch), cos(pitch)) and not asin(sin(pitch)).
+ * Refer to dcmToEulerAngles321 for the reasons. The code calculates the three row 0 terms of the
+ * direction cosine matrix one time and then uses them again. The norm of the first two terms is the
+ * cosine of the pitch.
+ *
  * @param ep
  * @return Eigen::Vector3d
  */
@@ -502,9 +529,12 @@ template <typename ScalarT>
 Eigen::Vector3<ScalarT> epToEulerAngles321(const Eigen::Vector4<ScalarT>& ep) {
     Eigen::Vector3<ScalarT> euler321;
 
-    euler321(0) = std::atan2(2.0 * (ep(1) * ep(2) + ep(0) * ep(3)),
-                             ep(0) * ep(0) + ep(1) * ep(1) - ep(2) * ep(2) - ep(3) * ep(3));
-    euler321(1) = std::asin(-2.0 * (ep(1) * ep(3) - ep(0) * ep(2)));
+    const ScalarT r00 = ep(0) * ep(0) + ep(1) * ep(1) - ep(2) * ep(2) - ep(3) * ep(3);
+    const ScalarT r01 = 2.0 * (ep(1) * ep(2) + ep(0) * ep(3));
+    const ScalarT r02 = 2.0 * (ep(1) * ep(3) - ep(0) * ep(2));
+
+    euler321(0) = std::atan2(r01, r00);
+    euler321(1) = std::atan2(-r02, std::sqrt(r00 * r00 + r01 * r01));
     euler321(2) = std::atan2(2.0 * (ep(2) * ep(3) + ep(0) * ep(1)),
                              ep(0) * ep(0) - ep(1) * ep(1) - ep(2) * ep(2) + ep(3) * ep(3));
 
@@ -780,6 +810,20 @@ Eigen::Vector3<ScalarT> addEulerAngles321(const Eigen::Vector3<ScalarT>& euler32
 
 /**
  * Provide the principal rotation vector which corresponds to performing successive principal rotations Q1 and Q2.
+ *
+ * The function calculates the angle of the composed rotation as 2*atan2(|vectorPart|, realPart). It
+ * does not use 2*acos(realPart). The code calculates the vector part of the composed quaternion
+ * first, because atan2 must have its norm, which is equal to sin(angle/2).
+ *
+ * The composition operates correctly when the two rotations almost cancel. In that condition
+ * realPart becomes equal to 1 and acos gives 0. The previous code thus discarded a net rotation of
+ * less than a few times 1e-8 radians. The previous code also had an assert that realPart is more
+ * than -1 and less than 1. This assert is not possible, because cancellation makes realPart equal
+ * to 1. Rounding can also make realPart more than 1, and then acos gives NaN.
+ *
+ * The result is a zero vector only when the vector part of the composed quaternion is exactly zero,
+ * which is a composition equal to identity.
+ *
  * @param prv1 Eigen::Vector3d
  * @param prv2 Eigen::Vector3d
  * @return Eigen::Vector3d
@@ -804,18 +848,16 @@ Eigen::Vector3<ScalarT> addPrv(const Eigen::Vector3<ScalarT>& prv1, const Eigen:
     ScalarT dotProduct = unitVector1.dot(unitVector2);
     ScalarT realPart = cosPhi1 * cosPhi2 - sinPhi1 * sinPhi2 * dotProduct;
 
-    assert(std::abs(realPart) < 1.0);
-
-    ScalarT angle = 2.0 * std::acos(realPart);
-
-    if (std::abs(angle) < ScalarT(1.0E-13)) {
-        return Eigen::Vector3<ScalarT>::Zero();
-    }
-
     Eigen::Vector3<ScalarT> vectorPart = cosPhi1 * sinPhi2 * unitVector2 + cosPhi2 * sinPhi1 * unitVector1 +
                                          sinPhi1 * sinPhi2 * unitVector1.cross(unitVector2);
 
-    return vectorPart * angle / std::sin(angle / 2.0);
+    ScalarT vectorNorm = vectorPart.stableNorm();
+    if (vectorNorm == ScalarT(0)) {
+        return Eigen::Vector3<ScalarT>::Zero();
+    }
+    ScalarT angle = ScalarT(2) * std::atan2(vectorNorm, realPart);
+
+    return vectorPart * angle / vectorNorm;
 }
 
 /**
@@ -842,7 +884,7 @@ Eigen::Vector3<ScalarT> addMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen:
     Eigen::Vector3<ScalarT> mrp = numerator / denominator;
 
     // Map MRP to the inner set
-    mrp = mrpSwitch<ScalarT>(mrp);
+    mrp = mrpSwitch<ScalarT>(mrp, 1.0);
 
     return mrp;
 }
@@ -885,7 +927,7 @@ Eigen::Vector3<ScalarT> subMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen:
                 ScalarT(2) * mrp1Shadow.cross(mrp2);
     Eigen::Vector3<ScalarT> mrp = numerator / denominator;
     /* map mrp to inner set */
-    mrp = mrpSwitch(mrp);
+    mrp = mrpSwitch(mrp, ScalarT(1));
 
     return mrp;
 }
@@ -893,6 +935,20 @@ Eigen::Vector3<ScalarT> subMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen:
 /**
  * Provide the principal rotation vector which corresponds to relative principal rotation from Q2
  * to Q1.
+ *
+ * The function calculates the angle as 2*atan2(|prv|, realPart) and not 2*acos(realPart). The code
+ * calculates the vector part of the relative quaternion first, because atan2 must have its norm,
+ * which is equal to sin(angle/2).
+ *
+ * This has the most effect when the function measures a small attitude error. When the two rotations
+ * are almost the same, realPart becomes equal to 1 and acos gives 0. The previous code thus gave a
+ * zero result for a relative rotation of less than a few times 1e-8 radians. Rounding can also make
+ * realPart more than 1. Then acos gives NaN, and the previous assert on its argument stopped the
+ * program.
+ *
+ * The result is a zero vector only when the vector part of the relative quaternion is exactly zero,
+ * which is a relative rotation equal to identity.
+ *
  * @param prv1
  * @param prv2
  * @return Eigen::Vector3d
@@ -915,20 +971,18 @@ Eigen::Vector3<ScalarT> subPrv(const Eigen::Vector3<ScalarT>& prv1, const Eigen:
     Eigen::Vector3<ScalarT> unitVector2 = prv2 / norm2;
 
     ScalarT dotUV = unitVector1.dot(unitVector2);
-    ScalarT acosArg = cosPhi1 * cosPhi2 + sinPhi1 * sinPhi2 * dotUV;
-
-    assert(std::abs(acosArg) <= ScalarT(1));
-
-    ScalarT angle = ScalarT(2) * std::acos(acosArg);
-
-    if (std::abs(angle) < ScalarT(1.0E-13)) {
-        return Eigen::Vector3<ScalarT>::Zero();
-    }
+    ScalarT realPart = cosPhi1 * cosPhi2 + sinPhi1 * sinPhi2 * dotUV;
 
     Eigen::Vector3<ScalarT> prv = cosPhi2 * sinPhi1 * unitVector1 - cosPhi1 * sinPhi2 * unitVector2 +
                                   sinPhi1 * sinPhi2 * unitVector1.cross(unitVector2);
 
-    return prv * angle / std::sin(angle / ScalarT(2));
+    ScalarT vectorNorm = prv.stableNorm();
+    if (vectorNorm == ScalarT(0)) {
+        return Eigen::Vector3<ScalarT>::Zero();
+    }
+    ScalarT angle = ScalarT(2) * std::atan2(vectorNorm, realPart);
+
+    return prv * angle / vectorNorm;
 }
 
 /**
