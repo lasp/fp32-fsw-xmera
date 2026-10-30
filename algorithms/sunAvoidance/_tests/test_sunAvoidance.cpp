@@ -7,7 +7,7 @@
 #include <numbers>
 
 namespace {
-constexpr uint64_t kHalfSecNs = 500000000ULL;                        // 0.5 s update period
+constexpr uint64_t kHalfSecNs = fsw::kNanosPerSecond / 2U;           // 0.5 s update period
 constexpr float kManeuverRate = std::numbers::pi_v<float> / 180.0F;  // 1 deg/s feed-forward slew
 
 const Eigen::Vector3f kSigmaBN{0.25F, -0.45F, 0.75F};
@@ -218,6 +218,31 @@ TEST(SunAvoidanceTest, EdgeAntiParallelSensitiveAxes) {
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
         EXPECT_LE(out.sigma_RN.stableNorm(), normBound);
+    }
+}
+
+// If the clock is earlier than the maneuver start, the elapsed time is zero and the full residual angle
+// stays. Without this, the unsigned time difference wraps to approximately 1.8e10 s, and the maneuver
+// angle decreases to zero.
+TEST(SunAvoidanceTest, EdgeBackwardsClockHoldsFullManeuver) {
+    const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate);
+    SunAvoidanceAlgorithm alg{config};
+    const SunAvoidanceAttRef refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
+
+    constexpr uint64_t kStartNs = 20U * kHalfSecNs;  // 10 s
+    const SunAvoidanceAttRef atStart = alg.update(kSigmaBN, refIn, kSunHat_B, kStartNs);
+    const SunAvoidanceAttRef beforeStart = alg.update(kSigmaBN, refIn, kSunHat_B, kStartNs - kHalfSecNs);
+
+    // The maneuver is engaged at the start (the output is not the pass-through reference)...
+    const Eigen::Matrix3f dcm_RN_in = mrpToDcm(kSigmaRN);
+    EXPECT_GT((mrpToDcm(atStart.sigma_RN) - dcm_RN_in).norm(), 1e-2F);
+
+    // ...and a backwards step gives the same output exactly. It does not change to the decayed reference.
+    constexpr float tol = 1e-6F;
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_NEAR(beforeStart.sigma_RN(i), atStart.sigma_RN(i), tol);
+        EXPECT_NEAR(beforeStart.omega_RN_N(i), atStart.omega_RN_N(i), tol);
+        EXPECT_NEAR(beforeStart.domega_RN_N(i), atStart.domega_RN_N(i), tol);
     }
 }
 

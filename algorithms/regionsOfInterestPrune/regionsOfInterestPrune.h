@@ -5,7 +5,6 @@
 #include "msgPayloadDef/RegionsIdentifiedMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
-#include <architecture/utilities/macroDefinitions.h>
 
 #include "regionsOfInterestPruneAlgorithm.h"
 

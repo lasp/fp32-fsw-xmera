@@ -1,7 +1,7 @@
 #include "oeStateEphemAlgorithm.h"
 
 #include "utilities/fsw/chebyshevUtilities.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 #include <algorithm>
 
 OEStateEphemAlgorithm::OEStateEphemAlgorithm(const OEStateEphemConfig& config) : cfg(config) { this->cfg.validate(); }
@@ -125,8 +125,8 @@ orbitalMotion::CartesianState OEStateEphemAlgorithm::update(const uint64_t callT
         coefficients zero and keep the zero-initialized state). */
     if (!this->allParametersNull()) {
         /*! - compute time for fitting interval, clamped to be non-negative */
-        double currentEphTime = (static_cast<double>(callTime) * kNano2Sec) + this->cfg.getEphemerisTimeJ2000() -
-                                this->cfg.getVehicleTimeOffset();
+        double currentEphTime =
+            fsw::nanosToSeconds(callTime) + this->cfg.getEphemerisTimeJ2000() - this->cfg.getVehicleTimeOffset();
         currentEphTime = std::max<double>(currentEphTime, 0);
 
         const auto currentArc = this->findCurrentArc(currentEphTime);

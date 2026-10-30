@@ -5,7 +5,7 @@
 #include "sunAvoidanceAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
@@ -87,7 +87,7 @@ class SunAvoidanceReference {
         const Eigen::Matrix3f dcm_R0R = mrpToDcm(this->sigma_R0R);
         const Eigen::Matrix3f dcm_RN = (dcm_R0N.transpose() * dcm_R0R).transpose();
 
-        const float dtSeconds = static_cast<float>(callTime - this->mnvrStartTime) * kNano2SecF;
+        const float dtSeconds = fsw::elapsedSecondsF(callTime, this->mnvrStartTime).value_or(0.0F);
         float relativeAngleCurr = this->angleStart - (this->slewRate * dtSeconds);
         relativeAngleCurr = relativeAngleCurr < 0.0F ? 0.0F : relativeAngleCurr;
 

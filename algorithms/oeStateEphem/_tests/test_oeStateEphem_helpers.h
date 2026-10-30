@@ -8,7 +8,7 @@
 #include "oeStateEphemAlgorithm.h"
 #include "utilities/fsw/orbitalMotion.hpp"
 #include "utilities/fsw/safeMath.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 
 #include <gtest/gtest.h>
 #include <cmath>
@@ -161,8 +161,9 @@ inline void testOEStateEphemUpdate(double mu,
                                    double arc_radius_time = 1000.0) {
     const double arcSpacing = 2.0 * arc_radius_time;
 
-    // Replicate the algorithm's clamp of currentEphTime to >= 0
-    const double testEphTime = std::max(ephemeris_time - vehicle_time + call_time_ns * kNano2Sec, 0.0);
+    // Do the same clamp of currentEphTime to >= 0 as the algorithm. This calculation does not use
+    // fsw::nanosToSeconds. A division by the exact 1e9 is correctly rounded.
+    const double testEphTime = std::max(ephemeris_time - vehicle_time + (static_cast<double>(call_time_ns) / 1e9), 0.0);
 
     // Determine which arc index the current eph time falls into
     const double arcIndex = std::floor(testEphTime / arcSpacing);
@@ -187,8 +188,8 @@ inline void testOEStateEphemUpdate(double mu,
     const OEStateEphemAlgorithm algorithm{
         OEStateEphemConfig::create(mu, arcToPopulate + 1, ephemeris_time, vehicle_time, arcs)};
 
-    // Call the update function
-    CartesianState computed_state = algorithm.update(testEphTime / kNano2Sec);
+    // Call the update function with the raw clock time. The algorithm applies the time offsets.
+    CartesianState computed_state = algorithm.update(call_time_ns);
 
     // Reference uses full double-precision inputs — no float truncation
     double a_d = 0.0;

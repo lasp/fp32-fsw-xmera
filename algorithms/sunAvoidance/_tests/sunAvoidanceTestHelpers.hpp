@@ -4,7 +4,7 @@
 #include "sunAvoidanceAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
@@ -63,7 +63,7 @@ class SunAvoidanceReference {
         const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
         const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
 
-        const float dtSeconds = static_cast<float>(callTime - this->mnvrStartTime) * kNano2SecF;
+        const float dtSeconds = fsw::elapsedSecondsF(callTime, this->mnvrStartTime).value_or(0.0F);
         float relativeAngleCurr = this->angleStart - (this->slewRate * dtSeconds);
         relativeAngleCurr = relativeAngleCurr < 0.0F ? 0.0F : relativeAngleCurr;
 
@@ -225,7 +225,7 @@ inline void regressionTestSunAvoidance(const Eigen::Vector3f& sensitiveHat_B,
 // ---------------------------------------------------------------------------
 
 namespace detail {
-constexpr uint64_t kStepNs = 500000000ULL;                           // 0.5 s
+constexpr uint64_t kStepNs = fsw::kNanosPerSecond / 2U;              // 0.5 s
 constexpr float kManeuverRate = std::numbers::pi_v<float> / 180.0F;  // 1 deg/s
 inline Eigen::Vector3f sensitiveHat_B() { return Eigen::Vector3f{0.0F, -1.0F, 0.0F}; }
 inline Eigen::Vector3f sHat_B() { return Eigen::Vector3f{0.078F, -0.693F, 0.717F}; }

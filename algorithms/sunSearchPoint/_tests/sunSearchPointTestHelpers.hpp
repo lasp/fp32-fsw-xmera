@@ -5,7 +5,7 @@
 #include "sunSearchPointTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -18,11 +18,7 @@
 
 // Nominal test control period (matches the 0.5 s task rate used by the module tests).
 inline constexpr float kTestControlPeriodSec = 0.5F;
-inline constexpr uint64_t kTestControlPeriodNs = 500'000'000ULL;
-
-// Exact seconds->nanoseconds for test target times (double avoids float-rounding off-by-one at
-// control-period boundaries).
-inline uint64_t secToNs(double sec) { return static_cast<uint64_t>(sec * 1e9); }
+inline constexpr uint64_t kTestControlPeriodNs = fsw::secondsToNanos(kTestControlPeriodSec).value();
 
 // Advance `alg` (whose next update() observes internal elapsed == nextElapsedNs) with benign inputs
 // until it reaches targetNs, then issue one observation call carrying the given inputs. Because the
@@ -62,7 +58,7 @@ inline SunSearchPointOutput advanceTo(SunSearchPointAlgorithm& alg,
 inline SunSearchPointOutput pointUpdate(SunSearchPointAlgorithm& alg,
                                         const Eigen::Vector3f& vehSunPntBdy,
                                         const Eigen::Vector3f& omega_BN_B) {
-    constexpr uint64_t kDefaultSequenceEndNs = 4'000'000'000ULL;  // default 4 s sequence
+    constexpr uint64_t kDefaultSequenceEndNs = 4U * fsw::kNanosPerSecond;  // default 4 s sequence
     return advanceTo(alg, kDefaultSequenceEndNs, vehSunPntBdy, omega_BN_B, 0);
 }
 
@@ -287,7 +283,7 @@ struct SearchReference {
 inline SearchReference referenceSearchOutput(const SunSearchPointConfig& cfg,
                                              uint64_t elapsedNs,
                                              const Eigen::Vector3d& omega_BN_B) {
-    const double elapsedTime = static_cast<double>(elapsedNs) * kNano2Sec;
+    const double elapsedTime = fsw::nanosToSeconds(elapsedNs);
 
     const auto& rotations = cfg.getRotations();
     double cumulative = 0.0;
@@ -350,7 +346,7 @@ inline void searchConfigValidationChecks() {
         SunSearchPointAlgorithm alg{cfg};
     });
 
-    // rotationDuration must be finite and > 0.
+    // rotationDuration must be finite and convert to at least 1 ns.
     EXPECT_ANY_THROW({
         auto rotations = makeValidRotations();
         rotations[0].rotationDuration = 0.0F;
@@ -369,6 +365,31 @@ inline void searchConfigValidationChecks() {
     EXPECT_ANY_THROW({
         auto rotations = makeValidRotations();
         rotations[3].rotationDuration = std::numeric_limits<float>::infinity();
+        (void)makeSearchConfig(rotations);
+    });
+    EXPECT_ANY_THROW({
+        auto rotations = makeValidRotations();
+        rotations[0].rotationDuration = 4e-10F;  // rounds to 0 ns
+        (void)makeSearchConfig(rotations);
+    });
+    EXPECT_NO_THROW({
+        auto rotations = makeValidRotations();
+        rotations[0].rotationDuration = 6e-10F;  // rounds to 1 ns
+        (void)makeSearchConfig(rotations);
+    });
+    EXPECT_ANY_THROW({
+        auto rotations = makeValidRotations();
+        rotations[0].rotationDuration = 2e10F;  // approximately 2e19 ns, too large for uint64_t
+        (void)makeSearchConfig(rotations);
+    });
+
+    // The sum of the rotation durations plus one control period must be in the uint64_t ns range.
+    // One 5e9 s rotation (5e18 ns) is in the range, but four of them (2e19 ns) are not.
+    EXPECT_ANY_THROW({
+        auto rotations = makeValidRotations();
+        for (auto& r : rotations) {
+            r.rotationDuration = 5e9F;
+        }
         (void)makeSearchConfig(rotations);
     });
 
@@ -415,11 +436,12 @@ inline void searchConfigValidationChecks() {
     EXPECT_ANY_THROW(
         (void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), kMaxNumCssSensors + 1U));
 
-    // controlPeriod must be finite and > 0.
+    // controlPeriod must be finite and convert to at least 1 ns.
     EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, 0.0F));
     EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, -0.5F));
     EXPECT_ANY_THROW((void)makeSearchConfig(
         makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, std::numeric_limits<float>::infinity()));
+    EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, 4e-10F));
     EXPECT_NO_THROW((void)makeSearchConfig(makeValidRotations(), validSHat, 0.0F, Eigen::Vector3f::Zero(), 4, 0.25F));
 
     // deadbandAngle must be finite and >= 0; zero disables the band.
@@ -454,7 +476,7 @@ inline void testSearchSequence(const std::vector<float>& rotationTimes,
     SunSearchPointAlgorithm alg{cfg};
 
     // Compute the per-step nanoseconds exactly as the algorithm does so the reference stays aligned.
-    const auto controlPeriodNs = static_cast<uint64_t>(static_cast<double>(dt) * kSec2Nano);
+    const uint64_t controlPeriodNs = fsw::secondsToNanos(dt).value();
 
     for (int step = 0; step < numSteps; ++step) {
         const uint64_t elapsedNs = static_cast<uint64_t>(step) * controlPeriodNs;

@@ -160,6 +160,8 @@ Phase 2 - average over the ring:
    ``sampleMeasTime = slot.measTime + s * kMimuSamplePeriodNs`` and its age ``maxTimeTag - sampleMeasTime``. Add the
    gyro vector to the gyro accumulator (and bump the gyro count) iff the age is ``<= gyroAveragingWindowNs``; add the
    accel vector to the accel accumulator (and bump the accel count) iff the age is ``<= accelAveragingWindowNs``.
+   ``setConfig()`` converts the two windows from seconds one time with ``fsw::secondsToNanos`` (rounded to the
+   nearest nanosecond).
 3. Divide each accumulator by its own count to form the CHU-frame means, weighting each sample equally. A count of
    zero leaves that modality's mean at zero.
 4. Transform each averaged vector to the body frame using the transpose of the DCM of ``sigma_CB`` and return them.
@@ -211,7 +213,7 @@ The configuration and algorithm classes are::
         // Compile-time MIMU device sample rate + derived period (ns).
         static constexpr double        kMimuSampleRateHz   = 100.0;
         static constexpr std::uint64_t kMimuSamplePeriodNs =
-            static_cast<std::uint64_t>(kSec2Nano / kMimuSampleRateHz);   // 1e7 ns (10 ms)
+            fsw::secondsToNanos(1.0 / kMimuSampleRateHz).value_or(0U);  // 1e7 ns (10 ms)
 
         // Compile-time cap on the configured averaging window. Ring capacity is
         // sized to hold exactly kMaxAveragingWindowSec of samples at the MIMU rate.

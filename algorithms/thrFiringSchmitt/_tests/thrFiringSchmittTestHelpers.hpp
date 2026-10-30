@@ -3,7 +3,6 @@
 
 #include "thrFiringSchmittAlgorithm.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
-#include "utilities/fsw/timeConstants.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>

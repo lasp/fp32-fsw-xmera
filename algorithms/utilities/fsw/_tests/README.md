@@ -2,7 +2,7 @@
 
 Host-side gtest (and FuzzTest) suites for the header-only helpers in `algorithms/utilities/`
 (`validDcm`, `validateInertia`, `chebyshevUtilities`, `safeMath`, `orbitalMotion`,
-`freestandingIsFinite`). `CMakeLists.txt` in this directory is the source of truth for what is built
+`freestandingIsFinite`, `timeConversion`). `CMakeLists.txt` in this directory is the source of truth for what is built
 and how each suite is registered.
 
 For the general CTest label vocabulary, fuzz presets, and CI behavior shared across the repo,

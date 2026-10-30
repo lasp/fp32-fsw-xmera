@@ -62,6 +62,16 @@ target_link_libraries(test_safeMath PRIVATE
 
 gtest_discover_tests(test_safeMath)
 
+add_executable(test_timeConversion
+  test_timeConversion.cpp
+)
+
+target_link_libraries(test_timeConversion PRIVATE
+    GTest::gtest_main
+)
+
+gtest_discover_tests(test_timeConversion)
+
 add_executable(test_orbitalMotion_functions
         test_orbitalMotion_functions.cpp
 )
@@ -195,6 +205,20 @@ if(XMERA_ENABLE_FUZZTESTS)
   )
 
   gtest_discover_tests(test_safeMath_fuzz
+    PROPERTIES
+      LABELS "fuzz\;fuzz-smoke"
+  )
+
+  add_executable(test_timeConversion_fuzz
+    test_timeConversion_fuzz.cpp
+  )
+
+  target_link_libraries(test_timeConversion_fuzz PRIVATE
+    fuzztest::fuzztest
+    fuzztest::fuzztest_gtest_main
+  )
+
+  gtest_discover_tests(test_timeConversion_fuzz
     PROPERTIES
       LABELS "fuzz\;fuzz-smoke"
   )

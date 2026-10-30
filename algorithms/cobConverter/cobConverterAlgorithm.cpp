@@ -1,7 +1,7 @@
 #include "cobConverterAlgorithm.h"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 #include "utilities/fsw/safeMath.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 #include <math.h>
 #include <limits>
 #include <numbers>
@@ -385,7 +385,7 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
 
             result.output.rhat_BN_N = rhatCOM_SC_N_Buffer;
             result.output.covar_N = covarRHat_N_Buffer;
-            result.output.unitVecTimeTag = static_cast<double>(cob.cobTimeTag) * kNano2Sec;
+            result.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
             result.output.unitVecValid = correction.validCom && goodOutlierCheck && brownConradyCOMValid;
 
             result.diagnostic.covar_C = rotations.dcm_NC.transpose() * covarRHat_N_Buffer * rotations.dcm_NC;

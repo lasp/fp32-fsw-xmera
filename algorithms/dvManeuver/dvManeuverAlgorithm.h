@@ -2,10 +2,10 @@
 #define F32XMERA_DV_MANEUVER_ALGORITHM_H
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
-#include "utilities/fsw/freestandingIsFinite.hpp"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 #include <stdint.h>
 #include <Eigen/Core>
+#include <limits>
 
 /// Burn state machine state. Complete is terminal until reInitialize().
 enum class DvManeuverBurnState : uint8_t { Executing = 0, Complete = 1 };
@@ -15,18 +15,6 @@ struct DvManeuverOutput {
     DvManeuverBurnState state = DvManeuverBurnState::Executing;  ///< [-] burn state after this update
     Eigen::Vector3f cmdForce_B = Eigen::Vector3f::Zero();        ///< [N] configured force while executing, else zero
 };
-
-/// Rounds a finite, non-negative time in seconds to the nearest nanosecond, halves up. A time beyond the uint64_t
-/// range saturates to UINT64_MAX.
-inline uint64_t dvManeuverToNanoseconds(double seconds) {
-    const double scaled = seconds * kSec2Nano;
-    if (scaled >= static_cast<double>(UINT64_MAX)) {
-        return UINT64_MAX;
-    }
-    const auto whole = static_cast<uint64_t>(scaled);
-    const double fraction = scaled - static_cast<double>(whole);
-    return whole + (fraction >= 0.5 ? 1U : 0U);
-}
 
 /// Validated, immutable configuration for the delta-V burn executor. Construct via create(), which
 /// enforces the parameter constraints and throws fsw::invalid_argument on a violation.
@@ -42,16 +30,19 @@ class DvManeuverConfig final {
                                    const Eigen::Vector3f& cmdForce_B,
                                    const Eigen::Vector3f& cmdDv_N) {
         if (!isValidMinTime(minTime)) {
-            FSW_THROW_INVALID_ARGUMENT("dvManeuver: minTime must be finite and non-negative.");
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: minTime must be finite, non-negative, and fit in uint64_t ns.");
         }
         if (!isValidMaxTime(maxTime)) {
-            FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime must be finite and positive.");
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime must be finite, >= 1 ns, and fit in uint64_t ns.");
         }
         if (!isValidMaxTimeRelativeToMinTime(minTime, maxTime)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime must be greater than minTime.");
         }
         if (!isValidControlPeriod(controlPeriod)) {
-            FSW_THROW_INVALID_ARGUMENT("dvManeuver: controlPeriod must be finite and at least 1 ns.");
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: controlPeriod must be finite, >= 1 ns, and fit in uint64_t ns.");
+        }
+        if (!isValidBurnTimeline(maxTime, controlPeriod)) {
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime plus two controlPeriods must fit in uint64_t ns.");
         }
         if (!isValidCmdForce(cmdForce_B)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: cmdForce_B must be finite.");
@@ -62,15 +53,33 @@ class DvManeuverConfig final {
         return {minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N};
     }
 
-    static bool isValidMinTime(double minTime) { return fsw::is_finite(minTime) && minTime >= 0.0; }
-    static bool isValidMaxTime(double maxTime) { return fsw::is_finite(maxTime) && maxTime > 0.0; }
+    // Each time must convert to uint64_t ns. The validators reject NaN, Inf, and negative values, and values
+    // that overflow uint64_t.
+    static bool isValidMinTime(double minTime) { return fsw::secondsToNanos(minTime).has_value(); }
+    static bool isValidMaxTime(double maxTime) { return fsw::secondsToNanos(maxTime).value_or(0U) > 0U; }
     /// Compares the rounded nanosecond values, so two limits that round to the same nanosecond are rejected.
     /// Call it only with a valid minTime and maxTime.
     static bool isValidMaxTimeRelativeToMinTime(double minTime, double maxTime) {
-        return dvManeuverToNanoseconds(maxTime) > dvManeuverToNanoseconds(minTime);
+        return fsw::secondsToNanos(maxTime).value_or(0U) > fsw::secondsToNanos(minTime).value_or(0U);
     }
+    // Each update() adds the period to the burn time. A period that rounds to 0 ns never stops the burn.
     static bool isValidControlPeriod(double controlPeriod) {
-        return fsw::is_finite(controlPeriod) && controlPeriod > 0.0 && dvManeuverToNanoseconds(controlPeriod) > 0U;
+        return fsw::secondsToNanos(controlPeriod).value_or(0U) > 0U;
+    }
+    /// The burn completes at the first multiple of controlPeriod at or after maxTime. This value is a maximum of
+    /// maxTime - 1 ns + controlPeriod. On that step, update() adds one more controlPeriod. Thus the burn time does
+    /// not wrap the uint64_t ns counter if maxTime - 1 ns + 2 * controlPeriod is in the uint64_t range. Call it only
+    /// with a valid maxTime and controlPeriod.
+    static bool isValidBurnTimeline(double maxTime, double controlPeriod) {
+        const uint64_t maxTimeNs = fsw::secondsToNanos(maxTime).value_or(0U);
+        const uint64_t controlPeriodNs = fsw::secondsToNanos(controlPeriod).value_or(0U);
+        // Check (maxTimeNs - 1) + 2 * controlPeriodNs <= max without calculating the sum. In uint64_t, a sum that
+        // is more than max wraps to a small value, so "sum > max" can never be true. headroomNs is the space that is
+        // available above maxTimeNs - 1. For a valid maxTime, maxTimeNs >= 1, thus the two subtractions do not wrap.
+        const uint64_t headroomNs = std::numeric_limits<uint64_t>::max() - (maxTimeNs - 1U);
+        // 2 * controlPeriodNs can also wrap. Thus compare controlPeriodNs with half of the headroom. For integers,
+        // c <= floor(h / 2) is the same test as 2 * c <= h.
+        return controlPeriodNs <= headroomNs / 2U;
     }
     static bool isValidCmdForce(const Eigen::Vector3f& cmdForce_B) { return cmdForce_B.allFinite(); }
     static bool isValidCmdDv(const Eigen::Vector3f& cmdDv_N) { return cmdDv_N.allFinite(); }

@@ -236,7 +236,7 @@ TEST(OEStateEphemUpdateTest, LunarOrbit) {
 TEST(OEStateEphemUpdateTest, WithTimeOffsets) {
     // Test with non-zero time offsets
     EXPECT_NO_THROW(testOEStateEphemUpdate(
-        EARTH_MU, 7000000.0, 0.0, 0.0, 0.0, 0.0, 0.0, AnomalyType::TRUE_ANOMALY, 1000000000ULL, 100.0, 50.0));
+        EARTH_MU, 7000000.0, 0.0, 0.0, 0.0, 0.0, 0.0, AnomalyType::TRUE_ANOMALY, fsw::kNanosPerSecond, 100.0, 50.0));
 }
 
 TEST(OEStateEphemUpdateTest, MeanAnomalyElliptic) {

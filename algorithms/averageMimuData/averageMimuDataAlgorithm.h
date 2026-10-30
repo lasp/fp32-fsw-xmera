@@ -3,8 +3,8 @@
 
 #include "averageMimuDataTypes.h"
 #include <utilities/fsw/freestandingInvalidArgument.h>
-#include <utilities/fsw/timeConstants.h>
 #include <utilities/fsw/rigidBodyKinematics.hpp>
+#include <utilities/fsw/timeConversion.hpp>
 
 #include <Eigen/Core>
 #include <array>
@@ -45,7 +45,8 @@ namespace average_mimu_detail {
 // MIMU device sample rate (compile-time fixed). Period in nanoseconds is
 // precomputed so the per-sample staleness check stays in integer math.
 constexpr double kMimuSampleRateHz = 100.0;
-constexpr std::uint64_t kMimuSamplePeriodNs = static_cast<std::uint64_t>(kSec2Nano / kMimuSampleRateHz);
+constexpr std::uint64_t kMimuSamplePeriodNs = fsw::secondsToNanos(1.0 / kMimuSampleRateHz).value_or(0U);
+static_assert(kMimuSamplePeriodNs > 0U, "kMimuSampleRateHz must give a representable, non-zero ns period");
 
 // Compile-time cap on the configured averaging window. Ring capacity is
 // sized to hold exactly this many seconds of samples at the MIMU rate.

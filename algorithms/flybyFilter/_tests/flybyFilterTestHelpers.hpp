@@ -29,7 +29,7 @@ using Vector6 = Eigen::Matrix<float, 6, 1>;
 using Matrix6 = Eigen::Matrix<float, 6, 6>;
 
 // Bound for comparing two float computations of the same quantity: a few operations of roundoff
-// with the 3-10x margin of docs/PRECISION_GUIDELINES.md (10 * epsilon ~ 1.2e-6).
+// with a 3-10x margin (10 * epsilon ~ 1.2e-6).
 inline constexpr float kRoundoffTol = 10.0F * std::numeric_limits<float>::epsilon();
 
 // Mars gravitational parameter in internal units (km^3/s^2).

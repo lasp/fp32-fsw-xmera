@@ -1,7 +1,7 @@
 #include "oeStateEphem.h"
 
 #include "utilities/fsw/eigenSupport.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <memory>
@@ -55,7 +55,7 @@ void OEStateEphem::updateState(const uint64_t callTime) {
     const auto tmpOutputState = this->algorithm->update(callTime);
 
     EphemerisMsgF32Payload ephmerisMessageOutput{};
-    ephmerisMessageOutput.timeTag = callTime * kNano2Sec;
+    ephmerisMessageOutput.timeTag = fsw::nanosToSeconds(callTime);
     ephmerisMessageOutput.spiceId = this->spiceBodyId;
     ephmerisMessageOutput.centralBodyId = this->centralBodyId;
     eigenVectorToCArray(tmpOutputState.position, ephmerisMessageOutput.r_BdyZero_N);

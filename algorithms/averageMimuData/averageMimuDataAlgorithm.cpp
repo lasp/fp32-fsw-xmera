@@ -1,5 +1,4 @@
 #include "averageMimuDataAlgorithm.h"
-#include <utilities/fsw/timeConstants.h>
 
 AverageMimuDataAlgorithm::AverageMimuDataAlgorithm(const AverageMimuDataConfig& config) : cfg(config) {
     this->setConfig(config);
@@ -8,8 +7,10 @@ AverageMimuDataAlgorithm::AverageMimuDataAlgorithm(const AverageMimuDataConfig& 
 
 void AverageMimuDataAlgorithm::setConfig(const AverageMimuDataConfig& config) {
     this->cfg = config;
-    this->gyroAveragingWindowNs = static_cast<std::uint64_t>(config.getGyroAveragingWindow() * kSec2Nano);
-    this->accelAveragingWindowNs = static_cast<std::uint64_t>(config.getAccelAveragingWindow() * kSec2Nano);
+    // The config limits the two windows to [0, kMaxAveragingWindowSec]. Thus the conversion always
+    // gives a value, and the code never uses the 0 fallback.
+    this->gyroAveragingWindowNs = fsw::secondsToNanos(config.getGyroAveragingWindow()).value_or(0U);
+    this->accelAveragingWindowNs = fsw::secondsToNanos(config.getAccelAveragingWindow()).value_or(0U);
     this->dcm_BC = mrpToDcm(config.getSigma_CB()).transpose();
 }
 

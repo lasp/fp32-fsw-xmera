@@ -96,7 +96,13 @@ difference method:
 
 Care is taken that the old RW speed information :math:`\Omega_{n-1}` is
 not used unless a history of wheel speeds is available, in particular,
-after a module reset. Thus, the actual RW torque is evaluated as
+after a module reset. The time step :math:`\Delta t` is the integer
+nanosecond difference of the call times, converted with
+``fsw::elapsedSecondsF``. If the call time repeats or moves backwards,
+:math:`\Delta t` is zero and the module does not apply the feedback term for
+that call. The module stores the wheel speeds and the call time for the next
+step.
+Thus, the actual RW torque is evaluated as
 
 .. math:: u_{n} = J_{s} \dot\Omega_{n}
 

@@ -4,7 +4,7 @@
 #include <numbers>
 
 namespace {
-constexpr uint64_t kHalfSecNs = 500000000ULL;                        // 0.5 s update period
+constexpr uint64_t kHalfSecNs = fsw::kNanosPerSecond / 2U;           // 0.5 s update period
 constexpr float kManeuverRate = std::numbers::pi_v<float> / 180.0F;  // 1 deg/s feed-forward slew
 
 // Representative body-frame Sun direction that engages the avoidance maneuver.

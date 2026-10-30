@@ -1,7 +1,6 @@
 %module attTrackingErrorF32
 %{
    #include "attTrackingError.h"
-   #include "utilities/fsw/timeConstants.h"
 %}
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>

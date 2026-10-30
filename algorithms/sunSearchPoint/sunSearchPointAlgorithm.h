@@ -5,12 +5,14 @@
 #include "sunSearchPointTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
+#include "utilities/fsw/timeConversion.hpp"
 
 #include <math.h>
 
 #include <Eigen/Core>
 #include <array>
 #include <cstdint>
+#include <limits>
 
 inline constexpr uint32_t kNumSunSearchRotations = SUN_SEARCH_POINT_NUM_ROTATIONS;
 
@@ -35,9 +37,10 @@ struct SunSearchPointOutput {
  * @brief Validated configuration for the sun search point algorithm.
  *
  * Holds the sun-search rotation sequence and the pointing parameters. An instance can only exist if
- * every rotation has a finite, positive duration, a finite commanded rate, and a valid axis, if
+ * every rotation has a duration of at least 1 ns, a finite commanded rate, and a valid axis, if
  * sHatBdyCmd has unit norm (within 1e-3), if sunAxisSpinRate and omega_RN_B are finite, if
- * observationThreshold is at most kMaxNumCssSensors, if controlPeriod is finite and positive, and if
+ * observationThreshold is at most kMaxNumCssSensors, if controlPeriod is at least 1 ns, if the whole
+ * rotation sequence plus one control period is in the uint64_t nanosecond range, and if
  * deadbandAngle is finite and non-negative. deadbandAngle is an attitude deadband: while pointing, the
  * algorithm controls to the band edge, not to zero error. The commanded sun angle error is
  * max(error - deadbandAngle, 0), so it does not jump at the band edge.
@@ -55,7 +58,7 @@ class SunSearchPointConfig final {
                                        float deadbandAngle) {
         for (auto [rotationDuration, rotationRate, rotationAxis] : rotations) {
             if (!isValidRotationDuration(rotationDuration)) {
-                FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: rotationDuration must be finite and > 0");
+                FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: rotationDuration must be finite and >= 1 ns");
             }
             if (!isValidRotationRate(rotationRate)) {
                 FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: rotationRate must be finite");
@@ -77,7 +80,11 @@ class SunSearchPointConfig final {
             FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: observationThreshold must be <= kMaxNumCssSensors");
         }
         if (!isValidControlPeriod(controlPeriod)) {
-            FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: controlPeriod must be finite and > 0");
+            FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: controlPeriod must be finite and >= 1 ns");
+        }
+        if (!isValidSequenceTimeline(rotations, controlPeriod)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "sunSearchPoint: total rotation duration plus one controlPeriod must fit in uint64_t ns");
         }
         if (!isValidDeadband(deadbandAngle)) {
             FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: deadbandAngle must be finite and >= 0");
@@ -91,7 +98,9 @@ class SunSearchPointConfig final {
                                     deadbandAngle};
     }
 
-    static bool isValidRotationDuration(float time) { return fsw::is_finite(time) && time > 0.0F; }
+    // A duration must convert to at least 1 ns. The validator rejects NaN, Inf, negative, and
+    // sub-nanosecond values, and values that overflow uint64_t.
+    static bool isValidRotationDuration(float time) { return fsw::secondsToNanos(time).value_or(0U) > 0U; }
     static bool isValidRotationRate(float rate) { return fsw::is_finite(rate); }
     static bool isValidRotationAxis(RotationAxis axis) {
         return axis == RotationAxis::b1Hat_B || axis == RotationAxis::b2Hat_B || axis == RotationAxis::b3Hat_B;
@@ -103,8 +112,28 @@ class SunSearchPointConfig final {
     static bool isValidSunAxisSpinRate(float sunAxisSpinRate) { return fsw::is_finite(sunAxisSpinRate); }
     static bool isValidOmega_RN_B(const Eigen::Vector3f& omega_RN_B) { return omega_RN_B.allFinite(); }
     static bool isValidDeadband(float deadband) { return fsw::is_finite(deadband) && deadband >= 0.0F; }
+
+    // Each update() adds the period to the search timeline. A period that rounds to 0 ns never stops the
+    // search.
     static bool isValidControlPeriod(float controlPeriod) {
-        return fsw::is_finite(controlPeriod) && controlPeriod > 0.0F;
+        return fsw::secondsToNanos(controlPeriod).value_or(0U) > 0U;
+    }
+    // The timeline can stop one control period after the cumulative end time of the last rotation.
+    // This sum must not wrap the uint64_t nanosecond counter.
+    static bool isValidSequenceTimeline(const std::array<RotationProperties, kNumSunSearchRotations>& rotations,
+                                        float controlPeriod) {
+        std::uint64_t totalNs = fsw::secondsToNanos(controlPeriod).value_or(0U);
+        for (const RotationProperties& rotation : rotations) {
+            const std::uint64_t durationNs = fsw::secondsToNanos(rotation.rotationDuration).value_or(0U);
+            // Check totalNs + durationNs <= max without calculating the sum. In uint64_t, a sum that is more than
+            // max wraps to a small value, so "sum > max" can never be true. max - totalNs does not wrap, because
+            // totalNs <= max. It is the space that is available above totalNs.
+            if (durationNs > std::numeric_limits<std::uint64_t>::max() - totalNs) {
+                return false;
+            }
+            totalNs += durationNs;
+        }
+        return true;
     }
     // Zero is meaningful: it transitions to pointing as soon as the first rotation completes. A
     // threshold above the sensor count is not, because it can never be met, so the sequence always

@@ -261,7 +261,8 @@ TEST(SunSearchPointTest, NegativeRateProducesSignedOmegaComponent) {
     SunSearchPointAlgorithm alg{makeSearchConfig(rotations)};
 
     // Mid slot 0 (5 s into the first 10 s rotation): signed rate -0.5 about b3Hat_B.
-    const SunSearchPointOutput out = advanceTo(alg, secToNs(5.0), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
+    const SunSearchPointOutput out =
+        advanceTo(alg, fsw::secondsToNanos(5.0).value(), Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), 0);
     EXPECT_NEAR(out.omega_RN_B[2], -0.5F, 1e-6);  // b3Hat_B
     EXPECT_NEAR(out.omega_RN_B[0], 0.0F, 1e-6);
     EXPECT_NEAR(out.omega_RN_B[1], 0.0F, 1e-6);
@@ -311,7 +312,7 @@ TEST(SunSearchPointTest, NoTransitionDuringFirstRotation) {
     // Mid rotation 1 (5 s), observations far above threshold: must NOT transition yet.
     const Eigen::Vector3f sun{1.0F, 1.0F, 0.0F};
     const Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
-    const SunSearchPointOutput out = advanceTo(alg, secToNs(5.0), sun, omega_BN_B, 100);
+    const SunSearchPointOutput out = advanceTo(alg, fsw::secondsToNanos(5.0).value(), sun, omega_BN_B, 100);
 
     // Still SEARCH: zero attitude error, omega_RN_B = rotation-1 rate (0.1 about b1), no fault.
     EXPECT_FLOAT_EQ(out.sigma_BR.stableNorm(), 0.0F);
@@ -332,7 +333,8 @@ TEST(SunSearchPointTest, StaysSearchingBelowThreshold) {
     // and 4 (all before the 40 s sequence end): the gate stays closed and search advances
     // rotation-by-rotation.
     auto checkSearch = [&](double tSec, const Eigen::Vector3f& expectedOmegaRN) {
-        const SunSearchPointOutput out = observeAt(alg, nextElapsed, secToNs(tSec), sun, Eigen::Vector3f::Zero(), 3);
+        const SunSearchPointOutput out =
+            observeAt(alg, nextElapsed, fsw::secondsToNanos(tSec).value(), sun, Eigen::Vector3f::Zero(), 3);
         EXPECT_FLOAT_EQ(out.sigma_BR.stableNorm(), 0.0F);
         EXPECT_NEAR(out.omega_RN_B[0], expectedOmegaRN[0], 1e-6F);
         EXPECT_NEAR(out.omega_RN_B[1], expectedOmegaRN[1], 1e-6F);
@@ -353,7 +355,7 @@ TEST(SunSearchPointTest, ForcedTransitionAfterAllRotations) {
     const Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
 
     // Reaching the full 40 s sequence end with observations never exceeding threshold: forced POINT.
-    const SunSearchPointOutput out = advanceTo(alg, secToNs(40.0), sun, omega_BN_B, 0);
+    const SunSearchPointOutput out = advanceTo(alg, fsw::secondsToNanos(40.0).value(), sun, omega_BN_B, 0);
 
     // Pointing output (matches the reference), NOT the held last-rotation rate (0.4 about b1).
     const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
@@ -378,7 +380,7 @@ TEST(SunSearchPointTest, TransitionsToPointAtThreshold) {
         SunSearchPointAlgorithm alg{cfg};
 
         // Observations at the threshold (4) past rotation 1: transition to POINT (rule is >=).
-        const SunSearchPointOutput out = advanceTo(alg, secToNs(tSec), sun, omega_BN_B, 4);
+        const SunSearchPointOutput out = advanceTo(alg, fsw::secondsToNanos(tSec).value(), sun, omega_BN_B, 4);
 
         const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
         EXPECT_GT(out.sigma_BR.stableNorm(), 0.0F);
@@ -401,10 +403,10 @@ TEST(SunSearchPointTest, PointIsTerminalNoReturnToSearch) {
     uint64_t nextElapsed = 0U;
 
     // Enter POINT during rotation 2 by exceeding the threshold.
-    (void)observeAt(alg, nextElapsed, secToNs(15.0), sun, omega_BN_B, 5);
+    (void)observeAt(alg, nextElapsed, fsw::secondsToNanos(15.0).value(), sun, omega_BN_B, 5);
 
     // Later, still inside the nominal sequence, observations drop to 0: must stay POINT.
-    const SunSearchPointOutput out = observeAt(alg, nextElapsed, secToNs(18.0), sun, omega_BN_B, 0);
+    const SunSearchPointOutput out = observeAt(alg, nextElapsed, fsw::secondsToNanos(18.0).value(), sun, omega_BN_B, 0);
 
     const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
     EXPECT_GT(out.sigma_BR.stableNorm(), 0.0F);  // pointing, not a search rate
@@ -426,17 +428,19 @@ TEST(SunSearchPointTest, PointResumesPointingWhenSunReturns) {
     uint64_t nextElapsed = 0U;
 
     // Enter POINT with a visible sun.
-    const SunSearchPointOutput pointing1 = observeAt(alg, nextElapsed, secToNs(15.0), sun, omega_BN_B, 5);
+    const SunSearchPointOutput pointing1 =
+        observeAt(alg, nextElapsed, fsw::secondsToNanos(15.0).value(), sun, omega_BN_B, 5);
     EXPECT_GT(pointing1.sigma_BR.stableNorm(), 0.0F);
 
     // Sun lost: fallback branch (sigma 0, omega_RN_B = configured fallback).
     const SunSearchPointOutput fallback =
-        observeAt(alg, nextElapsed, secToNs(16.0), Eigen::Vector3f::Zero(), omega_BN_B, 0);
+        observeAt(alg, nextElapsed, fsw::secondsToNanos(16.0).value(), Eigen::Vector3f::Zero(), omega_BN_B, 0);
     EXPECT_FLOAT_EQ(fallback.sigma_BR.stableNorm(), 0.0F);
     EXPECT_NEAR(fallback.omega_RN_B[2], 0.1F, 1e-6F);
 
     // Sun returns: pointing resumes (the fallback is evaluated per-update, not latched).
-    const SunSearchPointOutput pointing2 = observeAt(alg, nextElapsed, secToNs(17.0), sun, omega_BN_B, 0);
+    const SunSearchPointOutput pointing2 =
+        observeAt(alg, nextElapsed, fsw::secondsToNanos(17.0).value(), sun, omega_BN_B, 0);
     EXPECT_GT(pointing2.sigma_BR.stableNorm(), 0.0F);
     const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
     for (int i = 0; i < 3; ++i) {
@@ -454,7 +458,8 @@ TEST(SunSearchPointTest, ForcedTransitionWithoutSunUsesFallbackRate) {
 
     // Search times out (observations never exceed threshold) and the sun is not visible: the
     // forced transition lands in POINT's zero-sun branch -> configured fallback rate.
-    const SunSearchPointOutput out = advanceTo(alg, secToNs(40.0), Eigen::Vector3f::Zero(), omega_BN_B, 0);
+    const SunSearchPointOutput out =
+        advanceTo(alg, fsw::secondsToNanos(40.0).value(), Eigen::Vector3f::Zero(), omega_BN_B, 0);
 
     EXPECT_FLOAT_EQ(out.sigma_BR.stableNorm(), 0.0F);
     EXPECT_NEAR(out.omega_RN_B[0], 0.0F, 1e-6F);
@@ -564,10 +569,12 @@ TEST(SunSearchPointTest, DeadbandDoesNotApplyDuringSearch) {
     const Eigen::Vector3f sun{0.0F, 0.0F, 1.0F};
     uint64_t nextElapsed = 0U;
 
-    const SunSearchPointOutput first = observeAt(alg, nextElapsed, secToNs(5.0), sun, Eigen::Vector3f::Zero(), 0);
+    const SunSearchPointOutput first =
+        observeAt(alg, nextElapsed, fsw::secondsToNanos(5.0).value(), sun, Eigen::Vector3f::Zero(), 0);
     EXPECT_NEAR(first.omega_BR_B[0], -0.1F, 1e-6F);  // first search rotation, about b1
 
-    const SunSearchPointOutput second = observeAt(alg, nextElapsed, secToNs(15.0), sun, Eigen::Vector3f::Zero(), 0);
+    const SunSearchPointOutput second =
+        observeAt(alg, nextElapsed, fsw::secondsToNanos(15.0).value(), sun, Eigen::Vector3f::Zero(), 0);
     EXPECT_NEAR(second.omega_BR_B[1], -0.2F, 1e-6F);  // second search rotation, about b2
 }
 

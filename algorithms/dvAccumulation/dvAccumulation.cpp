@@ -1,6 +1,6 @@
 #include "dvAccumulation.h"
 #include "utilities/fsw/eigenSupport.h"
-#include "utilities/fsw/timeConstants.h"
+#include "utilities/fsw/timeConversion.hpp"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
 #include <stdexcept>
@@ -39,7 +39,7 @@ void DvAccumulation::updateState(const uint64_t callTime) {
     const Eigen::Vector3f vehAccumDV_B = this->algorithm->update(rDDotNoGravity_BN_B, this->accelBias_B);
 
     NavTransMsgF32Payload outputData = NavTransMsgF32Payload();
-    outputData.timeTag = static_cast<double>(callTime) * kNano2Sec;
+    outputData.timeTag = fsw::nanosToSeconds(callTime);
     eigenVectorToCArray(vehAccumDV_B, outputData.vehAccumDV);
 
     this->dvAccumulationOutMsg.write(outputData, this->moduleID, callTime);

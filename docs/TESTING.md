@@ -20,9 +20,6 @@ them with CTest. Each algorithm keeps its host gtest (and FuzzTest) suites in an
 directory beside the code; tests are grouped with CTest **labels** so the slow and optional
 suites can be included or excluded explicitly.
 
-For fuzz-testing *methodology* (when and how to write fuzz targets), see
-[`PRECISION_GUIDELINES.md` §9](PRECISION_GUIDELINES.md#9-fuzz-testing-for-precision-validation).
-
 ---
 
 ## 1. Label vocabulary

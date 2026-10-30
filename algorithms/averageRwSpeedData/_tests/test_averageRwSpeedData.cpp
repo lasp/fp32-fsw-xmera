@@ -1,14 +1,15 @@
 #include "averageRwSpeedDataTestHelpers.hpp"
 #include <gtest/gtest.h>
 #include <utilities/fsw/freestandingInvalidArgument.h>
+#include <utilities/fsw/timeConversion.hpp>
 
 #include <array>
 #include <limits>
 #include <vector>
 
 namespace {
-constexpr std::uint64_t kMsToNs = 1'000'000U;
-constexpr std::uint64_t kT0 = 10U * 1'000U * kMsToNs;
+constexpr std::uint64_t kMsToNs = fsw::kNanosPerSecond / 1'000U;
+constexpr std::uint64_t kT0 = 10U * fsw::kNanosPerSecond;
 
 std::array<float, kMaxNumRw> meanOf(std::vector<float> const& bases) {
     std::array<float, kMaxNumRw> sum{};
@@ -98,6 +99,16 @@ TEST(averageRwSpeedDataTest, WindowEdgeIsInclusive) {
 
     (void)alg.update(makeSample(kT0, /* base = */ 1.0F));
     EXPECT_EQ(alg.update(makeSample(kT0 + (500U * kMsToNs), /* base = */ 3.0F)),
+              meanOf({/* base = */ 1.0F, /* base = */ 3.0F}));
+}
+
+TEST(averageRwSpeedDataTest, WindowRoundsToNearestNanosecond) {
+    // 0.01F s is 0.0099999997... s. Rounded to the nearest ns, the window is 10'000'000 ns, so it includes a
+    // sample that is exactly 10 ms older. A truncated window (9'999'999 ns) does not include that sample.
+    AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(/* rwSpeedAveragingWindow = */ 0.01F));
+
+    (void)alg.update(makeSample(kT0, /* base = */ 1.0F));
+    EXPECT_EQ(alg.update(makeSample(kT0 + (10U * kMsToNs), /* base = */ 3.0F)),
               meanOf({/* base = */ 1.0F, /* base = */ 3.0F}));
 }
 
@@ -197,7 +208,7 @@ TEST(averageRwSpeedDataTest, MaxWindowAtSampleRateFitsInRing) {
     constexpr auto kAveragingWindowSec = AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec;
 
     AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(kAveragingWindowSec));
-    constexpr auto periodNs = static_cast<std::uint64_t>(1.0e9 / kRwSpeedSampleRateHz);
+    constexpr std::uint64_t periodNs = fsw::secondsToNanos(1.0 / kRwSpeedSampleRateHz).value();
     constexpr auto samplesInWindow = static_cast<std::size_t>(kAveragingWindowSec * kRwSpeedSampleRateHz + 1.0);
 
     std::array<float, kMaxNumRw> out{};
@@ -210,7 +221,7 @@ TEST(averageRwSpeedDataTest, MaxWindowAtSampleRateFitsInRing) {
 TEST(averageRwSpeedDataTest, SampleOlderThanMaxWindowNotIngested) {
     constexpr auto kCapacity = AverageRwSpeedDataAlgorithm::kRingCapacity;
     constexpr auto kAveragingWindowSec = AverageRwSpeedDataAlgorithm::kMaxAveragingWindowSec;
-    constexpr auto kMaxWindowNs = static_cast<std::uint64_t>(kAveragingWindowSec * 1.0e9);
+    constexpr std::uint64_t kMaxWindowNs = fsw::secondsToNanos(kAveragingWindowSec).value();
     AverageRwSpeedDataAlgorithm alg(AverageRwSpeedDataConfig::create(kAveragingWindowSec));
 
     // Fill the ring with samples 1 ms apart, so an ingested sample must evict one of them.

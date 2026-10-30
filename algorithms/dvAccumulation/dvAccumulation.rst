@@ -190,7 +190,7 @@ two arguments: the bias :math:`\mathbf{b}` (``accelBias_B``) and the body-frame 
       \Delta\mathbf{v} = \Delta\mathbf{v} + \Delta t \, (\ddot{\mathbf{r}}_{B} - \mathbf{b})
 
 3. Give ``vehAccumDV_B`` = :math:`\Delta\mathbf{v}`. The adapter tags the output message with
-   ``timeTag = callTime * kNano2Sec``.
+   ``timeTag = fsw::nanosToSeconds(callTime)``.
 
 Thus after :math:`N` calls the accumulator holds the integral of the bias-corrected acceleration
 during :math:`(N-1)\,\Delta t`. This is the elapsed time after the window started.

@@ -93,7 +93,7 @@ Module Parameters
       - [s]
       - zero
       - Module update/control period. The search timeline advances by one ``controlPeriod`` per
-        update, so this must equal the module's scheduling rate (must be finite and > 0)
+        update, so this must equal the module's scheduling rate (must be finite and at least 1 ns)
     * - deadbandAngle
       - float
       - [rad]
@@ -105,7 +105,7 @@ Module Parameters
       - RotationProperties[4]
       - --
       - 1 s, 0 rad/s, b1
-      - Sun-search rotation sequence; each entry has a duration (> 0), a signed body rate, and an axis.
+      - Sun-search rotation sequence; each entry has a duration (at least 1 ns), a signed body rate, and an axis.
         Set via ``setRotation(index, rotation)``.
 
 Module Assumptions and Limitations
@@ -114,8 +114,10 @@ Module Assumptions and Limitations
   treated as sun-not-available; any non-zero magnitude is accepted.
 - The commanded body-relative unit direction vector :math:`\hat{\mathbf s}_{c}` is fixed relative to the body.
 - The sun-pointing condition is under-determined (2 DOF): the rotation about :math:`\mathbf s` is arbitrary.
-- Each rotation's duration must be finite and strictly positive; the commanded rate must be finite
-  (any sign). Invalid sequences are rejected when the configuration is installed.
+- Each rotation's duration must be finite and round to at least 1 ns. The commanded rate must be
+  finite (any sign). The sum of the rotation durations plus one ``controlPeriod`` must be in the
+  ``uint64_t`` nanosecond range (approximately 584 years). The module rejects an invalid sequence
+  when it receives the configuration.
 - ``observationThreshold`` must be at most ``MAX_NUM_CSS_SENSORS``. The observation count comes from
   ``FilterResidualsMsgF32Payload.sizeOfObservations``, which cannot exceed the sensor count, so a
   larger threshold is never met: the search always runs the full sequence and latches the fault
