@@ -1,5 +1,5 @@
-#ifndef F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_TYPES_H
-#define F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_TYPES_H
+#ifndef F32XMERA_ST_PLATFORM_ATTITUDE_TYPES_H
+#define F32XMERA_ST_PLATFORM_ATTITUDE_TYPES_H
 
 #include "utilities/fsw/plainCAlgorithmDataTypes.h"
 
@@ -9,12 +9,12 @@
 extern "C" {
 #endif
 
-/*! @brief Star tracker case-frame attitude and rate solution consumed by the platform-to-body
+/*! @brief Star tracker platform-frame attitude and rate solution consumed by the platform-to-body
  *         conversion algorithm. */
 typedef struct {
-    uint64_t timeTag; /*!< [ns] time tag of the measurement, passed through to the output */
-    float q_CN[4];    /*!< [-] quaternion from inertial to case frame (scalar-last) */
-    float dq_CN[4];   /*!< [-] case-frame delta quaternion w.r.t. inertial (scalar-last) */
+    uint64_t timeTag;           /*!< [ns] time tag of the measurement, passed through to the output */
+    float q_PN[4];              /*!< [-] quaternion from inertial to platform frame (scalar-last) */
+    float rateQuaternion_PN[4]; /*!< [-] platform-frame angular velocity quaternion (scalar-last) */
 } StPlatformMeasurement_c;
 
 /*! @brief Star tracker body-frame attitude output from the platform-to-body conversion algorithm. */
@@ -28,4 +28,4 @@ typedef struct {
 }  // extern "C"
 #endif
 
-#endif  // F32XMERA_CONVERT_ST_PLATFORM_TO_BODY_TYPES_H
+#endif  // F32XMERA_ST_PLATFORM_ATTITUDE_TYPES_H

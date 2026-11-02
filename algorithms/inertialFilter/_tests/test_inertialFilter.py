@@ -613,3 +613,44 @@ if __name__ == "__main__":
     stateUpdateRate(True)
     outlierRecovery(True)
     statePropagation(False)
+
+
+def test_measurementDelayHoldsEachReading(show_plots):
+    """measurementDelay reaches the filter through the adapter: with a delay d, a star-tracker reading is applied d
+    seconds after its time tag instead of on the call that delivers it. A reading written at step i reaches the filter
+    on the next call, one step after its time tag."""
+    del show_plots
+    dt = 0.5
+    delay = 1.0  # [s] at 2 Hz, two calls of attitude + rate readings fit in the BatchSize = 5 queue
+
+    def first_applied_time(measurement_delay):
+        unitTestSim = SimulationBaseClass.SimBaseClass()
+        testProc = unitTestSim.CreateNewProcess("TestProcess")
+        testProc.addTask(unitTestSim.CreateNewTask("unitTask", macros.sec2nano(dt)))
+
+        module = inertialFilterF32.InertialFilter()
+        unitTestSim.AddModelToTask("unitTask", module)
+        setupFilterData(module)
+        module.measurementDelay = measurement_delay
+
+        resLog = module.filterStResOutMsg.recorder()
+        unitTestSim.AddModelToTask("unitTask", resLog)
+
+        stMessage = messaging.STAttMsgF32Payload()
+        stMessage.MRP_BdyInrtl = [0.1, 0.2, 0.3]
+        stInMsg = messaging.STAttMsgF32()
+        module.stAttInMsg.subscribeTo(stInMsg)
+
+        unitTestSim.InitializeSimulation()
+        for i in range(40):
+            if i >= 10:
+                stMessage.timeTag = i * dt  # [s]
+                stInMsg.write(stMessage, macros.sec2nano(i * dt))
+            unitTestSim.ConfigureStopTime(macros.sec2nano((i + 1) * dt))
+            unitTestSim.ExecuteSimulation()
+
+        valid = np.array(resLog.valid, dtype=bool)
+        return resLog.times()[valid][0] * macros.NANO2SEC
+
+    assert np.isclose(first_applied_time(0.0), 10 * dt + dt), "without a delay the reading is applied on delivery"
+    assert np.isclose(first_applied_time(delay), 10 * dt + delay), "a delay holds the reading until tag + delay"

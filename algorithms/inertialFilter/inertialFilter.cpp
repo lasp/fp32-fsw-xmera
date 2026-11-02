@@ -40,7 +40,8 @@ void InertialFilter::reset(uint64_t /*currentSimNanos*/) {
                                                      InertialState{this->initialState},
                                                      this->initialCovariance,
                                                      this->stMeasurementNoiseStd,
-                                                     this->rateMeasurementNoiseStd);
+                                                     this->rateMeasurementNoiseStd,
+                                                     this->measurementDelay);
     this->algorithm = std::make_unique<InertialFilterAlgorithm>(config);
     this->lastStTimeTag = 0;
 }

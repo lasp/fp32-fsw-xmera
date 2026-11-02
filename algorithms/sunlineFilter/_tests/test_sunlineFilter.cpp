@@ -18,6 +18,9 @@
 #include <Eigen/Dense>
 
 #include <cmath>
+#include <limits>
+#include <string>
+#include <utility>
 
 namespace filtering::sunlineFilter {
 namespace {
@@ -580,6 +583,46 @@ TEST(SunlineFilterAlgorithmRegression, ConvergesToConstantSunDirection) {
     EXPECT_NEAR(sEst.stableNorm(), 1.0, 1E-6);
 }
 
+// CSS readings much brighter (or dimmer) than the initial bias predicts pull the bias estimate past a bound.
+// It must then restart from its initial value and variance, uncorrelated with the heading and rate, in both
+// the working estimate and the anchor the next update starts from.
+TEST(SunlineFilterAlgorithmEdgeCases, BiasOutsideBoundsIsResetToItsInitialValueAndVariance) {
+    Eigen::Matrix<float, MaxCss, 3> const nHat = threeCssNHat();
+    Eigen::Vector3f const sHat(0.0, 0.0, 1.0);
+    State const initial = makeState(sHat, Eigen::Vector3f::Zero(), 1.0);
+    Matrix7 const P0 = diagCovariance(1E-2, 1E-3, 1.0);
+    RateData const noRate;  // timeTag 0 -> not enqueued
+
+    for (float const intensity : {3.0F, 0.2F}) {
+        SunlineFilterAlgorithm algo(threeCssConfig(initial, P0, 0.0));
+        algo.update(0.0, CssData{}, noRate);  // synchronize the filter time at t = 0
+        CssData css;
+        css.timeTag = 1.0;
+        for (int i = 0; i < 3; ++i) {
+            css.cosValues(i) = intensity * nHat.row(i).dot(sHat.transpose());
+        }
+        algo.update(1.0, css, noRate);
+        ASSERT_TRUE(algo.getLastCssResiduals().valid) << "intensity " << intensity;
+
+        State const state = algo.getState();
+        Matrix7 const P = algo.getCovariance();
+        EXPECT_EQ(state.get<filtering::Bias<1>>()(0), 1.0F) << "intensity " << intensity;
+        EXPECT_EQ(P(6, 6), P0(6, 6)) << "intensity " << intensity;
+        EXPECT_TRUE(P.row(6).head<6>().isZero(0.0F)) << "intensity " << intensity;
+        EXPECT_TRUE(P.col(6).head<6>().isZero(0.0F)) << "intensity " << intensity;
+        EXPECT_TRUE(P.allFinite());
+
+        // Readings consistent with the reset bias fit with no innovation only if the anchor was reset too.
+        css.timeTag = 2.0;
+        for (int i = 0; i < 3; ++i) {
+            css.cosValues(i) = nHat.row(i).dot(algo.getState().get<filtering::Position<3>>());
+        }
+        algo.update(2.0, css, noRate);
+        ASSERT_TRUE(algo.getLastCssResiduals().valid) << "intensity " << intensity;
+        EXPECT_LT(algo.getLastCssResiduals().preFit.head<3>().norm(), 1E-3) << "intensity " << intensity;
+    }
+}
+
 // ============================================================================
 // SRuKF static helpers: numerical helpers.
 // ============================================================================
@@ -636,28 +679,6 @@ TEST(SrukfDetail, QrDecompositionJustRPreservesNormalEquations) {
     EXPECT_TRUE((R * R.transpose()).isApprox(A * A.transpose(), kRoundoffTol));
 }
 
-TEST(SrukfDetail, CholeskyUpDownDateMatchesExplicitUpdate) {
-    Eigen::Matrix3f P0;
-    P0 << 4.0, 1.0, 0.0, 1.0, 3.0, 0.5, 0.0, 0.5, 2.0;
-    Eigen::Matrix3f const S0 = SRuKF::choleskyDecomposition<3>(P0);
-
-    Eigen::Vector3f const v(0.1, -0.2, 0.3);
-
-    // Up-date with +coef and down-date with -coef must reconstruct P0 ± coef v vᵀ.
-    {
-        float const coef = 0.5;
-        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
-        Eigen::Matrix3f const P1 = P0 + coef * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
-    }
-    {
-        float const coef = -0.5;
-        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
-        Eigen::Matrix3f const P1 = P0 - 0.5 * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
-    }
-}
-
 // ============================================================================
 // SunlineFilterConfig: factory validation, static validators, and round-trip.
 // ============================================================================
@@ -685,6 +706,18 @@ TEST(SunlineFilterConfig, RejectsBetaOutsideRange) {
     }
 }
 
+TEST(SunlineFilterConfig, RejectsBetaBelowAlphaSquared) {
+    ConfigInputs below;
+    below.alpha = 1.0;
+    below.beta = 0.5;
+    EXPECT_THROW(buildConfig(below), fsw::invalid_argument);
+
+    ConfigInputs atTheBound;
+    atTheBound.alpha = 0.5;
+    atTheBound.beta = 0.25;
+    EXPECT_NO_THROW(buildConfig(atTheBound));
+}
+
 TEST(SunlineFilterConfig, RejectsNonPositiveSemiDefiniteProcessNoise) {
     ConfigInputs in;
     in.processNoise = -Matrix7::Identity();  // negative definite
@@ -695,6 +728,34 @@ TEST(SunlineFilterConfig, RejectsNonPositiveSemiDefiniteCovariance) {
     ConfigInputs in;
     in.initialCovariance = -Matrix7::Identity();  // negative definite
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
+// Each failing check on Q and P0 has its own message: non-finite, asymmetric, or not positive semi-definite.
+TEST(SunlineFilterConfig, NamesWhichCovarianceCheckFails) {
+    auto const messageOf = [](ConfigInputs const& in) -> std::string {
+        try {
+            (void)buildConfig(in);
+        } catch (fsw::invalid_argument const& error) {
+            return error.what();
+        }
+        return "no throw";
+    };
+    Matrix7 nonFinite = Matrix7::Identity();
+    nonFinite(1, 1) = std::numeric_limits<float>::quiet_NaN();
+    Matrix7 asymmetric = Matrix7::Identity();
+    asymmetric(0, 1) = 1E-3F;  // the lower triangle keeps 0
+    Matrix7 const negative = -Matrix7::Identity();
+
+    for (auto const& [matrix, failure] : {std::pair{nonFinite, "finite"},
+                                          std::pair{asymmetric, "symmetric"},
+                                          std::pair{negative, "positive semi-definite"}}) {
+        ConfigInputs processNoiseCase;
+        processNoiseCase.processNoise = matrix;
+        EXPECT_EQ(messageOf(processNoiseCase), std::string("sunlineFilter: process noise must be ") + failure);
+        ConfigInputs covarianceCase;
+        covarianceCase.initialCovariance = matrix;
+        EXPECT_EQ(messageOf(covarianceCase), std::string("sunlineFilter: initial covariance must be ") + failure);
+    }
 }
 
 TEST(SunlineFilterConfig, RejectsNonFiniteInitialState) {
@@ -726,7 +787,7 @@ TEST(SunlineFilterConfig, RejectsNegativeCssScaleFactor) {
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
 }
 
-TEST(SunlineFilterConfig, RejectsNegativeThresholdAndNoiseStds) {
+TEST(SunlineFilterConfig, RejectsNegativeThresholdAndNonPositiveNoiseStds) {
     ConfigInputs threshold;
     threshold.sensorThreshold = -1E-3;
     EXPECT_THROW(buildConfig(threshold), fsw::invalid_argument);
@@ -738,6 +799,14 @@ TEST(SunlineFilterConfig, RejectsNegativeThresholdAndNoiseStds) {
     ConfigInputs gyroStd;
     gyroStd.gyroStd = -1E-3;
     EXPECT_THROW(buildConfig(gyroStd), fsw::invalid_argument);
+
+    ConfigInputs zeroCssStd;
+    zeroCssStd.cssMeasStd = 0.0;
+    EXPECT_THROW(buildConfig(zeroCssStd), fsw::invalid_argument);
+
+    ConfigInputs zeroGyroStd;
+    zeroGyroStd.gyroStd = 0.0;
+    EXPECT_THROW(buildConfig(zeroGyroStd), fsw::invalid_argument);
 }
 
 TEST(SunlineFilterConfig, MeasurementDelayDefaultsToZeroAndIsValidated) {
@@ -794,6 +863,19 @@ TEST(SunlineFilterConfig, RejectsBiasLowerBoundNotLessThanUpper) {
     EXPECT_THROW(buildConfig(inverted), fsw::invalid_argument);
 }
 
+TEST(SunlineFilterConfig, RejectsInitialBiasOutsideBounds) {
+    for (float const bias : {kBiasLowerBound - 0.1F, kBiasUpperBound + 0.1F}) {
+        ConfigInputs in;
+        in.initialState = makeState(Eigen::Vector3f(0.0, 0.0, 1.0), Eigen::Vector3f::Zero(), bias);
+        EXPECT_THROW(buildConfig(in), fsw::invalid_argument) << "bias=" << bias;
+    }
+    for (float const bias : {kBiasLowerBound, kBiasUpperBound}) {
+        ConfigInputs in;
+        in.initialState = makeState(Eigen::Vector3f(0.0, 0.0, 1.0), Eigen::Vector3f::Zero(), bias);
+        EXPECT_NO_THROW(buildConfig(in)) << "the bounds are inclusive, bias=" << bias;
+    }
+}
+
 TEST(SunlineFilterConfig, RejectsZeroCssNHatRow) {
     ConfigInputs in;
     in.cssNHat.row(MaxCss - 1) = Eigen::RowVector3f::Zero();
@@ -804,6 +886,10 @@ TEST(SunlineFilterConfig, StaticValidatorsCheckBoundaries) {
     EXPECT_TRUE(SunlineFilterConfig::isValidBiasBounds(0.5, 1.5));
     EXPECT_FALSE(SunlineFilterConfig::isValidBiasBounds(1.5, 0.5));
     EXPECT_FALSE(SunlineFilterConfig::isValidBiasBounds(1.0, 1.0));
+    State const biasOne = makeState(Eigen::Vector3f(0.0, 0.0, 1.0), Eigen::Vector3f::Zero(), 1.0);
+    EXPECT_TRUE(SunlineFilterConfig::isValidInitialBias(biasOne, 0.5, 1.5));
+    EXPECT_FALSE(SunlineFilterConfig::isValidInitialBias(biasOne, 1.1, 1.5));
+    EXPECT_FALSE(SunlineFilterConfig::isValidInitialBias(biasOne, 0.5, 0.9));
     EXPECT_TRUE(SunlineFilterConfig::isValidCssNHat(threeCssNHat()));
     Eigen::Matrix<float, MaxCss, 3> zeroLastRow = threeCssNHat();
     zeroLastRow.row(MaxCss - 1) = Eigen::RowVector3f::Zero();
@@ -812,7 +898,9 @@ TEST(SunlineFilterConfig, StaticValidatorsCheckBoundaries) {
     EXPECT_FALSE(SunlineFilterConfig::isValidBiasLowerBound(0.0));
     EXPECT_TRUE(SunlineFilterConfig::isValidSensorThreshold(0.0));
     EXPECT_FALSE(SunlineFilterConfig::isValidSensorThreshold(-1E-9));
-    EXPECT_TRUE(SunlineFilterConfig::isValidCssMeasurementNoiseStd(0.0));
+    EXPECT_TRUE(SunlineFilterConfig::isValidCssMeasurementNoiseStd(1E-9));
+    EXPECT_FALSE(SunlineFilterConfig::isValidCssMeasurementNoiseStd(0.0));
+    EXPECT_TRUE(SunlineFilterConfig::isValidGyroMeasurementNoiseStd(1E-9));
     EXPECT_FALSE(SunlineFilterConfig::isValidGyroMeasurementNoiseStd(-1E-9));
     EXPECT_TRUE(SunlineFilterConfig::isValidProcessNoise(Matrix7::Identity()));
     EXPECT_FALSE(SunlineFilterConfig::isValidProcessNoise(-Matrix7::Identity()));

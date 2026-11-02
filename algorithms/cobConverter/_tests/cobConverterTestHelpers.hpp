@@ -271,7 +271,9 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const Eigen::Vector3d rhatCOM_B = dcm_BN * rhatCOM_N;
     const Eigen::Matrix3d covar_C = dcm_NC.transpose() * covar_N * dcm_NC;
 
-    output.output.covar_N = covar_N.cast<float>();
+    // The published covariance adds the mean cross-sight variance along the line of sight; the outlier gate and the
+    // diagnostic keep the physical one.
+    output.output.covar_N = (covar_N + (0.5 * covar_N.trace() * (rhatCOM_N * rhatCOM_N.transpose()))).cast<float>();
     output.output.rhat_BN_N = rhatCOM_N.cast<float>();
     output.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
     // Mirrors updateState: finite COM, no outlier flag, and a converged COM undistortion.

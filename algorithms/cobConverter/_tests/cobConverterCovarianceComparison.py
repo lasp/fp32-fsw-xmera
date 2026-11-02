@@ -120,9 +120,9 @@ def module_covar_N(p):
     cob.pixelsFound = int(p["pixels"])
     cob.valid = True
     nav = messaging.FilterMsgF32Payload()
-    nav.numberOfStates = 6
-    nav.state = np.concatenate([s.r_N, s.v_N])
-    nav.covar = np.diag([p["positionSigma"] ** 2] * 3 + [0.01] * 3).flatten()
+    nav.numberOfStates = 8
+    nav.state = np.concatenate([s.r_N, s.v_N, np.zeros(2)])
+    nav.covar = np.diag([p["positionSigma"] ** 2] * 3 + [0.01] * 3 + [1e-6] * 2).flatten()
     att = messaging.NavAttMsgF32Payload()
     att.sigma_BN = rbk.C2MRP(s.dcm_BN)
     att.vehSunPntBdy = s.dcm_BN @ s.sun_N

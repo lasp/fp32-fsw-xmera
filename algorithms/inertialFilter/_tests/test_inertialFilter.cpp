@@ -26,6 +26,8 @@
 #include <cmath>
 #include <limits>
 #include <random>
+#include <string>
+#include <utility>
 
 namespace filtering::inertialFilter {
 
@@ -91,11 +93,18 @@ struct ConfigInputs {
     Matrix6 initialCovariance = diagCovariance(1E-2, 1E-3);
     float stMeasStd = kStMeasStd;
     float rateStd = kRateMeasStd;
+    float measurementDelay = 0.0;
 };
 
 InertialFilterConfig buildConfig(ConfigInputs const& in) {
-    return InertialFilterConfig::create(
-        in.alpha, in.beta, in.processNoise, in.initialState, in.initialCovariance, in.stMeasStd, in.rateStd);
+    return InertialFilterConfig::create(in.alpha,
+                                        in.beta,
+                                        in.processNoise,
+                                        in.initialState,
+                                        in.initialCovariance,
+                                        in.stMeasStd,
+                                        in.rateStd,
+                                        in.measurementDelay);
 }
 
 }  // namespace
@@ -118,6 +127,34 @@ TEST(InertialFilterConfig, RejectsNonPositiveSemiDefiniteCovariance) {
     ConfigInputs in;
     in.initialCovariance = -Matrix6::Identity();  // negative definite
     EXPECT_THROW(buildConfig(in), fsw::invalid_argument);
+}
+
+// Each failing check on Q and P0 has its own message: non-finite, asymmetric, or not positive semi-definite.
+TEST(InertialFilterConfig, NamesWhichCovarianceCheckFails) {
+    auto const messageOf = [](ConfigInputs const& in) -> std::string {
+        try {
+            (void)buildConfig(in);
+        } catch (fsw::invalid_argument const& error) {
+            return error.what();
+        }
+        return "no throw";
+    };
+    Matrix6 nonFinite = Matrix6::Identity();
+    nonFinite(1, 1) = std::numeric_limits<float>::quiet_NaN();
+    Matrix6 asymmetric = Matrix6::Identity();
+    asymmetric(0, 1) = 1E-3F;  // the lower triangle keeps 0
+    Matrix6 const negative = -Matrix6::Identity();
+
+    for (auto const& [matrix, failure] : {std::pair{nonFinite, "finite"},
+                                          std::pair{asymmetric, "symmetric"},
+                                          std::pair{negative, "positive semi-definite"}}) {
+        ConfigInputs processNoiseCase;
+        processNoiseCase.processNoise = matrix;
+        EXPECT_EQ(messageOf(processNoiseCase), std::string("inertialFilter: process noise must be ") + failure);
+        ConfigInputs covarianceCase;
+        covarianceCase.initialCovariance = matrix;
+        EXPECT_EQ(messageOf(covarianceCase), std::string("inertialFilter: initial covariance must be ") + failure);
+    }
 }
 
 TEST(InertialFilterConfig, RejectsNonFiniteInitialState) {
@@ -148,6 +185,18 @@ TEST(InertialFilterConfig, RejectsBetaOutsideRange) {
     }
 }
 
+TEST(InertialFilterConfig, RejectsBetaBelowAlphaSquared) {
+    ConfigInputs below;
+    below.alpha = 1.0;
+    below.beta = 0.5;
+    EXPECT_THROW(buildConfig(below), fsw::invalid_argument);
+
+    ConfigInputs atTheBound;
+    atTheBound.alpha = 0.5;
+    atTheBound.beta = 0.25;
+    EXPECT_NO_THROW(buildConfig(atTheBound));
+}
+
 TEST(InertialFilterConfig, RejectsNegativeNoiseStds) {
     ConfigInputs stStd;
     stStd.stMeasStd = -1E-3;
@@ -158,11 +207,26 @@ TEST(InertialFilterConfig, RejectsNegativeNoiseStds) {
     EXPECT_THROW(buildConfig(rateStd), fsw::invalid_argument);
 }
 
-TEST(InertialFilterConfig, AcceptsZeroNoiseStds) {
-    ConfigInputs in;
-    in.stMeasStd = 0.0;
-    in.rateStd = 0.0;
-    EXPECT_NO_THROW(buildConfig(in));
+TEST(InertialFilterConfig, RejectsZeroNoiseStds) {
+    ConfigInputs stStd;
+    stStd.stMeasStd = 0.0;
+    EXPECT_THROW(buildConfig(stStd), fsw::invalid_argument);
+
+    ConfigInputs rateStd;
+    rateStd.rateStd = 0.0;
+    EXPECT_THROW(buildConfig(rateStd), fsw::invalid_argument);
+}
+
+TEST(InertialFilterConfig, MeasurementDelayDefaultsToZeroAndIsValidated) {
+    EXPECT_FLOAT_EQ(buildConfig({}).getMeasurementDelay(), 0.0F);
+
+    ConfigInputs delayed;
+    delayed.measurementDelay = 3.0;
+    EXPECT_FLOAT_EQ(buildConfig(delayed).getMeasurementDelay(), 3.0F);
+
+    ConfigInputs negative;
+    negative.measurementDelay = -1.0;
+    EXPECT_THROW(buildConfig(negative), fsw::invalid_argument);
 }
 
 TEST(InertialFilterConfig, AcceptsPositiveSemiDefiniteSingularMatrices) {
@@ -176,9 +240,11 @@ TEST(InertialFilterConfig, AcceptsPositiveSemiDefiniteSingularMatrices) {
 }
 
 TEST(InertialFilterConfig, StaticValidatorsCheckBoundaries) {
-    EXPECT_TRUE(InertialFilterConfig::isValidStMeasurementNoiseStd(0.0));
+    EXPECT_TRUE(InertialFilterConfig::isValidStMeasurementNoiseStd(1E-9));
+    EXPECT_FALSE(InertialFilterConfig::isValidStMeasurementNoiseStd(0.0));
     EXPECT_FALSE(InertialFilterConfig::isValidStMeasurementNoiseStd(-1E-9));
-    EXPECT_TRUE(InertialFilterConfig::isValidRateMeasurementNoiseStd(0.0));
+    EXPECT_TRUE(InertialFilterConfig::isValidRateMeasurementNoiseStd(1E-9));
+    EXPECT_FALSE(InertialFilterConfig::isValidRateMeasurementNoiseStd(0.0));
     EXPECT_FALSE(InertialFilterConfig::isValidRateMeasurementNoiseStd(-1E-9));
     EXPECT_TRUE(InertialFilterConfig::isValidProcessNoise(Matrix6::Identity()));
     EXPECT_FALSE(InertialFilterConfig::isValidProcessNoise(-Matrix6::Identity()));
@@ -343,28 +409,6 @@ TEST(SrukfDetail, QrDecompositionJustRPreservesNormalEquations) {
     EXPECT_TRUE((R * R.transpose()).isApprox(A * A.transpose(), kRoundoffTol));
 }
 
-TEST(SrukfDetail, CholeskyUpDownDateMatchesExplicitUpdate) {
-    Eigen::Matrix3f P0;
-    P0 << 4.0, 1.0, 0.0, 1.0, 3.0, 0.5, 0.0, 0.5, 2.0;
-    Eigen::Matrix3f const S0 = SRuKF::choleskyDecomposition<3>(P0);
-
-    Eigen::Vector3f const v(0.1, -0.2, 0.3);
-
-    // Up-date with +coef and down-date with -coef must reconstruct P0 ± coef v vᵀ.
-    {
-        float const coef = 0.5;
-        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
-        Eigen::Matrix3f const P1 = P0 + coef * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
-    }
-    {
-        float const coef = -0.5;
-        Eigen::Matrix3f const S1 = SRuKF::choleskyUpDownDate<3>(S0, v, coef).value();
-        Eigen::Matrix3f const P1 = P0 - 0.5 * v * v.transpose();
-        EXPECT_TRUE((S1 * S1.transpose()).isApprox(P1, kRoundoffTol));
-    }
-}
-
 // ============================================================================
 // Dynamics: MRP kinematics sigma_dot = 1/4 B(sigma) omega; omega_dot = 0.
 // ============================================================================
@@ -441,6 +485,7 @@ TEST(InertialFilterAlgorithmTimeUpdate, GrowsCovarianceWithProcessNoise) {
     Matrix6 const P = algo.getCovariance();
     EXPECT_GT(P.trace(), P0.trace()) << "process noise should grow covariance";
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(P)) << "covariance not PSD";
 }
 
@@ -462,6 +507,35 @@ TEST(InertialFilterAlgorithmUpdate, WithoutMeasurementsGrowsCovarianceMonotonica
     EXPECT_GT(trace1, P0.trace());
     EXPECT_GT(trace4, trace1);
     EXPECT_GT(trace9, trace4);
+}
+
+// A rate reading delivered 2.5 s after its time tag, one call after the attitude reading of the same cycle. Without a
+// measurement delay the attitude reading has already moved the anchor past it, so it is dropped; with a 3 s delay it is
+// applied, in time order, once the call time reaches its time tag plus the delay.
+TEST(InertialFilterAlgorithmScheduler, MeasurementDelayAppliesALateRateReading) {
+    auto const lateRateIsApplied = [](float delay) {
+        ConfigInputs in;
+        in.measurementDelay = delay;
+        InertialFilterAlgorithm algo(buildConfig(in));
+        algo.update(0.0, StAttData{}, RateData{});  // synchronize the filter time at t = 0
+
+        StAttData st;
+        st.timeTag = 10.0;
+        st.sigma_BN = in.initialState.get<MrpAttitude<3>>();
+        algo.update(10.0, st, RateData{});
+
+        RateData lateRate;
+        lateRate.timeTag = 8.5;  // latency of 2.5 s at call 11
+        lateRate.rate = Eigen::Vector3f(0.01, 0.0, 0.0);
+        bool applied = algo.update(11.0, StAttData{}, lateRate).rateResiduals.valid;
+        for (double callTime = 12.0; callTime <= 15.0; callTime += 1.0) {
+            applied = applied || algo.update(callTime, StAttData{}, RateData{}).rateResiduals.valid;
+        }
+        return applied;
+    };
+
+    EXPECT_FALSE(lateRateIsApplied(0.0F)) << "without a delay the late rate reading is behind the anchor";
+    EXPECT_TRUE(lateRateIsApplied(3.0F)) << "a 3 s delay covers the 2.5 s latency";
 }
 
 // The first update() at a call time well ahead of 0 only synchronizes the filter time: the covariance does not grow
@@ -621,6 +695,7 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, StAttMeasurementShrinksAttitudeCo
         EXPECT_LT(covarN(i, i), covar0(i, i)) << "attitude cov diag index " << i;
     }
     EXPECT_TRUE(covarN.isApprox(covarN.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(covarN)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(covarN)) << "covariance not PSD";
     EXPECT_TRUE(algo.getLastStAttResiduals().valid);
 }
@@ -644,6 +719,7 @@ TEST(InertialFilterAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovaria
         EXPECT_LT(covarN(i, i), covar0(i, i)) << "rate cov diag index " << i;
     }
     EXPECT_TRUE(covarN.isApprox(covarN.transpose(), kRoundoffTol)) << "covariance not symmetric";
+    EXPECT_TRUE(isSymmetric<6>(covarN)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<6>(covarN)) << "covariance not PSD";
     EXPECT_TRUE(algo.getLastRateResiduals().valid);
 }

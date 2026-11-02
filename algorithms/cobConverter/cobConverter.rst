@@ -31,7 +31,8 @@ provides information on what this message is used for:
       - Input center of brightness message written out by the image processing module
     * - opnavFilterInMsg
       - :ref:`FilterMsgPayload`
-      - Input filter message (used for outlier detection and COM phase-angle uncertainty)
+      - Input flyby filter message, 8 states (position, velocity, two heading-bias angles); the position and its
+        covariance block are used for outlier detection and the COM phase-angle uncertainty
     * - navAttInMsg
       - :ref:`NavAttMsgPayload`
       - Input navigation message containing the spacecraft attitude in the inertial frame and the Sun direction in the body frame (e.g. the aggregated output of :ref:`navAggregate`)
@@ -183,6 +184,17 @@ The attitude error-MRP covariance :math:`P_{att}` (body frame) is added in the i
     P^N = [NC] P^C [NC]^T + 16 \, [NB] [\hat{\mathbf{r}}^B \times] P_{att} [\hat{\mathbf{r}}^B \times]^T [NB]^T
 
 where 16 converts MRP to small-angle variance (:math:`\delta\theta \approx 4\,\delta\sigma`).
+
+:math:`P^N` is singular along the line of sight: a unit vector has no first-order error along itself. The published
+covariance adds the mean cross-sight variance along it, so that a consumer that Cholesky-factors the measurement noise
+(the flyby filter) gets a positive definite matrix:
+
+.. math::
+
+    P^N_{pub} = P^N + \frac{\operatorname{tr}(P^N)}{2} \, \hat{\mathbf{r}}^N \hat{\mathbf{r}}^{N\,T}
+
+The residual along :math:`\hat{\mathbf{r}}^N` is second order, so the added term carries no weight. The outlier gate
+and the diagnostic covariances use :math:`P^N`.
 
 The heading and covariance are also rotated to the camera and body frames for the diagnostic message. If the incoming
 image is not valid, or ``vehSunPntBdy`` is zero or non-finite, the module writes empty messages.

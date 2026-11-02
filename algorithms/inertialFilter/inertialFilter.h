@@ -37,8 +37,9 @@ class InertialFilter : public SysModel {
     StateMatrix processNoise;              //!< [-] N x N process noise Q (defaults to zero)
     StateColumn initialState;              //!< [-] N-element initial state seed (defaults to zero)
     StateMatrix initialCovariance;         //!< [-] N x N initial covariance P0 (defaults to identity)
-    float stMeasurementNoiseStd = 0.0F;    //!< [-] star-tracker attitude measurement noise std (>= 0)
-    float rateMeasurementNoiseStd = 0.0F;  //!< [rad/s] rate measurement noise std (>= 0)
+    float stMeasurementNoiseStd = 0.0F;    //!< [-] star-tracker attitude measurement noise std (> 0, must be set)
+    float rateMeasurementNoiseStd = 0.0F;  //!< [rad/s] rate measurement noise std (> 0, must be set)
+    float measurementDelay = 0.0F;         //!< [s] processing delay for late measurements (>= 0, default 0)
 
     ReadFunctor<STAttMsgF32Payload> stAttInMsg;  //!< star-tracker attitude and rate input (required)
 

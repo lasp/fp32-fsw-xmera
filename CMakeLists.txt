@@ -121,7 +121,7 @@ set(algorithms
     "averageRwSpeedData"
     "bodyRateMiscompare"
     "celestialTwoBodyPoint"
-    "convertStPlatformToBody"
+    "stPlatformAttitude"
     "cssComm"
     "cssWeightedLeastSquares"
     "dvAccumulation"

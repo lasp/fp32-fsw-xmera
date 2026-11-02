@@ -5,6 +5,7 @@
 
 #include <architecture/utilities/eigenSupport.h>
 #include <utilities/fsw/freestandingIsFinite.hpp>
+#include <utilities/fsw/rigidBodyKinematics.hpp>
 #include <utilities/fsw/timeConversion.hpp>
 
 #include <Eigen/Core>
@@ -17,6 +18,8 @@ using filtering::flybyFilter::FlybyFilterOutput;
 using filtering::flybyFilter::FlybyState;
 using filtering::flybyFilter::HeadingData;
 using filtering::flybyFilter::StateMatrix;
+using Position = filtering::Position<3>;
+using Velocity = filtering::Velocity<3>;
 
 FlybyFilter::FlybyFilter()
     : processNoise(StateMatrix::Zero()),
@@ -27,9 +30,11 @@ FlybyFilter::~FlybyFilter() = default;
 
 /*! Validate message connections, convert the SI public properties into internal (km) units, build a
  *  validated config, and construct the algorithm (its constructor seeds the filter state/covariance).
+ *  The seeded estimate is published at once, so a consumer that runs before the first update() reads
+ *  the initial state instead of an unwritten (zero) message.
  *  @return void
  *  @param currentSimNanos [ns] sim time at which reset was called */
-void FlybyFilter::reset(uint64_t /*currentSimNanos*/) {
+void FlybyFilter::reset(uint64_t currentSimNanos) {
     if (!this->opNavHeadingMsg.isLinked()) {
         throw std::invalid_argument("flybyFilter.opNavHeadingMsg wasn't connected.");
     }
@@ -41,14 +46,20 @@ void FlybyFilter::reset(uint64_t /*currentSimNanos*/) {
     }
 
     float const uc = this->unitConversion;
-    float const uc2 = uc * uc;
-    float const uc3 = uc2 * uc;
+    float const uc3 = uc * uc * uc;
 
-    // SI -> internal: state x uc, covariance / process-noise x uc^2, mu x uc^3.
-    StateColumn const internalStateVec = this->initialState * uc;
+    // SI -> internal: the position and velocity x uc (their covariance and process noise rows and columns
+    // x uc), mu x uc^3. The heading-bias angles are not scaled.
+    StateColumn internalStateVec{this->initialState};
+    StateMatrix internalCovariance{this->initialCovariance};
+    StateMatrix internalProcessNoise{this->processNoise};
+    FlybyState::scaleComponent<Position>(internalStateVec, uc);
+    FlybyState::scaleComponent<Velocity>(internalStateVec, uc);
+    FlybyState::scaleCovarianceComponent<Position>(internalCovariance, uc);
+    FlybyState::scaleCovarianceComponent<Velocity>(internalCovariance, uc);
+    FlybyState::scaleCovarianceComponent<Position>(internalProcessNoise, uc);
+    FlybyState::scaleCovarianceComponent<Velocity>(internalProcessNoise, uc);
     FlybyState const internalState{internalStateVec};
-    StateMatrix const internalCovariance = this->initialCovariance * uc2;
-    StateMatrix const internalProcessNoise = this->processNoise * uc2;
 
     auto const config = FlybyFilterConfig::create(this->alpha,
                                                   this->beta,
@@ -56,9 +67,15 @@ void FlybyFilter::reset(uint64_t /*currentSimNanos*/) {
                                                   internalProcessNoise,
                                                   internalState,
                                                   internalCovariance,
-                                                  this->headingMeasurementNoiseStd);
+                                                  this->measurementNoiseScale,
+                                                  this->maxAcrossTerminatorBias,
+                                                  this->maxAlongTerminatorBias,
+                                                  this->measurementDelay);
     this->algorithm = std::make_unique<FlybyFilterAlgorithm>(config);
     this->lastHeadingTimeTag = 0;
+
+    this->writeOutputMessages(
+        currentSimNanos, FlybyFilterOutput{.filterState = this->algorithm->getFilterOutput(), .headingResiduals = {}});
 }
 
 /*! Clear the filter's internal runtime state; state and covariance are preserved.
@@ -80,7 +97,8 @@ void FlybyFilter::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! Read the heading message, call the algorithm update, and write the output state and residuals.
+/*! Read the heading message (with the sun direction from the attitude message, when it is connected and
+ *  written), call the algorithm update, and write the output state and residuals.
  *  @return void
  *  @param currentSimNanos [ns] sim time the filter is advancing to */
 void FlybyFilter::updateState(uint64_t currentSimNanos) {
@@ -94,6 +112,12 @@ void FlybyFilter::updateState(uint64_t currentSimNanos) {
     if (auto const payload = this->opNavHeadingMsg(); payload.valid && payload.timeTag > this->lastHeadingTimeTag) {
         headingData.timeTag = payload.timeTag;
         headingData.rhat_BN_N = cArrayToEigenVector(payload.rhat_BN_N).cast<float>();
+        headingData.covar_N = cArrayToEigenMatrix3(payload.covar_N);
+        if (this->navAttInMsg.isLinked() && this->navAttInMsg.isWritten()) {
+            NavAttMsgF32Payload const navAtt = this->navAttInMsg();
+            Eigen::Matrix3f const dcm_BN = mrpToDcm(cArrayToEigenVector(navAtt.sigma_BN).cast<float>().eval());
+            headingData.shat_N = dcm_BN.transpose() * cArrayToEigenVector(navAtt.vehSunPntBdy).cast<float>();
+        }
         this->lastHeadingTimeTag = payload.timeTag;
     }
 
@@ -113,13 +137,13 @@ void FlybyFilter::writeOutputMessages(uint64_t currentSimNanos, FlybyFilterOutpu
 
     double const timeTag = fsw::nanosToSeconds(currentSimNanos);
     double const invUc = 1.0 / static_cast<double>(this->unitConversion);
-    double const invUc2 = invUc * invUc;
-
-    // internal -> SI: state x (1/uc), covariance x (1/uc^2).
-    Eigen::Matrix<double, FlybyFilterAlgorithm::N, 1> const stateSI =
-        filterOutput.filterState.state.cast<double>() * invUc;
-    Eigen::Matrix<double, FlybyFilterAlgorithm::N, FlybyFilterAlgorithm::N> const covarSI =
-        filterOutput.filterState.covariance.cast<double>() * invUc2;
+    Eigen::Matrix<double, FlybyFilterAlgorithm::N, 1> stateSI = filterOutput.filterState.state.cast<double>();
+    Eigen::Matrix<double, FlybyFilterAlgorithm::N, FlybyFilterAlgorithm::N> covarSI =
+        filterOutput.filterState.covariance.cast<double>();
+    FlybyState::scaleComponent<Position>(stateSI, invUc);
+    FlybyState::scaleComponent<Velocity>(stateSI, invUc);
+    FlybyState::scaleCovarianceComponent<Position>(covarSI, invUc);
+    FlybyState::scaleCovarianceComponent<Velocity>(covarSI, invUc);
 
     navTransBuf.timeTag = timeTag;
     eigenMatrixXToCArray(stateSI.head<3>().eval(), navTransBuf.r_BN_N);

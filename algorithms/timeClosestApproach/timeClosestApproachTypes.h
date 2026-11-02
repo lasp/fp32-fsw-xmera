@@ -1,16 +1,11 @@
 #ifndef F32XMERA_TIME_CLOSEST_APPROACH_TYPES_H
 #define F32XMERA_TIME_CLOSEST_APPROACH_TYPES_H
 
+#include "utilities/fsw/plainCAlgorithmDataTypes.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief POD representation of a 3-vector of doubles (Eigen::Vector3d).
- */
-typedef struct {
-    double data[3];
-} Vector3d_c;
 
 /**
  * @brief POD output of the TCA algorithm.

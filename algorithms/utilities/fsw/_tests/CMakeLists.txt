@@ -98,6 +98,22 @@ target_link_libraries(test_orbitalMotion_degenerate PRIVATE
 
 gtest_discover_tests(test_orbitalMotion_degenerate)
 
+# The templated rigid body kinematics are checked against the xmera C library, which
+# ArchitectureUtilities provides with its float wrappers.
+add_executable(test_rigidBodyKinematicsF32
+  test_rigidBodyKinematicsF32.cpp
+)
+
+target_include_directories(test_rigidBodyKinematicsF32 PRIVATE "${CMAKE_SOURCE_DIR}")
+
+target_link_libraries(test_rigidBodyKinematicsF32 PRIVATE
+  ArchitectureUtilities
+  Eigen3::Eigen
+  GTest::gtest_main
+)
+
+gtest_discover_tests(test_rigidBodyKinematicsF32)
+
 add_executable(test_freestandingIsFinite
                test_freestandingIsFinite.cpp
   freestandingIsFinite_static_tests.hpp
@@ -202,6 +218,21 @@ if(XMERA_ENABLE_FUZZTESTS)
     Eigen3::Eigen
     fuzztest::fuzztest
     fuzztest::fuzztest_gtest_main
+  )
+
+  add_executable(test_rigidBodyKinematicsF32_fuzz
+    test_rigidBodyKinematicsF32_fuzz.cpp
+  )
+
+  target_link_libraries(test_rigidBodyKinematicsF32_fuzz PRIVATE
+    Eigen3::Eigen
+    fuzztest::fuzztest
+    fuzztest::fuzztest_gtest_main
+  )
+
+  gtest_discover_tests(test_rigidBodyKinematicsF32_fuzz
+    PROPERTIES
+      LABELS "fuzz\;fuzz-smoke"
   )
 
   gtest_discover_tests(test_safeMath_fuzz
