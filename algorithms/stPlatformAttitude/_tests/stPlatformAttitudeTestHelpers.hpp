@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <algorithm>
 #include <cmath>
 #include <numbers>
 
@@ -101,8 +102,12 @@ inline void testStPlatformAttitudeRegression(const Eigen::Vector4f& q_PN,
     }
 
     // Verify angular velocity
+    // float32 rounding in the decoded rate grows with ‖ω‖, so the tolerance scales with ‖ω‖ above 1 rad/s and
+    // keeps an absolute floor near zero.
+    const float omegaTolerance =
+        std::max(OMEGA_TOLERANCE, OMEGA_TOLERANCE * static_cast<float>(ref.omega_BN_B.stableNorm()));
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(result.omega_BN_B[i], static_cast<float>(ref.omega_BN_B(i)), OMEGA_TOLERANCE);
+        EXPECT_NEAR(result.omega_BN_B[i], static_cast<float>(ref.omega_BN_B(i)), omegaTolerance);
     }
 }
 
