@@ -73,6 +73,63 @@ struct MrpMeasurement {
 };
 static_assert(Measurement<MrpMeasurement, MrpState>);
 
+// Nonlinear dynamics and measurement model, so that the sigma points have a nonzero mean offset.
+struct QuadraticDynamics {
+    TestState operator()(float, TestState const& s) const {
+        Eigen::Vector3f const x = s.raw();
+        return TestState(Eigen::Vector3f(x(1) * x(2), -x(0) * x(2), 0.5F * x(0) * x(1)));
+    }
+};
+using QuadraticSRuKF = SRuKF<TestState, QuadraticDynamics>;
+struct QuadraticMeasurement {
+    static constexpr int size = 3;
+    Eigen::Vector3f observed = Eigen::Vector3f::Zero();
+    Eigen::Matrix3f noiseCov = Eigen::Matrix3f::Identity();
+    Eigen::Vector3f observation() const { return observed; }
+    Eigen::Vector3f model(TestState const& s) const {
+        Eigen::Vector3f const x = s.raw();
+        return {x(0) * x(0), x(0) * x(1), x(2) + x(1) * x(1)};
+    }
+    Eigen::Matrix3f noise() const { return noiseCov; }
+    Eigen::Vector3f subtract(Eigen::Vector3f const& a, Eigen::Vector3f const& b) const { return a - b; }
+};
+static_assert(Measurement<QuadraticMeasurement, TestState>);
+
+// The standard unscented transform in double, with the textbook weights (w^c_0 = w^m_0 + 1 - alpha^2 + beta).
+struct UnscentedReference {
+    double alpha;
+    double beta;
+    static constexpr int n = 3;
+    double lambda() const { return n * (alpha * alpha - 1.0); }
+    double wm(int i) const { return i == 0 ? lambda() / (n + lambda()) : 1.0 / (2.0 * (n + lambda())); }
+    double wc(int i) const { return i == 0 ? wm(0) + 1.0 - alpha * alpha + beta : wm(i); }
+    // Sigma points of (x, P), in float as the filter draws them.
+    std::array<Eigen::Vector3f, 2 * n + 1> sigmaPoints(Eigen::Vector3f const& x, Eigen::Matrix3f const& P) const {
+        Eigen::Matrix3f const S = Eigen::LLT<Eigen::Matrix3f>(P).matrixL();
+        auto const eta = static_cast<float>(std::sqrt(n + lambda()));
+        std::array<Eigen::Vector3f, 2 * n + 1> X;
+        X[0] = x;
+        for (int i = 0; i < n; ++i) {
+            X[1 + i] = x + eta * S.col(i);
+            X[1 + n + i] = x - eta * S.col(i);
+        }
+        return X;
+    }
+    Eigen::Vector3d mean(std::array<Eigen::Vector3f, 2 * n + 1> const& X) const {
+        Eigen::Vector3d m = Eigen::Vector3d::Zero();
+        for (int i = 0; i < 2 * n + 1; ++i) m += wm(i) * X[i].cast<double>();
+        return m;
+    }
+    Eigen::Matrix3d crossCovariance(std::array<Eigen::Vector3f, 2 * n + 1> const& X,
+                                    std::array<Eigen::Vector3f, 2 * n + 1> const& Y) const {
+        Eigen::Vector3d const xBar = mean(X);
+        Eigen::Vector3d const yBar = mean(Y);
+        Eigen::Matrix3d C = Eigen::Matrix3d::Zero();
+        for (int i = 0; i < 2 * n + 1; ++i)
+            C += wc(i) * (X[i].cast<double>() - xBar) * (Y[i].cast<double>() - yBar).transpose();
+        return C;
+    }
+};
 }  // namespace
 
 // Test all of the static functions
@@ -233,6 +290,24 @@ TEST(SrukfStatic, CholeskyUpDownDateFailsInsteadOfDividingByZero) {
     EXPECT_TRUE((*S1 * S1->transpose()).isApprox(v * v.transpose(), kRoundoffTol));
 }
 
+// A semidefinite factor has a zero diagonal for a state with zero variance (zero process noise and covariance on a
+// bias). There the downdate vector is zero in exact arithmetic; a rounding residue in that component is taken as zero,
+// so the downdate of the other states goes through and the zero-variance state keeps its zero diagonal.
+TEST(SrukfStatic, CholeskyUpDownDateKeepsAZeroDiagonal) {
+    Eigen::Matrix3f S;
+    S << 2.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.0F, 0.5F, 0.0F, 1.5F;
+    Eigen::Vector3f const exact(0.6F, 0.0F, 0.3F);
+    Eigen::Vector3f const withResidue(0.6F, 1e-8F, 0.3F);
+
+    for (Eigen::Vector3f const& v : {exact, withResidue}) {
+        std::optional<Eigen::Matrix3f> const L = SRuKFType::choleskyUpDownDate<3>(S, v, -1.0F);
+        ASSERT_TRUE(L.has_value()) << "v = " << v.transpose();
+        Eigen::Matrix3f const expected = S * S.transpose() - exact * exact.transpose();
+        EXPECT_LE((*L * L->transpose() - expected).norm(), kRoundoffTol * expected.norm()) << "v = " << v.transpose();
+        EXPECT_EQ((*L)(1, 1), 0.0F) << "the zero-variance state keeps its zero diagonal";
+    }
+}
+
 // Test setters/getters and reset
 
 // Setters/Getters
@@ -334,6 +409,125 @@ TEST(SrukfTimeUpdate, CovarianceUnderTimeUpdate) {
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
     EXPECT_TRUE(isSymmetric<3>(P)) << "covariance not symmetric";
     EXPECT_TRUE(isPositiveSemiDefinite<3>(P)) << "covariance not PSD";
+}
+
+// The covariance after a time update with nonlinear dynamics, so the propagated sigma points have a nonzero mean
+// offset: from the filter, from the standard unscented transform in double, and from that transform without the
+// mean-offset term (beta = alpha^2 in the reference).
+struct TimeUpdateComparison {
+    bool updated;
+    Eigen::Matrix3d actual;
+    Eigen::Matrix3d expected;
+    Eigen::Matrix3d withoutMeanOffsetTerm;
+};
+
+TimeUpdateComparison compareTimeUpdateWithTheStandardUnscentedTransform(float alpha, float beta) {
+    Eigen::Vector3f const x0(1.0F, 0.5F, -0.3F);
+    Eigen::Matrix3f P0;
+    P0 << 0.25F, 0.05F, 0.0F, 0.05F, 0.36F, -0.02F, 0.0F, -0.02F, 0.16F;
+    Eigen::Matrix3f const Q = 1e-3F * Eigen::Matrix3f::Identity();
+    float const dt = 1.0F;
+
+    QuadraticSRuKF filter;
+    filter.setAlpha(alpha);
+    filter.setBeta(beta);
+    filter.setInitialState(TestState(x0));
+    filter.setInitialCovariance(P0);
+    filter.setProcessNoise(Q);
+    filter.reInitialize();
+    filter.configure();
+    bool const updated = filter.timeUpdate(dt);
+
+    UnscentedReference const reference{alpha, beta};
+    auto X = reference.sigmaPoints(x0, P0);
+    for (auto& Xi : X) {
+        Xi = filtering::propagate(QuadraticDynamics{}, TestState(Xi), {0.0F, dt}).raw();
+    }
+    return {updated,
+            filter.getCovariance().cast<double>(),
+            reference.crossCovariance(X, X) + Q.cast<double>(),
+            UnscentedReference{alpha, alpha * alpha}.crossCovariance(X, X) + Q.cast<double>()};
+}
+
+// The covariance after the time update matches the standard unscented transform in double, mean-offset term included;
+// leaving that term out gives a covariance off by far more than the tolerance.
+TEST(SrukfTimeUpdate, MatchesTheStandardUnscentedTransform) {
+    TimeUpdateComparison const c = compareTimeUpdateWithTheStandardUnscentedTransform(0.5F, 2.0F);
+    ASSERT_TRUE(c.updated);
+    EXPECT_LE((c.actual - c.expected).norm(), 1e-5 * c.expected.norm()) << "actual\n"
+                                                                        << c.actual << "\nexpected\n"
+                                                                        << c.expected;
+    EXPECT_GT((c.withoutMeanOffsetTerm - c.expected).norm(), 100.0 * 1e-5 * c.expected.norm())
+        << "the mean-offset term is too small for this test to see it";
+}
+
+// For beta < alpha^2 the mean-offset weight is negative: the term is a downdate of the factor, and the covariance still
+// matches the standard unscented transform, down to beta = 0.
+TEST(SrukfTimeUpdate, MatchesTheStandardUnscentedTransformForBetaBelowAlphaSquared) {
+    for (float const beta : {0.1F, 0.0F}) {
+        TimeUpdateComparison const c = compareTimeUpdateWithTheStandardUnscentedTransform(0.5F, beta);
+        ASSERT_TRUE(c.updated) << "beta " << beta;
+        EXPECT_LE((c.actual - c.expected).norm(), 1e-5 * c.expected.norm()) << "beta " << beta << "\nactual\n"
+                                                                            << c.actual << "\nexpected\n"
+                                                                            << c.expected;
+        EXPECT_GT((c.withoutMeanOffsetTerm - c.expected).norm(), 10.0 * 1e-5 * c.expected.norm())
+            << "beta " << beta << ": the downdate is too small for this test to see it";
+    }
+}
+
+// A nonlinear measurement model gives a nonzero predicted-measurement offset, which enters S_y and the posterior. The
+// state and covariance after the update match the standard unscented update in double.
+void expectMeasurementUpdateMatchesTheStandardUnscentedUpdate(float alpha, float beta) {
+    SCOPED_TRACE(::testing::Message() << "beta " << beta);
+    Eigen::Vector3f const x0(1.0F, 0.5F, -0.3F);
+    Eigen::Matrix3f P0;
+    P0 << 0.04F, 0.01F, 0.0F, 0.01F, 0.09F, -0.005F, 0.0F, -0.005F, 0.01F;
+
+    QuadraticSRuKF filter;
+    filter.setAlpha(alpha);
+    filter.setBeta(beta);
+    filter.setInitialState(TestState(x0));
+    filter.setInitialCovariance(P0);
+    filter.setProcessNoise(Eigen::Matrix3f::Zero());
+    filter.reInitialize();
+    filter.configure();
+    ASSERT_TRUE(filter.timeUpdate(0.0F));
+
+    QuadraticMeasurement m;
+    m.observed = Eigen::Vector3f(1.1F, 0.6F, 0.0F);
+    m.noiseCov = Eigen::Vector3f(1e-2F, 2e-2F, 5e-3F).asDiagonal();
+    ASSERT_TRUE(filter.measurementUpdate(m).has_value());
+
+    UnscentedReference const reference{alpha, beta};
+    auto const X = reference.sigmaPoints(x0, P0);
+    std::array<Eigen::Vector3f, 7> Y;
+    for (int i = 0; i < 7; ++i) {
+        Y[i] = m.model(TestState(X[i]));
+    }
+    Eigen::Matrix3d const pYY = reference.crossCovariance(Y, Y) + m.noiseCov.cast<double>();
+    Eigen::Matrix3d const pXY = reference.crossCovariance(X, Y);
+    Eigen::Matrix3d const K = pXY * pYY.inverse();
+    Eigen::Vector3d const xExpected = reference.mean(X) + K * (m.observed.cast<double>() - reference.mean(Y));
+    Eigen::Matrix3d const pExpected = reference.crossCovariance(X, X) - K * pYY * K.transpose();
+
+    Eigen::Vector3d const xActual = filter.getState().raw().cast<double>();
+    Eigen::Matrix3d const pActual = filter.getCovariance().cast<double>();
+    EXPECT_LE((xActual - xExpected).norm(), 1e-5 * xExpected.norm())
+        << xActual.transpose() << " vs " << xExpected.transpose();
+    EXPECT_LE((pActual - pExpected).norm(), 1e-4 * pExpected.norm()) << "actual\n"
+                                                                     << pActual << "\nexpected\n"
+                                                                     << pExpected;
+}
+
+TEST(SrukfMeasurementUpdate, MatchesTheStandardUnscentedUpdate) {
+    expectMeasurementUpdateMatchesTheStandardUnscentedUpdate(0.5F, 2.0F);
+}
+
+// For beta < alpha^2, S_y and the Joseph form downdate the mean-offset term, and the update still matches.
+TEST(SrukfMeasurementUpdate, MatchesTheStandardUnscentedUpdateForBetaBelowAlphaSquared) {
+    for (float const beta : {0.1F, 0.0F}) {
+        expectMeasurementUpdateMatchesTheStandardUnscentedUpdate(0.5F, beta);
+    }
 }
 
 // Zero process noise on a state in the middle adds Q exactly: with zero dynamics the covariance after a time update

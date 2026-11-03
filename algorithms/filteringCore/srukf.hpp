@@ -89,7 +89,10 @@ class SRuKF {
      *  the result indefinite or singular, and so divide by zero, fails: the caller reports a bad
      *  update and the filter clears. No division by zero is ever evaluated: the Givens rotation
      *  divides by r = hypot(l, x) >= |x| > 0, and the hyperbolic rotation is taken only once
-     *  (l - x)(l + x) > 0, which gives |l| > |x| > 0 and a nonzero gamma = r / l.
+     *  (l - x)(l + x) > 0, which gives |l| > |x| > 0 and a nonzero gamma = r / l. A component of the vector at
+     *  its rounding level is taken as zero (an identity rotation). This guards the zero diagonal of a semidefinite
+     *  factor (a state with zero variance): there the component is zero in exact arithmetic, but a rounding residue
+     *  would fail the hyperbolic rotation, which needs |l| > |x|.
      *  @return updated Cholesky factor, or nullopt if the downdate fails
      *  @param sqrtP       [-] current lower-triangular Cholesky factor S
      *  @param v           [-] rank-1 update vector
@@ -102,10 +105,12 @@ class SRuKF {
         Eigen::Matrix<float, Size, Size> L = sqrtP;
         Eigen::Vector<float, Size> x = sqrtf(fabsf(coefficient)) * v;
         bool const isUpdate = coefficient > 0.0F;
+        //! > A component at the rounding level of the vector is a zero component (see the zero-diagonal guard above)
+        float const zeroLevel = static_cast<float>(Size) * std::numeric_limits<float>::epsilon() * x.stableNorm();
 
         for (int k = 0; k < Size; ++k) {
             float const xk = x(k);
-            if (xk == 0.0F) {
+            if (fabsf(xk) <= zeroLevel) {
                 continue;  // identity rotation
             }
             float const lkk = L(k, k);

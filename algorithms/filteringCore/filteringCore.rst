@@ -435,8 +435,12 @@ direction is rounded away when :math:`P` is formed, and the factor of :math:`P` 
 
 Each rotation works on entries of the size of the factor, not of the covariance, so the condition number is not
 squared. A downdate that would make the result indefinite or singular has :math:`(\ell - x_k)(\ell + x_k) \le 0`:
-this includes a zero :math:`\ell` (a state with zero variance) and :math:`|x_k| = |\ell|`. The downdate tests this
-before it divides and fails: ``choleskyUpDownDate()`` returns no factor, the time or measurement update reports a bad
+this includes a zero :math:`\ell` (a state with zero variance) and :math:`|x_k| = |\ell|`. A zero :math:`\ell` is
+not always a failure: the semidefinite Cholesky gives a zero diagonal for a state with zero variance, and there
+:math:`x_k` is zero in exact arithmetic. A rounding residue in :math:`x_k` would still fail the rotation, so a
+component at the rounding level of :math:`\boldsymbol{x}` (:math:`|x_k| \le N \epsilon \, \|\boldsymbol{x}\|`) is
+taken as zero, an identity rotation. Otherwise the downdate tests :math:`(\ell - x_k)(\ell + x_k)` before it divides
+and fails: ``choleskyUpDownDate()`` returns no factor, the time or measurement update reports a bad
 update, and ``applySequentialRobust`` clears the filter back to its last good state. So no division by zero is ever
 evaluated: the Givens rotation divides by :math:`r \ge |x_k| > 0`, and the hyperbolic
 rotation divides by :math:`\ell` and :math:`\gamma` only once :math:`|\ell| > |x_k| > 0`. Because :math:`S S^T` is never formed, these
