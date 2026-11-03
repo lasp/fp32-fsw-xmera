@@ -187,37 +187,13 @@ jobs:
       - name: Generate fuzz report summary
         if: ${{ always() }}
         run: |
+          status=0
           {
             echo "## Daily Fuzz Report — $(date -u +%Y-%m-%d)"
             echo ""
-            echo "| Binary | Fuzz Test | Corpus Files | Status |"
-            echo "|--------|-----------|--------------|--------|"
-
-            for log in fuzz-logs/*.log; do
-              [[ -f "$log" ]] || continue
-              name="$(basename "$log" .log)"
-
-              # Log names are "<binary>.<Suite.TestName>"; split on the first dot.
-              binary="${name%%.*}"
-              test_name="${name#*.}"
-
-              # Count corpus files for this specific test
-              corpus_count=0
-              corpus_path=".fuzztest_corpus/${binary}/${test_name}"
-              if [[ -d "$corpus_path" ]]; then
-                corpus_count=$(find "$corpus_path" -type f 2>/dev/null | wc -l || echo 0)
-              fi
-
-              # Check for crash indicators in log
-              if grep -qiE '(SUMMARY:.*Sanitizer|crash-|==ERROR)' "$log" 2>/dev/null; then
-                status="CRASH"
-              else
-                status="OK"
-              fi
-
-              echo "| ${binary} | ${test_name} | ${corpus_count} | ${status} |"
-            done
+            "${GITHUB_WORKSPACE}/.github/scripts/fuzz_report.sh" fuzz-logs .fuzztest_corpus || status=$?
           } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
       - name: Archive fuzz logs
         if: ${{ always() }}
