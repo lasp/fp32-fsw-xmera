@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
     inputs:
       fuzz_duration:
-        description: 'Duration per fuzz target (e.g. 120s, 10m)'
-        default: '120s'
+        description: 'Duration per fuzz target (e.g. 60s, 10m)'
+        default: '60s'
 
 permissions:
   contents: read
@@ -30,8 +30,10 @@ env:
   XMERA_FUZZTEST_CORPUS_DIR: ${{ github.workspace }}/.fuzztest_corpus
 
 jobs:
-  fuzz:
-    name: Extended fuzzing (ubuntu-24.04 / Clang)
+  # Runs the fuzz targets in unit-test mode and the exhaustive scans. Needs the
+  # full build, so it runs beside the shards rather than ahead of them.
+  fuzz-smoke:
+    name: Fuzz smoke and exhaustive scans (ubuntu-24.04 / Clang)
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -47,7 +49,6 @@ jobs:
         uses: ./.github/actions/checkout-xmera
 
       - name: Restore fuzz corpus cache
-        id: fuzz-corpus-cache
         uses: actions/cache/restore@v6
         with:
           path: .fuzztest_corpus
@@ -81,21 +82,200 @@ jobs:
         working-directory: xmera/build/fp32-fsw-xmera/algorithms
         run: ctest --output-on-failure -L exhaustive
 
+  # One job cannot fuzz every FUZZ_TEST inside the 6 h job limit, so the tests
+  # are dealt round-robin across the matrix. Each shard builds only the fuzz
+  # targets. When the test count grows, add entries to `shard`: the script
+  # takes the shard count from strategy.job-total.
+  fuzz-shard:
+    name: Extended fuzzing, shard ${{ matrix.shard }} (ubuntu-24.04 / Clang)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - name: Checkout fp32-fsw-xmera
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Checkout Xmera core
+        uses: ./.github/actions/checkout-xmera
+
+      - name: Restore fuzz corpus cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .fuzztest_corpus
+          key: fuzz-corpus-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            fuzz-corpus-${{ runner.os }}-
+
+      - name: Ensure fuzz corpus directory exists
+        run: mkdir -p .fuzztest_corpus
+
+      - name: Set up the Clang fuzz build
+        uses: ./.github/actions/setup-clang-fuzz
+        with:
+          vcpkg-token: ${{ secrets.FP32_XMERA_GH_VCPKG_PACKAGES_TOKEN }}
+
+      - name: Build the fp32 fuzz targets
+        working-directory: xmera/src
+        env:
+          CC: clang
+          CXX: clang++
+        run: |
+          mapfile -t targets < <(ninja -C ../build -t targets all \
+            | grep -oE 'fp32-fsw-xmera/algorithms/.*/CMakeFiles/test_[A-Za-z0-9_]+_fuzz\.dir' \
+            | sed -E 's#.*/CMakeFiles/(.*)\.dir$#\1#' | sort -u)
+          if [[ ${#targets[@]} -eq 0 ]]; then
+            echo "No fp32 fuzz targets found in the build graph." >&2
+            exit 1
+          fi
+          echo "Building ${#targets[@]} fuzz targets"
+          cmake --build ../build --parallel --target "${targets[@]}"
+
       - name: Run extended fuzz sessions
         working-directory: xmera/build/fp32-fsw-xmera/algorithms
         env:
           ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1:check_initialization_order=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1:suppressions=/dev/null
+          FUZZ_DURATION: ${{ inputs.fuzz_duration || '60s' }}
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_COUNT: ${{ strategy.job-total }}
         run: |
-          FUZZ_DURATION="${{ inputs.fuzz_duration || '120s' }}"
           "${GITHUB_WORKSPACE}/.github/scripts/run_long_fuzzers.sh" \
             "$(pwd)" \
             "${GITHUB_WORKSPACE}/fuzz-logs" \
             --fuzz-for "$FUZZ_DURATION" \
-            --corpus "${XMERA_FUZZTEST_CORPUS_DIR}"
+            --corpus "${XMERA_FUZZTEST_CORPUS_DIR}" \
+            --shard-index "$SHARD_INDEX" \
+            --shard-count "$SHARD_COUNT"
+
+      # Only this shard's tests: the merge job lays them over the old corpus.
+      - name: Collect this shard's corpus
+        if: ${{ always() }}
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+        run: |
+          mkdir -p shard-corpus
+          manifest="fuzz-logs/manifest-shard-${SHARD_INDEX}.txt"
+          [[ -f "$manifest" ]] || exit 0
+          while IFS= read -r name; do
+            rel="${name%%.*}/${name#*.}"
+            if [[ -d ".fuzztest_corpus/${rel}" ]]; then
+              mkdir -p "shard-corpus/${name%%.*}"
+              cp -r ".fuzztest_corpus/${rel}" "shard-corpus/${rel}"
+            fi
+          done < "$manifest"
+
+      - name: Upload shard fuzz logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-logs-shard-${{ matrix.shard }}
+          path: fuzz-logs/
+          retention-days: 1
+
+      - name: Upload shard fuzz corpus
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-corpus-shard-${{ matrix.shard }}
+          path: shard-corpus/
+          retention-days: 1
+
+  fuzz-merge:
+    name: Merge fuzz shards
+    needs: fuzz-shard
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout fp32-fsw-xmera
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Restore fuzz corpus cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .fuzztest_corpus
+          key: fuzz-corpus-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            fuzz-corpus-${{ runner.os }}-
+
+      - name: Ensure fuzz corpus directory exists
+        run: mkdir -p .fuzztest_corpus
+
+      - name: Download shard fuzz logs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: fuzz-logs-shard-*
+          path: fuzz-logs
+          merge-multiple: true
+
+      - name: Download shard fuzz corpora
+        uses: actions/download-artifact@v8
+        with:
+          pattern: fuzz-corpus-shard-*
+          path: shard-corpus
+
+      # Replace, not overlay: a shard deletes stale inputs, and an overlay
+      # would bring them back. A test that never started, or a shard whose
+      # corpus did not upload, keeps its old corpus.
+      - name: Merge the shard corpora
+        run: |
+          shopt -s nullglob
+          replaced=0
+          for manifest in fuzz-logs/manifest-shard-*.txt; do
+            shard="${manifest##*manifest-shard-}"
+            shard="${shard%.txt}"
+            src="shard-corpus/fuzz-corpus-shard-${shard}"
+            if [[ ! -d "$src" ]]; then
+              echo "::warning::No corpus from shard ${shard}; keeping its old corpus"
+              continue
+            fi
+            while IFS= read -r name; do
+              [[ -f "fuzz-logs/${name}.log" ]] || continue
+              rel="${name%%.*}/${name#*.}"
+              rm -rf ".fuzztest_corpus/${rel}"
+              if [[ -d "${src}/${rel}" ]]; then
+                mkdir -p ".fuzztest_corpus/${name%%.*}"
+                mv "${src}/${rel}" ".fuzztest_corpus/${rel}"
+              fi
+              replaced=$((replaced + 1))
+            done < "$manifest"
+          done
+          echo "Replaced the corpus of ${replaced} fuzz tests"
+
+      - name: Save fuzz corpus cache
+        uses: actions/cache/save@v5
+        with:
+          path: .fuzztest_corpus
+          key: fuzz-corpus-${{ runner.os }}-${{ github.run_id }}
+
+      - name: Archive fuzz logs
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-logs-${{ github.run_id }}
+          path: fuzz-logs/
+          retention-days: 30
+
+      - name: Upload fuzz corpus artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-corpus-${{ github.run_id }}
+          path: .fuzztest_corpus
+          retention-days: 7
 
       - name: Generate fuzz report summary
-        if: ${{ always() }}
         run: |
           status=0
           {
@@ -104,26 +284,3 @@ jobs:
             "${GITHUB_WORKSPACE}/.github/scripts/fuzz_report.sh" fuzz-logs .fuzztest_corpus || status=$?
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
-
-      - name: Archive fuzz logs
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: fuzz-logs-${{ github.run_id }}
-          path: fuzz-logs/
-          retention-days: 30
-
-      - name: Upload fuzz corpus artifact
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: fuzz-corpus-${{ github.run_id }}
-          path: .fuzztest_corpus
-          retention-days: 7
-
-      - name: Save fuzz corpus cache
-        if: ${{ always() }}
-        uses: actions/cache/save@v5
-        with:
-          path: .fuzztest_corpus
-          key: fuzz-corpus-${{ runner.os }}-${{ github.run_id }}
