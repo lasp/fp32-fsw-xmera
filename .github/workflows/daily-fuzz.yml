@@ -2,7 +2,7 @@ name: Daily Fuzz Testing
 
 on:
   schedule:
-    - cron: '0 7 * * *'   # midnight MDT (07:00 UTC)
+    - cron: '37 2 * * *'   # 20:37 MDT / 19:37 MST; GitHub often starts it hours late
   workflow_dispatch:
     inputs:
       fuzz_duration:
