@@ -274,6 +274,8 @@ jobs:
           name: fuzz-corpus-${{ github.run_id }}
           path: .fuzztest_corpus
           retention-days: 7
+          # The leading dot makes the whole corpus a hidden path.
+          include-hidden-files: true
 
       - name: Generate fuzz report summary
         run: |
