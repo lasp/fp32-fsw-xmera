@@ -77,9 +77,17 @@ ctest --output-on-failure -L fuzz          # all fuzz targets
   `ctest --output-on-failure -LE exhaustive`. The fuzz targets therefore *do* run on every PR,
   in unit-test mode; the brute-force scans do not, because under `--coverage` their hit counts
   overflow gcov. The Linux leg builds instrumented and reports coverage.
-- **Daily fuzzing** (`.github/workflows/daily-fuzz.yml`): the `fuzz` job configures `fuzz-test`
-  with Clang, runs the fuzz targets in unit-test mode and the `exhaustive` scans, and then fuzzes
-  each target for a fixed duration.
+- **Daily fuzzing** (`.github/workflows/daily-fuzz.yml`): every job configures `fuzz-test` with
+  Clang.
+  - `fuzz-smoke` runs the fuzz targets in unit-test mode and the `exhaustive` scans.
+  - The `fuzz-shard` matrix fuzzes each `FUZZ_TEST` for `fuzz_duration` (default 60 s). The
+    tests are dealt round-robin across the shards, because one job cannot fuzz all of them
+    inside the 6 h job limit. When the test count grows, add shards to the matrix.
+  - After each session, the shard deletes the corpus inputs that FuzzTest rejected as invalid.
+    These are inputs from a domain that has since changed.
+  - `fuzz-merge` replaces each fuzzed test's corpus in the cache and writes the report. A test
+    is `CRASH`, `INCOMPLETE` (no gtest PASSED line, for example because the job was killed),
+    `NOT RUN`, or `OK`. Any status other than `OK` fails the job.
 
 The pull request workflow publishes coverage artifacts. See [`COVERAGE.md`](COVERAGE.md) for what
 the reports contain and how to read the line and branch numbers.
