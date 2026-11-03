@@ -185,7 +185,7 @@ TEST(SunlineFilterAlgorithmTimeUpdate, GrowsCovarianceWithProcessNoise) {
     Matrix7 const P = algo.getCovariance();
     EXPECT_GT(P.trace(), P0.trace()) << "process noise should grow covariance";
     EXPECT_TRUE(P.isApprox(P.transpose(), kRoundoffTol)) << "covariance not symmetric";
-    EXPECT_TRUE(SunlineFilterConfig::isValidInitialCovariance(P)) << "covariance not PSD";
+    EXPECT_TRUE(isValidCovariance<7>(P)) << "covariance not a valid covariance";
 }
 
 // A single rate measurement shrinks the rate-block of P. Drives the
@@ -913,10 +913,6 @@ TEST(SunlineFilterConfig, StaticValidatorsCheckBoundaries) {
     EXPECT_FALSE(SunlineFilterConfig::isValidCssMeasurementNoiseStd(0.0));
     EXPECT_TRUE(SunlineFilterConfig::isValidGyroMeasurementNoiseStd(1E-9));
     EXPECT_FALSE(SunlineFilterConfig::isValidGyroMeasurementNoiseStd(-1E-9));
-    EXPECT_TRUE(SunlineFilterConfig::isValidProcessNoise(Matrix7::Identity()));
-    EXPECT_FALSE(SunlineFilterConfig::isValidProcessNoise(-Matrix7::Identity()));
-    EXPECT_TRUE(SunlineFilterConfig::isValidInitialCovariance(Matrix7::Identity()));
-    EXPECT_FALSE(SunlineFilterConfig::isValidInitialCovariance(-Matrix7::Identity()));
 }
 
 TEST(SunlineFilterConfig, GettersRoundTripAndNormalizeNHat) {

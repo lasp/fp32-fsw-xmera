@@ -235,10 +235,6 @@ TEST(InertialFilterConfig, StaticValidatorsCheckBoundaries) {
     EXPECT_TRUE(InertialFilterConfig::isValidRateMeasurementNoiseStd(1E-9));
     EXPECT_FALSE(InertialFilterConfig::isValidRateMeasurementNoiseStd(0.0));
     EXPECT_FALSE(InertialFilterConfig::isValidRateMeasurementNoiseStd(-1E-9));
-    EXPECT_TRUE(InertialFilterConfig::isValidProcessNoise(Matrix6::Identity()));
-    EXPECT_FALSE(InertialFilterConfig::isValidProcessNoise(-Matrix6::Identity()));
-    EXPECT_TRUE(InertialFilterConfig::isValidInitialCovariance(Matrix6::Identity()));
-    EXPECT_FALSE(InertialFilterConfig::isValidInitialCovariance(-Matrix6::Identity()));
 }
 
 TEST(InertialFilterConfig, GettersRoundTrip) {

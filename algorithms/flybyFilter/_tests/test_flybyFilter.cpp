@@ -155,10 +155,6 @@ TEST(FlybyFilterConfig, StaticValidatorsCheckBoundaries) {
     EXPECT_TRUE(FlybyFilterConfig::isValidMeasurementNoiseScale(1E-6));
     EXPECT_FALSE(FlybyFilterConfig::isValidMeasurementNoiseScale(0.0));
     EXPECT_FALSE(FlybyFilterConfig::isValidMeasurementNoiseScale(-1E-5));
-    EXPECT_TRUE(FlybyFilterConfig::isValidProcessNoise(Matrix6::Identity()));
-    EXPECT_FALSE(FlybyFilterConfig::isValidProcessNoise(-Matrix6::Identity()));
-    EXPECT_TRUE(FlybyFilterConfig::isValidInitialCovariance(Matrix6::Identity()));
-    EXPECT_FALSE(FlybyFilterConfig::isValidInitialCovariance(-Matrix6::Identity()));
 }
 
 TEST(FlybyFilterConfig, GettersRoundTrip) {

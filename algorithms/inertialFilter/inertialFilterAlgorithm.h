@@ -60,11 +60,11 @@ class InertialFilterConfig final {
         if (!Srukf::betaIsValid(beta)) {
             FSW_THROW_INVALID_ARGUMENT("inertialFilter: beta must be in [0, 2]");
         }
-        if (!isValidProcessNoise(processNoise)) {
+        if (!isValidCovariance<InertialState::size>(processNoise)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "inertialFilter: process noise must be finite, symmetric and positive semi-definite");
         }
-        if (!isValidInitialCovariance(initialCovariance)) {
+        if (!isValidCovariance<InertialState::size>(initialCovariance)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "inertialFilter: initial covariance must be finite, symmetric and positive semi-definite");
         }
@@ -92,13 +92,7 @@ class InertialFilterConfig final {
                 measurementDelay};
     }
 
-    static bool isValidProcessNoise(StateMatrix const& processNoise) {
-        return isValidCovariance<InertialState::size>(processNoise);
-    }
     static bool isValidInitialState(InertialState const& initialState) { return initialState.allFinite(); }
-    static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return isValidCovariance<InertialState::size>(covariance);
-    }
     static bool isValidStMeasurementNoiseStd(float noiseStd) { return Srukf::measurementNoiseStdIsValid(noiseStd); }
     static bool isValidRateMeasurementNoiseStd(float noiseStd) { return Srukf::measurementNoiseStdIsValid(noiseStd); }
 

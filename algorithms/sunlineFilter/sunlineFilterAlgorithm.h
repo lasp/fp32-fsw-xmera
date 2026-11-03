@@ -67,11 +67,11 @@ class SunlineFilterConfig final {
         if (!Srukf::betaIsValid(beta)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: beta must be in [0, 2]");
         }
-        if (!isValidProcessNoise(processNoise)) {
+        if (!isValidCovariance<SunlineState::size>(processNoise)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "sunlineFilter: process noise must be finite, symmetric and positive semi-definite");
         }
-        if (!isValidInitialCovariance(initialCovariance)) {
+        if (!isValidCovariance<SunlineState::size>(initialCovariance)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "sunlineFilter: initial covariance must be finite, symmetric and positive semi-definite");
         }
@@ -125,13 +125,7 @@ class SunlineFilterConfig final {
                 measurementDelay};
     }
 
-    static bool isValidProcessNoise(StateMatrix const& processNoise) {
-        return isValidCovariance<SunlineState::size>(processNoise);
-    }
     static bool isValidInitialState(SunlineState const& initialState) { return initialState.allFinite(); }
-    static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return isValidCovariance<SunlineState::size>(covariance);
-    }
     static bool isValidBiasLowerBound(float bound) { return bound > 0.0F; }
     static bool isValidBiasUpperBound(float bound) { return bound > 0.0F; }
     static bool isValidBiasBounds(float lowerBound, float upperBound) { return lowerBound < upperBound; }
