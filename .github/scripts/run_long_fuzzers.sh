@@ -152,6 +152,22 @@ for i in "${!shard_tests[@]}"; do
     echo ">>> ${fuzz_name} :: ${test_name}: FAILED (exit $?)"
     CRASH_COUNT=$((CRASH_COUNT + 1))
   fi
+
+  # FuzzTest skips corpus files it cannot parse, which happens once a test's
+  # input domain changes. Nothing else removes them, so they pile up in the
+  # cache. Delete the ones it reported, but only inside this test's corpus.
+  if [[ -n "$CORPUS_DIR" ]]; then
+    pruned=0
+    while IFS= read -r stale; do
+      if [[ "$stale" == "${fuzz_corpus_dir}/"* && -f "$stale" ]]; then
+        rm -f -- "$stale"
+        pruned=$((pruned + 1))
+      fi
+    done < <(sed -n 's/^\[!\] Invalid input file \([^:]*\): .*$/\1/p' "$log_file")
+    if (( pruned > 0 )); then
+      echo ">>> ${fuzz_name} :: ${test_name}: pruned ${pruned} stale corpus file(s)"
+    fi
+  fi
 done
 
 if [[ $CRASH_COUNT -gt 0 ]]; then
