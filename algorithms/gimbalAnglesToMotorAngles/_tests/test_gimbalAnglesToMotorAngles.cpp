@@ -326,6 +326,25 @@ TEST(GimbalAnglesToMotorAnglesTest, InvalidReturnsPreviousAngles) {
     EXPECT_NEAR(secondResult.motorAngle2, validResult.motorAngle2, 1e-6F);
 }
 
+// A cell on the table edge, where the lower-left corner is in the table but the lower-upper corner
+// is not, cannot be interpolated and returns the motor angles of the previous update call
+TEST(GimbalAnglesToMotorAnglesTest, TableEdgeCellReturnsPreviousAngles) {
+    const float validGimbalAngle1 = 1.7F * degToRad;
+    const float validGimbalAngle2 = -2.1F * degToRad;
+
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
+    const GimbalAnglesToMotorAnglesOutput validResult = alg.update(validGimbalAngle1, validGimbalAngle2);
+    ASSERT_GT(std::abs(validResult.motorAngle1 - kReferenceDefaultMotorAngle), 1e-6F);
+
+    const float edgeGimbalAngle1 = -17.75F * degToRad;
+    const float edgeGimbalAngle2 = 1.25F * degToRad;
+
+    const GimbalAnglesToMotorAnglesOutput result = alg.update(edgeGimbalAngle1, edgeGimbalAngle2);
+
+    EXPECT_NEAR(result.motorAngle1, validResult.motorAngle1, 1e-6F);
+    EXPECT_NEAR(result.motorAngle2, validResult.motorAngle2, 1e-6F);
+}
+
 // Calling reInitialize() sets the motor angles in previousValidOutput back to the default motor angles
 TEST(GimbalAnglesToMotorAnglesTest, ReInitializeReturnsDefaultAngles) {
     const float validGimbalAngle1 = 1.7F * degToRad;
