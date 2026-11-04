@@ -344,7 +344,7 @@ inline void propertyMinimumIsZeroForBalancedLayout(const Eigen::Vector3f& CoM,
     for (std::uint32_t i = 1; i < numThrusters; ++i) {
         minVal = std::min(minVal, out[static_cast<int>(i)]);
     }
-    EXPECT_NEAR(minVal, 0.0F, 1e-5F);
+    EXPECT_EQ(minVal, 0.0F);
 }
 
 // Output entries beyond numThrusters are exactly zero — the algorithm must not touch unused slots.
