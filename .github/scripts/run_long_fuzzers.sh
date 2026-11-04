@@ -112,6 +112,9 @@ done <<< "$FUZZ_BINS"
 # test that never started from one that finished.
 manifest="${LOG_DIR}/manifest-shard-${SHARD_INDEX}.txt"
 : > "$manifest"
+# Every shard writes the same count. The merge uses it to tell whether it has
+# every manifest, and so whether a corpus missing from all of them is orphaned.
+echo "$SHARD_COUNT" > "${LOG_DIR}/shard-count.txt"
 shard_bins=()
 shard_tests=()
 for i in "${!all_tests[@]}"; do

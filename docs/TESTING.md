@@ -88,7 +88,8 @@ ctest --output-on-failure -L fuzz          # all fuzz targets
     These are inputs from a domain that has since changed.
   - `fuzz-merge` replaces each fuzzed test's corpus in the cache and writes the report. A test
     is `CRASH`, `INCOMPLETE` (no gtest PASSED line, for example because the job was killed),
-    `NOT RUN`, or `OK`. Any status other than `OK` fails the job.
+    `NOT RUN`, or `OK`. Any status other than `OK` fails the job. It also deletes the corpus of
+    any test that no shard lists, which is what a renamed or deleted `FUZZ_TEST` leaves behind.
 
 The pull request workflow publishes coverage artifacts. See [`COVERAGE.md`](COVERAGE.md) for what
 the reports contain and how to read the line and branch numbers.

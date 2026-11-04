@@ -258,6 +258,35 @@ jobs:
           done
           echo "Replaced the corpus of ${replaced} fuzz tests"
 
+      # A renamed or deleted FUZZ_TEST leaves its corpus in the cache, and no
+      # shard touches it again. With every shard's manifest present, a test
+      # directory that no manifest lists belongs to no current test.
+      - name: Delete the corpora of fuzz tests that no longer exist
+        run: |
+          count="$(cat fuzz-logs/shard-count.txt 2>/dev/null || true)"
+          for ((i = 0; i < ${count:-0}; i++)); do
+            if [[ ! -f "fuzz-logs/manifest-shard-${i}.txt" ]]; then
+              echo "::warning::No manifest from shard ${i}; not deleting orphaned corpora"
+              exit 0
+            fi
+          done
+          if [[ -z "$count" ]]; then
+            echo "::warning::No shard count; not deleting orphaned corpora"
+            exit 0
+          fi
+          deleted=0
+          while IFS= read -r dir; do
+            rel="${dir#.fuzztest_corpus/}"
+            name="${rel%%/*}.${rel#*/}"
+            if ! grep -qxF -- "$name" fuzz-logs/manifest-shard-*.txt; then
+              echo "Deleting orphaned corpus ${rel}"
+              rm -rf -- "$dir"
+              deleted=$((deleted + 1))
+            fi
+          done < <(find .fuzztest_corpus -mindepth 2 -maxdepth 2 -type d)
+          find .fuzztest_corpus -mindepth 1 -maxdepth 1 -type d -empty -delete
+          echo "Deleted ${deleted} orphaned corpus directories"
+
       - name: Save fuzz corpus cache
         uses: actions/cache/save@v5
         with:
