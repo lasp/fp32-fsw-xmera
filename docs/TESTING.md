@@ -79,7 +79,8 @@ ctest --output-on-failure -L fuzz          # all fuzz targets
   overflow gcov. The Linux leg builds instrumented and reports coverage.
 - **Daily fuzzing** (`.github/workflows/daily-fuzz.yml`): every job configures `fuzz-test` with
   Clang.
-  - `fuzz-smoke` runs the fuzz targets in unit-test mode and the `exhaustive` scans.
+  - `fuzz-smoke` runs the fuzz targets in unit-test mode, replays every input in the cached
+    corpus with `FUZZTEST_REPLAY`, and runs the `exhaustive` scans.
   - The `fuzz-shard` matrix fuzzes each `FUZZ_TEST` for `fuzz_duration` (default 60 s). The
     tests are dealt round-robin across the shards, because one job cannot fuzz all of them
     inside the 6 h job limit. When the test count grows, add shards to the matrix.
