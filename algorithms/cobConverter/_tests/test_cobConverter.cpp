@@ -298,6 +298,48 @@ TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
     EXPECT_TRUE(pinhole.output.unitVecValid);
 }
 
+// The phase-angle correction needs a range above the body radius. At or inside the radius the
+// update is skipped and the output stays zeroed and invalid.
+TEST(CobConverterTest, VehicleAtOrInsideBodyRadiusInvalidatesOutputTest) {
+    constexpr float radius = 25.0e3F;  // [m]
+    const CobConverterAlgorithm algorithm(CobConverterConfig::create(radius,
+                                                                     /*radiusUncertainty=*/0.0F,
+                                                                     Eigen::Matrix3f::Zero(),
+                                                                     /*numStandardDeviations=*/3.0F,
+                                                                     /*standardDeviation=*/100.0F,
+                                                                     /*specifiedStandardDeviation=*/true,
+                                                                     /*outlierDetectionEnabled=*/false,
+                                                                     CalibrationCoefficients{},
+                                                                     /*cameraId=*/0,
+                                                                     /*fieldOfViewX=*/0.35F,
+                                                                     /*fieldOfViewY=*/0.30F,
+                                                                     /*resolutionX=*/512.0F,
+                                                                     /*resolutionY=*/512.0F,
+                                                                     Eigen::Vector3f::Zero()));
+    const CobMeasurement cob{.cobValid = true,
+                             .cobPixelsFound = 75,
+                             .cobCenterOfBrightness = Eigen::Vector2f{256.0F, 256.0F},
+                             .cobTimeTag = 12345U};
+    const auto updateAt = [&](const Eigen::Vector3d& position) {
+        const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(),
+                                       .vehSunPntBdy = position.normalized().cast<float>()};
+        const FilterState filter{.filterVehPosition = position,
+                                 .filterVehPositionCovariance = Eigen::Matrix3d::Identity() * 50.0e3};
+        return algorithm.updateState(cob, attitude, filter);
+    };
+
+    const Eigen::Vector3d direction = Eigen::Vector3d{-5.0, -3.0, 0.0}.normalized();
+    for (const double range : {0.5 * radius, static_cast<double>(radius)}) {
+        const CobConverterUpdateResult result = updateAt(range * direction);
+        EXPECT_FALSE(result.output.unitVecValid) << "range " << range;
+        EXPECT_FALSE(result.diagnostic.comValid) << "range " << range;
+        EXPECT_EQ(result.output.rhat_BN_N, Eigen::Vector3f::Zero()) << "range " << range;
+    }
+
+    // Control: the same geometry far outside the body is published as valid.
+    EXPECT_TRUE(updateAt(500.0e3 * direction).output.unitVecValid);
+}
+
 TEST(CobConverterTest, SetupTest) {
     const Eigen::Matrix3f zeroCovariance = Eigen::Matrix3f::Zero();
     const CalibrationCoefficients coefficients{};
