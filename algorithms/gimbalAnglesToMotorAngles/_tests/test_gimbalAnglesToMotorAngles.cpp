@@ -326,6 +326,30 @@ TEST(GimbalAnglesToMotorAnglesTest, InvalidReturnsPreviousAngles) {
     EXPECT_NEAR(secondResult.motorAngle2, validResult.motorAngle2, 1e-6F);
 }
 
+// A gimbal angle on a table grid line is interpolated like its neighbours. The bounds come from
+// floorf/ceilf of angle / step, and for some grid angles that quotient rounds below the integer,
+// so the upper bound equals the angle. The point must still count as inside the cell.
+TEST(GimbalAnglesToMotorAnglesTest, GridLineAngleMatchesNeighbouringAngles) {
+    const float tableStepAngle = 0.5F * degToRad;
+    const float gimbalAngle2 = 0.25F * degToRad;
+
+    for (int k = -30; k <= 30; ++k) {
+        const float gimbalAngle1 = tableStepAngle * static_cast<float>(k);
+        const auto updateFresh = [&](float angle1) {
+            GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
+            return alg.update(angle1, gimbalAngle2);
+        };
+        const GimbalAnglesToMotorAnglesOutput below = updateFresh(std::nextafter(gimbalAngle1, -1.0F));
+        const GimbalAnglesToMotorAnglesOutput onLine = updateFresh(gimbalAngle1);
+        const GimbalAnglesToMotorAnglesOutput above = updateFresh(std::nextafter(gimbalAngle1, 1.0F));
+
+        EXPECT_NEAR(onLine.motorAngle1, below.motorAngle1, 1e-5F) << "k = " << k;
+        EXPECT_NEAR(onLine.motorAngle2, below.motorAngle2, 1e-5F) << "k = " << k;
+        EXPECT_NEAR(onLine.motorAngle1, above.motorAngle1, 1e-5F) << "k = " << k;
+        EXPECT_NEAR(onLine.motorAngle2, above.motorAngle2, 1e-5F) << "k = " << k;
+    }
+}
+
 // A cell on the table edge, where the lower-left corner is in the table but the lower-upper corner
 // is not, cannot be interpolated and returns the motor angles of the previous update call
 TEST(GimbalAnglesToMotorAnglesTest, TableEdgeCellReturnsPreviousAngles) {

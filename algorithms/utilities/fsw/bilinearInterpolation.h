@@ -52,8 +52,9 @@ inline std::optional<float> bilinearInterpolation(float x1,
         return z11 * (y2 - y) / (y2 - y1) + z22 * (y - y1) / (y2 - y1);
     }
 
-    // Bilinear interpolation otherwise
-    if (x1 < x && x < x2 && y1 < y && y < y2 && x1 != x2 && y1 != y2) {
+    // Bilinear interpolation otherwise. The cell is closed: a caller that derives the bounds from
+    // floor and ceil can get a bound equal to (x, y) itself through rounding.
+    if (x1 <= x && x <= x2 && y1 <= y && y <= y2 && x1 != x2 && y1 != y2) {
         return 1.0F / ((x2 - x1) * (y2 - y1)) *
                (z11 * (x2 - x) * (y2 - y) + z21 * (x - x1) * (y2 - y) + z12 * (x2 - x) * (y - y1) +
                 z22 * (x - x1) * (y - y1));
