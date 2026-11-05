@@ -110,7 +110,7 @@ void fuzzTimeUpdatePropagatesStateAndGrowsCovariance(Eigen::Vector3f rOffset,
                                                      Vector6 covDiag,
                                                      float q,
                                                      float dt) {
-    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiag, q, kHeadingStd);
+    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiag, q, kNoiseScale);
     if (!cfg) {
         return;
     }
@@ -126,7 +126,7 @@ void fuzzTimeUpdatePropagatesStateAndGrowsCovariance(Eigen::Vector3f rOffset,
 
     // Compare against the same propagation with no process noise: P(withQ) >= P(noQ).
     std::optional<FlybyFilterConfig> const noiseFreeCfg =
-        tryFuzzConfig(rOffset, vOffset, mu, covDiag, 0.0, kHeadingStd);
+        tryFuzzConfig(rOffset, vOffset, mu, covDiag, 0.0, kNoiseScale);
     ASSERT_TRUE(noiseFreeCfg.has_value());
     FlybyFilterAlgorithm noiseFree(*noiseFreeCfg);
     ASSERT_TRUE(noiseFree.timeUpdate(dt)) << "noise-free timeUpdate should be valid";
@@ -159,7 +159,7 @@ void fuzzReInitializeRestoresTheConfiguredSeed(Eigen::Vector3f rOffset,
                                                float q,
                                                Eigen::Vector3f rhatRaw,
                                                float dt) {
-    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiag, q, kHeadingStd);
+    std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiag, q, kNoiseScale);
     if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3 || !std::isfinite(dt) || dt < 0.0) {
         return;
     }
@@ -171,6 +171,7 @@ void fuzzReInitializeRestoresTheConfiguredSeed(Eigen::Vector3f rOffset,
     HeadingData heading;
     heading.timeTag = dt;
     heading.rhat_BN_N = rhatRaw.stableNormalized();
+    heading.covar_N = headingCovariance();
     algo.update(dt, heading);
 
     algo.reInitialize();

@@ -67,11 +67,13 @@ class SunlineFilterConfig final {
         if (!Srukf::betaIsValid(beta)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: beta must be in [0, 2]");
         }
-        if (!isValidProcessNoise(processNoise)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: process noise must be positive semi-definite");
+        if (!isValidCovariance<SunlineState::size>(processNoise)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "sunlineFilter: process noise must be finite, symmetric and positive semi-definite");
         }
-        if (!isValidInitialCovariance(initialCovariance)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial covariance must be positive semi-definite");
+        if (!isValidCovariance<SunlineState::size>(initialCovariance)) {
+            FSW_THROW_INVALID_ARGUMENT(
+                "sunlineFilter: initial covariance must be finite, symmetric and positive semi-definite");
         }
         if (!isValidInitialState(initialState)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial state must be finite");
@@ -85,6 +87,9 @@ class SunlineFilterConfig final {
         if (!isValidBiasBounds(biasLowerBound, biasUpperBound)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: bias lower bound must be less than bias upper bound");
         }
+        if (!isValidInitialBias(initialState, biasLowerBound, biasUpperBound)) {
+            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: initial bias must be within the bias bounds");
+        }
         if (!isValidCssNHat(cssNHat)) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: every CSS nHat row must be a unit vector within 1e-3");
         }
@@ -95,10 +100,12 @@ class SunlineFilterConfig final {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: sensor threshold must not be negative");
         }
         if (!isValidCssMeasurementNoiseStd(cssMeasurementNoiseStd)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: CSS measurement noise std must not be negative");
+            FSW_THROW_INVALID_ARGUMENT(
+                "sunlineFilter: CSS measurement noise std must be positive, with a finite square");
         }
         if (!isValidGyroMeasurementNoiseStd(gyroMeasurementNoiseStd)) {
-            FSW_THROW_INVALID_ARGUMENT("sunlineFilter: gyro measurement noise std must not be negative");
+            FSW_THROW_INVALID_ARGUMENT(
+                "sunlineFilter: gyro measurement noise std must be positive, with a finite square");
         }
         if (measurementDelay < 0.0F) {
             FSW_THROW_INVALID_ARGUMENT("sunlineFilter: measurement delay must not be negative");
@@ -118,16 +125,14 @@ class SunlineFilterConfig final {
                 measurementDelay};
     }
 
-    static bool isValidProcessNoise(StateMatrix const& processNoise) {
-        return isPositiveSemiDefinite<SunlineState::size>(processNoise);
-    }
     static bool isValidInitialState(SunlineState const& initialState) { return initialState.allFinite(); }
-    static bool isValidInitialCovariance(StateMatrix const& covariance) {
-        return covariance.allFinite() && isPositiveSemiDefinite<SunlineState::size>(covariance);
-    }
     static bool isValidBiasLowerBound(float bound) { return bound > 0.0F; }
     static bool isValidBiasUpperBound(float bound) { return bound > 0.0F; }
     static bool isValidBiasBounds(float lowerBound, float upperBound) { return lowerBound < upperBound; }
+    static bool isValidInitialBias(SunlineState const& initialState, float lowerBound, float upperBound) {
+        float const bias = initialState.get<filtering::Bias<1>>()(0);
+        return bias >= lowerBound && bias <= upperBound;
+    }
     static bool isValidCssNHat(Eigen::Matrix<float, MaxCss, 3> const& cssNHat) {
         constexpr float normTolerance = 1e-3F;
         for (uint32_t i = 0; i < MaxCss; ++i) {
@@ -142,8 +147,8 @@ class SunlineFilterConfig final {
         return (cssScaleFactor.array() >= 0.0F).all();
     }
     static bool isValidSensorThreshold(float threshold) { return threshold >= 0.0F; }
-    static bool isValidCssMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
-    static bool isValidGyroMeasurementNoiseStd(float noiseStd) { return noiseStd >= 0.0F; }
+    static bool isValidCssMeasurementNoiseStd(float noiseStd) { return Srukf::measurementNoiseStdIsValid(noiseStd); }
+    static bool isValidGyroMeasurementNoiseStd(float noiseStd) { return Srukf::measurementNoiseStdIsValid(noiseStd); }
 
     float getAlpha() const { return this->alpha; }
     float getBeta() const { return this->beta; }
@@ -243,7 +248,8 @@ class SunlineFilterAlgorithm {
     CssMeasurement packCssMeasurement(CssData const& cssData) const;
     RateMeasurement packRateMeasurement(RateData const& rateData) const;
 
-    State regularize(State const& state) const;
+    static State regularize(State const& state);
+    void resetBiasOutsideBounds();
 
     SunlineFilterConfig cfg;  //!< validated configuration, supplied at construction / setConfig()
     SRuKF<State, SunlineDynamics> srukf;

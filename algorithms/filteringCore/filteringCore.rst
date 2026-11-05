@@ -93,7 +93,12 @@ long runs; only their differences are narrowed to ``float`` before
    Component tags (``Position``, ``Velocity``, ``Acceleration``, ``Bias``,
    ``MrpAttitude``, ``AngularRate``, ``Consider``) each carry a compile-time
    ``size``. ``StateVector`` satisfies ``LinearlyCombinable`` via ``add()`` and
-   ``scale()`` and exposes ``raw()`` for the underlying Eigen vector.
+   ``scale()`` and exposes ``raw()`` for the underlying Eigen vector and
+   ``offsetOf<Component>()`` for a component's offset. For a change of unit,
+   an adapter names each component it converts:
+   ``scaleComponent<Component>(x, k)`` multiplies that component of a flat
+   state vector by ``k``, and ``scaleCovarianceComponent<Component>(P, k)``
+   multiplies its rows and columns of a covariance by ``k``.
 
 ``concepts.hpp``
    The C++20 concepts that define the interfaces, so filters compose by
@@ -110,8 +115,8 @@ long runs; only their differences are narrowed to ``float`` before
    ``rk4()`` and ``propagate()`` — RK4 integration usable on any
    ``LinearlyCombinable`` state. ``propagate()`` accumulates the sub-steps
    with Kahan compensation (see "Accumulating the RK4 sub-steps").
-   ``propagateDeviation()`` propagates a small deviation from a reference
-   state (see "Propagating the sigma points as deviations").
+   ``propagateDeviations()`` propagates a reference state and small
+   deviations from it (see "Propagating the sigma points as deviations").
 
 ``measurementQueue.h``
    ``measurement_queue<Measurement, CAPACITY>`` — a bounded, time-ordered
@@ -173,6 +178,15 @@ long runs; only their differences are narrowed to ``float`` before
    weights, and the process-noise Cholesky from alpha, beta, and the process
    noise, leaving the estimate untouched; ``reInitialize()`` calls ``configure()``
    and additionally seeds the state and covariance from the initial conditions.
+   ``choleskyDecomposition()`` is a semidefinite Cholesky: the process noise and
+   the initial covariance only need to be positive semi-definite, so a state with
+   zero process noise (or a rank-deficient covariance) factors exactly, with a
+   zero column for each zero pivot.
+   ``reInitializeComponent<Component>()`` re-seeds one component only, in the
+   working estimate and the last-measurement state: its value from the initial
+   state, its covariance block from the initial covariance, and its correlations
+   with the other components zeroed. It recovers one component (a bias that left
+   its bounds) without restarting the filter.
 
    ``timeUpdate(dt)`` always propagates **from the saved last-measurement
    state**, which it leaves untouched, so it is idempotent in ``dt`` — calling
@@ -313,17 +327,19 @@ of the deviation smaller than about one ulp is lost. For example, at a range of 
 position is about 0.03 km, while the velocity spread moves a position deviation by about :math:`3 \times 10^{-4}` km
 in one sub-step. The spread of the sigma points then stops growing, and the covariance stops growing with it.
 
-The SRuKF therefore propagates the central sigma point :math:`\boldsymbol{X}_0` with ``propagate()``, and each other
-sigma point as its deviation from the central point with ``propagateDeviation()``. The deviation obeys
+The SRuKF therefore propagates each sigma point other than the central one, :math:`\boldsymbol{X}_0`, as its deviation
+from the central point, with ``propagateDeviations()``. The deviation obeys
 
 .. math::
 
    \dot{\boldsymbol{d}} = \boldsymbol{f}(t, \boldsymbol{X}_0 + \boldsymbol{d}) - \boldsymbol{f}(t, \boldsymbol{X}_0)
 
-and is integrated on its own scale. ``propagateDeviation()`` integrates the reference :math:`\boldsymbol{X}_0` and the
-deviation together. Each RK4 stage of the deviation uses the matching stage of the reference, so in exact arithmetic
-the stage points :math:`\boldsymbol{X}_{0,k} + \boldsymbol{d}_k` are those of an RK4 on the absolute sigma point. Only
-the rounding changes.
+and is integrated on its own scale. ``propagateDeviations()`` integrates the reference :math:`\boldsymbol{X}_0` once,
+exactly as ``propagate()`` does, and all the deviations with it. Each RK4 stage of a deviation uses the matching stage
+of the reference, so in exact arithmetic the stage points :math:`\boldsymbol{X}_{0,k} + \boldsymbol{d}_k` are those
+of an RK4 on the absolute sigma point. Only the rounding changes. Sharing the reference stages makes a sub-step cost
+:math:`4 + 8N` dynamics calls for the :math:`2N` deviations, instead of :math:`4 + 16N` when each deviation integrates
+its own copy of the reference.
 
 The SRuKF keeps the propagated deviations (``sigmaDeviations``) and the mean offset :math:`\boldsymbol{m}`
 (``meanOffset``). It uses them directly in the QR decomposition, the rank-1 update, :math:`P_{xy}` and the state
@@ -344,6 +360,17 @@ The textbook square-root update removes :math:`K P_{yy} K^T` from the prior with
 Cholesky factor per column of :math:`K S_y`, so that :math:`P^+ = P^- - K P_{yy} K^T`. A precise measurement almost
 fully resolves some directions of the state. In those directions the downdate subtracts two nearly equal terms, and
 in float the result can become indefinite: the downdate fails, or the covariance grows instead of shrinking.
+
+Storing the square root does not avoid this. In a covariance-form filter, the Joseph form is used because
+:math:`P^- - K P_{yy} K^T` can lose symmetry or positive definiteness in rounding. A square-root filter stores
+:math:`S` and so keeps :math:`P = S S^T` symmetric and positive semi-definite. But the textbook square-root UKF (van
+der Merwe & Wan) reaches the same :math:`P^- - K P_{yy} K^T` through downdates, which are the square-root form of that
+subtraction. Where the covariance form would become indefinite, the downdate has no real square root and fails. This
+SRuKF does not use those downdates, and has no downdate at all: the Joseph form below has no subtraction, and the
+mean-offset term is a weighted square (see "Mean-offset term"). The Joseph form also gives the covariance of the
+posterior error for any gain, not only the optimal one. A rounding error :math:`\delta K` in the gain therefore
+changes it only by :math:`\delta K \, P_{yy} \, \delta K^T`, a second-order term. The textbook update changes by a
+first-order term, and is then not the covariance of the actual error.
 
 The SRuKF therefore writes the updated covariance as a sum of squares. With the posterior deviations
 :math:`\boldsymbol{z}_i = \boldsymbol{d}_i - K \boldsymbol{u}_i` and :math:`\boldsymbol{m}_z = \boldsymbol{m} - K
@@ -431,8 +458,12 @@ direction is rounded away when :math:`P` is formed, and the factor of :math:`P` 
 
 Each rotation works on entries of the size of the factor, not of the covariance, so the condition number is not
 squared. A downdate that would make the result indefinite or singular has :math:`(\ell - x_k)(\ell + x_k) \le 0`:
-this includes a zero :math:`\ell` (a state with zero variance) and :math:`|x_k| = |\ell|`. The downdate tests this
-before it divides and fails: ``choleskyUpDownDate()`` returns no factor, the time or measurement update reports a bad
+this includes a zero :math:`\ell` (a state with zero variance) and :math:`|x_k| = |\ell|`. A zero :math:`\ell` is
+not always a failure: the semidefinite Cholesky gives a zero diagonal for a state with zero variance, and there
+:math:`x_k` is zero in exact arithmetic. A rounding residue in :math:`x_k` would still fail the rotation, so a
+component at the rounding level of :math:`\boldsymbol{x}` (:math:`|x_k| \le N \epsilon \, \|\boldsymbol{x}\|`) is
+taken as zero, an identity rotation. Otherwise the downdate tests :math:`(\ell - x_k)(\ell + x_k)` before it divides
+and fails: ``choleskyUpDownDate()`` returns no factor, the time or measurement update reports a bad
 update, and ``applySequentialRobust`` clears the filter back to its last good state. So no division by zero is ever
 evaluated: the Givens rotation divides by :math:`r \ge |x_k| > 0`, and the hyperbolic
 rotation divides by :math:`\ell` and :math:`\gamma` only once :math:`|\ell| > |x_k| > 0`. Because :math:`S S^T` is never formed, these

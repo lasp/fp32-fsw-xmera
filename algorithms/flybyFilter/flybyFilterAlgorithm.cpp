@@ -1,5 +1,6 @@
 #include "flybyFilterAlgorithm.h"
 
+#include <Eigen/Cholesky>
 #include <Eigen/Core>
 
 #include <utility>
@@ -35,6 +36,15 @@ class HeadingMeasurementModel {
 
 static_assert(filtering::Measurement<HeadingMeasurementModel, State>);
 
+/*! The SRuKF Cholesky-factors the measurement noise, so it must be finite, symmetric and positive
+ *  definite; a missing (zero) or corrupt covariance would otherwise poison the update.
+ *  @return true iff covar_N can be used as the heading measurement noise
+ *  @param covar_N [-] heading noise covariance supplied with the reading */
+bool isValidHeadingCovariance(Eigen::Matrix3f const& covar_N) {
+    return covar_N.allFinite() && isSymmetric<3>(covar_N) &&
+           Eigen::LLT<Eigen::Matrix3f>(covar_N).info() == Eigen::Success;
+}
+
 }  // namespace
 
 /*! Construct from a validated configuration and seed the filter runtime state.
@@ -56,6 +66,7 @@ void FlybyFilterAlgorithm::setConfig(FlybyFilterConfig const& config) {
     this->srukf.setInitialCovariance(config.getInitialCovariance());
     this->srukf.dynamics = FlybyDynamics{config.getMu()};
     this->srukf.configure();
+    this->measurements.setDelay(config.getMeasurementDelay());
 }
 
 /*! Clear the internal runtime state (pending measurements and residual snapshot); the filter state
@@ -82,7 +93,7 @@ void FlybyFilterAlgorithm::reInitialize() {
 FlybyFilterOutput FlybyFilterAlgorithm::update(double currentSeconds, HeadingData const& headingData) {
     this->lastHeadingResiduals.valid = false;
 
-    if (headingData.timeTag > 0) {
+    if (headingData.timeTag > 0 && isValidHeadingCovariance(headingData.covar_N)) {
         this->measurements.enqueue(headingData.timeTag, this->packHeadingMeasurement(headingData));
     }
     applySequentialRobust(this->measurements, *this, currentSeconds);
@@ -128,16 +139,15 @@ bool FlybyFilterAlgorithm::applyMeasurement(HeadingMeasurement const& measuremen
     return result.has_value();
 }
 
-/*! Pack a raw heading reading into a HeadingMeasurement with diagonal noise covariance built from
- *  the configured measurement-noise std.
+/*! Pack a raw heading reading into a HeadingMeasurement whose noise covariance is the reading's own
+ *  covar_N scaled by the configured measurement-noise scale.
  *  @return HeadingMeasurement (always valid)
- *  @param headingData [-] raw heading unit vector and time tag */
+ *  @param headingData [-] raw heading unit vector, noise covariance and time tag */
 HeadingMeasurement FlybyFilterAlgorithm::packHeadingMeasurement(HeadingData const& headingData) const {
     HeadingMeasurement packed;
     packed.timeTag = headingData.timeTag;
     packed.rhat_BN_N = headingData.rhat_BN_N;
-    float const std = this->cfg.getHeadingMeasurementNoiseStd();
-    packed.covar = (std * std) * Eigen::Matrix3f::Identity();
+    packed.covar = this->cfg.getMeasurementNoiseScale() * headingData.covar_N;
     packed.valid = true;
     return packed;
 }

@@ -14,6 +14,7 @@
 
 #include <math.h>
 #include <array>
+#include <limits>
 #include <optional>
 
 namespace filtering {
@@ -51,13 +52,34 @@ class SRuKF {
         return rTilde.transpose();
     }
 
-    /*! Cholesky decomposition.
-     *  @return lower-triangular L with input = L * L^T
-     *  @param input [-] symmetric positive-definite matrix */
+    /*! Semidefinite Cholesky decomposition, reading the lower triangle. A positive semi-definite matrix
+     *  may be singular, e.g. a process noise with zero noise on some states. A zero pivot (a zero
+     *  variance, or one the previous states already carry) leaves a zero column.
+     *  @return lower-triangular L with input = L * L^T and a non-negative diagonal
+     *  @param input [-] symmetric positive semi-definite matrix */
     template <int Size>
     static Eigen::Matrix<float, Size, Size> choleskyDecomposition(Eigen::Matrix<float, Size, Size> const& input) {
-        Eigen::LLT<Eigen::Matrix<float, Size, Size>> chol(input);
-        return chol.matrixL();
+        constexpr float kPivotTolerance = static_cast<float>(Size) * std::numeric_limits<float>::epsilon();
+        Eigen::Matrix<float, Size, Size> L = Eigen::Matrix<float, Size, Size>::Zero();
+        for (int j = 0; j < Size; ++j) {
+            float pivot = input(j, j);
+            for (int k = 0; k < j; ++k) {
+                pivot -= L(j, k) * L(j, k);
+            }
+            if (!(pivot > kPivotTolerance * input(j, j))) {
+                continue;  // zero pivot: the state's variance is already carried by the previous states
+            }
+            float const ljj = sqrtf(pivot);
+            L(j, j) = ljj;
+            for (int i = j + 1; i < Size; ++i) {
+                float sum = input(i, j);
+                for (int k = 0; k < j; ++k) {
+                    sum -= L(i, k) * L(j, k);
+                }
+                L(i, j) = sum / ljj;
+            }
+        }
+        return L;
     }
 
     /*! Rank-1 Cholesky up/down date: returns lower-triangular L with
@@ -67,7 +89,10 @@ class SRuKF {
      *  the result indefinite or singular, and so divide by zero, fails: the caller reports a bad
      *  update and the filter clears. No division by zero is ever evaluated: the Givens rotation
      *  divides by r = hypot(l, x) >= |x| > 0, and the hyperbolic rotation is taken only once
-     *  (l - x)(l + x) > 0, which gives |l| > |x| > 0 and a nonzero gamma = r / l.
+     *  (l - x)(l + x) > 0, which gives |l| > |x| > 0 and a nonzero gamma = r / l. A component of the vector at
+     *  its rounding level is taken as zero (an identity rotation). This guards the zero diagonal of a semidefinite
+     *  factor (a state with zero variance): there the component is zero in exact arithmetic, but a rounding residue
+     *  would fail the hyperbolic rotation, which needs |l| > |x|.
      *  @return updated Cholesky factor, or nullopt if the downdate fails
      *  @param sqrtP       [-] current lower-triangular Cholesky factor S
      *  @param v           [-] rank-1 update vector
@@ -80,10 +105,12 @@ class SRuKF {
         Eigen::Matrix<float, Size, Size> L = sqrtP;
         Eigen::Vector<float, Size> x = sqrtf(fabsf(coefficient)) * v;
         bool const isUpdate = coefficient > 0.0F;
+        //! > A component at the rounding level of the vector is a zero component (see the zero-diagonal guard above)
+        float const zeroLevel = static_cast<float>(Size) * std::numeric_limits<float>::epsilon() * x.stableNorm();
 
         for (int k = 0; k < Size; ++k) {
             float const xk = x(k);
-            if (xk == 0.0F) {
+            if (fabsf(xk) <= zeroLevel) {
                 continue;  // identity rotation
             }
             float const lkk = L(k, k);
@@ -179,6 +206,14 @@ class SRuKF {
     /*! @return true iff beta is in [0, 2] */
     static bool betaIsValid(float beta) { return beta >= 0.0F && beta <= 2.0F; }
 
+    /*! A measurement noise standard deviation must be positive, with a positive finite variance, so the
+     *  measurement noise R = std^2 * I is positive definite (a std that squares to zero or overflows fails).
+     *  @return true iff std > 0 and 0 < std^2 <= FLT_MAX */
+    static bool measurementNoiseStdIsValid(float noiseStd) {
+        float const variance = noiseStd * noiseStd;
+        return noiseStd > 0.0F && variance > 0.0F && variance <= std::numeric_limits<float>::max();
+    }
+
     /*! Derive the sigma-point spread (lambda, eta), the sigma weights, and the
      *  process-noise Cholesky from alpha, beta, and the process noise. The estimate
      *  (state and covariance) is left untouched. */
@@ -211,6 +246,22 @@ class SRuKF {
         this->stateLastMeasurement = this->state;
         this->covarianceLastMeasurement = this->covariance;
         this->sqrtCovarLastMeasurement = this->sqrtCovar;
+    }
+
+    /*! Re-seed one state component from the initial conditions, in the working estimate and in the
+     *  last-measurement anchor: its value from the initial state, its covariance block from the initial
+     *  covariance, and its correlations with the other components zeroed. The other components keep their
+     *  estimate and covariance. Use it to recover one component (a bias that left its bounds) without
+     *  restarting the filter.
+     *  @tparam Component tag type of the component to re-seed */
+    template <class Component>
+    void reInitializeComponent() {
+        constexpr int offset = State::template offsetOf<Component>();
+        this->state.template set<Component>(this->stateInitial.template get<Component>());
+        this->stateLastMeasurement.template set<Component>(this->stateInitial.template get<Component>());
+        this->reseedCovarianceBlock<offset, Component::size>(this->covariance, this->sqrtCovar);
+        this->reseedCovarianceBlock<offset, Component::size>(this->covarianceLastMeasurement,
+                                                             this->sqrtCovarLastMeasurement);
     }
 
     /*! Return the filter state to the previous measurement in the case of a bad update.
@@ -255,14 +306,16 @@ class SRuKF {
 
             //! > Propagate the central sigma point, and each other sigma point as its deviation from the central one
             //! > (eq 17-18), so the spread is not absorbed into a large state (see "Propagating the sigma points as
-            //! > deviations" in filteringCore.rst)
-            this->sigmaPoints[0] = filtering::propagate(this->dynamics, this->state, interval);
-            for (int i = 1; i <= N; ++i) {
-                typename State::Storage const offset = this->eta * this->sqrtCovar.col(i - 1);
-                this->sigmaDeviations[i] =
-                    filtering::propagateDeviation(this->dynamics, this->state, State(offset), interval);
-                this->sigmaDeviations[i + N] =
-                    filtering::propagateDeviation(this->dynamics, this->state, State(-offset), interval);
+            //! > deviations" in filteringCore.rst). The central point is integrated once for all the deviations.
+            std::array<State, 2 * N> deviations;
+            for (int i = 0; i < N; ++i) {
+                typename State::Storage const offset = this->eta * this->sqrtCovar.col(i);
+                deviations[i] = State(offset);
+                deviations[i + N] = State(-offset);
+            }
+            this->sigmaPoints[0] = filtering::propagateDeviations(this->dynamics, this->state, deviations, interval);
+            for (int i = 1; i < numSigmaPoints; ++i) {
+                this->sigmaDeviations[i] = deviations[i - 1];
             }
             for (int i = 1; i < numSigmaPoints; ++i) {
                 this->sigmaPoints[i] = this->sigmaPoints[0].add(this->sigmaDeviations[i]);
@@ -347,6 +400,9 @@ class SRuKF {
 
             //! > Sqrt the measurement noise, this could theoretically be different at every time step
             Eigen::Matrix<float, MSize, MSize> const cholMeasNoise = choleskyDecomposition<MSize>(measurement.noise());
+            if (!(cholMeasNoise.diagonal().minCoeff() > 0.0F)) {
+                return residuals;  // R is not positive definite: a bad update (no residuals), for the caller to clear
+            }
 
             //! > Symmetrically to the time update, populate the A matrix for a qr decomposition (eq 24-25)
             Eigen::Matrix<float, MSize, 2 * N + MSize> A;
@@ -423,6 +479,20 @@ class SRuKF {
     void setStateLastMeasurement(State const& newStateLastMeas) { this->stateLastMeasurement = newStateLastMeas; }
 
    private:
+    /*! Replace the covariance block of one component by its initial block, zero its correlations with the other
+     *  components, and refactor the square root. A block-diagonal split of positive semi-definite blocks stays
+     *  positive semi-definite.
+     *  @param covar [-] covariance to edit
+     *  @param sqrtCovarOut [-] its lower Cholesky factor, recomputed */
+    template <int Offset, int Size>
+    void reseedCovarianceBlock(Covariance& covar, Covariance& sqrtCovarOut) const {
+        covar.template middleRows<Size>(Offset).setZero();
+        covar.template middleCols<Size>(Offset).setZero();
+        covar.template block<Size, Size>(Offset, Offset) =
+            this->covarianceInitial.template block<Size, Size>(Offset, Offset);
+        sqrtCovarOut = choleskyDecomposition<State::size>(covar);
+    }
+
     /*!  Working state at the current call time. */
     State state;
     Covariance covariance;

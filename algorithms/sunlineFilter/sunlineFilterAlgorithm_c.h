@@ -61,15 +61,15 @@ uint32_t SunlineFilterAlgorithm_getNumStates(void);
  * @param alpha                   [-] sigma-point spread tunable.
  * @param beta                    [-] prior-knowledge tunable.
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
- * @param initialState            [-] N-element initial state seed.
+ * @param initialState            [-] N-element initial state seed; its bias must be within the bias bounds.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
- * @param biasLowerBound          [-] lower clamp on the CSS bias state; must be > 0.
- * @param biasUpperBound          [-] upper clamp on the CSS bias state; must be > 0.
+ * @param biasLowerBound          [-] CSS bias lower bound, below which the bias is reset; must be > 0.
+ * @param biasUpperBound          [-] CSS bias upper bound, above which the bias is reset; must be > 0.
  * @param cssNHat                 [-] per-CSS boresight unit vectors in body frame.
  * @param cssScaleFactor          [-] per-CSS calibration scale factor; each must be >= 0.
  * @param sensorThreshold         [-] minimum cosValue that counts a sensor as active; must be >= 0.
- * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be >= 0.
- * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be >= 0.
+ * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be > 0.
+ * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be > 0.
  * @param measurementDelay        [s] processing delay for late measurements; must be >= 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
@@ -98,15 +98,15 @@ bool SunlineFilterAlgorithm_validateConfig(double alpha,
  * @param alpha                   [-] sigma-point spread tunable.
  * @param beta                    [-] prior-knowledge tunable.
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
- * @param initialState            [-] N-element initial state seed.
+ * @param initialState            [-] N-element initial state seed; its bias must be within the bias bounds.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
- * @param biasLowerBound          [-] lower clamp on the CSS bias state; must be > 0.
- * @param biasUpperBound          [-] upper clamp on the CSS bias state; must be > 0.
+ * @param biasLowerBound          [-] CSS bias lower bound, below which the bias is reset; must be > 0.
+ * @param biasUpperBound          [-] CSS bias upper bound, above which the bias is reset; must be > 0.
  * @param cssNHat                 [-] per-CSS boresight unit vectors in body frame.
  * @param cssScaleFactor          [-] per-CSS calibration scale factor; each must be >= 0.
  * @param sensorThreshold         [-] minimum cosValue that counts a sensor as active; must be >= 0.
- * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be >= 0.
- * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be >= 0.
+ * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be > 0.
+ * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be > 0.
  * @param measurementDelay        [s] processing delay for late measurements; must be >= 0.
  * @return Pointer to a new SunlineFilterAlgorithm (must be destroyed).
  */
@@ -136,15 +136,15 @@ void SunlineFilterAlgorithm_destroy(SunlineFilterAlgorithmHandle* self);
  * @param alpha                   [-] sigma-point spread tunable.
  * @param beta                    [-] prior-knowledge tunable.
  * @param processNoise            [-] N x N process noise Q; must be positive semi-definite.
- * @param initialState            [-] N-element initial state seed.
+ * @param initialState            [-] N-element initial state seed; its bias must be within the bias bounds.
  * @param initialCovariance       [-] N x N initial covariance P0; must be positive semi-definite.
- * @param biasLowerBound          [-] lower clamp on the CSS bias state; must be > 0.
- * @param biasUpperBound          [-] upper clamp on the CSS bias state; must be > 0.
+ * @param biasLowerBound          [-] CSS bias lower bound, below which the bias is reset; must be > 0.
+ * @param biasUpperBound          [-] CSS bias upper bound, above which the bias is reset; must be > 0.
  * @param cssNHat                 [-] per-CSS boresight unit vectors in body frame.
  * @param cssScaleFactor          [-] per-CSS calibration scale factor; each must be >= 0.
  * @param sensorThreshold         [-] minimum cosValue that counts a sensor as active; must be >= 0.
- * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be >= 0.
- * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be >= 0.
+ * @param cssMeasurementNoiseStd  [-] CSS measurement noise std; must be > 0.
+ * @param gyroMeasurementNoiseStd [rad/s] gyro measurement noise std; must be > 0.
  * @param measurementDelay        [s] processing delay for late measurements; must be >= 0.
  */
 void SunlineFilterAlgorithm_setConfig(SunlineFilterAlgorithmHandle* self,
