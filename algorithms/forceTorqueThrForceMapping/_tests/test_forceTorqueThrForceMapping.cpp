@@ -124,6 +124,14 @@ TEST(ForceTorqueThrForceMappingTest, PropertyMinimumIsZeroForBalancedLayout) {
     propertyMinimumIsZeroForBalancedLayout({0.1F, 0.1F, 0.1F}, {0.4F, 0.2F, 0.4F}, {0.0F, 0.9F, 1.1F});
 }
 
+// A fuzz counterexample: the step-limiting thruster carries about 500 N before the shift, and without FMA
+// the rounding of the shift left it one ulp (3e-5 N) above zero instead of at zero.
+TEST(ForceTorqueThrForceMappingTest, PropertyMinimumIsZeroForLargeCommand) {
+    propertyMinimumIsZeroForBalancedLayout({-1.31080794F, 1.04849505F, 0.386474133F},
+                                           {-1.11690235F, -1.65758562F, 7.62077141F},
+                                           {-611.484436F, 110.664429F, 609.059204F});
+}
+
 // Six of layout 1's eight thrusters, so two slots sit past numThrusters and the padding assertion has
 // something to check. At the full eight the loop over [numThrusters, kMaxThrusterCount) is empty, and
 // the property passes without testing anything; the boundary case is covered separately below.

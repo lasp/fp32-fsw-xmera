@@ -221,12 +221,22 @@ Eigen::Vector<float, kMaxThrusterCount> ForceTorqueThrForceMappingAlgorithm::upd
     const float shiftScale = this->nullSpaceShift.head(numThrusters).cwiseAbs().maxCoeff();
     if (shiftScale > kNullSpaceTol) {
         float step = 0.0F;
+        uint32_t stepLimitingThruster = numThrusters;  // the thruster that sets the step; none while step is zero
         for (uint32_t j = 0; j < numThrusters; ++j) {
             if (this->nullSpaceShift(j) > kShiftReachTol * shiftScale) {
-                step = fmaxf(step, -thrusterForces(j) / this->nullSpaceShift(j));
+                const float lift = -thrusterForces(j) / this->nullSpaceShift(j);
+                if (lift > step) {
+                    step = lift;
+                    stepLimitingThruster = j;
+                }
             }
         }
         thrusterForces.head(numThrusters) += step * this->nullSpaceShift.head(numThrusters);
+        // The shift takes the step-limiting thruster to zero exactly, but the rounding of step * n_j and the
+        // sum can leave it up to an ulp of its pre-shift |F_j| away. Set it to the value the shift defines.
+        if (stepLimitingThruster < numThrusters) {
+            thrusterForces(stepLimitingThruster) = 0.0F;
+        }
     }
 
     // The only step that moves the achieved force and torque away from the command.
