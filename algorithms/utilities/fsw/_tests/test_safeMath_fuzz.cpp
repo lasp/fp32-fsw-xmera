@@ -113,6 +113,34 @@ void fuzzAtan2FiniteF(float y, float x) { EXPECT_TRUE(std::isfinite(safeAtan2f(y
 FUZZ_TEST(SafeMathFloatFuzz, fuzzAtan2FiniteF).WithDomains(fuzztest::Finite<float>(), fuzztest::Finite<float>());
 
 // ============================================================================
+// Float — tangent
+// ============================================================================
+
+// Checks safeTanf for every float, including NaN and ±Inf:
+//  - NaN and ±Inf return 0.
+//  - A finite input returns tanf(x) unchanged when |tanf(x)| <= 1/ε.
+//  - Otherwise it returns 1/ε with the sign of tanf(x).
+//  - The output is always finite and within ±1/ε.
+// Exact values and the rare inputs near the singularities are covered by unit tests.
+void fuzzTanAllInputsF(float x) {
+    constexpr float maxTan = 1.0F / FLT_EPSILON;
+    const float result = safeTanf(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), maxTan);
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    const float tanx = std::tan(x);
+    if (std::fabs(tanx) <= maxTan) {
+        EXPECT_EQ(result, tanx);
+    } else {
+        EXPECT_EQ(result, std::copysign(maxTan, tanx));
+    }
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzTanAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
+
+// ============================================================================
 // Double — mathematical properties
 // ============================================================================
 
@@ -200,3 +228,31 @@ FUZZ_TEST(SafeMathDoubleFuzz, fuzzAllOutputsFiniteD).WithDomains(fuzztest::Finit
 
 void fuzzAtan2FiniteD(double y, double x) { EXPECT_TRUE(std::isfinite(safeAtan2(y, x))); }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtan2FiniteD).WithDomains(fuzztest::Finite<double>(), fuzztest::Finite<double>());
+
+// ============================================================================
+// Double — tangent
+// ============================================================================
+
+// Checks safeTan for every double, including NaN and ±Inf:
+//  - NaN and ±Inf return 0.
+//  - A finite input returns tan(x) unchanged when |tan(x)| <= 1/ε.
+//  - Otherwise it returns 1/ε with the sign of tan(x).
+//  - The output is always finite and within ±1/ε.
+// Exact values and the rare inputs near the singularities are covered by unit tests.
+void fuzzTanAllInputsD(double x) {
+    constexpr double maxTan = 1.0 / DBL_EPSILON;
+    const double result = safeTan(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), maxTan);
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    const double tanx = std::tan(x);
+    if (std::fabs(tanx) <= maxTan) {
+        EXPECT_EQ(result, tanx);
+    } else {
+        EXPECT_EQ(result, std::copysign(maxTan, tanx));
+    }
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzTanAllInputsD).WithDomains(fuzztest::Arbitrary<double>());

@@ -5,46 +5,54 @@
 #include <limits>
 #include <numbers>
 
-/*! @brief Safe wrapper around tanf that clamps the input to
- *         [-π/2 + ε, π/2 - ε] to avoid the singularities
- *         at ±π/2. Inputs outside this range are railed to ±cot(ε).
- *  @param x Input value in radians
- *  @return tanf(clamp(x, -π/2 + ε, π/2 - ε))
+/*! @brief Safe wrapper around tanf. Preserves the periodicity and sign of
+ *         tangent and saturates the output to ±1/ε (2^23 ≈ 8.39e6) near the
+ *         singularities at π/2 + kπ. Near a singularity the sign follows the
+ *         stored value of x: the float nearest π/2 lies above π/2, so it
+ *         returns -1/ε.
+ *         Non-finite inputs return zero.
+ *  @param x Input angle in radians
+ *  @return tanf(x) clamped to [-1/ε, 1/ε], or 0.0F if x is NaN or infinite
  */
 inline float safeTanf(float const x) {
     if (isnan(x) || isinf(x)) {
         return 0.0F;
     }
     constexpr float eps = std::numeric_limits<float>::epsilon();
-    constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
-    if (x < -halfPi + eps) {
-        return -cosf(eps) / sinf(eps);
+    constexpr float maxTan = 1.0F / eps;
+    float const tanx = tanf(x);
+    if (tanx < -maxTan) {
+        return -maxTan;
     }
-    if (x > halfPi - eps) {
-        return cosf(eps) / sinf(eps);
+    if (tanx > maxTan) {
+        return maxTan;
     }
-    return tanf(x);
+    return tanx;
 }
 
-/*! @brief Safe wrapper around tan that clamps the input to
- *         [-π/2 + ε, π/2 - ε] to avoid the singularities
- *         at ±π/2. Inputs outside this range are railed to ±cot(ε).
- *  @param x Input value in radians
- *  @return tan(clamp(x, -π/2 + ε, π/2 - ε))
+/*! @brief Safe wrapper around tan. Preserves the periodicity and sign of
+ *         tangent and saturates the output to ±1/ε (2^52 ≈ 4.5e15) near the
+ *         singularities at π/2 + kπ. Near a singularity the sign follows the
+ *         stored value of x: the double nearest π/2 lies below π/2, so it
+ *         returns +1/ε.
+ *         Non-finite inputs return zero.
+ *  @param x Input angle in radians
+ *  @return tan(x) clamped to [-1/ε, 1/ε], or 0.0 if x is NaN or infinite
  */
 inline double safeTan(double const x) {
     if (isnan(x) || isinf(x)) {
         return 0.0;
     }
     constexpr double eps = std::numeric_limits<double>::epsilon();
-    constexpr double halfPi = std::numbers::pi / 2.0;
-    if (x < -halfPi + eps) {
-        return -cos(eps) / sin(eps);
+    constexpr double maxTan = 1.0 / eps;
+    double const tanx = tan(x);
+    if (tanx < -maxTan) {
+        return -maxTan;
     }
-    if (x > halfPi - eps) {
-        return cos(eps) / sin(eps);
+    if (tanx > maxTan) {
+        return maxTan;
     }
-    return tan(x);
+    return tanx;
 }
 
 /*! @brief Safe wrapper around atanf. Since atan always returns a value in

@@ -3,6 +3,8 @@
 #include <gtest/gtest.h>
 #include <cfloat>
 #include <cmath>
+#include <limits>
+#include <numbers>
 
 namespace {
 
@@ -12,11 +14,12 @@ namespace {
 
 TEST(SafeMathFloat, ClampAboveUpperBound) {
     // Inputs chosen to exceed the active clamp boundary of every function:
-    // tan clamps at π/2 - FLT_EPSILON; acos/asin clamp at 1.0;
+    // acos/asin clamp at 1.0;
     // cosh/sinh cap when output overflows (~89.4 rad for float).
+    // tan is periodic and these inputs are far from its singularities, so it passes through.
     // atan, tanh, cos, sin have dead-code output guards and pass through.
     for (const float over : {100.0f, 200.0f, 1e6f}) {
-        EXPECT_FLOAT_EQ(safeTanf(over), std::cos(FLT_EPSILON) / std::sin(FLT_EPSILON)) << "tan, x=" << over;
+        EXPECT_EQ(safeTanf(over), std::tan(over)) << "tan, x=" << over;
         EXPECT_FLOAT_EQ(safeAtanf(over), std::atan(over)) << "atan, x=" << over;
         EXPECT_FLOAT_EQ(safeTanHf(over), std::tanh(over)) << "tanh, x=" << over;
         EXPECT_FLOAT_EQ(safeCosHf(over), 1.0f / FLT_EPSILON) << "cosh, x=" << over;
@@ -33,7 +36,7 @@ TEST(SafeMathFloat, ClampBelowLowerBound) {
     // cosh is even so large negative inputs still cap to +1/FLT_EPSILON;
     // sinh caps to -1/FLT_EPSILON for large negative inputs.
     for (const float under : {-100.0f, -200.0f, -1e6f}) {
-        EXPECT_FLOAT_EQ(safeTanf(under), -std::cos(FLT_EPSILON) / std::sin(FLT_EPSILON)) << "tan, x=" << under;
+        EXPECT_EQ(safeTanf(under), std::tan(under)) << "tan, x=" << under;
         EXPECT_FLOAT_EQ(safeAtanf(under), std::atan(under)) << "atan, x=" << under;
         EXPECT_FLOAT_EQ(safeTanHf(under), std::tanh(under)) << "tanh, x=" << under;
         EXPECT_FLOAT_EQ(safeCosHf(under), 1.0f / FLT_EPSILON) << "cosh, x=" << under;
@@ -102,11 +105,12 @@ TEST(SafeMathFloat, Atan2PassthroughInRange) {
 
 TEST(SafeMathDouble, ClampAboveUpperBound) {
     // Inputs chosen to exceed the active clamp boundary of every function:
-    // tan clamps at π/2 - DBL_EPSILON; acos/asin clamp at 1.0;
+    // acos/asin clamp at 1.0;
     // cosh/sinh cap when output overflows (~710.5 rad for double).
+    // tan is periodic and these inputs are far from its singularities, so it passes through.
     // atan, tanh, cos, sin have dead-code output guards and pass through.
     for (const double over : {800.0, 900.0, 1e6}) {
-        EXPECT_DOUBLE_EQ(safeTan(over), std::cos(DBL_EPSILON) / std::sin(DBL_EPSILON)) << "tan, x=" << over;
+        EXPECT_EQ(safeTan(over), std::tan(over)) << "tan, x=" << over;
         EXPECT_DOUBLE_EQ(safeAtan(over), std::atan(over)) << "atan, x=" << over;
         EXPECT_DOUBLE_EQ(safeTanH(over), std::tanh(over)) << "tanh, x=" << over;
         EXPECT_DOUBLE_EQ(safeCosH(over), 1.0 / DBL_EPSILON) << "cosh, x=" << over;
@@ -123,7 +127,7 @@ TEST(SafeMathDouble, ClampBelowLowerBound) {
     // cosh is even so large negative inputs still cap to +1/DBL_EPSILON;
     // sinh caps to -1/DBL_EPSILON for large negative inputs.
     for (const double under : {-800.0, -900.0, -1e6}) {
-        EXPECT_DOUBLE_EQ(safeTan(under), -std::cos(DBL_EPSILON) / std::sin(DBL_EPSILON)) << "tan, x=" << under;
+        EXPECT_EQ(safeTan(under), std::tan(under)) << "tan, x=" << under;
         EXPECT_DOUBLE_EQ(safeAtan(under), std::atan(under)) << "atan, x=" << under;
         EXPECT_DOUBLE_EQ(safeTanH(under), std::tanh(under)) << "tanh, x=" << under;
         EXPECT_DOUBLE_EQ(safeCosH(under), 1.0 / DBL_EPSILON) << "cosh, x=" << under;
@@ -178,6 +182,176 @@ TEST(SafeMathDouble, Atan2PassthroughInRange) {
         for (const double x : {-1.0, -0.5, 0.5, 1.0}) {
             EXPECT_DOUBLE_EQ(safeAtan2(y, x), std::atan2(y, x)) << "y=" << y << " x=" << x;
         }
+    }
+}
+
+// ============================================================================
+// Tangent
+// ============================================================================
+//
+// For finite x, safeTan returns tan(x) with the output saturated to
+// ±1/ε. NaN and ±Inf return 0. tan has period π (180 deg) and singularities, where it
+// goes to infinity, at π/2 + kπ (90 deg + k·180 deg).
+//
+constexpr float kMaxTanF = 1.0F / std::numeric_limits<float>::epsilon();
+constexpr double kMaxTanD = 1.0 / std::numeric_limits<double>::epsilon();
+
+// --- 1. Normal mathematical behavior ----------------------------------------
+
+// Away from the singularities, safeTan must return exactly the standard tan.
+// One angle in each quadrant covers every sign of tan. Inputs beyond ±π/2
+// must not be saturated. 1e6 and the largest finite input are many periods
+// away from zero. -2 checks a negative input.
+TEST(SafeMathFloat, TanMatchesStandardTan) {
+    EXPECT_EQ(safeTanf(1.0F), std::tan(1.0F));      // 57.3 deg
+    EXPECT_EQ(safeTanf(2.0F), std::tan(2.0F));      // 114.6 deg
+    EXPECT_EQ(safeTanf(4.0F), std::tan(4.0F));      // 229.2 deg
+    EXPECT_EQ(safeTanf(1.0e6F), std::tan(1.0e6F));  // 339.5 deg after 159154 turns
+    EXPECT_EQ(safeTanf(-2.0F), std::tan(-2.0F));    // -114.6 deg
+    EXPECT_EQ(safeTanf(FLT_MAX), std::tan(FLT_MAX));
+}
+
+TEST(SafeMathDouble, TanMatchesStandardTan) {
+    EXPECT_EQ(safeTan(1.0), std::tan(1.0));      // 57.3 deg
+    EXPECT_EQ(safeTan(2.0), std::tan(2.0));      // 114.6 deg
+    EXPECT_EQ(safeTan(4.0), std::tan(4.0));      // 229.2 deg
+    EXPECT_EQ(safeTan(1.0e6), std::tan(1.0e6));  // 339.5 deg after 159154 turns
+    EXPECT_EQ(safeTan(-2.0), std::tan(-2.0));    // -114.6 deg
+    EXPECT_EQ(safeTan(DBL_MAX), std::tan(DBL_MAX));
+}
+
+// --- 2. Saturation boundaries -----------------------------------------------
+
+// Consecutive floats around π/2 (90 deg). The float nearest π/2 lies just
+// above π/2, so tan is negative there. On each side of the singularity, one input is
+// beyond 1/ε and saturates, and the next one out is not and passes through.
+// The ASSERTs confirm where each raw tan value lies before testing safeTanf.
+// The singularity at -π/2 is checked with the same inputs negated.
+TEST(SafeMathFloat, TanSaturatesNearHalfPi) {
+    const float nearestAboveHalfPi = std::numbers::pi_v<float> / 2.0F;  // 90 deg
+    const float nearestBelowHalfPi = std::nextafter(nearestAboveHalfPi, 0.0F);
+    const float fartherBelowHalfPi = std::nextafter(nearestBelowHalfPi, 0.0F);
+    const float fartherAboveHalfPi = std::nextafter(nearestAboveHalfPi, 2.0F);
+
+    ASSERT_GT(std::tan(fartherBelowHalfPi), 0.0F);
+    ASSERT_LT(std::tan(fartherBelowHalfPi), kMaxTanF);
+    ASSERT_GT(std::tan(nearestBelowHalfPi), kMaxTanF);
+    ASSERT_LT(std::tan(nearestAboveHalfPi), -kMaxTanF);
+    ASSERT_LT(std::tan(fartherAboveHalfPi), 0.0F);
+    ASSERT_GT(std::tan(fartherAboveHalfPi), -kMaxTanF);
+
+    EXPECT_EQ(safeTanf(fartherBelowHalfPi), std::tan(fartherBelowHalfPi));  // below the singularity, not saturated
+    EXPECT_EQ(safeTanf(nearestBelowHalfPi), kMaxTanF);                      // below the singularity, saturated
+    EXPECT_EQ(safeTanf(nearestAboveHalfPi), -kMaxTanF);                     // above the singularity, saturated
+    EXPECT_EQ(safeTanf(fartherAboveHalfPi), std::tan(fartherAboveHalfPi));  // above the singularity, not saturated
+
+    for (const float x : {fartherBelowHalfPi, nearestBelowHalfPi, nearestAboveHalfPi, fartherAboveHalfPi}) {
+        EXPECT_EQ(safeTanf(-x), -safeTanf(x)) << "x=" << x;
+    }
+}
+
+// Consecutive doubles around π/2 (90 deg). Unlike float, the double nearest
+// π/2 lies just below π/2, so tan is positive there and the saturated pair is
+// one step further up.
+TEST(SafeMathDouble, TanSaturatesNearHalfPi) {
+    const double nearestBelowHalfPi = std::numbers::pi / 2.0;  // 90 deg
+    const double fartherBelowHalfPi = std::nextafter(nearestBelowHalfPi, 0.0);
+    const double nearestAboveHalfPi = std::nextafter(nearestBelowHalfPi, 2.0);
+    const double fartherAboveHalfPi = std::nextafter(nearestAboveHalfPi, 2.0);
+
+    ASSERT_GT(std::tan(fartherBelowHalfPi), 0.0);
+    ASSERT_LT(std::tan(fartherBelowHalfPi), kMaxTanD);
+    ASSERT_GT(std::tan(nearestBelowHalfPi), kMaxTanD);
+    ASSERT_LT(std::tan(nearestAboveHalfPi), -kMaxTanD);
+    ASSERT_LT(std::tan(fartherAboveHalfPi), 0.0);
+    ASSERT_GT(std::tan(fartherAboveHalfPi), -kMaxTanD);
+
+    EXPECT_EQ(safeTan(fartherBelowHalfPi), std::tan(fartherBelowHalfPi));  // below the singularity, not saturated
+    EXPECT_EQ(safeTan(nearestBelowHalfPi), kMaxTanD);                      // below the singularity, saturated
+    EXPECT_EQ(safeTan(nearestAboveHalfPi), -kMaxTanD);                     // above the singularity, saturated
+    EXPECT_EQ(safeTan(fartherAboveHalfPi), std::tan(fartherAboveHalfPi));  // above the singularity, not saturated
+
+    for (const double x : {fartherBelowHalfPi, nearestBelowHalfPi, nearestAboveHalfPi, fartherAboveHalfPi}) {
+        EXPECT_EQ(safeTan(-x), -safeTan(x)) << "x=" << x;
+    }
+}
+
+// Saturation repeats at every singularity. At 3π/2 (270 deg) the representable
+// values are four times further apart than at π/2, so only the value nearest
+// the singularity saturates and both neighbours pass through. The nearest float lies
+// above the singularity and the nearest double below it.
+TEST(SafeMathFloat, TanSaturatesNearThreeHalfPi) {
+    const float nearestThreeHalfPi = 3.0F * std::numbers::pi_v<float> / 2.0F;  // 270 deg
+    const float oneBelow = std::nextafter(nearestThreeHalfPi, 0.0F);
+    const float oneAbove = std::nextafter(nearestThreeHalfPi, 10.0F);
+
+    ASSERT_GT(std::tan(oneBelow), 0.0F);
+    ASSERT_LT(std::tan(oneBelow), kMaxTanF);
+    ASSERT_LT(std::tan(nearestThreeHalfPi), -kMaxTanF);
+    ASSERT_LT(std::tan(oneAbove), 0.0F);
+    ASSERT_GT(std::tan(oneAbove), -kMaxTanF);
+
+    EXPECT_EQ(safeTanf(oneBelow), std::tan(oneBelow));
+    EXPECT_EQ(safeTanf(nearestThreeHalfPi), -kMaxTanF);
+    EXPECT_EQ(safeTanf(oneAbove), std::tan(oneAbove));
+}
+
+TEST(SafeMathDouble, TanSaturatesNearThreeHalfPi) {
+    const double nearestThreeHalfPi = 3.0 * std::numbers::pi / 2.0;  // 270 deg
+    const double oneBelow = std::nextafter(nearestThreeHalfPi, 0.0);
+    const double oneAbove = std::nextafter(nearestThreeHalfPi, 10.0);
+
+    ASSERT_GT(std::tan(oneBelow), 0.0);
+    ASSERT_LT(std::tan(oneBelow), kMaxTanD);
+    ASSERT_GT(std::tan(nearestThreeHalfPi), kMaxTanD);
+    ASSERT_LT(std::tan(oneAbove), 0.0);
+    ASSERT_GT(std::tan(oneAbove), -kMaxTanD);
+
+    EXPECT_EQ(safeTan(oneBelow), std::tan(oneBelow));
+    EXPECT_EQ(safeTan(nearestThreeHalfPi), kMaxTanD);
+    EXPECT_EQ(safeTan(oneAbove), std::tan(oneAbove));
+}
+
+// The input closest to any singularity: for float found by checking every value, for
+// double a known worst case. Their true tangents (-6.19e8 and -2.13e18) are
+// far beyond 1/ε, so both must saturate to -1/ε. A sign error here would
+// reveal inaccurate reduction of a huge angle near a singularity.
+TEST(SafeMathFloat, TanSaturatesNearDistantSingularity) {
+    const float closestToSingularity = 0x1.f37c8ap+95F;  // about 7.7e28 rad
+    EXPECT_EQ(safeTanf(closestToSingularity), -kMaxTanF);
+}
+
+TEST(SafeMathDouble, TanSaturatesNearDistantSingularity) {
+    const double closestToSingularity = 0x1.6ac5b262ca1ffp+849;  // 6381956970095103 * 2^797 rad
+    EXPECT_EQ(safeTan(closestToSingularity), -kMaxTanD);
+}
+
+// --- 3. Special values ------------------------------------------------------
+
+// NaN and ±Inf have no tangent and return 0. Zero keeps its sign. For the
+// smallest normal and subnormal inputs, tan(x) equals x to within rounding,
+// so the result must be exactly x.
+TEST(SafeMathFloat, TanHandlesSpecialValues) {
+    EXPECT_EQ(safeTanf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeTanf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeTanf(std::numeric_limits<float>::infinity()), 0.0F);
+    EXPECT_EQ(safeTanf(-std::numeric_limits<float>::infinity()), 0.0F);
+    EXPECT_TRUE(std::signbit(safeTanf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeTanf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeTanf(x), x) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, TanHandlesSpecialValues) {
+    EXPECT_EQ(safeTan(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeTan(-std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeTan(std::numeric_limits<double>::infinity()), 0.0);
+    EXPECT_EQ(safeTan(-std::numeric_limits<double>::infinity()), 0.0);
+    EXPECT_TRUE(std::signbit(safeTan(-0.0)));
+    EXPECT_FALSE(std::signbit(safeTan(0.0)));
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeTan(x), x) << "x=" << x;
     }
 }
 
