@@ -1,6 +1,7 @@
 #ifndef F32XIMERA_STEPPER_MOTOR_CONTROLLER_ALGORITHM_H
 #define F32XIMERA_STEPPER_MOTOR_CONTROLLER_ALGORITHM_H
 
+#include "msgPayloadDef/definitions.h"
 #include "stepperMotorControllerTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include <math.h>
@@ -23,10 +24,6 @@ struct StepperMotorAngleRange {
  */
 class StepperMotorControllerConfig final {
    public:
-    /// Cap on stepsPerRev so the fp32 round-trip in angleToSteps stays within rounding tolerance
-    /// (error grows as O(N^2 * eps); at N=100k the expected drift is ~0.19 steps, safely within
-    /// the half-step round() margin).
-    static constexpr uint32_t kMaxStepsPerRev = 100000U;
     static constexpr float kMinStepAngle = 2.0F * std::numbers::pi_v<float> / static_cast<float>(kMaxStepsPerRev);
 
     static StepperMotorControllerConfig create(float stepAngle,
