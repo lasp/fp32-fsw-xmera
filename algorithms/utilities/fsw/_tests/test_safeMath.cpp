@@ -717,6 +717,56 @@ TEST(SafeMathDouble, AcosHandlesSpecialValues) {
     }
 }
 
+TEST(SafeMathFloat, AsinMatchesStandardAsin) {
+    for (const float x : {0.5F, -0.5F, 0.9F, -0.9F, 1.0F, -1.0F}) {
+        EXPECT_EQ(safeAsinf(x), std::asin(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathFloat, AsinClampsOutsideDomain) {
+    for (const float x : {std::nextafter(1.0F, 2.0F), 2.0F, 200.0F, FLT_MAX}) {
+        EXPECT_EQ(safeAsinf(x), std::numbers::pi_v<float> / 2.0F) << "x=" << x;
+        EXPECT_EQ(safeAsinf(-x), -std::numbers::pi_v<float> / 2.0F) << "x=" << -x;
+    }
+}
+
+TEST(SafeMathFloat, AsinHandlesSpecialValues) {
+    EXPECT_EQ(safeAsinf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeAsinf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeAsinf(std::numeric_limits<float>::infinity()), 0.0F);
+    EXPECT_EQ(safeAsinf(-std::numeric_limits<float>::infinity()), 0.0F);
+    EXPECT_TRUE(std::signbit(safeAsinf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeAsinf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeAsinf(x), std::asin(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, AsinMatchesStandardAsin) {
+    for (const double x : {0.5, -0.5, 0.9, -0.9, 1.0, -1.0}) {
+        EXPECT_EQ(safeAsin(x), std::asin(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, AsinClampsOutsideDomain) {
+    for (const double x : {std::nextafter(1.0, 2.0), 2.0, 200.0, DBL_MAX}) {
+        EXPECT_EQ(safeAsin(x), std::numbers::pi / 2.0) << "x=" << x;
+        EXPECT_EQ(safeAsin(-x), -std::numbers::pi / 2.0) << "x=" << -x;
+    }
+}
+
+TEST(SafeMathDouble, AsinHandlesSpecialValues) {
+    EXPECT_EQ(safeAsin(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeAsin(-std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeAsin(std::numeric_limits<double>::infinity()), 0.0);
+    EXPECT_EQ(safeAsin(-std::numeric_limits<double>::infinity()), 0.0);
+    EXPECT_TRUE(std::signbit(safeAsin(-0.0)));
+    EXPECT_FALSE(std::signbit(safeAsin(0.0)));
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeAsin(x), std::asin(x)) << "x=" << x;
+    }
+}
+
 // ============================================================================
 // Float — finiteness for extreme values
 // ============================================================================
