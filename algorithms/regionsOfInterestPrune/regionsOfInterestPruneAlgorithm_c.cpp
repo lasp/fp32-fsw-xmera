@@ -7,7 +7,7 @@ static_assert(REGIONS_OF_INTEREST_PRUNE_ROI_CANDIDATES_MAX == ROI_CANDIDATES_MAX
 
 namespace {
 RegionsOfInterestPruneConfig configFromC(const RegionsOfInterestPruneConfig_c& c) {
-    return RegionsOfInterestPruneConfig::create(c.maxRowSpans, c.maxColSpans);
+    return RegionsOfInterestPruneConfig::create(c.x0, c.y0);
 }
 
 RoiCandidates_c outputToC(const RoiCandidates& out) {

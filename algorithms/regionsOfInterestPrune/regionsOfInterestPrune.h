@@ -24,8 +24,8 @@ class RegionsOfInterestPrune : public SysModel {
     void reconfigure() const;
 
     // Phase 1: Public config properties -- set before reset().
-    uint32_t maxRowSpans = DEFAULT_MAX_ROW_SPANS;
-    uint32_t maxColSpans = DEFAULT_MAX_COL_SPANS;
+    uint32_t x0 = DEFAULT_X0;  //!< [px] Reference point column, in [0, MAX_IMAGE_COLS]
+    uint32_t y0 = DEFAULT_Y0;  //!< [px] Reference point row, in [0, MAX_IMAGE_ROWS]
 
     // --- Message interfaces ---
     ReadFunctor<FpgaRowColSumMsgF32Payload> rowColSumInMsg;           //!< Row/col accumulators from fpgaImagePipeline

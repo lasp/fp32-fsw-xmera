@@ -14,10 +14,10 @@ struct RoiCandidateEntry;
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 // NOTE: no %exception mapping exists for fsw::invalid_argument (it derives from the freestanding
-// fsw::exception, not std::exception), so an out-of-range maxRowSpans/maxColSpans (0 or above
-// ROW_SPANS_MAX/COL_SPANS_MAX) passed to RegionsOfInterestPruneConfig::create() or applied via
+// fsw::exception, not std::exception), so an out-of-range x0/y0 (above
+// MAX_IMAGE_COLS/MAX_IMAGE_ROWS) passed to RegionsOfInterestPruneConfig::create() or applied via
 // reset()/reconfigure() terminates the Python process instead of raising a Python exception.
-// Validate with RegionsOfInterestPruneConfig.isValidMaxRowSpans()/isValidMaxColSpans() first.
+// Validate with RegionsOfInterestPruneConfig.isValidX0()/isValidY0() first.
 %include "regionsOfInterestPrune.h"
 %include "regionsOfInterestPruneAlgorithm.h"
 

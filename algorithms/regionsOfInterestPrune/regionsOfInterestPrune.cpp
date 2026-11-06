@@ -19,7 +19,7 @@ void RegionsOfInterestPrune::reset(uint64_t /*callTime*/) {
 
 /*! @brief Build a validated RegionsOfInterestPruneConfig from the adapter's stored properties. */
 RegionsOfInterestPruneConfig RegionsOfInterestPrune::toConfig() const {
-    return RegionsOfInterestPruneConfig::create(this->maxRowSpans, this->maxColSpans);
+    return RegionsOfInterestPruneConfig::create(this->x0, this->y0);
 }
 
 /*! @brief Push a fresh configuration into the algorithm without reconstructing it.
