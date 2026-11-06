@@ -133,8 +133,12 @@ inline double safeTanH(double const x) {
  *         [-(1 - ε), (1 - ε)]. The domain of atanh is the open interval
  *         (-1, 1); passing ±1 produces ±infinity, so the bound is kept
  *         strictly inside the domain.
- *  @param x Input value
- *  @return atanhf(clamp(x, -(1 - ε), (1 - ε)))
+ *         NaN and ±Inf inputs return zero. Finite inputs outside the bound,
+ *         including the largest value below 1 (1 - ε/2), return
+ *         atanhf(±(1 - ε)) ≈ ±8.32.
+ *         Preserves the sign of zero (atanh(±0) = ±0).
+ *  @param x Input value (any real)
+ *  @return atanhf(clamp(x, -(1 - ε), (1 - ε))), or 0.0F if x is NaN or ±Inf
  */
 inline float safeAtanHf(float const x) {
     if (isnan(x) || isinf(x)) {
@@ -154,8 +158,12 @@ inline float safeAtanHf(float const x) {
  *         [-(1 - ε), (1 - ε)]. The domain of atanh is the open interval
  *         (-1, 1); passing ±1 produces ±infinity, so the bound is kept
  *         strictly inside the domain.
- *  @param x Input value
- *  @return atanh(clamp(x, -(1 - ε), (1 - ε)))
+ *         NaN and ±Inf inputs return zero. Finite inputs outside the bound,
+ *         including the largest value below 1 (1 - ε/2), return
+ *         atanh(±(1 - ε)) ≈ ±18.37.
+ *         Preserves the sign of zero (atanh(±0) = ±0).
+ *  @param x Input value (any real)
+ *  @return atanh(clamp(x, -(1 - ε), (1 - ε))), or 0.0 if x is NaN or ±Inf
  */
 inline double safeAtanH(double const x) {
     if (isnan(x) || isinf(x)) {
