@@ -421,8 +421,10 @@ inline double safeAsin(double const x) {
 
 /*! @brief Safe wrapper around sqrtf that clamps negative inputs to zero, the
  *         lower bound of the domain of sqrt.
+ *         NaN and ±Inf inputs return zero.
+ *         Preserves the sign of zero (sqrt(±0) = ±0).
  *  @param x Input value
- *  @return sqrtf(max(x, 0))
+ *  @return sqrtf(max(x, 0)) in [0, sqrtf(FLT_MAX)], or 0.0F if x is NaN or ±Inf
  */
 inline float safeSqrtf(float const x) {
     if (isnan(x) || isinf(x)) {
@@ -436,8 +438,10 @@ inline float safeSqrtf(float const x) {
 
 /*! @brief Safe wrapper around sqrt that clamps negative inputs to zero, the
  *         lower bound of the domain of sqrt.
+ *         NaN and ±Inf inputs return zero.
+ *         Preserves the sign of zero (sqrt(±0) = ±0).
  *  @param x Input value
- *  @return sqrt(max(x, 0))
+ *  @return sqrt(max(x, 0)) in [0, sqrt(DBL_MAX)], or 0.0 if x is NaN or ±Inf
  */
 inline double safeSqrt(double const x) {
     if (isnan(x) || isinf(x)) {
