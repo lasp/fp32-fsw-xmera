@@ -28,10 +28,10 @@ suites can be included or excluded explicitly.
 |-----------------------|-------------------------------------------------------------------|-------------------|-------------------|
 | *(unlabeled)*         | Fast unit / validation tests — the common case                    | yes               | yes               |
 | `fuzz` + `fuzz-smoke` | FuzzTest targets (both labels applied together)                   | only when fuzzing is enabled | smoke subset only |
-| `exhaustive`          | Long brute-force scans (currently only `utilities/_tests`)        | yes               | yes               |
+| `exhaustive`          | Long brute-force scans (currently only `utilities/fsw/_tests`)    | yes               | no                |
 
 `fuzz`/`fuzz-smoke` are used across most algorithm `_tests/` directories. `exhaustive` is
-currently specific to `algorithms/utilities/_tests` — see that directory's `README.md`.
+currently specific to `algorithms/utilities/fsw/_tests` — see that directory's `README.md`.
 
 > CTest's `-L` (label include) and `-LE` (label exclude) take **regexes**, and a bare `ctest` runs
 > *everything configured in the build* — it does not skip `exhaustive`. Exclude long test groups
@@ -74,7 +74,22 @@ ctest --output-on-failure -L fuzz          # all fuzz targets
 ## 4. What CI runs
 
 - **Pull request** (`.github/workflows/pull-request.yml`): configures `fuzz-smoke-test`, then
-  `ctest --output-on-failure -LE fuzz`. This excludes fuzz but **not** `exhaustive`, so the
-  (cheap) brute-force scans run on every PR.
-- **Nightly** (`.github/workflows/nightly-long-tests.yml`): configures `fuzz-test`, then
-  `ctest --output-on-failure` (all suites), followed by a separate long fuzzing run.
+  `ctest --output-on-failure -LE exhaustive`. The fuzz targets therefore *do* run on every PR,
+  in unit-test mode; the brute-force scans do not, because under `--coverage` their hit counts
+  overflow gcov. The Linux leg builds instrumented and reports coverage.
+- **Daily fuzzing** (`.github/workflows/daily-fuzz.yml`): every job configures `fuzz-test` with
+  Clang.
+  - `fuzz-smoke` runs the fuzz targets in unit-test mode, replays every input in the cached
+    corpus with `FUZZTEST_REPLAY`, and runs the `exhaustive` scans.
+  - The `fuzz-shard` matrix fuzzes each `FUZZ_TEST` for `fuzz_duration` (default 60 s). The
+    tests are dealt round-robin across the shards, because one job cannot fuzz all of them
+    inside the 6 h job limit. When the test count grows, add shards to the matrix.
+  - After each session, the shard deletes the corpus inputs that FuzzTest rejected as invalid.
+    These are inputs from a domain that has since changed.
+  - `fuzz-merge` replaces each fuzzed test's corpus in the cache and writes the report. A test
+    is `CRASH`, `INCOMPLETE` (no gtest PASSED line, for example because the job was killed),
+    `NOT RUN`, or `OK`. Any status other than `OK` fails the job. It also deletes the corpus of
+    any test that no shard lists, which is what a renamed or deleted `FUZZ_TEST` leaves behind.
+
+The pull request workflow publishes coverage artifacts. See [`COVERAGE.md`](COVERAGE.md) for what
+the reports contain and how to read the line and branch numbers.
