@@ -206,8 +206,8 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.opnavCOBInMsg.subscribeTo(cobInMsg)
 
     # Set filter message
-    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01])
-    inputFilter.numberOfStates = 6
+    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01, 1e-6, 1e-6])
+    inputFilter.numberOfStates = 8
     inputFilter.state = np.array([r_BdyZero_N, v_BdyZero_N]).flatten()
     inputFilter.covar = full_covariance.flatten()
     position_covar = full_covariance[:3,:3]
@@ -412,8 +412,8 @@ def test_coberror_outlier(
     module.opnavCOBInMsg.subscribeTo(cobInMsg)
 
     # Set filter message
-    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01])
-    inputFilter.numberOfStates = 6
+    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01, 1e-6, 1e-6])
+    inputFilter.numberOfStates = 8
     inputFilter.state = np.array([r_BdyZero_N, v_BdyZero_N]).flatten()
     inputFilter.covar = full_covariance.flatten()
     filterInMsg = messaging.FilterMsgF32().write(inputFilter)
@@ -581,8 +581,8 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     cobInMsg = messaging.OpNavCOBMsgF32().write(inputCob)
     module.opnavCOBInMsg.subscribeTo(cobInMsg)
 
-    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01])
-    inputFilter.numberOfStates = 6
+    full_covariance = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01, 1e-6, 1e-6])
+    inputFilter.numberOfStates = 8
     inputFilter.state = np.array([r_BdyZero_N, v_BdyZero_N]).flatten()
     inputFilter.covar = full_covariance.flatten()
     filterInMsg = messaging.FilterMsgF32().write(inputFilter)
@@ -723,9 +723,9 @@ def test_unwritten_filter_message_gives_an_invalid_heading():
     assert np.all(np.isfinite(dataLogUnitVec.rhat_BN_N))
 
     inputFilter = messaging.FilterMsgF32Payload()
-    inputFilter.numberOfStates = 6
+    inputFilter.numberOfStates = 8
     inputFilter.state = [-36.0e6, -300.0e3, 0.0, 8.0e3, 0.0, 0.0]
-    inputFilter.covar = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01]).flatten()
+    inputFilter.covar = np.diag([50e3, 50e3, 50e3, 0.01, 0.01, 0.01, 1e-6, 1e-6]).flatten()
     filterInMsg.write(inputFilter)
     unitTestSim.ConfigureStopTime(3 * testProcessRate)
     unitTestSim.ExecuteSimulation()

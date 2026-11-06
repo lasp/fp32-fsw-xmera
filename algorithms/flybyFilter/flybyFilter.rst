@@ -3,8 +3,10 @@ Executive Summary
 This module estimates the inertial spacecraft position and velocity relative to a central body from
 optical-navigation heading (unit-vector) measurements, using a square-root unscented Kalman filter
 (SRuKF) under two-body point-mass gravity. This is angles-only orbit determination: a single heading
-observes the pointing direction, and range/velocity are resolved through the dynamics over an arc. All
-computation is double precision.
+observes the pointing direction, and range/velocity are resolved through the dynamics over an arc. The
+filter also estimates a constant heading bias of two angles, across and along the terminator, so a
+systematic center-of-brightness error can be given a physical prior and bound. All filter computation is
+single precision (float).
 
 The module is split into an xmera ``SysModel`` adapter (``FlybyFilter``) and a framework-agnostic
 algorithm (``FlybyFilterAlgorithm``). The algorithm is a thin, problem-specific layer over the reusable
@@ -14,7 +16,8 @@ robust scheduler (see `Relation to filteringCore`_). Configuration is validated 
 ``FlybyFilterConfig`` and applied with a two-phase initialization lifecycle: the host sets the adapter's
 public properties, then ``reset()`` builds the validated config and seeds the filter. The filter operates
 internally in km and km/s for numerical conditioning; the adapter converts to/from SI at the message
-boundary.
+boundary by scaling the position and velocity components (``StateVector::scaleComponent()`` and
+``scaleCovarianceComponent()``). The bias angles are in radians on both sides and are not scaled.
 
 Message Connection Descriptions
 -------------------------------
@@ -31,6 +34,11 @@ The following table lists all the module input and output messages.
       - :ref:`OpNavUnitVecMsgF32Payload`
       - Input optical-navigation heading: unit vector ``rhat_BN_N`` from the spacecraft to the central
         body, inertial frame; required
+    * - navAttInMsg
+      - :ref:`NavAttMsgF32Payload`
+      - Input attitude ``sigma_BN`` and body-frame sun direction ``vehSunPntBdy`` (e.g. navAggregate's
+        attitude output), read with each fresh heading; optional. Without it the headings are modeled
+        without the bias
     * - navTransOutMsg
       - :ref:`NavTransMsgF32Payload`
       - Output message containing the estimated inertial position and velocity
@@ -44,13 +52,19 @@ The following table lists all the module input and output messages.
 
 Detailed Module Description
 ---------------------------
-The estimated state is a 6-element vector combining the inertial position and velocity of the spacecraft
-relative to the central body. It is composed from filteringCore state tags as
-``filtering::StateVector<filtering::Position<3>, filtering::Velocity<3>>``:
+The estimated state is an 8-element vector combining the inertial position and velocity of the spacecraft
+relative to the central body with a constant heading bias :math:`\boldsymbol{b} = (b_\perp, b_\parallel)` [rad],
+the angles across and along the terminator. It is composed from filteringCore state tags as
+``filtering::StateVector<filtering::Position<3>, filtering::Velocity<3>, filtering::Bias<2>>``:
 
 .. math::
     \boldsymbol{x} = \left\{ \begin{matrix} \boldsymbol{r}_{B/N} \\
-    \boldsymbol{v}_{B/N} \end{matrix} \right\}.
+    \boldsymbol{v}_{B/N} \\ \boldsymbol{b} \end{matrix} \right\}.
+
+The bias absorbs the systematic heading error left after the cob converter's center-of-brightness
+correction. That error comes from the illumination, so it lies mostly across the terminator, toward the
+lit limb; expressing the bias in the terminator frame lets each angle have its own prior, process noise
+and bound.
 
 The measurement queue holds ``BatchSize = 2`` headings. Each call enqueues the new reading before it processes the
 due ones, so the queue must hold every reading received within the ``measurementDelay``, plus the new one: with one
@@ -67,7 +81,9 @@ parameter and :math:`r_\text{min}` a floor on the range entering the denominator
 .. math::
     \boldsymbol{\dot{x}} = \left\{ \begin{matrix} \boldsymbol{v}_{B/N} \\
     -\dfrac{\mu}{\max\left(\lVert \boldsymbol{r}_{B/N} \rVert,\, r_\text{min}\right)^3}\,
-    \boldsymbol{r}_{B/N} \end{matrix} \right\}.
+    \boldsymbol{r}_{B/N} \\ \boldsymbol{0} \end{matrix} \right\}.
+
+The heading bias is constant; its process noise may be zero.
 
 The dynamics functor carries :math:`\mu` (in internal units) and is set from the configuration; the SRuKF
 propagates the sigma points with the shared RK4 integrator.
@@ -93,10 +109,48 @@ Measurement model
 A single measurement type is processed: an optical-navigation heading unit vector. It is expressed as a
 model type satisfying the filteringCore ``Measurement`` concept (``observation()``, ``model()``,
 ``noise()``, ``subtract()``), which the ``SRuKF`` consumes generically. The measured quantity is the unit
-vector ``rhat_BN_N``, and the measurement model is the normalized position:
+vector ``rhat_BN_N``. The model is the line of sight :math:`\hat{\boldsymbol{r}} = \boldsymbol{r}_{B/N} /
+\lVert \boldsymbol{r}_{B/N} \rVert` rotated by the two bias angles in the terminator frame. With
+:math:`\hat{\boldsymbol{s}}` the inertial sun direction at the reading's time and :math:`\hat{\boldsymbol{m}}`
+the measured heading,
 
 .. math::
-    \boldsymbol{h}(\boldsymbol{x}) = \frac{\boldsymbol{r}_{B/N}}{\lVert \boldsymbol{r}_{B/N} \rVert}.
+    \boldsymbol{p} = \hat{\boldsymbol{s}} - (\hat{\boldsymbol{s}} \cdot \hat{\boldsymbol{m}})\,\hat{\boldsymbol{m}},
+    \qquad \boldsymbol{e}_\perp = \frac{\boldsymbol{p}}{\lVert \boldsymbol{p} \rVert},
+    \qquad \boldsymbol{e}_\parallel = \hat{\boldsymbol{m}} \times \boldsymbol{e}_\perp,
+
+    \boldsymbol{\phi}_\perp = b_\perp \boldsymbol{e}_\parallel,
+    \qquad \boldsymbol{\phi}_\parallel = -b_\parallel \boldsymbol{e}_\perp,
+    \qquad \boldsymbol{h}(\boldsymbol{x}) = [C(\boldsymbol{\phi}_\perp \oplus \boldsymbol{\phi}_\parallel)]^T
+    \hat{\boldsymbol{r}},
+
+with :math:`\boldsymbol{\phi}_\perp` and :math:`\boldsymbol{\phi}_\parallel` the principal rotation vectors (PRVs)
+of the two angles, :math:`\oplus` the PRV addition (``addPrv``: the across rotation followed by the along one) and
+:math:`[C(\boldsymbol{\phi})]` the direction cosine matrix of a PRV (``prvToDcm``), both from
+``rigidBodyKinematics``; its transpose rotates the line of sight.
+
+:math:`\boldsymbol{e}_\perp` is the sun direction projected perpendicular to the measured heading: across the
+terminator, toward the lit limb. It is the image-plane direction to the sun when the body is centered in
+the image. :math:`\boldsymbol{e}_\parallel` lies along the terminator. The bias components are angles [rad]:
+:math:`b_\perp` rotates the heading toward :math:`\boldsymbol{e}_\perp` (about :math:`\boldsymbol{e}_\parallel`),
+:math:`b_\parallel` rotates it toward :math:`\boldsymbol{e}_\parallel` (about :math:`-\boldsymbol{e}_\perp`), and
+together they compose into a single rotation. Their priors, process
+noise and bounds are therefore physical angles, for example the expected center-of-brightness offset over the
+apparent radius. The model is a rotation, so it stays a unit vector like the observed heading. The terminator
+frame is built once per measurement update, from the measured heading and the reading's own sun direction, and
+every sigma point uses it: the frame and the decision to model the bias do not change across the sigma points,
+and a delayed reading uses the geometry of its time.
+
+The adapter rotates the attitude message's body-frame sun direction into the inertial frame,
+:math:`\hat{\boldsymbol{s}}_N = [BN]^T \hat{\boldsymbol{s}}_B`. When there is no attitude message, its sun
+direction is zero or not finite, or the sun is within ``MinSunLineOfSightAngle`` (5 deg, i.e.
+:math:`\lVert \boldsymbol{p} \rVert \le \sin 5^\circ`) of the measured heading or of its opposite, the
+terminator directions are ill-defined and the reading is modeled as :math:`\hat{\boldsymbol{r}}`, without the
+bias. That reading then carries no information on the bias. Near zero phase the illumination offset vanishes anyway.
+
+A single heading observes both bias angles, but on a short arc a constant bias is nearly indistinguishable
+from a trajectory offset. The bias separates from the trajectory as the line of sight turns, so it becomes
+observable through closest approach.
 
 The innovation is the plain vector difference of the measured and predicted unit vectors. The measurement
 noise covariance is the reading's own ``covar_N`` (e.g. from cobConverter) times the configured
@@ -105,13 +159,22 @@ so a message that never set it does not reach the filter. Because a heading
 only observes two of the three position degrees of freedom (the transverse directions), range is only
 weakly observable instantaneously and is resolved through the two-body dynamics over a measurement arc.
 
+Heading-bias bound
+++++++++++++++++++
+The bias is a small heading offset. After each cycle, if :math:`|b_\perp|` exceeds ``maxAcrossTerminatorBias``
+or :math:`|b_\parallel|` exceeds ``maxAlongTerminatorBias`` (in the working estimate or the last-measurement
+anchor), the filter treats it as not credible (a run of bad headings, or a fault) and re-seeds it with
+``SRuKF::reInitializeComponent<Bias<2>>()``. Both angles return to their initial values and their covariance
+block to the initial one, uncorrelated with the position and velocity, which keep their estimate and
+covariance. The re-seed shows in ``filterOutMsg``. The initial bias must lie within the maxima.
+
 
 Module Architecture
 -------------------
 ``FlybyFilterAlgorithm`` is framework-agnostic: it holds a ``filtering::SRuKF`` and a validated
 ``FlybyFilterConfig``, owns the ``measurement_queue``, and exposes ``update()``, ``reInitializeExceptPersistentStates()``, and
-``reInitialize()``. On each ``update()`` it enqueues a fresh heading reading if present and drains the
-queue through the filteringCore ``applySequentialRobust`` scheduler. ``FlybyFilter`` is the xmera adapter:
+``reInitialize()``. On each ``update()`` it enqueues a fresh heading reading if present, drains the
+queue through the filteringCore ``applySequentialRobust`` scheduler, and re-seeds the bias if it left its bounds. ``FlybyFilter`` is the xmera adapter:
 it owns the message ports, converts payloads to/from the algorithm's Eigen types (SI on the wire,
 km/(km/s) internally), and drives the lifecycle.
 
@@ -133,11 +196,12 @@ the problem-specific types and lets the core provide the estimator machinery. Th
     * - filteringCore primitive
       - Flyby-filter specialization
     * - ``StateVector<Components...>``
-      - ``StateVector<Position<3>, Velocity<3>>`` -- the 6-element position/velocity state
+      - ``StateVector<Position<3>, Velocity<3>, Bias<2>>`` -- the 8-element position/velocity/heading-bias state
     * - ``Dynamics`` concept
       - ``FlybyDynamics`` -- the two-body point-mass gravity functor (carries ``mu``)
     * - ``Measurement`` concept
-      - ``HeadingMeasurementModel`` (``observation``/``model``/``noise``/``subtract``); model = ``r/|r|``
+      - ``HeadingMeasurementModel`` (``observation``/``model``/``noise``/``subtract``); model = the line of
+        sight rotated by the terminator bias angles
     * - ``SRuKF<State, Dyn>``
       - ``SRuKF<FlybyState, FlybyDynamics>`` -- the square-root UKF that owns the estimate
     * - ``measurement_queue<Measurement, N>``
@@ -206,17 +270,23 @@ Configuration parameters
       - SI -> internal length scale (1e-3 = m -> km)
       - > 0
     * - processNoise
-      - N x N process noise covariance Q
+      - 8 x 8 process noise covariance Q [m^2, (m/s)^2, rad^2]
       - finite, symmetric, positive semi-definite
     * - initialState
-      - N-element initial state seed [m, m/s]
-      - finite
+      - 8-element initial state seed [r_BN_N, v_BN_N, b] [m, m/s, rad]
+      - finite; bias angles within their maxima
     * - initialCovariance
-      - N x N initial covariance P0
+      - 8 x 8 initial covariance P0 [m^2, (m/s)^2, rad^2]
       - finite, symmetric, positive semi-definite
     * - measurementNoiseScale
       - scales the heading message's ``covar_N`` into the filter measurement noise
       - finite, > 0 (default 1)
+    * - maxAcrossTerminatorBias
+      - across-terminator bias magnitude above which the bias is re-seeded [rad]
+      - finite, > 0 (must be set)
+    * - maxAlongTerminatorBias
+      - along-terminator bias magnitude above which the bias is re-seeded [rad]
+      - finite, > 0 (must be set)
     * - measurementDelay
       - processing delay [s]: a measurement is processed only once the filter time is at least its time tag
         plus the delay (default 0, no delay)
@@ -235,11 +305,16 @@ configuration::
     filter.unitConversion = 1e-3           # filter internally in km, km/s
     filter.mu = 42828.314 * 1e9            # [m^3/s^2] central-body gravitational parameter
     filter.measurementNoiseScale = 1.0     # R = scale * covar_N of each heading message
-    filter.initialState = [r_x, r_y, r_z, v_x, v_y, v_z]   # [m, m/s]
-    filter.initialCovariance = np.diag([1000.*1e6]*3 + [0.1*1e6]*3).tolist()
-    filter.processNoise = np.diag([(1e-6)**2]*3 + [(1e-8)**2]*3).tolist()
+    filter.maxAcrossTerminatorBias = 1e-2  # [rad]
+    filter.maxAlongTerminatorBias = 1e-2   # [rad]
+    filter.initialState = [r_x, r_y, r_z, v_x, v_y, v_z, 0., 0.]   # [m, m/s, rad]
+    filter.initialCovariance = np.diag([1000.*1e6]*3 + [0.1*1e6]*3 + [(1e-3)**2]*2).tolist()
+    filter.processNoise = np.diag([(1e-6)**2]*3 + [(1e-8)**2]*3 + [0.]*2).tolist()
 
-    # Connect the input/output messages (opNavHeadingMsg required), then the simulation calls reset()
+    filter.opNavHeadingMsg.subscribeTo(cobConverter.opnavUnitVecOutMsg)
+    filter.navAttInMsg.subscribeTo(navAggregate.navAttOutMsg)   # sun direction for the bias
+
+    # Connect the output messages, then the simulation calls reset()
     # once before stepping. To restart the filter at runtime, call reInitialize() (state + covariance
     # reset to the configured seed) or reInitializeExceptPersistentStates() (keep the current estimate, clear only the pending
     # measurements and residual snapshot).
