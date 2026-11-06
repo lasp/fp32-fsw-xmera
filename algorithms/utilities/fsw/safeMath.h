@@ -368,9 +368,10 @@ inline double safeAcos(double const x) {
 }
 
 /*! @brief Safe wrapper around asinf that clamps the input to [-1, 1], the
- *         closed domain of asin.
- *  @param x Input value
- *  @return asinf(clamp(x, -1, 1))
+ *         closed domain of asin. Inputs above 1 return π/2 and inputs below -1
+ *         return -π/2. NaN and ±Inf inputs return zero.
+ *  @param x Input value (sine of an angle)
+ *  @return asinf(clamp(x, -1, 1)) in [-π/2, π/2], or 0.0F if x is NaN or ±Inf
  */
 inline float safeAsinf(float const x) {
     if (isnan(x) || isinf(x)) {
@@ -386,9 +387,10 @@ inline float safeAsinf(float const x) {
 }
 
 /*! @brief Safe wrapper around asin that clamps the input to [-1, 1], the
- *         closed domain of asin.
- *  @param x Input value
- *  @return asin(clamp(x, -1, 1))
+ *         closed domain of asin. Inputs above 1 return π/2 and inputs below -1
+ *         return -π/2. NaN and ±Inf inputs return zero.
+ *  @param x Input value (sine of an angle)
+ *  @return asin(clamp(x, -1, 1)) in [-π/2, π/2], or 0.0 if x is NaN or ±Inf
  */
 inline double safeAsin(double const x) {
     if (isnan(x) || isinf(x)) {

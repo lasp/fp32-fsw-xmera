@@ -288,6 +288,32 @@ void fuzzAcosAllInputsF(float x) {
 }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzAcosAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
 
+// Checks safeAsinf for every float, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Inputs above 1 return π/2; inputs below -1 return -π/2.
+//  - Other inputs return std::asin(x).
+//  - The output is always finite and within [-π/2, π/2].
+void fuzzAsinAllInputsF(float x) {
+    const float halfPi = std::numbers::pi_v<float> / 2.0F;
+    const float result = safeAsinf(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), halfPi);
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    if (x > 1.0F) {
+        EXPECT_EQ(result, halfPi);
+        return;
+    }
+    if (x < -1.0F) {
+        EXPECT_EQ(result, -halfPi);
+        return;
+    }
+    EXPECT_EQ(result, std::asin(x));
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzAsinAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
+
 // ============================================================================
 // Double — mathematical properties
 // ============================================================================
@@ -551,3 +577,29 @@ void fuzzAcosAllInputsD(double x) {
     EXPECT_EQ(result, std::acos(x));
 }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzAcosAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
+
+// Checks safeAsin for every double, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Inputs above 1 return π/2; inputs below -1 return -π/2.
+//  - Other inputs return std::asin(x).
+//  - The output is always finite and within [-π/2, π/2].
+void fuzzAsinAllInputsD(double x) {
+    const double halfPi = std::numbers::pi / 2.0;
+    const double result = safeAsin(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), halfPi);
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    if (x > 1.0) {
+        EXPECT_EQ(result, halfPi);
+        return;
+    }
+    if (x < -1.0) {
+        EXPECT_EQ(result, -halfPi);
+        return;
+    }
+    EXPECT_EQ(result, std::asin(x));
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzAsinAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
