@@ -342,9 +342,10 @@ inline double safeSin(double const x) {
 }
 
 /*! @brief Safe wrapper around acosf that clamps the input to [-1, 1], the
- *         closed domain of acos.
- *  @param x Input value
- *  @return acosf(clamp(x, -1, 1))
+ *         closed domain of acos. Inputs above 1 return 0 and inputs below -1
+ *         return π. NaN and ±Inf inputs return zero.
+ *  @param x Input value (cosine of an angle)
+ *  @return acosf(clamp(x, -1, 1)) in [0, π], or 0.0F if x is NaN or ±Inf
  */
 inline float safeAcosf(float const x) {
     if (isnan(x) || isinf(x)) {
@@ -360,9 +361,10 @@ inline float safeAcosf(float const x) {
 }
 
 /*! @brief Safe wrapper around acos that clamps the input to [-1, 1], the
- *         closed domain of acos.
- *  @param x Input value
- *  @return acos(clamp(x, -1, 1))
+ *         closed domain of acos. Inputs above 1 return 0 and inputs below -1
+ *         return π. NaN and ±Inf inputs return zero.
+ *  @param x Input value (cosine of an angle)
+ *  @return acos(clamp(x, -1, 1)) in [0, π], or 0.0 if x is NaN or ±Inf
  */
 inline double safeAcos(double const x) {
     if (isnan(x) || isinf(x)) {
