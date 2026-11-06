@@ -437,11 +437,14 @@ inline double safeSqrt(double const x) {
     return sqrt(x);
 }
 
-/*! @brief Safe wrapper around atan2f that returns 0 when both arguments are
- *         zero, the only input pair for which atan2 is undefined.
+/*! @brief Safe wrapper around atan2f. When both arguments are zero (any sign),
+ *         the direction is undefined and zero is returned, instead of the
+ *         ±0 or ±π that atan2f picks from the signs of the zeros.
+ *         NaN or ±Inf in either argument returns zero.
  *  @param y Numerator argument (opposite side)
  *  @param x Denominator argument (adjacent side)
- *  @return atan2f(y, x), or 0 when both y and x are zero
+ *  @return atan2f(y, x) in [-π, π], or 0.0F if either argument is NaN or ±Inf,
+ *          or both are zero
  */
 inline float safeAtan2f(float const y, float const x) {
     if (isnan(y) || isnan(x) || isinf(x) || isinf(y)) {
@@ -453,11 +456,14 @@ inline float safeAtan2f(float const y, float const x) {
     return atan2f(y, x);
 }
 
-/*! @brief Safe wrapper around atan2 that returns 0 when both arguments are
- *         zero, the only input pair for which atan2 is undefined.
+/*! @brief Safe wrapper around atan2. When both arguments are zero (any sign),
+ *         the direction is undefined and zero is returned, instead of the
+ *         ±0 or ±π that atan2 picks from the signs of the zeros.
+ *         NaN or ±Inf in either argument returns zero.
  *  @param y Numerator argument (opposite side)
  *  @param x Denominator argument (adjacent side)
- *  @return atan2(y, x), or 0 when both y and x are zero
+ *  @return atan2(y, x) in [-π, π], or 0.0 if either argument is NaN or ±Inf,
+ *          or both are zero
  */
 inline double safeAtan2(double const y, double const x) {
     if (isnan(y) || isnan(x) || isinf(x) || isinf(y)) {
