@@ -92,12 +92,12 @@ def run_pruning(row_sums, col_sums, row_col_span, r=regionsOfInterestPrune):
 
 
 # ---------------------------------------------------------------------------
-# Step 4: convert corner-coordinate candidates -> center-coordinate regions
+# Step 4: convert corner-coordinate candidates -> published region fields
 # ---------------------------------------------------------------------------
 
-def to_center_coordinate_regions(candidates):
-    """Same conversion RegionsOfInterestPrune::updateState() does: corner
-    (row, col, width, height) -> center (centerX, centerY, width, height).
+def to_corner_coordinate_regions(candidates):
+    """Same mapping RegionsOfInterestPrune::updateState() does: corner
+    (row, col, width, height) -> (cornerX, cornerY, width, height).
 
     Returns a list of SimpleNamespace, rank-1 (highest count) first, matching
     what _regions_from_log() hands to diagnostics.py in the unit test.
@@ -106,8 +106,8 @@ def to_center_coordinate_regions(candidates):
     for k in range(candidates.numCandidates):
         c = candidates.candidates[k]
         regions.append(types.SimpleNamespace(
-            centerX=c.col + c.width // 2,
-            centerY=c.row + c.height // 2,
+            cornerX=c.col,
+            cornerY=c.row,
             width=c.width,
             height=c.height,
             numberOfPixels=c.count,
@@ -129,11 +129,11 @@ def main():
 
     background, row_sums, col_sums = compute_row_col_sums(args.image_path, args.kernel)
     candidates = run_pruning(row_sums, col_sums, args.row_col_span)
-    regions = to_center_coordinate_regions(candidates)
+    regions = to_corner_coordinate_regions(candidates)
 
     print(f"{len(regions)} candidate(s) identified.")
     for k, reg in enumerate(regions):
-        print(f"  [{k}] center=({reg.centerX},{reg.centerY}) "
+        print(f"  [{k}] corner=({reg.cornerX},{reg.cornerY}) "
               f"size={reg.width}x{reg.height} count={reg.numberOfPixels}")
 
     time_tag = f"{args.row_col_span}_{os.path.splitext(os.path.basename(args.image_path))[0]}"

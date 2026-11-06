@@ -49,8 +49,8 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
     for (uint32_t k = 0; k < numPublished; ++k) {
         const auto& cand = candidates.candidates[k];
         output.timeTag[k] = timeTagSec;
-        output.centerX[k] = static_cast<int>(cand.col + cand.width / 2);
-        output.centerY[k] = static_cast<int>(cand.row + cand.height / 2);
+        output.cornerX[k] = static_cast<int>(cand.col);
+        output.cornerY[k] = static_cast<int>(cand.row);
         output.width[k] = static_cast<int>(cand.width);
         output.height[k] = static_cast<int>(cand.height);
         output.numberOfPixels[k] = static_cast<int>(cand.count);

@@ -35,11 +35,11 @@ def build_background(source_image):
 
 def draw_region(vis, region, color, thickness, label=None):
     """Draw one region's bounding box on `vis`; optionally add a filled center dot + label."""
-    x = region.centerX - region.width // 2
-    y = region.centerY - region.height // 2
+    x = region.cornerX
+    y = region.cornerY
     cv2.rectangle(vis, (x, y), (x + region.width, y + region.height), color, thickness)
     if label is not None:
-        cv2.circle(vis, (region.centerX, region.centerY), CENTER_DOT_RADIUS_PX, color, cv2.FILLED)
+        cv2.circle(vis, (x + region.width // 2, y + region.height // 2), CENTER_DOT_RADIUS_PX, color, cv2.FILLED)
         label_y = max(y - LABEL_OFFSET_PX, LABEL_MIN_Y)
         cv2.putText(
             vis, label, (x, label_y), cv2.FONT_HERSHEY_SIMPLEX,
@@ -52,7 +52,7 @@ def save_visualization(regions, source_image, time_tag, save_dir):
 
     Parameters
     ----------
-    regions : sequence of objects with .centerX, .centerY, .width, .height, .numberOfPixels
+    regions : sequence of objects with .cornerX, .cornerY, .width, .height, .numberOfPixels
               (as returned e.g. by _regions_from_log() in test_regionsOfInterestPrune.py),
               already sorted rank-1 first.
     source_image : 2-D numpy array (grayscale), used as the background canvas.

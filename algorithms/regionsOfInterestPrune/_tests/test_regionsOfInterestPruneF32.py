@@ -3,7 +3,7 @@ Unit tests for regionsOfInterestPrune.
 
     test_message_connection  — verifies rowColSumInMsg links to fpgaImagePipeline.rowColSumOutMsg
                                and that regionsIdentifiedOutMsg is written after one step.
-    test_step2_*             — verify bounding-box identification and the center-coordinate
+    test_step2_*             — verify bounding-box identification and the corner-coordinate
                                conversion published to regionsIdentifiedOutMsg.
     test_pruning             — end-to-end integration on a real image; writes an annotated
                                diagnostic PNG (see diagnostics/diagnostics.py in this directory)
@@ -78,8 +78,8 @@ def _regions_from_log(roi_log, timestep=-1):
         if numberOfPixels > 0:
             regions.append(types.SimpleNamespace(
                 numberOfPixels=numberOfPixels,
-                centerX=roi_log.centerX[timestep][k],
-                centerY=roi_log.centerY[timestep][k],
+                cornerX=roi_log.cornerX[timestep][k],
+                cornerY=roi_log.cornerY[timestep][k],
                 width=roi_log.width[timestep][k],
                 height=roi_log.height[timestep][k],
             ))
@@ -99,7 +99,7 @@ def test_message_connection():
     ----------
     1. rowColSumInMsg.isLinked() is True after subscribeTo.
     2. rowColSumOutMsg carries the correct image dimensions after one step.
-    3. regionsIdentifiedOutMsg is written; any valid region has centre coordinates
+    3. regionsIdentifiedOutMsg is written; any valid region has corner coordinates
        within the image bounds.
     """
     assert os.path.isfile(IMAGE_PATH), f"Test image not found: {IMAGE_PATH}"
@@ -132,10 +132,10 @@ def test_message_connection():
 
     # regionsIdentifiedOutMsg must be written; any valid region must be in-bounds
     for reg in _regions_from_log(roi_log):
-        assert 0 <= reg.centerX < img_w, \
-            f"centerX={reg.centerX} out of bounds [0, {img_w})"
-        assert 0 <= reg.centerY < img_h, \
-            f"centerY={reg.centerY} out of bounds [0, {img_h})"
+        assert 0 <= reg.cornerX < img_w, \
+            f"cornerX={reg.cornerX} out of bounds [0, {img_w})"
+        assert 0 <= reg.cornerY < img_h, \
+            f"cornerY={reg.cornerY} out of bounds [0, {img_h})"
 
 
 # ---------------------------------------------------------------------------
@@ -150,8 +150,8 @@ def test_message_connection():
 #   border pixels: ≤4 full rows/cols in kernel → blur ≤ 5000 < 6249
 #
 # Internal (corner-based) representation: row, col, height, width, count
-# Published output (RegionsIdentifiedMsgPayload): centerX, centerY, width, height,
-#   numberOfPixels  where centerX = col + width//2, centerY = row + height//2.
+# Published output (RegionsIdentifiedMsgPayload): cornerX, cornerY, width, height,
+#   numberOfPixels  where cornerX = col, cornerY = row.
 
 BLOCK  = 5          # 5×5 bright block
 GAP    = 1          # dark gap between blocks
@@ -172,8 +172,8 @@ def _write_tmp_image(img):
 def test_step2_rank1_only():
     """M=1: single object — one above-threshold pixel at the block interior.
 
-    Published output:  regions[0].numberOfPixels==1, center at (col+0, row+0)
-                       since width==height==1.
+    Published output:  regions[0].numberOfPixels==1, corner at (col, row),
+                       width==height==1.
     """
     H = 2 * HALF + STRIDE
     W = 2 * HALF + STRIDE
@@ -182,8 +182,6 @@ def test_step2_rank1_only():
 
     # Single above-threshold pixel: interior corner (row=HALF+HALF, col=HALF+HALF) = (4, 4)
     exp_col, exp_row, exp_w, exp_h = HALF + HALF, HALF + HALF, 1, 1
-    exp_cx = exp_col + exp_w // 2   # = 4
-    exp_cy = exp_row + exp_h // 2   # = 4
 
     img_path = _write_tmp_image(img)
     try:
@@ -202,15 +200,15 @@ def test_step2_rank1_only():
         roi_log = pruner.regionsIdentifiedOutMsg.recorder()
         _run_once(_make_sim(pipeline, pruner, roi_log))
 
-        # --- published message checks (center coordinates) ---
+        # --- published message checks (corner coordinates) ---
         regions = _regions_from_log(roi_log)
         assert len(regions) == 1, \
             f"Expected 1 valid region in regionsIdentifiedOutMsg, got {len(regions)}"
         r = regions[0]
         assert r.numberOfPixels == 1, \
             f"Expected numberOfPixels=1, got {r.numberOfPixels}"
-        assert r.centerX == exp_cx and r.centerY == exp_cy, \
-            f"Expected center=({exp_cx},{exp_cy}), got ({r.centerX},{r.centerY})"
+        assert r.cornerX == exp_col and r.cornerY == exp_row, \
+            f"Expected corner=({exp_col},{exp_row}), got ({r.cornerX},{r.cornerY})"
         assert r.width == exp_w and r.height == exp_h, \
             f"Expected size={exp_w}×{exp_h}, got {r.width}×{r.height}"
     finally:
@@ -220,13 +218,13 @@ def test_step2_rank1_only():
 @pytest.mark.skipif(importErr, reason=reasonErr)
 def test_step2_rank1_and_rank2():
     """Two real objects; both appear in regionsIdentifiedOutMsg with correct
-    center coordinates.
+    corner coordinates.
 
     Image layout (160×160):
       13×13 block at (3, 3)  → rank-1; bounding box row=5,col=5,h=9,w=9
-                               → centerX=9, centerY=9
+                               → cornerX=5, cornerY=5
        5×5 block at (100, 5) → rank-2; bounding box row=102,col=5,h=1,w=9
-                               → centerX=9, centerY=102
+                               → cornerX=5, cornerY=102
     """
     H, W = 160, 160
     img = np.zeros((H, W), dtype=np.uint16)
@@ -250,19 +248,19 @@ def test_step2_rank1_and_rank2():
         roi_log = pruner.regionsIdentifiedOutMsg.recorder()
         _run_once(_make_sim(pipeline, pruner, roi_log))
 
-        # --- published message checks (center coordinates) ---
+        # --- published message checks (corner coordinates) ---
         regions = _regions_from_log(roi_log)
         assert len(regions) == 2, \
             f"Expected 2 valid regions in regionsIdentifiedOutMsg, got {len(regions)}"
 
         r1 = regions[0]
-        assert r1.centerX == 9 and r1.centerY == 9, \
-            f"rank-1 center: expected (9,9), got ({r1.centerX},{r1.centerY})"
+        assert r1.cornerX == 5 and r1.cornerY == 5, \
+            f"rank-1 corner: expected (5,5), got ({r1.cornerX},{r1.cornerY})"
         assert r1.width == 9 and r1.height == 9, \
             f"rank-1 size: expected 9×9, got {r1.width}×{r1.height}"
         r2 = regions[1]
-        assert r2.centerX == 9 and r2.centerY == 102, \
-            f"rank-2 center: expected (9,102), got ({r2.centerX},{r2.centerY})"
+        assert r2.cornerX == 5 and r2.cornerY == 102, \
+            f"rank-2 corner: expected (5,102), got ({r2.cornerX},{r2.cornerY})"
         assert r2.width == 9 and r2.height == 1, \
             f"rank-2 size: expected 9×1, got {r2.width}×{r2.height}"
     finally:
@@ -275,9 +273,9 @@ def test_step2_rank2_by_count():
     and appear in regionsIdentifiedOutMsg in the correct order.
 
     Image layout (H=100, W=30):
-      13×13 block at (3, 3)   → rank-1; bbox row=5,col=5,h=9,w=9   → center (9,9)
-       9×9  block at (50, 5)  → rank-2; bbox row=52,col=5,h=5,w=9  → center (9,54)
-       5×5  block at (80, 7)  → rank-3; bbox row=82,col=5,h=1,w=9  → center (9,82)
+      13×13 block at (3, 3)   → rank-1; bbox row=5,col=5,h=9,w=9   → corner (5,5)
+       9×9  block at (50, 5)  → rank-2; bbox row=52,col=5,h=5,w=9  → corner (5,52)
+       5×5  block at (80, 7)  → rank-3; bbox row=82,col=5,h=1,w=9  → corner (5,82)
     """
     H, W = 100, 30
     img = np.zeros((H, W), dtype=np.uint16)
@@ -302,16 +300,16 @@ def test_step2_rank2_by_count():
         roi_log = pruner.regionsIdentifiedOutMsg.recorder()
         _run_once(_make_sim(pipeline, pruner, roi_log))
 
-        # --- published message checks (center coordinates, all 3 fit in MAX_NUMBER_REGIONS) ---
+        # --- published message checks (corner coordinates, all 3 fit in MAX_NUMBER_REGIONS) ---
         regions = _regions_from_log(roi_log)
         assert len(regions) == 3, \
             f"Expected 3 valid regions in regionsIdentifiedOutMsg, got {len(regions)}"
 
-        expected_centers = [(9, 9), (9, 54), (9, 82)]
-        for k, (exp_cx, exp_cy) in enumerate(expected_centers):
+        expected_corners = [(5, 5), (5, 52), (5, 82)]
+        for k, (exp_x, exp_y) in enumerate(expected_corners):
             r = regions[k]
-            assert r.centerX == exp_cx and r.centerY == exp_cy, \
-                f"rank-{k+1} center: expected ({exp_cx},{exp_cy}), got ({r.centerX},{r.centerY})"
+            assert r.cornerX == exp_x and r.cornerY == exp_y, \
+                f"rank-{k+1} corner: expected ({exp_x},{exp_y}), got ({r.cornerX},{r.cornerY})"
         # Verify descending order by pixel count
         counts = [r.numberOfPixels for r in regions]
         assert counts == sorted(counts, reverse=True), \
@@ -363,7 +361,7 @@ def test_pruning(test_image_path, row_col_span, threshold=None):
     fpgaImagePipeline → regionsOfInterestPrune chain.
 
     Checks at least one candidate is identified and verifies the published
-    regionsIdentifiedOutMsg contains valid center-coordinate regions.
+    regionsIdentifiedOutMsg contains valid corner-coordinate regions.
 
     Also writes a diagnostic PNG ("<row_col_span>_<image>_pruning_output.png") to this
     same directory via diagnostics/diagnostics.py: every published region drawn from center
@@ -409,8 +407,8 @@ def test_pruning(test_image_path, row_col_span, threshold=None):
         f"Expected at least 1 candidate, got {len(regions)}"
 
     for k, reg in enumerate(regions):
-        assert 0 <= reg.centerX < img_w and 0 <= reg.centerY < img_h, \
-            f"Region {k} center ({reg.centerX},{reg.centerY}) out of image bounds {img_w}×{img_h}"
+        assert 0 <= reg.cornerX < img_w and 0 <= reg.cornerY < img_h, \
+            f"Region {k} corner ({reg.cornerX},{reg.cornerY}) out of image bounds {img_w}×{img_h}"
 
     r1 = regions[0]
     count_str = f"R1 pixel count (approx): {r1.numberOfPixels}"

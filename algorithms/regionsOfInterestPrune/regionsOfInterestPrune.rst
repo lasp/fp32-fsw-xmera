@@ -16,8 +16,8 @@ The module is split into two classes:
   ``uint16_t`` row/col sum arrays (as a ``std::span``) and returns an internal ``RoiCandidates``
   struct of up to ``ROI_CANDIDATES_MAX`` candidates.
 * ``RegionsOfInterestPrune`` — thin xmera adapter. Reads ``FpgaRowColSumMsgF32Payload``, delegates
-  computation to ``RegionsOfInterestPruneAlgorithm``, converts the top ``MAX_NUMBER_REGIONS``
-  candidates to center-coordinate form, and writes the result to ``regionsIdentified​OutMsg``.
+  computation to ``RegionsOfInterestPruneAlgorithm``, publishes the top ``MAX_NUMBER_REGIONS``
+  candidates in corner-coordinate form, and writes the result to ``regionsIdentified​OutMsg``.
 
 Pipeline stages::
 
@@ -39,7 +39,7 @@ Pipeline stages::
          |
          v
     regionsIdentifiedOutMsg
-        (top <= MAX_NUMBER_REGIONS of those, in center-coordinate form)
+        (top <= MAX_NUMBER_REGIONS of those, in corner-coordinate form)
 
 
 Algorithm Layer
@@ -112,9 +112,9 @@ Adapter Layer
 * ``reconfigure()`` pushes a freshly-rebuilt config into the already-constructed algorithm,
   without reconstructing it. Throws if called before ``reset()``.
 * ``updateState()`` reads ``rowColSumInMsg``, casts its raw ``void*`` row/col sum pointers to
-  ``const uint16_t*``, calls the algorithm's ``update()``, and converts each surviving candidate
-  from corner-coordinate form (``row``, ``col``, ``height``, ``width``) to the message's
-  center-coordinate form (``centerX = col + width/2``, ``centerY = row + height/2``).
+  ``const uint16_t*``, calls the algorithm's ``update()``, and copies each surviving candidate
+  into the message in corner-coordinate form (``cornerX = col``, ``cornerY = row``, plus ``width``
+  and ``height``).
 
 **Truncation to the message's capacity.** The algorithm may return up to ``ROI_CANDIDATES_MAX`` (16)
 candidates, but ``RegionsIdentified​MsgF32Payload`` only has room for ``MAX_NUMBER_REGIONS`` (3). The
@@ -140,7 +140,7 @@ Message Connection Descriptions
         (``numRows``, ``numCols``).
     * - regionsIdentified​OutMsg
       - ``RegionsIdentified​MsgF32Payload``
-      - Up to ``MAX_NUMBER_REGIONS`` (3) candidates in center-coordinate form, sorted by estimated
+      - Up to ``MAX_NUMBER_REGIONS`` (3) candidates in corner-coordinate form, sorted by estimated
         pixel count (ties broken by distance to image center, then box area). Index 0 is rank-1.
 
 
@@ -196,8 +196,8 @@ User Guide
    ``read()``::
 
     msg = pruner.regionsIdentifiedOutMsg.read()
-    centerX = msg.centerX[0]           # rank-1 candidate's center pixel column
-    centerY = msg.centerY[0]
+    cornerX = msg.cornerX[0]           # rank-1 candidate's top-left corner pixel column
+    cornerY = msg.cornerY[0]
     width, height = msg.width[0], msg.height[0]
     numberOfPixels = msg.numberOfPixels[0]  # estimated above-threshold pixel count
 
