@@ -553,6 +553,56 @@ TEST(SafeMathDouble, CosHHandlesSpecialValues) {
     }
 }
 
+TEST(SafeMathFloat, SinHMatchesStandardSinH) {
+    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, 10.0F, 16.0F, -16.0F}) {
+        EXPECT_EQ(safeSinHf(x), std::sinh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, SinHMatchesStandardSinH) {
+    for (const double x : {0.5, 1.0, -1.0, 2.0, 10.0, 36.0, -36.0}) {
+        EXPECT_EQ(safeSinH(x), std::sinh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathFloat, SinHSaturatesAboveCap) {
+    for (const float x : {17.0F, 100.0F, FLT_MAX}) {
+        EXPECT_EQ(safeSinHf(x), 1.0F / FLT_EPSILON) << "x=" << x;
+        EXPECT_EQ(safeSinHf(-x), -1.0F / FLT_EPSILON) << "x=" << -x;
+    }
+}
+
+TEST(SafeMathDouble, SinHSaturatesAboveCap) {
+    for (const double x : {37.0, 100.0, DBL_MAX}) {
+        EXPECT_EQ(safeSinH(x), 1.0 / DBL_EPSILON) << "x=" << x;
+        EXPECT_EQ(safeSinH(-x), -1.0 / DBL_EPSILON) << "x=" << -x;
+    }
+}
+
+TEST(SafeMathFloat, SinHHandlesSpecialValues) {
+    EXPECT_EQ(safeSinHf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeSinHf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeSinHf(std::numeric_limits<float>::infinity()), 1.0F / FLT_EPSILON);
+    EXPECT_EQ(safeSinHf(-std::numeric_limits<float>::infinity()), -1.0F / FLT_EPSILON);
+    EXPECT_TRUE(std::signbit(safeSinHf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeSinHf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeSinHf(x), std::sinh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, SinHHandlesSpecialValues) {
+    EXPECT_EQ(safeSinH(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeSinH(-std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeSinH(std::numeric_limits<double>::infinity()), 1.0 / DBL_EPSILON);
+    EXPECT_EQ(safeSinH(-std::numeric_limits<double>::infinity()), -1.0 / DBL_EPSILON);
+    EXPECT_TRUE(std::signbit(safeSinH(-0.0)));
+    EXPECT_FALSE(std::signbit(safeSinH(0.0)));
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeSinH(x), std::sinh(x)) << "x=" << x;
+    }
+}
+
 // ============================================================================
 // Float — finiteness for extreme values
 // ============================================================================
@@ -653,7 +703,6 @@ TEST(SafeMathFloat, InfReturnsZero) {
     EXPECT_FLOAT_EQ(safeSinf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeTanf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeAtanHf(inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeSinHf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeAcosf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeAsinf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeSqrtf(inf), 0.0f);
@@ -668,7 +717,6 @@ TEST(SafeMathDouble, InfReturnsZero) {
     EXPECT_DOUBLE_EQ(safeSin(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeTan(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeAtanH(inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeSinH(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeAcos(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeAsin(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeSqrt(inf), 0.0);
