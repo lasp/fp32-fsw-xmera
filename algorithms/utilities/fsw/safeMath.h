@@ -81,14 +81,15 @@ inline double safeAtan(double const x) {
     return atan(x);
 }
 
-/*! @brief Safe wrapper around tanhf. Since tanh always returns a value in
- *         (-1, 1) for all real inputs, the output guards are defensive and
- *         never trigger in practice.
- *  @param x Input value
- *  @return tanhf(x)
+/*! @brief Safe wrapper around tanhf. tanh is finite for every non-NaN
+ *         input, including ±Inf which maps to ±1. The output guards are
+ *         defensive and never trigger in practice.
+ *         NaN inputs return zero.
+ *  @param x Input value (any real)
+ *  @return tanhf(x) in [-1, 1], or 0.0F if x is NaN
  */
 inline float safeTanHf(float const x) {
-    if (isnan(x) || isinf(x)) {
+    if (isnan(x)) {
         return 0.0F;
     }
     float const tanhx = tanhf(x);
@@ -101,14 +102,15 @@ inline float safeTanHf(float const x) {
     return tanhx;
 }
 
-/*! @brief Safe wrapper around tanh. Since tanh always returns a value in
- *         (-1, 1) for all real inputs, the output guards are defensive and
- *         never trigger in practice.
- *  @param x Input value
- *  @return tanh(x)
+/*! @brief Safe wrapper around tanh. tanh is finite for every non-NaN
+ *         input, including ±Inf which maps to ±1. The output guards are
+ *         defensive and never trigger in practice.
+ *         NaN inputs return zero.
+ *  @param x Input value (any real)
+ *  @return tanh(x) in [-1, 1], or 0.0 if x is NaN
  */
 inline double safeTanH(double const x) {
-    if (isnan(x) || isinf(x)) {
+    if (isnan(x)) {
         return 0.0;
     }
     double const tanhx = tanh(x);
