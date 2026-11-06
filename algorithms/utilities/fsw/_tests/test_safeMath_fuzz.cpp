@@ -262,6 +262,32 @@ void fuzzCosAllInputsF(float x) {
 }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzCosAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
 
+// Checks safeAcosf for every float, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Inputs above 1 return 0; inputs below -1 return π.
+//  - Other inputs return std::acos(x).
+//  - The output is always finite and within [0, π].
+void fuzzAcosAllInputsF(float x) {
+    const float result = safeAcosf(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_GE(result, 0.0F);
+    EXPECT_LE(result, std::numbers::pi_v<float>);
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    if (x > 1.0F) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    if (x < -1.0F) {
+        EXPECT_EQ(result, std::numbers::pi_v<float>);
+        return;
+    }
+    EXPECT_EQ(result, std::acos(x));
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzAcosAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
+
 // ============================================================================
 // Double — mathematical properties
 // ============================================================================
@@ -499,3 +525,29 @@ void fuzzCosAllInputsD(double x) {
     EXPECT_EQ(result, std::cos(x));
 }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzCosAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
+
+// Checks safeAcos for every double, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Inputs above 1 return 0; inputs below -1 return π.
+//  - Other inputs return std::acos(x).
+//  - The output is always finite and within [0, π].
+void fuzzAcosAllInputsD(double x) {
+    const double result = safeAcos(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_GE(result, 0.0);
+    EXPECT_LE(result, std::numbers::pi);
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    if (x > 1.0) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    if (x < -1.0) {
+        EXPECT_EQ(result, std::numbers::pi);
+        return;
+    }
+    EXPECT_EQ(result, std::acos(x));
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzAcosAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
