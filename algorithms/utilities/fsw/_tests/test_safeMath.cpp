@@ -767,6 +767,54 @@ TEST(SafeMathDouble, AsinHandlesSpecialValues) {
     }
 }
 
+TEST(SafeMathFloat, SqrtMatchesStandardSqrt) {
+    for (const float x : {0.0F, 0.25F, 1.0F, 2.0F, 1e6F, FLT_MAX}) {
+        EXPECT_EQ(safeSqrtf(x), std::sqrt(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathFloat, SqrtClampsNegativeInputs) {
+    for (const float x : {-FLT_TRUE_MIN, -1e-9F, -1.0F, -200.0F, -FLT_MAX}) {
+        EXPECT_EQ(safeSqrtf(x), 0.0F) << "x=" << x;
+    }
+}
+
+TEST(SafeMathFloat, SqrtHandlesSpecialValues) {
+    EXPECT_EQ(safeSqrtf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeSqrtf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeSqrtf(std::numeric_limits<float>::infinity()), 0.0F);
+    EXPECT_EQ(safeSqrtf(-std::numeric_limits<float>::infinity()), 0.0F);
+    EXPECT_TRUE(std::signbit(safeSqrtf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeSqrtf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, FLT_MIN}) {
+        EXPECT_EQ(safeSqrtf(x), std::sqrt(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, SqrtMatchesStandardSqrt) {
+    for (const double x : {0.0, 0.25, 1.0, 2.0, 1e6, DBL_MAX}) {
+        EXPECT_EQ(safeSqrt(x), std::sqrt(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, SqrtClampsNegativeInputs) {
+    for (const double x : {-DBL_TRUE_MIN, -1e-9, -1.0, -200.0, -DBL_MAX}) {
+        EXPECT_EQ(safeSqrt(x), 0.0) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, SqrtHandlesSpecialValues) {
+    EXPECT_EQ(safeSqrt(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeSqrt(-std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeSqrt(std::numeric_limits<double>::infinity()), 0.0);
+    EXPECT_EQ(safeSqrt(-std::numeric_limits<double>::infinity()), 0.0);
+    EXPECT_TRUE(std::signbit(safeSqrt(-0.0)));
+    EXPECT_FALSE(std::signbit(safeSqrt(0.0)));
+    for (const double x : {DBL_TRUE_MIN, DBL_MIN}) {
+        EXPECT_EQ(safeSqrt(x), std::sqrt(x)) << "x=" << x;
+    }
+}
+
 // ============================================================================
 // Float — finiteness for extreme values
 // ============================================================================
