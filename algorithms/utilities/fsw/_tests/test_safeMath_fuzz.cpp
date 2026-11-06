@@ -314,6 +314,28 @@ void fuzzAsinAllInputsF(float x) {
 }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzAsinAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
 
+// Checks safeSqrtf for every float, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Negative inputs return 0.
+//  - Other inputs return std::sqrt(x).
+//  - The output is always finite and within [0, sqrt(MAX)].
+void fuzzSqrtAllInputsF(float x) {
+    const float result = safeSqrtf(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_GE(result, 0.0F);
+    EXPECT_LE(result, std::sqrt(FLT_MAX));
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    if (x < 0.0F) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    EXPECT_EQ(result, std::sqrt(x));
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzSqrtAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
+
 // ============================================================================
 // Double — mathematical properties
 // ============================================================================
@@ -603,3 +625,25 @@ void fuzzAsinAllInputsD(double x) {
     EXPECT_EQ(result, std::asin(x));
 }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzAsinAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
+
+// Checks safeSqrt for every double, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Negative inputs return 0.
+//  - Other inputs return std::sqrt(x).
+//  - The output is always finite and within [0, sqrt(MAX)].
+void fuzzSqrtAllInputsD(double x) {
+    const double result = safeSqrt(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_GE(result, 0.0);
+    EXPECT_LE(result, std::sqrt(DBL_MAX));
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    if (x < 0.0) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    EXPECT_EQ(result, std::sqrt(x));
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzSqrtAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
