@@ -639,6 +639,38 @@ TEST(SafeMathDouble, SinHandlesSpecialValues) {
     }
 }
 
+TEST(SafeMathFloat, CosMatchesStandardCos) {
+    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, 100.0F, 1e6F, FLT_MAX, -FLT_MAX}) {
+        EXPECT_EQ(safeCosf(x), std::cos(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, CosMatchesStandardCos) {
+    for (const double x : {0.5, 1.0, -1.0, 2.0, 100.0, 1e6, DBL_MAX, -DBL_MAX}) {
+        EXPECT_EQ(safeCos(x), std::cos(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathFloat, CosHandlesSpecialValues) {
+    EXPECT_EQ(safeCosf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeCosf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeCosf(std::numeric_limits<float>::infinity()), 0.0F);
+    EXPECT_EQ(safeCosf(-std::numeric_limits<float>::infinity()), 0.0F);
+    for (const float x : {0.0F, -0.0F, FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeCosf(x), std::cos(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, CosHandlesSpecialValues) {
+    EXPECT_EQ(safeCos(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeCos(-std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeCos(std::numeric_limits<double>::infinity()), 0.0);
+    EXPECT_EQ(safeCos(-std::numeric_limits<double>::infinity()), 0.0);
+    for (const double x : {0.0, -0.0, DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeCos(x), std::cos(x)) << "x=" << x;
+    }
+}
+
 // ============================================================================
 // Float — finiteness for extreme values
 // ============================================================================

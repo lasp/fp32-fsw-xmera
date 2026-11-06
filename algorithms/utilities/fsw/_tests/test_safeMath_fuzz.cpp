@@ -246,6 +246,22 @@ void fuzzSinAllInputsF(float x) {
 }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzSinAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
 
+// Checks safeCosf for every float, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Other inputs return std::cos(x).
+//  - The output is always finite and within [-1, 1].
+void fuzzCosAllInputsF(float x) {
+    const float result = safeCosf(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), 1.0F);
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    EXPECT_EQ(result, std::cos(x));
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzCosAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
+
 // ============================================================================
 // Double — mathematical properties
 // ============================================================================
@@ -467,3 +483,19 @@ void fuzzSinAllInputsD(double x) {
     EXPECT_EQ(result, std::sin(x));
 }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzSinAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
+
+// Checks safeCos for every double, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Other inputs return std::cos(x).
+//  - The output is always finite and within [-1, 1].
+void fuzzCosAllInputsD(double x) {
+    const double result = safeCos(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), 1.0);
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    EXPECT_EQ(result, std::cos(x));
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzCosAllInputsD).WithDomains(fuzztest::Arbitrary<double>());

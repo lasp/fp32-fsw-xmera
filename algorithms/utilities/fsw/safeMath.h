@@ -249,11 +249,11 @@ inline double safeSinH(double const x) {
     return sinhx;
 }
 
-/*! @brief Safe wrapper around cosf. Since cos always returns a value in
- *         [-1, 1] for all real inputs, the output guards are defensive and
- *         never trigger in practice.
+/*! @brief Safe wrapper around cosf. cosf always returns a value in [-1, 1],
+ *         so the output guards are defensive and never trigger in practice.
+ *         NaN and ±Inf inputs return zero.
  *  @param x Input value in radians
- *  @return cosf(x)
+ *  @return cosf(x) in [-1, 1], or 0.0F if x is NaN or ±Inf
  */
 inline float safeCosf(float const x) {
     if (isnan(x) || isinf(x)) {
@@ -269,11 +269,11 @@ inline float safeCosf(float const x) {
     return cosx;
 }
 
-/*! @brief Safe wrapper around cos. Since cos always returns a value in
- *         [-1, 1] for all real inputs, the output guards are defensive and
- *         never trigger in practice.
+/*! @brief Safe wrapper around cos. cos always returns a value in [-1, 1],
+ *         so the output guards are defensive and never trigger in practice.
+ *         NaN and ±Inf inputs return zero.
  *  @param x Input value in radians
- *  @return cos(x)
+ *  @return cos(x) in [-1, 1], or 0.0 if x is NaN or ±Inf
  */
 inline double safeCos(double const x) {
     if (isnan(x) || isinf(x)) {
