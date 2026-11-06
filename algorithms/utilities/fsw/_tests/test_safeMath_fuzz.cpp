@@ -12,8 +12,12 @@ inline constexpr double kDoubleTol = 1e-12;
 // ============================================================================
 // Float — mathematical properties
 // ============================================================================
+//
+// These check mathematical relationships between functions, independently of
+// the standard library reference used by the per-function tests below.
+// Properties share one test only when they use the same input range.
 
-// cos²(x) + sin²(x) = 1
+// For every finite angle, cos²(x) + sin²(x) stays within the tolerance of 1.
 void fuzzPythagoreanF(float x) {
     const float c = safeCosf(x);
     const float s = safeSinf(x);
@@ -21,97 +25,76 @@ void fuzzPythagoreanF(float x) {
 }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzPythagoreanF).WithDomains(fuzztest::Finite<float>());
 
-// sin(x) / cos(x) = tan(x)  [cos(x) != 0 for x in (-1, 1)]
-void fuzzTangentIdentityF(float x) { EXPECT_NEAR(safeSinf(x) / safeCosf(x), safeTanf(x), kFloatTol); }
-FUZZ_TEST(SafeMathFloatFuzz, fuzzTangentIdentityF).WithDomains(fuzztest::InRange(-1.0f, 1.0f));
-
-// sinh(x) / cosh(x) = tanh(x)
-void fuzzHyperbolicTangentIdentityF(float x) { EXPECT_NEAR(safeSinHf(x) / safeCosHf(x), safeTanHf(x), kFloatTol); }
-FUZZ_TEST(SafeMathFloatFuzz, fuzzHyperbolicTangentIdentityF).WithDomains(fuzztest::InRange(-1.0f, 1.0f));
-
-// cosh²(x) - sinh²(x) = 1
-void fuzzHyperbolicPythagoreanF(float x) {
+// On [-1, 1], where cos(x) != 0 and no output saturates, these identities hold
+// within the tolerance:
+//  sin(x) / cos(x) = tan(x)
+//  sinh(x) / cosh(x) = tanh(x)
+//  cosh²(x) - sinh²(x) = 1
+void fuzzIdentitiesOnUnitIntervalF(float x) {
+    EXPECT_NEAR(safeSinf(x) / safeCosf(x), safeTanf(x), kFloatTol) << "sin/cos = tan, x=" << x;
+    EXPECT_NEAR(safeSinHf(x) / safeCosHf(x), safeTanHf(x), kFloatTol) << "sinh/cosh = tanh, x=" << x;
     const float ch = safeCosHf(x);
     const float sh = safeSinHf(x);
-    EXPECT_NEAR(ch * ch - sh * sh, 1.0f, kFloatTol);
+    EXPECT_NEAR(ch * ch - sh * sh, 1.0f, kFloatTol) << "cosh^2 - sinh^2 = 1, x=" << x;
 }
-FUZZ_TEST(SafeMathFloatFuzz, fuzzHyperbolicPythagoreanF).WithDomains(fuzztest::InRange(-1.0f, 1.0f));
+FUZZ_TEST(SafeMathFloatFuzz, fuzzIdentitiesOnUnitIntervalF).WithDomains(fuzztest::InRange(-1.0f, 1.0f));
 
-// atanh(tanh(x)) = x
-void fuzzAtanHInverseF(float x) { EXPECT_NEAR(safeAtanHf(safeTanHf(x)), x, kFloatTol); }
-FUZZ_TEST(SafeMathFloatFuzz, fuzzAtanHInverseF).WithDomains(fuzztest::InRange(-1.0f, 1.0f));
+// On [-1, 1], applying the inverse recovers x within the tolerance:
+//  atanh(tanh(x)) = x
+//  asin(sin(x)) = x  ([-1, 1] lies inside asin's principal branch [-π/2, π/2])
+void fuzzInverseRoundTripsF(float x) {
+    EXPECT_NEAR(safeAtanHf(safeTanHf(x)), x, kFloatTol) << "atanh(tanh(x)), x=" << x;
+    EXPECT_NEAR(safeAsinf(safeSinf(x)), x, kFloatTol) << "asin(sin(x)), x=" << x;
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzInverseRoundTripsF).WithDomains(fuzztest::InRange(-1.0f, 1.0f));
 
-// acos(cos(x)) = x  for x in [0.15, 1]  (principal branch, away from the
-// acos singularity at 1: for x < ~0.12 rad, 1/sin(x) amplifies float rounding
-// errors above kFloatTol, and for x < ~3.5e-4, cosf(x) rounds to exactly 1.0f)
+// acos(cos(x)) recovers x for x in [0.15, 1]. The range starts away from zero
+// because acos is ill-conditioned near 1: for x < ~0.12 rad, 1/sin(x) amplifies
+// float rounding errors above kFloatTol, and for x < ~3.5e-4, cosf(x) rounds to
+// exactly 1.0f.
 void fuzzAcosInverseF(float x) { EXPECT_NEAR(safeAcosf(safeCosf(x)), x, kFloatTol); }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzAcosInverseF).WithDomains(fuzztest::InRange(0.15f, 1.0f));
 
-// asin(sin(x)) = x  for x in [-1, 1]  ([-1,1] is within the principal branch [-π/2, π/2])
-void fuzzAsinInverseF(float x) { EXPECT_NEAR(safeAsinf(safeSinf(x)), x, kFloatTol); }
-FUZZ_TEST(SafeMathFloatFuzz, fuzzAsinInverseF).WithDomains(fuzztest::InRange(-1.0f, 1.0f));
-
-// atan(tan(x)) = x  for x in (-π/2, π/2).
+// For x in [-1.5, 1.5], inside atan's principal branch (-π/2, π/2),
+// atan(tan(x)) recovers x within the tolerance.
 void fuzzAtanInverseF(float x) { EXPECT_NEAR(safeAtanf(safeTanf(x)), x, kFloatTol); }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzAtanInverseF).WithDomains(fuzztest::InRange(-1.5f, 1.5f));
 
-// sqrt(x)² = x
+// For nonnegative x, squaring sqrt(x) recovers x within a relative tolerance
+// plus a small absolute term.
 void fuzzSqrtSquaredF(float x) {
     const float s = safeSqrtf(x);
     EXPECT_NEAR(s * s, x, kFloatTol * x + 1e-7f);
 }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzSqrtSquaredF).WithDomains(fuzztest::InRange(0.0f, FLT_MAX));
 
-// Even functions: f(-x) = f(x)
-void fuzzEvenFunctionsF(float x) {
-    EXPECT_FLOAT_EQ(safeCosf(x), safeCosf(-x));
-    EXPECT_FLOAT_EQ(safeCosHf(x), safeCosHf(-x));
+// For x from 0 to MAX, even functions (cos, cosh) satisfy f(-x) = f(x) and odd
+// functions (sin, tan, atan, sinh, tanh, atanh) satisfy f(-x) = -f(x), within
+// 4 ulps, including large inputs where the wrappers clamp or saturate.
+void fuzzSymmetryF(float x) {
+    EXPECT_FLOAT_EQ(safeCosf(x), safeCosf(-x)) << "safeCosf symmetry, x=" << x;
+    EXPECT_FLOAT_EQ(safeCosHf(x), safeCosHf(-x)) << "safeCosHf symmetry, x=" << x;
+    EXPECT_FLOAT_EQ(safeSinf(x), -safeSinf(-x)) << "safeSinf symmetry, x=" << x;
+    EXPECT_FLOAT_EQ(safeTanf(x), -safeTanf(-x)) << "safeTanf symmetry, x=" << x;
+    EXPECT_FLOAT_EQ(safeAtanf(x), -safeAtanf(-x)) << "safeAtanf symmetry, x=" << x;
+    EXPECT_FLOAT_EQ(safeSinHf(x), -safeSinHf(-x)) << "safeSinHf symmetry, x=" << x;
+    EXPECT_FLOAT_EQ(safeTanHf(x), -safeTanHf(-x)) << "safeTanHf symmetry, x=" << x;
+    EXPECT_FLOAT_EQ(safeAtanHf(x), -safeAtanHf(-x)) << "safeAtanHf symmetry, x=" << x;
 }
-FUZZ_TEST(SafeMathFloatFuzz, fuzzEvenFunctionsF).WithDomains(fuzztest::InRange(0.0f, FLT_MAX));
+FUZZ_TEST(SafeMathFloatFuzz, fuzzSymmetryF).WithDomains(fuzztest::InRange(0.0f, FLT_MAX));
 
-// Odd functions: f(-x) = -f(x)
-void fuzzOddFunctionsF(float x) {
-    EXPECT_FLOAT_EQ(safeSinf(x), -safeSinf(-x));
-    EXPECT_FLOAT_EQ(safeTanf(x), -safeTanf(-x));
-    EXPECT_FLOAT_EQ(safeAtanf(x), -safeAtanf(-x));
-    EXPECT_FLOAT_EQ(safeSinHf(x), -safeSinHf(-x));
-    EXPECT_FLOAT_EQ(safeTanHf(x), -safeTanHf(-x));
-    EXPECT_FLOAT_EQ(safeAtanHf(x), -safeAtanHf(-x));
-}
-FUZZ_TEST(SafeMathFloatFuzz, fuzzOddFunctionsF).WithDomains(fuzztest::InRange(0.0f, FLT_MAX));
-
-// atan2(-y, x) = -atan2(y, x)  (odd in y)
+// For y in [0, 1] and x in [-1, 1], negating y negates the angle:
+// atan2(-y, x) = -atan2(y, x).
 void fuzzAtan2OddInYF(float y, float x) { EXPECT_FLOAT_EQ(safeAtan2f(-y, x), -safeAtan2f(y, x)); }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzAtan2OddInYF)
-    .WithDomains(fuzztest::InRange(0.0f, 1.0f),  // y >= 0 to avoid the (0,0) case
+    .WithDomains(fuzztest::InRange(0.0f, 1.0f),  // y = 0 is included; (0, 0) also satisfies the property
                  fuzztest::InRange(-1.0f, 1.0f));
 
-// atan2(y, x) = atan(y/x)  for x > 0
+// For x in [1e-3, 1] and y in [-1, 1], atan2(y, x) agrees with atan(y / x)
+// within the tolerance.
 void fuzzAtan2AgainstAtanF(float y, float x) { EXPECT_NEAR(safeAtan2f(y, x), std::atan(y / x), kFloatTol); }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzAtan2AgainstAtanF)
     .WithDomains(fuzztest::InRange(-1.0f, 1.0f), fuzztest::InRange(1e-3f, 1.0f));
-
-// ============================================================================
-// Float — all outputs finite (key "never produces NaN" proof)
-// ============================================================================
-
-void fuzzAllOutputsFiniteF(float x) {
-    EXPECT_TRUE(std::isfinite(safeCosf(x)));
-    EXPECT_TRUE(std::isfinite(safeSinf(x)));
-    EXPECT_TRUE(std::isfinite(safeTanf(x)));
-    EXPECT_TRUE(std::isfinite(safeAtanf(x)));
-    EXPECT_TRUE(std::isfinite(safeTanHf(x)));
-    EXPECT_TRUE(std::isfinite(safeAtanHf(x)));
-    EXPECT_TRUE(std::isfinite(safeCosHf(x)));
-    EXPECT_TRUE(std::isfinite(safeSinHf(x)));
-    EXPECT_TRUE(std::isfinite(safeAcosf(x)));
-    EXPECT_TRUE(std::isfinite(safeAsinf(x)));
-    EXPECT_TRUE(std::isfinite(safeSqrtf(x)));
-}
-FUZZ_TEST(SafeMathFloatFuzz, fuzzAllOutputsFiniteF).WithDomains(fuzztest::Finite<float>());
-
-void fuzzAtan2FiniteF(float y, float x) { EXPECT_TRUE(std::isfinite(safeAtan2f(y, x))); }
-FUZZ_TEST(SafeMathFloatFuzz, fuzzAtan2FiniteF).WithDomains(fuzztest::Finite<float>(), fuzztest::Finite<float>());
 
 // ============================================================================
 // Float — tangent
@@ -143,7 +126,8 @@ FUZZ_TEST(SafeMathFloatFuzz, fuzzTanAllInputsF).WithDomains(fuzztest::Arbitrary<
 
 // Checks safeAtanf for every float, including NaN and ±Inf:
 //  - NaN returns zero.
-//  - Otherwise it returns std::atan(x), so ±Inf gives ±π/2.
+//  - Otherwise it returns std::atan(x), so ±Inf gives ±π/2 (unlike atanh,
+//    where ±Inf returns zero).
 //  - The output is always finite and within ±π/2.
 void fuzzAtanAllInputsF(float x) {
     const float limit = std::numbers::pi_v<float> / 2.0F;
@@ -178,7 +162,7 @@ FUZZ_TEST(SafeMathFloatFuzz, fuzzTanHAllInputsF).WithDomains(fuzztest::Arbitrary
 //  - NaN and ±Inf return zero.
 //  - Inputs within ±(1 - ε) return std::atanh(x).
 //  - Other inputs return std::atanh(±(1 - ε)) with the sign of x.
-//  - The output is always finite.
+//  - The output is always finite, at most atanh(1 - ε) in magnitude.
 void fuzzAtanHAllInputsF(float x) {
     const float bound = 1.0F - FLT_EPSILON;
     const float result = safeAtanHf(x);
@@ -196,8 +180,8 @@ void fuzzAtanHAllInputsF(float x) {
 FUZZ_TEST(SafeMathFloatFuzz, fuzzAtanHAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
 
 // Checks safeCosHf for every float, including NaN and ±Inf:
-//  - NaN returns 1.
-//  - Other inputs return std::cosh(x), capped at 1/ε (±Inf returns the cap).
+//  - NaN returns 1 (unlike sinh, where NaN and ±Inf return zero).
+//  - Other inputs return std::cosh(x), capped at 1/ε, so ±Inf returns the cap.
 //  - The output is always finite and within [1, 1/ε].
 void fuzzCosHAllInputsF(float x) {
     const float cap = 1.0F / FLT_EPSILON;
@@ -264,7 +248,7 @@ FUZZ_TEST(SafeMathFloatFuzz, fuzzCosAllInputsF).WithDomains(fuzztest::Arbitrary<
 
 // Checks safeAcosf for every float, including NaN and ±Inf:
 //  - NaN and ±Inf return zero.
-//  - Inputs above 1 return 0; inputs below -1 return π.
+//  - Inputs above 1 return exactly 0; inputs below -1 return exactly π.
 //  - Other inputs return std::acos(x).
 //  - The output is always finite and within [0, π].
 void fuzzAcosAllInputsF(float x) {
@@ -290,7 +274,7 @@ FUZZ_TEST(SafeMathFloatFuzz, fuzzAcosAllInputsF).WithDomains(fuzztest::Arbitrary
 
 // Checks safeAsinf for every float, including NaN and ±Inf:
 //  - NaN and ±Inf return zero.
-//  - Inputs above 1 return π/2; inputs below -1 return -π/2.
+//  - Inputs above 1 return exactly π/2; inputs below -1 return exactly -π/2.
 //  - Other inputs return std::asin(x).
 //  - The output is always finite and within [-π/2, π/2].
 void fuzzAsinAllInputsF(float x) {
@@ -316,8 +300,8 @@ FUZZ_TEST(SafeMathFloatFuzz, fuzzAsinAllInputsF).WithDomains(fuzztest::Arbitrary
 
 // Checks safeSqrtf for every float, including NaN and ±Inf:
 //  - NaN and ±Inf return zero.
-//  - Negative inputs return 0.
-//  - Other inputs return std::sqrt(x).
+//  - Negative finite inputs return 0.
+//  - Zero (either sign) and positive inputs return std::sqrt(x).
 //  - The output is always finite and within [0, sqrt(MAX)].
 void fuzzSqrtAllInputsF(float x) {
     const float result = safeSqrtf(x);
@@ -361,7 +345,12 @@ FUZZ_TEST(SafeMathFloatFuzz, fuzzAtan2AllInputsF)
 // ============================================================================
 // Double — mathematical properties
 // ============================================================================
+//
+// These check mathematical relationships between functions, independently of
+// the standard library reference used by the per-function tests below.
+// Properties share one test only when they use the same input range.
 
+// For every finite angle, cos²(x) + sin²(x) stays within the tolerance of 1.
 void fuzzPythagoreanD(double x) {
     const double c = safeCos(x);
     const double s = safeSin(x);
@@ -369,83 +358,72 @@ void fuzzPythagoreanD(double x) {
 }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzPythagoreanD).WithDomains(fuzztest::Finite<double>());
 
-void fuzzTangentIdentityD(double x) { EXPECT_NEAR(safeSin(x) / safeCos(x), safeTan(x), kDoubleTol); }
-FUZZ_TEST(SafeMathDoubleFuzz, fuzzTangentIdentityD).WithDomains(fuzztest::InRange(-1.0, 1.0));
-
-void fuzzHyperbolicTangentIdentityD(double x) { EXPECT_NEAR(safeSinH(x) / safeCosH(x), safeTanH(x), kDoubleTol); }
-FUZZ_TEST(SafeMathDoubleFuzz, fuzzHyperbolicTangentIdentityD).WithDomains(fuzztest::InRange(-1.0, 1.0));
-
-void fuzzHyperbolicPythagoreanD(double x) {
+// On [-1, 1], where cos(x) != 0 and no output saturates, these identities hold
+// within the tolerance:
+//  sin(x) / cos(x) = tan(x)
+//  sinh(x) / cosh(x) = tanh(x)
+//  cosh²(x) - sinh²(x) = 1
+void fuzzIdentitiesOnUnitIntervalD(double x) {
+    EXPECT_NEAR(safeSin(x) / safeCos(x), safeTan(x), kDoubleTol) << "sin/cos = tan, x=" << x;
+    EXPECT_NEAR(safeSinH(x) / safeCosH(x), safeTanH(x), kDoubleTol) << "sinh/cosh = tanh, x=" << x;
     const double ch = safeCosH(x);
     const double sh = safeSinH(x);
-    EXPECT_NEAR(ch * ch - sh * sh, 1.0, kDoubleTol);
+    EXPECT_NEAR(ch * ch - sh * sh, 1.0, kDoubleTol) << "cosh^2 - sinh^2 = 1, x=" << x;
 }
-FUZZ_TEST(SafeMathDoubleFuzz, fuzzHyperbolicPythagoreanD).WithDomains(fuzztest::InRange(-1.0, 1.0));
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzIdentitiesOnUnitIntervalD).WithDomains(fuzztest::InRange(-1.0, 1.0));
 
-void fuzzAtanHInverseD(double x) { EXPECT_NEAR(safeAtanH(safeTanH(x)), x, kDoubleTol); }
-FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtanHInverseD).WithDomains(fuzztest::InRange(-1.0, 1.0));
+// On [-1, 1], applying the inverse recovers x within the tolerance:
+//  atanh(tanh(x)) = x
+//  asin(sin(x)) = x  ([-1, 1] lies inside asin's principal branch [-π/2, π/2])
+void fuzzInverseRoundTripsD(double x) {
+    EXPECT_NEAR(safeAtanH(safeTanH(x)), x, kDoubleTol) << "atanh(tanh(x)), x=" << x;
+    EXPECT_NEAR(safeAsin(safeSin(x)), x, kDoubleTol) << "asin(sin(x)), x=" << x;
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzInverseRoundTripsD).WithDomains(fuzztest::InRange(-1.0, 1.0));
 
-// Same conditioning issue exists for double, but the threshold is much lower.
+// acos(cos(x)) recovers x for x in [1e-3, 1]. The same conditioning issue near
+// zero exists for double, but the threshold is much lower.
 void fuzzAcosInverseD(double x) { EXPECT_NEAR(safeAcos(safeCos(x)), x, kDoubleTol); }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzAcosInverseD).WithDomains(fuzztest::InRange(1e-3, 1.0));
 
-void fuzzAsinInverseD(double x) { EXPECT_NEAR(safeAsin(safeSin(x)), x, kDoubleTol); }
-FUZZ_TEST(SafeMathDoubleFuzz, fuzzAsinInverseD).WithDomains(fuzztest::InRange(-1.0, 1.0));
-
-// atan(tan(x)) = x  for x in (-π/2, π/2).
+// For x in [-1.5, 1.5], inside atan's principal branch (-π/2, π/2),
+// atan(tan(x)) recovers x within the tolerance.
 void fuzzAtanInverseD(double x) { EXPECT_NEAR(safeAtan(safeTan(x)), x, kDoubleTol); }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtanInverseD).WithDomains(fuzztest::InRange(-1.5, 1.5));
 
+// For nonnegative x, squaring sqrt(x) recovers x within a relative tolerance
+// plus a small absolute term.
 void fuzzSqrtSquaredD(double x) {
     const double s = safeSqrt(x);
     EXPECT_NEAR(s * s, x, kDoubleTol * x + 1e-15);
 }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzSqrtSquaredD).WithDomains(fuzztest::InRange(0.0, DBL_MAX));
 
-void fuzzEvenFunctionsD(double x) {
-    EXPECT_DOUBLE_EQ(safeCos(x), safeCos(-x));
-    EXPECT_DOUBLE_EQ(safeCosH(x), safeCosH(-x));
+// For x from 0 to MAX, even functions (cos, cosh) satisfy f(-x) = f(x) and odd
+// functions (sin, tan, atan, sinh, tanh, atanh) satisfy f(-x) = -f(x), within
+// 4 ulps, including large inputs where the wrappers clamp or saturate.
+void fuzzSymmetryD(double x) {
+    EXPECT_DOUBLE_EQ(safeCos(x), safeCos(-x)) << "safeCos symmetry, x=" << x;
+    EXPECT_DOUBLE_EQ(safeCosH(x), safeCosH(-x)) << "safeCosH symmetry, x=" << x;
+    EXPECT_DOUBLE_EQ(safeSin(x), -safeSin(-x)) << "safeSin symmetry, x=" << x;
+    EXPECT_DOUBLE_EQ(safeTan(x), -safeTan(-x)) << "safeTan symmetry, x=" << x;
+    EXPECT_DOUBLE_EQ(safeAtan(x), -safeAtan(-x)) << "safeAtan symmetry, x=" << x;
+    EXPECT_DOUBLE_EQ(safeSinH(x), -safeSinH(-x)) << "safeSinH symmetry, x=" << x;
+    EXPECT_DOUBLE_EQ(safeTanH(x), -safeTanH(-x)) << "safeTanH symmetry, x=" << x;
+    EXPECT_DOUBLE_EQ(safeAtanH(x), -safeAtanH(-x)) << "safeAtanH symmetry, x=" << x;
 }
-FUZZ_TEST(SafeMathDoubleFuzz, fuzzEvenFunctionsD).WithDomains(fuzztest::InRange(0.0, DBL_MAX));
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzSymmetryD).WithDomains(fuzztest::InRange(0.0, DBL_MAX));
 
-void fuzzOddFunctionsD(double x) {
-    EXPECT_DOUBLE_EQ(safeSin(x), -safeSin(-x));
-    EXPECT_DOUBLE_EQ(safeTan(x), -safeTan(-x));
-    EXPECT_DOUBLE_EQ(safeAtan(x), -safeAtan(-x));
-    EXPECT_DOUBLE_EQ(safeSinH(x), -safeSinH(-x));
-    EXPECT_DOUBLE_EQ(safeTanH(x), -safeTanH(-x));
-    EXPECT_DOUBLE_EQ(safeAtanH(x), -safeAtanH(-x));
-}
-FUZZ_TEST(SafeMathDoubleFuzz, fuzzOddFunctionsD).WithDomains(fuzztest::InRange(0.0, DBL_MAX));
-
+// For y in [0, 1] and x in [-1, 1], negating y negates the angle:
+// atan2(-y, x) = -atan2(y, x).
 void fuzzAtan2OddInYD(double y, double x) { EXPECT_DOUBLE_EQ(safeAtan2(-y, x), -safeAtan2(y, x)); }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtan2OddInYD).WithDomains(fuzztest::InRange(0.0, 1.0), fuzztest::InRange(-1.0, 1.0));
 
+// For x in [1e-6, 1] and y in [-1, 1], atan2(y, x) agrees with atan(y / x)
+// within the tolerance.
 void fuzzAtan2AgainstAtanD(double y, double x) { EXPECT_NEAR(safeAtan2(y, x), std::atan(y / x), kDoubleTol); }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtan2AgainstAtanD)
     .WithDomains(fuzztest::InRange(-1.0, 1.0), fuzztest::InRange(1e-6, 1.0));
-
-// ============================================================================
-// Double — all outputs finite (key "never produces NaN" proof)
-// ============================================================================
-
-void fuzzAllOutputsFiniteD(double x) {
-    EXPECT_TRUE(std::isfinite(safeCos(x)));
-    EXPECT_TRUE(std::isfinite(safeSin(x)));
-    EXPECT_TRUE(std::isfinite(safeTan(x)));
-    EXPECT_TRUE(std::isfinite(safeAtan(x)));
-    EXPECT_TRUE(std::isfinite(safeTanH(x)));
-    EXPECT_TRUE(std::isfinite(safeAtanH(x)));
-    EXPECT_TRUE(std::isfinite(safeCosH(x)));
-    EXPECT_TRUE(std::isfinite(safeSinH(x)));
-    EXPECT_TRUE(std::isfinite(safeAcos(x)));
-    EXPECT_TRUE(std::isfinite(safeAsin(x)));
-    EXPECT_TRUE(std::isfinite(safeSqrt(x)));
-}
-FUZZ_TEST(SafeMathDoubleFuzz, fuzzAllOutputsFiniteD).WithDomains(fuzztest::Finite<double>());
-
-void fuzzAtan2FiniteD(double y, double x) { EXPECT_TRUE(std::isfinite(safeAtan2(y, x))); }
-FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtan2FiniteD).WithDomains(fuzztest::Finite<double>(), fuzztest::Finite<double>());
 
 // ============================================================================
 // Double — tangent
@@ -477,7 +455,8 @@ FUZZ_TEST(SafeMathDoubleFuzz, fuzzTanAllInputsD).WithDomains(fuzztest::Arbitrary
 
 // Checks safeAtan for every double, including NaN and ±Inf:
 //  - NaN returns zero.
-//  - Otherwise it returns std::atan(x), so ±Inf gives ±π/2.
+//  - Otherwise it returns std::atan(x), so ±Inf gives ±π/2 (unlike atanh,
+//    where ±Inf returns zero).
 //  - The output is always finite and within ±π/2.
 void fuzzAtanAllInputsD(double x) {
     const double limit = std::numbers::pi / 2.0;
@@ -512,7 +491,7 @@ FUZZ_TEST(SafeMathDoubleFuzz, fuzzTanHAllInputsD).WithDomains(fuzztest::Arbitrar
 //  - NaN and ±Inf return zero.
 //  - Inputs within ±(1 - ε) return std::atanh(x).
 //  - Other inputs return std::atanh(±(1 - ε)) with the sign of x.
-//  - The output is always finite.
+//  - The output is always finite, at most atanh(1 - ε) in magnitude.
 void fuzzAtanHAllInputsD(double x) {
     const double bound = 1.0 - DBL_EPSILON;
     const double result = safeAtanH(x);
@@ -530,8 +509,8 @@ void fuzzAtanHAllInputsD(double x) {
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtanHAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
 
 // Checks safeCosH for every double, including NaN and ±Inf:
-//  - NaN returns 1.
-//  - Other inputs return std::cosh(x), capped at 1/ε (±Inf returns the cap).
+//  - NaN returns 1 (unlike sinh, where NaN and ±Inf return zero).
+//  - Other inputs return std::cosh(x), capped at 1/ε, so ±Inf returns the cap.
 //  - The output is always finite and within [1, 1/ε].
 void fuzzCosHAllInputsD(double x) {
     const double cap = 1.0 / DBL_EPSILON;
@@ -598,7 +577,7 @@ FUZZ_TEST(SafeMathDoubleFuzz, fuzzCosAllInputsD).WithDomains(fuzztest::Arbitrary
 
 // Checks safeAcos for every double, including NaN and ±Inf:
 //  - NaN and ±Inf return zero.
-//  - Inputs above 1 return 0; inputs below -1 return π.
+//  - Inputs above 1 return exactly 0; inputs below -1 return exactly π.
 //  - Other inputs return std::acos(x).
 //  - The output is always finite and within [0, π].
 void fuzzAcosAllInputsD(double x) {
@@ -624,7 +603,7 @@ FUZZ_TEST(SafeMathDoubleFuzz, fuzzAcosAllInputsD).WithDomains(fuzztest::Arbitrar
 
 // Checks safeAsin for every double, including NaN and ±Inf:
 //  - NaN and ±Inf return zero.
-//  - Inputs above 1 return π/2; inputs below -1 return -π/2.
+//  - Inputs above 1 return exactly π/2; inputs below -1 return exactly -π/2.
 //  - Other inputs return std::asin(x).
 //  - The output is always finite and within [-π/2, π/2].
 void fuzzAsinAllInputsD(double x) {
@@ -650,8 +629,8 @@ FUZZ_TEST(SafeMathDoubleFuzz, fuzzAsinAllInputsD).WithDomains(fuzztest::Arbitrar
 
 // Checks safeSqrt for every double, including NaN and ±Inf:
 //  - NaN and ±Inf return zero.
-//  - Negative inputs return 0.
-//  - Other inputs return std::sqrt(x).
+//  - Negative finite inputs return 0.
+//  - Zero (either sign) and positive inputs return std::sqrt(x).
 //  - The output is always finite and within [0, sqrt(MAX)].
 void fuzzSqrtAllInputsD(double x) {
     const double result = safeSqrt(x);

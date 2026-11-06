@@ -10,179 +10,970 @@
 namespace {
 
 // ============================================================================
-// Float — bounds
+// Float
 // ============================================================================
 
-TEST(SafeMathFloat, ClampAboveUpperBound) {
-    // Inputs chosen to exceed the active clamp boundary of every function:
-    // acos/asin clamp at 1.0;
-    // cosh/sinh saturate at 1/ε once |x| > ~16.6 for float.
-    // tan is periodic and these inputs are far from its singularities, so it passes through.
-    // atan, tanh, cos, sin have dead-code output guards and pass through.
-    for (const float over : {100.0f, 200.0f, 1e6f}) {
-        EXPECT_EQ(safeTanf(over), std::tan(over)) << "tan, x=" << over;
-        EXPECT_FLOAT_EQ(safeAtanf(over), std::atan(over)) << "atan, x=" << over;
-        EXPECT_FLOAT_EQ(safeTanHf(over), std::tanh(over)) << "tanh, x=" << over;
-        EXPECT_FLOAT_EQ(safeCosHf(over), 1.0f / FLT_EPSILON) << "cosh, x=" << over;
-        EXPECT_FLOAT_EQ(safeSinHf(over), 1.0f / FLT_EPSILON) << "sinh, x=" << over;
-        EXPECT_FLOAT_EQ(safeCosf(over), std::cos(over)) << "cos, x=" << over;
-        EXPECT_FLOAT_EQ(safeSinf(over), std::sin(over)) << "sin, x=" << over;
-        EXPECT_FLOAT_EQ(safeAcosf(over), std::acos(1.0f)) << "acos, x=" << over;
-        EXPECT_FLOAT_EQ(safeAsinf(over), std::asin(1.0f)) << "asin, x=" << over;
+// Finite inputs that do not require clamping or saturation match the
+// standard function. Boundary and saturation behavior is tested separately.
+TEST(SafeMathFloat, MatchesStandard) {
+    // tan
+
+    // Representative positive and negative angles and extreme finite inputs:
+    // standard tangent, without saturation.
+    for (const float x : {1.0F, 2.0F, 4.0F, 1.0e6F, -2.0F, FLT_MAX}) {
+        EXPECT_EQ(safeTanf(x), std::tan(x)) << "tan, x=" << x;
     }
-}
 
-TEST(SafeMathFloat, ClampBelowLowerBound) {
-    // Inputs chosen to exceed the active clamp boundary of every function.
-    // cosh is even so large negative inputs still cap to +1/FLT_EPSILON;
-    // sinh caps to -1/FLT_EPSILON for large negative inputs.
-    for (const float under : {-100.0f, -200.0f, -1e6f}) {
-        EXPECT_EQ(safeTanf(under), std::tan(under)) << "tan, x=" << under;
-        EXPECT_FLOAT_EQ(safeAtanf(under), std::atan(under)) << "atan, x=" << under;
-        EXPECT_FLOAT_EQ(safeTanHf(under), std::tanh(under)) << "tanh, x=" << under;
-        EXPECT_FLOAT_EQ(safeCosHf(under), 1.0f / FLT_EPSILON) << "cosh, x=" << under;
-        EXPECT_FLOAT_EQ(safeSinHf(under), -1.0f / FLT_EPSILON) << "sinh, x=" << under;
-        EXPECT_FLOAT_EQ(safeCosf(under), std::cos(under)) << "cos, x=" << under;
-        EXPECT_FLOAT_EQ(safeSinf(under), std::sin(under)) << "sin, x=" << under;
-        EXPECT_FLOAT_EQ(safeAcosf(under), std::acos(-1.0f)) << "acos, x=" << under;
-        EXPECT_FLOAT_EQ(safeAsinf(under), std::asin(-1.0f)) << "asin, x=" << under;
-    }
-}
-
-// atanhf has an open domain: atanhf(±1) = ±infinity, so the clamp boundary
-// is ±(1 - FLT_EPSILON). Verify out-of-range inputs produce finite output and
-// are clamped to the correct boundary value.
-TEST(SafeMathFloat, AtanHClampIsFinite) {
-    for (const float over : {1.0f, 1.5f, 1e6f}) {
-        EXPECT_TRUE(std::isfinite(safeAtanHf(over))) << "x=" << over;
-        EXPECT_TRUE(std::isfinite(safeAtanHf(-over))) << "x=" << -over;
-    }
-    const float bound = 1.0f - FLT_EPSILON;
-    EXPECT_FLOAT_EQ(safeAtanHf(2.0f), std::atanh(bound));
-    EXPECT_FLOAT_EQ(safeAtanHf(-2.0f), std::atanh(-bound));
-}
-
-TEST(SafeMathFloat, SqrtNegativeInputReturnsZero) {
-    for (const float neg : {-1e-6f, -0.5f, -1.0f, -1e6f}) {
-        EXPECT_FLOAT_EQ(safeSqrtf(neg), 0.0f) << "x=" << neg;
-    }
-}
-
-TEST(SafeMathFloat, Atan2BothZeroReturnsZero) { EXPECT_FLOAT_EQ(safeAtan2f(0.0f, 0.0f), 0.0f); }
-
-// ============================================================================
-// Float — passthrough for in-range inputs
-// ============================================================================
-
-// When the input is within the valid domain the safe wrapper must return
-// exactly the same value as the underlying C math function.
-TEST(SafeMathFloat, PassthroughInRange) {
-    for (const float x : {-0.9f, -0.5f, 0.0f, 0.5f, 0.9f}) {
+    // Angles between -0.9 and 0.9 rad, including zero: standard tangent.
+    for (const float x : {-0.9F, -0.5F, 0.0F, 0.5F, 0.9F}) {
         EXPECT_FLOAT_EQ(safeTanf(x), std::tan(x)) << "tan, x=" << x;
+    }
+
+    // Large positive and negative angles away from any singularity: expect standard
+    // tangent results without saturation, verifying correct handling of large angles.
+    for (const float x : {100.0F, 200.0F, -100.0F, -200.0F, -1e6F}) {
+        EXPECT_EQ(safeTanf(x), std::tan(x)) << "tan, x=" << x;
+    }
+
+    // atan
+
+    // Ordinary positive and negative inputs and ±MAX: standard arctangent.
+    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, FLT_MAX, -FLT_MAX}) {
+        EXPECT_EQ(safeAtanf(x), std::atan(x)) << "atan, x=" << x;
+    }
+
+    // Inputs between -0.9 and 0.9, including zero: standard arctangent.
+    for (const float x : {-0.9F, -0.5F, 0.0F, 0.9F}) {
         EXPECT_FLOAT_EQ(safeAtanf(x), std::atan(x)) << "atan, x=" << x;
+    }
+
+    // Large positive and negative inputs: expect standard arctangent results
+    // within [-π/2, π/2], verifying correct handling of large inputs.
+    for (const float x : {100.0F, 200.0F, 1e6F, -100.0F, -200.0F, -1e6F}) {
+        EXPECT_FLOAT_EQ(safeAtanf(x), std::atan(x)) << "atan, x=" << x;
+    }
+
+    // tanh
+
+    // Ordinary positive and negative inputs and ±MAX: standard tanh.
+    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, FLT_MAX, -FLT_MAX}) {
+        EXPECT_EQ(safeTanHf(x), std::tanh(x)) << "tanh, x=" << x;
+    }
+
+    // Inputs between -0.9 and 0.9, including zero: standard tanh.
+    for (const float x : {-0.9F, -0.5F, 0.0F, 0.9F}) {
         EXPECT_FLOAT_EQ(safeTanHf(x), std::tanh(x)) << "tanh, x=" << x;
+    }
+
+    // Large positive and negative inputs: expect standard tanh results
+    // within [-1, 1], verifying correct handling of large inputs.
+    for (const float x : {100.0F, 200.0F, 1e6F, -100.0F, -200.0F, -1e6F}) {
+        EXPECT_FLOAT_EQ(safeTanHf(x), std::tanh(x)) << "tanh, x=" << x;
+    }
+
+    // atanh
+
+    // Valid inputs, including ±(1 - ε) at the permitted boundary: standard atanh.
+    for (const float x : {0.5F, -0.5F, 0.9F, 1.0F - FLT_EPSILON, -(1.0F - FLT_EPSILON)}) {
+        EXPECT_EQ(safeAtanHf(x), std::atanh(x)) << "atanh, x=" << x;
+    }
+
+    // Further valid inputs (-0.9 and zero): standard atanh.
+    for (const float x : {-0.9F, 0.0F}) {
         EXPECT_FLOAT_EQ(safeAtanHf(x), std::atanh(x)) << "atanh, x=" << x;
+    }
+
+    // cosh
+
+    // Moderate inputs below the 1/ε output cap (up to 16): standard cosh.
+    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, 10.0F, 16.0F}) {
+        EXPECT_EQ(safeCosHf(x), std::cosh(x)) << "cosh, x=" << x;
+    }
+
+    // Inputs between -0.9 and 0.9, including zero: standard cosh.
+    for (const float x : {-0.9F, -0.5F, 0.0F, 0.9F}) {
         EXPECT_FLOAT_EQ(safeCosHf(x), std::cosh(x)) << "cosh, x=" << x;
+    }
+
+    // sinh
+
+    // Moderate inputs below the saturation threshold (up to ±16): standard sinh.
+    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, 10.0F, 16.0F, -16.0F}) {
+        EXPECT_EQ(safeSinHf(x), std::sinh(x)) << "sinh, x=" << x;
+    }
+
+    // Inputs between -0.9 and 0.9, including zero: standard sinh.
+    for (const float x : {-0.9F, -0.5F, 0.0F, 0.9F}) {
         EXPECT_FLOAT_EQ(safeSinHf(x), std::sinh(x)) << "sinh, x=" << x;
-        EXPECT_FLOAT_EQ(safeCosf(x), std::cos(x)) << "cos, x=" << x;
+    }
+
+    // sin
+
+    // Representative angles and large finite angles (100, 1e6, ±MAX), which
+    // exercise the library's argument reduction: standard sine.
+    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, 100.0F, 1e6F, FLT_MAX, -FLT_MAX}) {
+        EXPECT_EQ(safeSinf(x), std::sin(x)) << "sin, x=" << x;
+    }
+
+    // Angles between -0.9 and 0.9 rad, including zero: standard sine.
+    for (const float x : {-0.9F, -0.5F, 0.0F, 0.9F}) {
         EXPECT_FLOAT_EQ(safeSinf(x), std::sin(x)) << "sin, x=" << x;
-        EXPECT_FLOAT_EQ(safeAcosf(x), std::acos(x)) << "acos, x=" << x;
+    }
+
+    // Large positive and negative angles: expect standard sine results
+    // within [-1, 1], verifying correct handling of large angles.
+    for (const float x : {200.0F, -100.0F, -200.0F, -1e6F}) {
+        EXPECT_FLOAT_EQ(safeSinf(x), std::sin(x)) << "sin, x=" << x;
+    }
+
+    // cos
+
+    // Representative angles and large finite angles (100, 1e6, ±MAX), which
+    // exercise the library's argument reduction: standard cosine.
+    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, 100.0F, 1e6F, FLT_MAX, -FLT_MAX}) {
+        EXPECT_EQ(safeCosf(x), std::cos(x)) << "cos, x=" << x;
+    }
+
+    // Angles between -0.9 and 0.9 rad, including zero: standard cosine.
+    for (const float x : {-0.9F, -0.5F, 0.0F, 0.9F}) {
+        EXPECT_FLOAT_EQ(safeCosf(x), std::cos(x)) << "cos, x=" << x;
+    }
+
+    // Large positive and negative angles: expect standard cosine results
+    // within [-1, 1], verifying correct handling of large angles.
+    for (const float x : {200.0F, -100.0F, -200.0F, -1e6F}) {
+        EXPECT_FLOAT_EQ(safeCosf(x), std::cos(x)) << "cos, x=" << x;
+    }
+
+    // acos
+
+    // Valid inputs in [-1, 1], including both domain boundaries: standard acos.
+    for (const float x : {0.0F, 0.5F, -0.5F, 0.9F, -0.9F, 1.0F, -1.0F}) {
+        EXPECT_EQ(safeAcosf(x), std::acos(x)) << "acos, x=" << x;
+    }
+
+    // asin
+
+    // Valid inputs in [-1, 1], including both domain boundaries: standard asin.
+    for (const float x : {0.5F, -0.5F, 0.9F, -0.9F, 1.0F, -1.0F}) {
+        EXPECT_EQ(safeAsinf(x), std::asin(x)) << "asin, x=" << x;
+    }
+
+    // Zero: standard asin.
+    for (const float x : {0.0F}) {
         EXPECT_FLOAT_EQ(safeAsinf(x), std::asin(x)) << "asin, x=" << x;
-        EXPECT_FLOAT_EQ(safeSqrtf(x * x), std::sqrt(x * x)) << "sqrt, x=" << x;
+    }
+
+    // sqrt
+
+    // Nonnegative inputs, including zero and the largest finite input: standard sqrt.
+    for (const float x : {0.0F, 0.25F, 1.0F, 2.0F, 1e6F, FLT_MAX}) {
+        EXPECT_EQ(safeSqrtf(x), std::sqrt(x)) << "sqrt, x=" << x;
+    }
+
+    // 0.9 squared: standard sqrt.
+    for (const float x : {0.9F * 0.9F}) {
+        EXPECT_FLOAT_EQ(safeSqrtf(x), std::sqrt(x)) << "sqrt, x=" << x;
     }
 }
 
-TEST(SafeMathFloat, Atan2PassthroughInRange) {
-    for (const float y : {-0.5f, 0.0f, 0.5f}) {
-        for (const float x : {-1.0f, -0.5f, 0.5f, 1.0f}) {
+// Inputs outside the permitted range are clamped or saturated to the
+// defined finite result instead of producing an invalid output.
+TEST(SafeMathFloat, ClampsOutsideDomain) {
+    const float atanhBound = 1.0F - FLT_EPSILON;
+
+    // atanh
+
+    // Domain clamping: inputs from just below 1 (1 - ε/2) up to MAX, and their
+    // negatives, are clamped to ±(1 - ε) and return atanh(±(1 - ε)) ≈ ±8.32.
+    for (const float x : {std::nextafter(1.0F, 0.0F), 1.0F, 2.0F, 200.0F, FLT_MAX}) {
+        EXPECT_EQ(safeAtanHf(x), std::atanh(atanhBound)) << "atanh, x=" << x;
+        EXPECT_EQ(safeAtanHf(-x), std::atanh(-atanhBound)) << "atanh, x=" << -x;
+    }
+
+    // 1.5, 1e6 and their negatives: only checks that the result is finite.
+    for (const float x : {1.5F, 1e6F}) {
+        EXPECT_TRUE(std::isfinite(safeAtanHf(x))) << "atanh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtanHf(-x))) << "atanh, x=" << -x;
+    }
+
+    // cosh
+
+    // Output saturation: just above the cap (17), 100 and ±MAX return +1/ε.
+    for (const float x : {17.0F, -17.0F, 100.0F, FLT_MAX, -FLT_MAX}) {
+        EXPECT_EQ(safeCosHf(x), 1.0F / FLT_EPSILON) << "cosh, x=" << x;
+    }
+
+    // More large positive and negative inputs: +1/ε.
+    for (const float x : {-100.0F, 200.0F, 1e6F, -200.0F, -1e6F}) {
+        EXPECT_FLOAT_EQ(safeCosHf(x), 1.0F / FLT_EPSILON) << "cosh, x=" << x;
+    }
+
+    // sinh
+
+    // Output saturation: just above the cap (17), 100 and MAX return +1/ε,
+    // and their negatives -1/ε.
+    for (const float x : {17.0F, 100.0F, FLT_MAX}) {
+        EXPECT_EQ(safeSinHf(x), 1.0F / FLT_EPSILON) << "sinh, x=" << x;
+        EXPECT_EQ(safeSinHf(-x), -1.0F / FLT_EPSILON) << "sinh, x=" << -x;
+    }
+
+    // More large inputs: +1/ε, and -1/ε for their negatives.
+    for (const float x : {200.0F, 1e6F}) {
+        EXPECT_FLOAT_EQ(safeSinHf(x), 1.0F / FLT_EPSILON) << "sinh, x=" << x;
+        EXPECT_FLOAT_EQ(safeSinHf(-x), -1.0F / FLT_EPSILON) << "sinh, x=" << -x;
+    }
+
+    // acos
+
+    // Domain clamping: from the smallest value above 1 up to MAX, return 0;
+    // their negatives, below -1, return π.
+    for (const float x : {std::nextafter(1.0F, 2.0F), 2.0F, 200.0F, FLT_MAX}) {
+        EXPECT_EQ(safeAcosf(x), 0.0F) << "acos, x=" << x;
+        EXPECT_EQ(safeAcosf(-x), std::numbers::pi_v<float>) << "acos, x=" << -x;
+    }
+
+    // More inputs above 1 and below -1: acos(1) and acos(-1).
+    for (const float x : {100.0F, 1e6F}) {
+        EXPECT_FLOAT_EQ(safeAcosf(x), std::acos(1.0F)) << "acos, x=" << x;
+        EXPECT_FLOAT_EQ(safeAcosf(-x), std::acos(-1.0F)) << "acos, x=" << -x;
+    }
+
+    // asin
+
+    // Domain clamping: from the smallest value above 1 up to MAX, return +π/2;
+    // their negatives, below -1, return -π/2.
+    for (const float x : {std::nextafter(1.0F, 2.0F), 2.0F, 200.0F, FLT_MAX}) {
+        EXPECT_EQ(safeAsinf(x), std::numbers::pi_v<float> / 2.0F) << "asin, x=" << x;
+        EXPECT_EQ(safeAsinf(-x), -std::numbers::pi_v<float> / 2.0F) << "asin, x=" << -x;
+    }
+
+    // More inputs above 1 and below -1: asin(1) and asin(-1).
+    for (const float x : {100.0F, 1e6F}) {
+        EXPECT_FLOAT_EQ(safeAsinf(x), std::asin(1.0F)) << "asin, x=" << x;
+        EXPECT_FLOAT_EQ(safeAsinf(-x), std::asin(-1.0F)) << "asin, x=" << -x;
+    }
+
+    // sqrt
+
+    // Domain clamping: negative inputs, from the smallest negative subnormal to
+    // -MAX, return zero.
+    for (const float x : {-FLT_TRUE_MIN, -1e-9F, -1.0F, -200.0F, -FLT_MAX}) {
+        EXPECT_EQ(safeSqrtf(x), 0.0F) << "sqrt, x=" << x;
+    }
+
+    // More negative inputs: zero.
+    for (const float x : {-1e-6F, -0.5F, -1e6F}) {
+        EXPECT_FLOAT_EQ(safeSqrtf(x), 0.0F) << "sqrt, x=" << x;
+    }
+}
+
+// Verify each wrapper's behavior for NaN, infinity, signed zero,
+// and the smallest normal and subnormal floating-point values.
+TEST(SafeMathFloat, HandlesSpecialValues) {
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const float inf = std::numeric_limits<float>::infinity();
+
+    // tan
+    // NaN and infinity return zero. Signed zero keeps its sign, and tiny inputs
+    // return x unchanged.
+    EXPECT_EQ(safeTanf(nan), 0.0F);
+    EXPECT_EQ(safeTanf(-nan), 0.0F);
+    EXPECT_EQ(safeTanf(inf), 0.0F);
+    EXPECT_EQ(safeTanf(-inf), 0.0F);
+    EXPECT_TRUE(std::signbit(safeTanf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeTanf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeTanf(x), x) << "tan, x=" << x;
+    }
+
+    // atan
+    // NaN returns zero; infinity maps to ±π/2. Signed zero keeps its sign, and
+    // tiny inputs follow standard atan.
+    EXPECT_EQ(safeAtanf(nan), 0.0F);
+    EXPECT_EQ(safeAtanf(-nan), 0.0F);
+    EXPECT_EQ(safeAtanf(inf), std::atan(inf));
+    EXPECT_EQ(safeAtanf(-inf), std::atan(-inf));
+    EXPECT_TRUE(std::signbit(safeAtanf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeAtanf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeAtanf(x), std::atan(x)) << "atan, x=" << x;
+    }
+
+    // tanh
+    // NaN returns zero; infinity maps to ±1. Signed zero keeps its sign, and tiny
+    // inputs follow standard tanh.
+    EXPECT_EQ(safeTanHf(nan), 0.0F);
+    EXPECT_EQ(safeTanHf(-nan), 0.0F);
+    EXPECT_EQ(safeTanHf(inf), std::tanh(inf));
+    EXPECT_EQ(safeTanHf(-inf), std::tanh(-inf));
+    EXPECT_TRUE(std::signbit(safeTanHf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeTanHf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeTanHf(x), std::tanh(x)) << "tanh, x=" << x;
+    }
+
+    // atanh
+    // NaN and infinity return zero. Signed zero keeps its sign, and tiny valid
+    // inputs follow standard atanh.
+    EXPECT_EQ(safeAtanHf(nan), 0.0F);
+    EXPECT_EQ(safeAtanHf(-nan), 0.0F);
+    EXPECT_EQ(safeAtanHf(inf), 0.0F);
+    EXPECT_EQ(safeAtanHf(-inf), 0.0F);
+    EXPECT_TRUE(std::signbit(safeAtanHf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeAtanHf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeAtanHf(x), std::atanh(x)) << "atanh, x=" << x;
+    }
+
+    // cosh
+    // NaN returns 1; infinity returns +1/ε. Zero and tiny inputs follow standard
+    // cosh, which gives 1.
+    EXPECT_EQ(safeCosHf(nan), 1.0F);
+    EXPECT_EQ(safeCosHf(-nan), 1.0F);
+    EXPECT_EQ(safeCosHf(inf), 1.0F / FLT_EPSILON);
+    EXPECT_EQ(safeCosHf(-inf), 1.0F / FLT_EPSILON);
+    for (const float x : {0.0F, -0.0F, FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeCosHf(x), std::cosh(x)) << "cosh, x=" << x;
+    }
+
+    // sinh
+    // NaN and infinity return zero. Signed zero keeps its sign, and tiny inputs
+    // follow standard sinh.
+    EXPECT_EQ(safeSinHf(nan), 0.0F);
+    EXPECT_EQ(safeSinHf(-nan), 0.0F);
+    EXPECT_EQ(safeSinHf(inf), 0.0F);
+    EXPECT_EQ(safeSinHf(-inf), 0.0F);
+    EXPECT_TRUE(std::signbit(safeSinHf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeSinHf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeSinHf(x), std::sinh(x)) << "sinh, x=" << x;
+    }
+
+    // sin
+    // NaN and infinity return zero. Signed zero keeps its sign, and tiny inputs
+    // follow standard sine.
+    EXPECT_EQ(safeSinf(nan), 0.0F);
+    EXPECT_EQ(safeSinf(-nan), 0.0F);
+    EXPECT_EQ(safeSinf(inf), 0.0F);
+    EXPECT_EQ(safeSinf(-inf), 0.0F);
+    EXPECT_TRUE(std::signbit(safeSinf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeSinf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeSinf(x), std::sin(x)) << "sin, x=" << x;
+    }
+
+    // cos
+    // NaN and infinity return zero. Signed zero and tiny inputs follow standard
+    // cosine, which gives 1.
+    EXPECT_EQ(safeCosf(nan), 0.0F);
+    EXPECT_EQ(safeCosf(-nan), 0.0F);
+    EXPECT_EQ(safeCosf(inf), 0.0F);
+    EXPECT_EQ(safeCosf(-inf), 0.0F);
+    for (const float x : {0.0F, -0.0F, FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeCosf(x), std::cos(x)) << "cos, x=" << x;
+    }
+
+    // acos
+    // NaN and infinity return zero. Negative zero and tiny valid inputs follow
+    // standard acos, which gives π/2.
+    EXPECT_EQ(safeAcosf(nan), 0.0F);
+    EXPECT_EQ(safeAcosf(-nan), 0.0F);
+    EXPECT_EQ(safeAcosf(inf), 0.0F);
+    EXPECT_EQ(safeAcosf(-inf), 0.0F);
+    for (const float x : {-0.0F, FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeAcosf(x), std::acos(x)) << "acos, x=" << x;
+    }
+
+    // asin
+    // NaN and infinity return zero. Signed zero keeps its sign, and tiny valid
+    // inputs follow standard asin.
+    EXPECT_EQ(safeAsinf(nan), 0.0F);
+    EXPECT_EQ(safeAsinf(-nan), 0.0F);
+    EXPECT_EQ(safeAsinf(inf), 0.0F);
+    EXPECT_EQ(safeAsinf(-inf), 0.0F);
+    EXPECT_TRUE(std::signbit(safeAsinf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeAsinf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeAsinf(x), std::asin(x)) << "asin, x=" << x;
+    }
+
+    // sqrt
+    // NaN and infinity return zero. Negative zero keeps its sign, and positive
+    // tiny inputs, including subnormals, have standard square roots.
+    EXPECT_EQ(safeSqrtf(nan), 0.0F);
+    EXPECT_EQ(safeSqrtf(-nan), 0.0F);
+    EXPECT_EQ(safeSqrtf(inf), 0.0F);
+    EXPECT_EQ(safeSqrtf(-inf), 0.0F);
+    EXPECT_TRUE(std::signbit(safeSqrtf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeSqrtf(0.0F)));
+    for (const float x : {FLT_TRUE_MIN, FLT_MIN}) {
+        EXPECT_EQ(safeSqrtf(x), std::sqrt(x)) << "sqrt, x=" << x;
+    }
+}
+
+// Finite coordinate pairs across the quadrants and axes return the standard
+// atan2 angle.
+TEST(SafeMathFloat, Atan2MatchesStandard) {
+    const std::array<std::array<float, 2>, 10> inputs{{{{1.0F, 1.0F}},
+                                                       {{1.0F, -1.0F}},
+                                                       {{-1.0F, -1.0F}},
+                                                       {{-1.0F, 1.0F}},
+                                                       {{1.0F, 0.0F}},
+                                                       {{0.0F, 1.0F}},
+                                                       {{-1.0F, 0.0F}},
+                                                       {{0.0F, -1.0F}},
+                                                       {{-0.0F, -1.0F}},
+                                                       {{FLT_TRUE_MIN, 1.0F}}}};
+
+    // Each quadrant, the four axes, (-0, -1) where the negative zero selects -π,
+    // and a subnormal y.
+    for (const auto& [y, x] : inputs) {
+        EXPECT_EQ(safeAtan2f(y, x), std::atan2(y, x)) << "y=" << y << " x=" << x;
+    }
+
+    // A grid of negative, zero and positive y with nonzero x.
+    for (const float y : {-0.5F, 0.0F, 0.5F}) {
+        for (const float x : {-1.0F, -0.5F, 0.5F, 1.0F}) {
             EXPECT_FLOAT_EQ(safeAtan2f(y, x), std::atan2(y, x)) << "y=" << y << " x=" << x;
         }
     }
 }
 
-// ============================================================================
-// Double — bounds
-// ============================================================================
-
-TEST(SafeMathDouble, ClampAboveUpperBound) {
-    // Inputs chosen to exceed the active clamp boundary of every function:
-    // acos/asin clamp at 1.0;
-    // cosh/sinh saturate at 1/ε once |x| > ~36.7 for double.
-    // tan is periodic and these inputs are far from its singularities, so it passes through.
-    // atan, tanh, cos, sin have dead-code output guards and pass through.
-    for (const double over : {800.0, 900.0, 1e6}) {
-        EXPECT_EQ(safeTan(over), std::tan(over)) << "tan, x=" << over;
-        EXPECT_DOUBLE_EQ(safeAtan(over), std::atan(over)) << "atan, x=" << over;
-        EXPECT_DOUBLE_EQ(safeTanH(over), std::tanh(over)) << "tanh, x=" << over;
-        EXPECT_DOUBLE_EQ(safeCosH(over), 1.0 / DBL_EPSILON) << "cosh, x=" << over;
-        EXPECT_DOUBLE_EQ(safeSinH(over), 1.0 / DBL_EPSILON) << "sinh, x=" << over;
-        EXPECT_DOUBLE_EQ(safeCos(over), std::cos(over)) << "cos, x=" << over;
-        EXPECT_DOUBLE_EQ(safeSin(over), std::sin(over)) << "sin, x=" << over;
-        EXPECT_DOUBLE_EQ(safeAcos(over), std::acos(1.0)) << "acos, x=" << over;
-        EXPECT_DOUBLE_EQ(safeAsin(over), std::asin(1.0)) << "asin, x=" << over;
+// All four signed-zero pairs return +0, because a zero vector has no defined
+// direction.
+TEST(SafeMathFloat, Atan2HandlesBothZero) {
+    for (const float y : {0.0F, -0.0F}) {
+        for (const float x : {0.0F, -0.0F}) {
+            const float result = safeAtan2f(y, x);
+            EXPECT_EQ(result, 0.0F) << "y=" << y << " x=" << x;
+            EXPECT_FALSE(std::signbit(result)) << "y=" << y << " x=" << x;
+        }
     }
 }
 
-TEST(SafeMathDouble, ClampBelowLowerBound) {
-    // Inputs chosen to exceed the active clamp boundary of every function.
-    // cosh is even so large negative inputs still cap to +1/DBL_EPSILON;
-    // sinh caps to -1/DBL_EPSILON for large negative inputs.
-    for (const double under : {-800.0, -900.0, -1e6}) {
-        EXPECT_EQ(safeTan(under), std::tan(under)) << "tan, x=" << under;
-        EXPECT_DOUBLE_EQ(safeAtan(under), std::atan(under)) << "atan, x=" << under;
-        EXPECT_DOUBLE_EQ(safeTanH(under), std::tanh(under)) << "tanh, x=" << under;
-        EXPECT_DOUBLE_EQ(safeCosH(under), 1.0 / DBL_EPSILON) << "cosh, x=" << under;
-        EXPECT_DOUBLE_EQ(safeSinH(under), -1.0 / DBL_EPSILON) << "sinh, x=" << under;
-        EXPECT_DOUBLE_EQ(safeCos(under), std::cos(under)) << "cos, x=" << under;
-        EXPECT_DOUBLE_EQ(safeSin(under), std::sin(under)) << "sin, x=" << under;
-        EXPECT_DOUBLE_EQ(safeAcos(under), std::acos(-1.0)) << "acos, x=" << under;
-        EXPECT_DOUBLE_EQ(safeAsin(under), std::asin(-1.0)) << "asin, x=" << under;
+// NaN or infinity in either argument returns the documented zero fallback.
+TEST(SafeMathFloat, Atan2HandlesSpecialValues) {
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const float inf = std::numeric_limits<float>::infinity();
+    const std::array<std::array<float, 2>, 10> inputs{{{{nan, 1.0F}},
+                                                       {{1.0F, nan}},
+                                                       {{nan, nan}},
+                                                       {{-nan, 1.0F}},
+                                                       {{inf, 1.0F}},
+                                                       {{-inf, 1.0F}},
+                                                       {{1.0F, inf}},
+                                                       {{1.0F, -inf}},
+                                                       {{inf, inf}},
+                                                       {{-inf, -inf}}}};
+    for (const auto& [y, x] : inputs) {
+        EXPECT_EQ(safeAtan2f(y, x), 0.0F) << "y=" << y << " x=" << x;
     }
 }
 
-TEST(SafeMathDouble, AtanHClampIsFinite) {
-    for (const double over : {1.0, 1.5, 1e6}) {
-        EXPECT_TRUE(std::isfinite(safeAtanH(over))) << "x=" << over;
-        EXPECT_TRUE(std::isfinite(safeAtanH(-over))) << "x=" << -over;
+// Extreme finite magnitudes (±MAX, ±1e38) and ±0 still give finite outputs,
+// including atan2 with the value as y, as x, or both. This test checks
+// finiteness only, not exact values.
+TEST(SafeMathFloat, FiniteForExtremeInputs) {
+    for (const float x : {FLT_MAX, -FLT_MAX, 1e38f, -1e38f, 0.0f, -0.0f}) {
+        EXPECT_TRUE(std::isfinite(safeCosf(x))) << "cos, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSinf(x))) << "sin, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeTanf(x))) << "tan, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtanf(x))) << "atan, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeTanHf(x))) << "tanh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtanHf(x))) << "atanh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeCosHf(x))) << "cosh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSinHf(x))) << "sinh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAcosf(x))) << "acos, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAsinf(x))) << "asin, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSqrtf(x))) << "sqrt, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2f(x, 1.0f))) << "atan2(x,1), x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2f(1.0f, x))) << "atan2(1,x), x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2f(x, x))) << "atan2(x,x), x=" << x;
     }
-    const double bound = 1.0 - DBL_EPSILON;
-    EXPECT_DOUBLE_EQ(safeAtanH(2.0), std::atanh(bound));
-    EXPECT_DOUBLE_EQ(safeAtanH(-2.0), std::atanh(-bound));
 }
-
-TEST(SafeMathDouble, SqrtNegativeInputReturnsZero) {
-    for (const double neg : {-1e-9, -0.5, -1.0, -1e6}) {
-        EXPECT_DOUBLE_EQ(safeSqrt(neg), 0.0) << "x=" << neg;
-    }
-}
-
-TEST(SafeMathDouble, Atan2BothZeroReturnsZero) { EXPECT_DOUBLE_EQ(safeAtan2(0.0, 0.0), 0.0); }
 
 // ============================================================================
-// Double — passthrough for in-range inputs
+// Double
 // ============================================================================
 
-TEST(SafeMathDouble, PassthroughInRange) {
+// Finite inputs that do not require clamping or saturation match the
+// standard function. Boundary and saturation behavior is tested separately.
+TEST(SafeMathDouble, MatchesStandard) {
+    // tan
+
+    // Representative positive and negative angles and extreme finite inputs:
+    // standard tangent, without saturation.
+    for (const double x : {1.0, 2.0, 4.0, 1.0e6, -2.0, DBL_MAX}) {
+        EXPECT_EQ(safeTan(x), std::tan(x)) << "tan, x=" << x;
+    }
+
+    // Angles between -0.9 and 0.9 rad, including zero: standard tangent.
     for (const double x : {-0.9, -0.5, 0.0, 0.5, 0.9}) {
         EXPECT_DOUBLE_EQ(safeTan(x), std::tan(x)) << "tan, x=" << x;
+    }
+
+    // Large positive and negative angles away from any singularity: expect standard
+    // tangent results without saturation, verifying correct handling of large angles.
+    for (const double x : {800.0, 900.0, -800.0, -900.0, -1e6}) {
+        EXPECT_EQ(safeTan(x), std::tan(x)) << "tan, x=" << x;
+    }
+
+    // atan
+
+    // Ordinary positive and negative inputs and ±MAX: standard arctangent.
+    for (const double x : {0.5, 1.0, -1.0, 2.0, DBL_MAX, -DBL_MAX}) {
+        EXPECT_EQ(safeAtan(x), std::atan(x)) << "atan, x=" << x;
+    }
+
+    // Inputs between -0.9 and 0.9, including zero: standard arctangent.
+    for (const double x : {-0.9, -0.5, 0.0, 0.9}) {
         EXPECT_DOUBLE_EQ(safeAtan(x), std::atan(x)) << "atan, x=" << x;
+    }
+
+    // Large positive and negative inputs: expect standard arctangent results
+    // within [-π/2, π/2], verifying correct handling of large inputs.
+    for (const double x : {800.0, 900.0, 1e6, -800.0, -900.0, -1e6}) {
+        EXPECT_DOUBLE_EQ(safeAtan(x), std::atan(x)) << "atan, x=" << x;
+    }
+
+    // tanh
+
+    // Ordinary positive and negative inputs and ±MAX: standard tanh.
+    for (const double x : {0.5, 1.0, -1.0, 2.0, DBL_MAX, -DBL_MAX}) {
+        EXPECT_EQ(safeTanH(x), std::tanh(x)) << "tanh, x=" << x;
+    }
+
+    // Inputs between -0.9 and 0.9, including zero: standard tanh.
+    for (const double x : {-0.9, -0.5, 0.0, 0.9}) {
         EXPECT_DOUBLE_EQ(safeTanH(x), std::tanh(x)) << "tanh, x=" << x;
+    }
+
+    // Large positive and negative inputs: expect standard tanh results
+    // within [-1, 1], verifying correct handling of large inputs.
+    for (const double x : {800.0, 900.0, 1e6, -800.0, -900.0, -1e6}) {
+        EXPECT_DOUBLE_EQ(safeTanH(x), std::tanh(x)) << "tanh, x=" << x;
+    }
+
+    // atanh
+
+    // Valid inputs, including ±(1 - ε) at the permitted boundary: standard atanh.
+    for (const double x : {0.5, -0.5, 0.9, 1.0 - DBL_EPSILON, -(1.0 - DBL_EPSILON)}) {
+        EXPECT_EQ(safeAtanH(x), std::atanh(x)) << "atanh, x=" << x;
+    }
+
+    // Further valid inputs (-0.9 and zero): standard atanh.
+    for (const double x : {-0.9, 0.0}) {
         EXPECT_DOUBLE_EQ(safeAtanH(x), std::atanh(x)) << "atanh, x=" << x;
+    }
+
+    // cosh
+
+    // Moderate inputs below the 1/ε output cap (up to 36): standard cosh.
+    for (const double x : {0.5, 1.0, -1.0, 2.0, 10.0, 36.0}) {
+        EXPECT_EQ(safeCosH(x), std::cosh(x)) << "cosh, x=" << x;
+    }
+
+    // Inputs between -0.9 and 0.9, including zero: standard cosh.
+    for (const double x : {-0.9, -0.5, 0.0, 0.9}) {
         EXPECT_DOUBLE_EQ(safeCosH(x), std::cosh(x)) << "cosh, x=" << x;
+    }
+
+    // sinh
+
+    // Moderate inputs below the saturation threshold (up to ±36): standard sinh.
+    for (const double x : {0.5, 1.0, -1.0, 2.0, 10.0, 36.0, -36.0}) {
+        EXPECT_EQ(safeSinH(x), std::sinh(x)) << "sinh, x=" << x;
+    }
+
+    // Inputs between -0.9 and 0.9, including zero: standard sinh.
+    for (const double x : {-0.9, -0.5, 0.0, 0.9}) {
         EXPECT_DOUBLE_EQ(safeSinH(x), std::sinh(x)) << "sinh, x=" << x;
-        EXPECT_DOUBLE_EQ(safeCos(x), std::cos(x)) << "cos, x=" << x;
+    }
+
+    // sin
+
+    // Representative angles and large finite angles (100, 1e6, ±MAX), which
+    // exercise the library's argument reduction: standard sine.
+    for (const double x : {0.5, 1.0, -1.0, 2.0, 100.0, 1e6, DBL_MAX, -DBL_MAX}) {
+        EXPECT_EQ(safeSin(x), std::sin(x)) << "sin, x=" << x;
+    }
+
+    // Angles between -0.9 and 0.9 rad, including zero: standard sine.
+    for (const double x : {-0.9, -0.5, 0.0, 0.9}) {
         EXPECT_DOUBLE_EQ(safeSin(x), std::sin(x)) << "sin, x=" << x;
-        EXPECT_DOUBLE_EQ(safeAcos(x), std::acos(x)) << "acos, x=" << x;
+    }
+
+    // Large positive and negative angles: expect standard sine results
+    // within [-1, 1], verifying correct handling of large angles.
+    for (const double x : {800.0, 900.0, -800.0, -900.0, -1e6}) {
+        EXPECT_DOUBLE_EQ(safeSin(x), std::sin(x)) << "sin, x=" << x;
+    }
+
+    // cos
+
+    // Representative angles and large finite angles (100, 1e6, ±MAX), which
+    // exercise the library's argument reduction: standard cosine.
+    for (const double x : {0.5, 1.0, -1.0, 2.0, 100.0, 1e6, DBL_MAX, -DBL_MAX}) {
+        EXPECT_EQ(safeCos(x), std::cos(x)) << "cos, x=" << x;
+    }
+
+    // Angles between -0.9 and 0.9 rad, including zero: standard cosine.
+    for (const double x : {-0.9, -0.5, 0.0, 0.9}) {
+        EXPECT_DOUBLE_EQ(safeCos(x), std::cos(x)) << "cos, x=" << x;
+    }
+
+    // Large positive and negative angles: expect standard cosine results
+    // within [-1, 1], verifying correct handling of large angles.
+    for (const double x : {800.0, 900.0, -800.0, -900.0, -1e6}) {
+        EXPECT_DOUBLE_EQ(safeCos(x), std::cos(x)) << "cos, x=" << x;
+    }
+
+    // acos
+
+    // Valid inputs in [-1, 1], including both domain boundaries: standard acos.
+    for (const double x : {0.0, 0.5, -0.5, 0.9, -0.9, 1.0, -1.0}) {
+        EXPECT_EQ(safeAcos(x), std::acos(x)) << "acos, x=" << x;
+    }
+
+    // asin
+
+    // Valid inputs in [-1, 1], including both domain boundaries: standard asin.
+    for (const double x : {0.5, -0.5, 0.9, -0.9, 1.0, -1.0}) {
+        EXPECT_EQ(safeAsin(x), std::asin(x)) << "asin, x=" << x;
+    }
+
+    // Zero: standard asin.
+    for (const double x : {0.0}) {
         EXPECT_DOUBLE_EQ(safeAsin(x), std::asin(x)) << "asin, x=" << x;
-        EXPECT_DOUBLE_EQ(safeSqrt(x * x), std::sqrt(x * x)) << "sqrt, x=" << x;
+    }
+
+    // sqrt
+
+    // Nonnegative inputs, including zero and the largest finite input: standard sqrt.
+    for (const double x : {0.0, 0.25, 1.0, 2.0, 1e6, DBL_MAX}) {
+        EXPECT_EQ(safeSqrt(x), std::sqrt(x)) << "sqrt, x=" << x;
+    }
+
+    // 0.9 squared: standard sqrt.
+    for (const double x : {0.9 * 0.9}) {
+        EXPECT_DOUBLE_EQ(safeSqrt(x), std::sqrt(x)) << "sqrt, x=" << x;
     }
 }
 
-TEST(SafeMathDouble, Atan2PassthroughInRange) {
+// Inputs outside the permitted range are clamped or saturated to the
+// defined finite result instead of producing an invalid output.
+TEST(SafeMathDouble, ClampsOutsideDomain) {
+    const double atanhBound = 1.0 - DBL_EPSILON;
+
+    // atanh
+
+    // Domain clamping: inputs from just below 1 (1 - ε/2) up to MAX, and their
+    // negatives, are clamped to ±(1 - ε) and return atanh(±(1 - ε)) ≈ ±18.37.
+    for (const double x : {std::nextafter(1.0, 0.0), 1.0, 2.0, 200.0, DBL_MAX}) {
+        EXPECT_EQ(safeAtanH(x), std::atanh(atanhBound)) << "atanh, x=" << x;
+        EXPECT_EQ(safeAtanH(-x), std::atanh(-atanhBound)) << "atanh, x=" << -x;
+    }
+
+    // 1.5, 1e6 and their negatives: only checks that the result is finite.
+    for (const double x : {1.5, 1e6}) {
+        EXPECT_TRUE(std::isfinite(safeAtanH(x))) << "atanh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtanH(-x))) << "atanh, x=" << -x;
+    }
+
+    // cosh
+
+    // Output saturation: just above the cap (37), 100 and ±MAX return +1/ε.
+    for (const double x : {37.0, -37.0, 100.0, DBL_MAX, -DBL_MAX}) {
+        EXPECT_EQ(safeCosH(x), 1.0 / DBL_EPSILON) << "cosh, x=" << x;
+    }
+
+    // More large positive and negative inputs: +1/ε.
+    for (const double x : {800.0, 900.0, 1e6, -800.0, -900.0, -1e6}) {
+        EXPECT_DOUBLE_EQ(safeCosH(x), 1.0 / DBL_EPSILON) << "cosh, x=" << x;
+    }
+
+    // sinh
+
+    // Output saturation: just above the cap (37), 100 and MAX return +1/ε,
+    // and their negatives -1/ε.
+    for (const double x : {37.0, 100.0, DBL_MAX}) {
+        EXPECT_EQ(safeSinH(x), 1.0 / DBL_EPSILON) << "sinh, x=" << x;
+        EXPECT_EQ(safeSinH(-x), -1.0 / DBL_EPSILON) << "sinh, x=" << -x;
+    }
+
+    // More large inputs: +1/ε, and -1/ε for their negatives.
+    for (const double x : {800.0, 900.0, 1e6}) {
+        EXPECT_DOUBLE_EQ(safeSinH(x), 1.0 / DBL_EPSILON) << "sinh, x=" << x;
+        EXPECT_DOUBLE_EQ(safeSinH(-x), -1.0 / DBL_EPSILON) << "sinh, x=" << -x;
+    }
+
+    // acos
+
+    // Domain clamping: from the smallest value above 1 up to MAX, return 0;
+    // their negatives, below -1, return π.
+    for (const double x : {std::nextafter(1.0, 2.0), 2.0, 200.0, DBL_MAX}) {
+        EXPECT_EQ(safeAcos(x), 0.0) << "acos, x=" << x;
+        EXPECT_EQ(safeAcos(-x), std::numbers::pi) << "acos, x=" << -x;
+    }
+
+    // More inputs above 1 and below -1: acos(1) and acos(-1).
+    for (const double x : {800.0, 900.0, 1e6}) {
+        EXPECT_DOUBLE_EQ(safeAcos(x), std::acos(1.0)) << "acos, x=" << x;
+        EXPECT_DOUBLE_EQ(safeAcos(-x), std::acos(-1.0)) << "acos, x=" << -x;
+    }
+
+    // asin
+
+    // Domain clamping: from the smallest value above 1 up to MAX, return +π/2;
+    // their negatives, below -1, return -π/2.
+    for (const double x : {std::nextafter(1.0, 2.0), 2.0, 200.0, DBL_MAX}) {
+        EXPECT_EQ(safeAsin(x), std::numbers::pi / 2.0) << "asin, x=" << x;
+        EXPECT_EQ(safeAsin(-x), -std::numbers::pi / 2.0) << "asin, x=" << -x;
+    }
+
+    // More inputs above 1 and below -1: asin(1) and asin(-1).
+    for (const double x : {800.0, 900.0, 1e6}) {
+        EXPECT_DOUBLE_EQ(safeAsin(x), std::asin(1.0)) << "asin, x=" << x;
+        EXPECT_DOUBLE_EQ(safeAsin(-x), std::asin(-1.0)) << "asin, x=" << -x;
+    }
+
+    // sqrt
+
+    // Domain clamping: negative inputs, from the smallest negative subnormal to
+    // -MAX, return zero.
+    for (const double x : {-DBL_TRUE_MIN, -1e-9, -1.0, -200.0, -DBL_MAX}) {
+        EXPECT_EQ(safeSqrt(x), 0.0) << "sqrt, x=" << x;
+    }
+
+    // More negative inputs: zero.
+    for (const double x : {-0.5, -1e6}) {
+        EXPECT_DOUBLE_EQ(safeSqrt(x), 0.0) << "sqrt, x=" << x;
+    }
+}
+
+// Verify each wrapper's behavior for NaN, infinity, signed zero,
+// and the smallest normal and subnormal floating-point values.
+TEST(SafeMathDouble, HandlesSpecialValues) {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+
+    // tan
+    // NaN and infinity return zero. Signed zero keeps its sign, and tiny inputs
+    // return x unchanged.
+    EXPECT_EQ(safeTan(nan), 0.0);
+    EXPECT_EQ(safeTan(-nan), 0.0);
+    EXPECT_EQ(safeTan(inf), 0.0);
+    EXPECT_EQ(safeTan(-inf), 0.0);
+    EXPECT_TRUE(std::signbit(safeTan(-0.0)));
+    EXPECT_FALSE(std::signbit(safeTan(0.0)));
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeTan(x), x) << "tan, x=" << x;
+    }
+
+    // atan
+    // NaN returns zero; infinity maps to ±π/2. Signed zero keeps its sign, and
+    // tiny inputs follow standard atan.
+    EXPECT_EQ(safeAtan(nan), 0.0);
+    EXPECT_EQ(safeAtan(-nan), 0.0);
+    EXPECT_EQ(safeAtan(inf), std::atan(inf));
+    EXPECT_EQ(safeAtan(-inf), std::atan(-inf));
+    EXPECT_TRUE(std::signbit(safeAtan(-0.0)));
+    EXPECT_FALSE(std::signbit(safeAtan(0.0)));
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeAtan(x), std::atan(x)) << "atan, x=" << x;
+    }
+
+    // tanh
+    // NaN returns zero; infinity maps to ±1. Signed zero keeps its sign, and tiny
+    // inputs follow standard tanh.
+    EXPECT_EQ(safeTanH(nan), 0.0);
+    EXPECT_EQ(safeTanH(-nan), 0.0);
+    EXPECT_EQ(safeTanH(inf), std::tanh(inf));
+    EXPECT_EQ(safeTanH(-inf), std::tanh(-inf));
+    EXPECT_TRUE(std::signbit(safeTanH(-0.0)));
+    EXPECT_FALSE(std::signbit(safeTanH(0.0)));
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeTanH(x), std::tanh(x)) << "tanh, x=" << x;
+    }
+
+    // atanh
+    // NaN and infinity return zero. Signed zero keeps its sign, and tiny valid
+    // inputs follow standard atanh.
+    EXPECT_EQ(safeAtanH(nan), 0.0);
+    EXPECT_EQ(safeAtanH(-nan), 0.0);
+    EXPECT_EQ(safeAtanH(inf), 0.0);
+    EXPECT_EQ(safeAtanH(-inf), 0.0);
+    EXPECT_TRUE(std::signbit(safeAtanH(-0.0)));
+    EXPECT_FALSE(std::signbit(safeAtanH(0.0)));
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeAtanH(x), std::atanh(x)) << "atanh, x=" << x;
+    }
+
+    // cosh
+    // NaN returns 1; infinity returns +1/ε. Zero and tiny inputs follow standard
+    // cosh, which gives 1.
+    EXPECT_EQ(safeCosH(nan), 1.0);
+    EXPECT_EQ(safeCosH(-nan), 1.0);
+    EXPECT_EQ(safeCosH(inf), 1.0 / DBL_EPSILON);
+    EXPECT_EQ(safeCosH(-inf), 1.0 / DBL_EPSILON);
+    for (const double x : {0.0, -0.0, DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeCosH(x), std::cosh(x)) << "cosh, x=" << x;
+    }
+
+    // sinh
+    // NaN and infinity return zero. Signed zero keeps its sign, and tiny inputs
+    // follow standard sinh.
+    EXPECT_EQ(safeSinH(nan), 0.0);
+    EXPECT_EQ(safeSinH(-nan), 0.0);
+    EXPECT_EQ(safeSinH(inf), 0.0);
+    EXPECT_EQ(safeSinH(-inf), 0.0);
+    EXPECT_TRUE(std::signbit(safeSinH(-0.0)));
+    EXPECT_FALSE(std::signbit(safeSinH(0.0)));
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeSinH(x), std::sinh(x)) << "sinh, x=" << x;
+    }
+
+    // sin
+    // NaN and infinity return zero. Signed zero keeps its sign, and tiny inputs
+    // follow standard sine.
+    EXPECT_EQ(safeSin(nan), 0.0);
+    EXPECT_EQ(safeSin(-nan), 0.0);
+    EXPECT_EQ(safeSin(inf), 0.0);
+    EXPECT_EQ(safeSin(-inf), 0.0);
+    EXPECT_TRUE(std::signbit(safeSin(-0.0)));
+    EXPECT_FALSE(std::signbit(safeSin(0.0)));
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeSin(x), std::sin(x)) << "sin, x=" << x;
+    }
+
+    // cos
+    // NaN and infinity return zero. Signed zero and tiny inputs follow standard
+    // cosine, which gives 1.
+    EXPECT_EQ(safeCos(nan), 0.0);
+    EXPECT_EQ(safeCos(-nan), 0.0);
+    EXPECT_EQ(safeCos(inf), 0.0);
+    EXPECT_EQ(safeCos(-inf), 0.0);
+    for (const double x : {0.0, -0.0, DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeCos(x), std::cos(x)) << "cos, x=" << x;
+    }
+
+    // acos
+    // NaN and infinity return zero. Negative zero and tiny valid inputs follow
+    // standard acos, which gives π/2.
+    EXPECT_EQ(safeAcos(nan), 0.0);
+    EXPECT_EQ(safeAcos(-nan), 0.0);
+    EXPECT_EQ(safeAcos(inf), 0.0);
+    EXPECT_EQ(safeAcos(-inf), 0.0);
+    for (const double x : {-0.0, DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeAcos(x), std::acos(x)) << "acos, x=" << x;
+    }
+
+    // asin
+    // NaN and infinity return zero. Signed zero keeps its sign, and tiny valid
+    // inputs follow standard asin.
+    EXPECT_EQ(safeAsin(nan), 0.0);
+    EXPECT_EQ(safeAsin(-nan), 0.0);
+    EXPECT_EQ(safeAsin(inf), 0.0);
+    EXPECT_EQ(safeAsin(-inf), 0.0);
+    EXPECT_TRUE(std::signbit(safeAsin(-0.0)));
+    EXPECT_FALSE(std::signbit(safeAsin(0.0)));
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeAsin(x), std::asin(x)) << "asin, x=" << x;
+    }
+
+    // sqrt
+    // NaN and infinity return zero. Negative zero keeps its sign, and positive
+    // tiny inputs, including subnormals, have standard square roots.
+    EXPECT_EQ(safeSqrt(nan), 0.0);
+    EXPECT_EQ(safeSqrt(-nan), 0.0);
+    EXPECT_EQ(safeSqrt(inf), 0.0);
+    EXPECT_EQ(safeSqrt(-inf), 0.0);
+    EXPECT_TRUE(std::signbit(safeSqrt(-0.0)));
+    EXPECT_FALSE(std::signbit(safeSqrt(0.0)));
+    for (const double x : {DBL_TRUE_MIN, DBL_MIN}) {
+        EXPECT_EQ(safeSqrt(x), std::sqrt(x)) << "sqrt, x=" << x;
+    }
+}
+
+// Finite coordinate pairs across the quadrants and axes return the standard
+// atan2 angle.
+TEST(SafeMathDouble, Atan2MatchesStandard) {
+    const std::array<std::array<double, 2>, 10> inputs{{{{1.0, 1.0}},
+                                                        {{1.0, -1.0}},
+                                                        {{-1.0, -1.0}},
+                                                        {{-1.0, 1.0}},
+                                                        {{1.0, 0.0}},
+                                                        {{0.0, 1.0}},
+                                                        {{-1.0, 0.0}},
+                                                        {{0.0, -1.0}},
+                                                        {{-0.0, -1.0}},
+                                                        {{DBL_TRUE_MIN, 1.0}}}};
+
+    // Each quadrant, the four axes, (-0, -1) where the negative zero selects -π,
+    // and a subnormal y.
+    for (const auto& [y, x] : inputs) {
+        EXPECT_EQ(safeAtan2(y, x), std::atan2(y, x)) << "y=" << y << " x=" << x;
+    }
+
+    // A grid of negative, zero and positive y with nonzero x.
     for (const double y : {-0.5, 0.0, 0.5}) {
         for (const double x : {-1.0, -0.5, 0.5, 1.0}) {
             EXPECT_DOUBLE_EQ(safeAtan2(y, x), std::atan2(y, x)) << "y=" << y << " x=" << x;
         }
+    }
+}
+
+// All four signed-zero pairs return +0, because a zero vector has no defined
+// direction.
+TEST(SafeMathDouble, Atan2HandlesBothZero) {
+    for (const double y : {0.0, -0.0}) {
+        for (const double x : {0.0, -0.0}) {
+            const double result = safeAtan2(y, x);
+            EXPECT_EQ(result, 0.0) << "y=" << y << " x=" << x;
+            EXPECT_FALSE(std::signbit(result)) << "y=" << y << " x=" << x;
+        }
+    }
+}
+
+// NaN or infinity in either argument returns the documented zero fallback.
+TEST(SafeMathDouble, Atan2HandlesSpecialValues) {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+    const std::array<std::array<double, 2>, 10> inputs{{{{nan, 1.0}},
+                                                        {{1.0, nan}},
+                                                        {{nan, nan}},
+                                                        {{-nan, 1.0}},
+                                                        {{inf, 1.0}},
+                                                        {{-inf, 1.0}},
+                                                        {{1.0, inf}},
+                                                        {{1.0, -inf}},
+                                                        {{inf, inf}},
+                                                        {{-inf, -inf}}}};
+    for (const auto& [y, x] : inputs) {
+        EXPECT_EQ(safeAtan2(y, x), 0.0) << "y=" << y << " x=" << x;
+    }
+}
+
+// Extreme finite magnitudes (±MAX, ±1e308) and ±0 still give finite outputs,
+// including atan2 with the value as y, as x, or both. This test checks
+// finiteness only, not exact values.
+TEST(SafeMathDouble, FiniteForExtremeInputs) {
+    for (const double x : {DBL_MAX, -DBL_MAX, 1e308, -1e308, 0.0, -0.0}) {
+        EXPECT_TRUE(std::isfinite(safeCos(x))) << "cos, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSin(x))) << "sin, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeTan(x))) << "tan, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan(x))) << "atan, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeTanH(x))) << "tanh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtanH(x))) << "atanh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeCosH(x))) << "cosh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSinH(x))) << "sinh, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAcos(x))) << "acos, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAsin(x))) << "asin, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeSqrt(x))) << "sqrt, x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2(x, 1.0))) << "atan2(x,1), x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2(1.0, x))) << "atan2(1,x), x=" << x;
+        EXPECT_TRUE(std::isfinite(safeAtan2(x, x))) << "atan2(x,x), x=" << x;
     }
 }
 
@@ -192,40 +983,17 @@ TEST(SafeMathDouble, Atan2PassthroughInRange) {
 //
 // For finite x, safeTan returns tan(x) with the output saturated to
 // ±1/ε. NaN and ±Inf return 0. tan has period π (180 deg) and singularities, where it
-// goes to infinity, at π/2 + kπ (90 deg + k·180 deg).
+// goes to infinity, a§t π/2 + kπ (90 deg + k·180 deg).
 //
 constexpr float kMaxTanF = 1.0F / std::numeric_limits<float>::epsilon();
 constexpr double kMaxTanD = 1.0 / std::numeric_limits<double>::epsilon();
 
-// --- 1. Normal mathematical behavior ----------------------------------------
-
-// Away from the singularities, safeTan must return exactly the standard tan.
-// One angle in each quadrant covers every sign of tan. Inputs beyond ±π/2
-// must not be saturated. 1e6 and the largest finite input are many periods
-// away from zero. -2 checks a negative input.
-TEST(SafeMathFloat, TanMatchesStandardTan) {
-    EXPECT_EQ(safeTanf(1.0F), std::tan(1.0F));      // 57.3 deg
-    EXPECT_EQ(safeTanf(2.0F), std::tan(2.0F));      // 114.6 deg
-    EXPECT_EQ(safeTanf(4.0F), std::tan(4.0F));      // 229.2 deg
-    EXPECT_EQ(safeTanf(1.0e6F), std::tan(1.0e6F));  // 339.5 deg after 159154 turns
-    EXPECT_EQ(safeTanf(-2.0F), std::tan(-2.0F));    // -114.6 deg
-    EXPECT_EQ(safeTanf(FLT_MAX), std::tan(FLT_MAX));
-}
-
-TEST(SafeMathDouble, TanMatchesStandardTan) {
-    EXPECT_EQ(safeTan(1.0), std::tan(1.0));      // 57.3 deg
-    EXPECT_EQ(safeTan(2.0), std::tan(2.0));      // 114.6 deg
-    EXPECT_EQ(safeTan(4.0), std::tan(4.0));      // 229.2 deg
-    EXPECT_EQ(safeTan(1.0e6), std::tan(1.0e6));  // 339.5 deg after 159154 turns
-    EXPECT_EQ(safeTan(-2.0), std::tan(-2.0));    // -114.6 deg
-    EXPECT_EQ(safeTan(DBL_MAX), std::tan(DBL_MAX));
-}
-
-// --- 2. Saturation boundaries -----------------------------------------------
+// --- Saturation near the singularities --------------------------------------
 
 // Consecutive floats around π/2 (90 deg). The float nearest π/2 lies just
 // above π/2, so tan is negative there. On each side of the singularity, one input is
 // beyond 1/ε and saturates, and the next one out is not and passes through.
+// Just below the singularity the result saturates to +1/ε, just above it to -1/ε.
 // The ASSERTs confirm where each raw tan value lies before testing safeTanf.
 // The singularity at -π/2 is checked with the same inputs negated.
 TEST(SafeMathFloat, TanSaturatesNearHalfPi) {
@@ -253,7 +1021,8 @@ TEST(SafeMathFloat, TanSaturatesNearHalfPi) {
 
 // Consecutive doubles around π/2 (90 deg). Unlike float, the double nearest
 // π/2 lies just below π/2, so tan is positive there and the saturated pair is
-// one step further up.
+// one step further up. The saturated values are again +1/ε below the
+// singularity and -1/ε above it.
 TEST(SafeMathDouble, TanSaturatesNearHalfPi) {
     const double nearestBelowHalfPi = std::numbers::pi / 2.0;  // 90 deg
     const double fartherBelowHalfPi = std::nextafter(nearestBelowHalfPi, 0.0);
@@ -280,7 +1049,8 @@ TEST(SafeMathDouble, TanSaturatesNearHalfPi) {
 // Saturation repeats at every singularity. At 3π/2 (270 deg) the representable
 // values are four times further apart than at π/2, so only the value nearest
 // the singularity saturates and both neighbours pass through. The nearest float lies
-// above the singularity and the nearest double below it.
+// above the singularity and saturates to -1/ε; the nearest double lies below it
+// and saturates to +1/ε.
 TEST(SafeMathFloat, TanSaturatesNearThreeHalfPi) {
     const float nearestThreeHalfPi = 3.0F * std::numbers::pi_v<float> / 2.0F;  // 270 deg
     const float oneBelow = std::nextafter(nearestThreeHalfPi, 0.0F);
@@ -313,10 +1083,12 @@ TEST(SafeMathDouble, TanSaturatesNearThreeHalfPi) {
     EXPECT_EQ(safeTan(oneAbove), std::tan(oneAbove));
 }
 
-// The input closest to any singularity: for float found by checking every value, for
-// double a known worst case. Their true tangents (-6.19e8 and -2.13e18) are
-// far beyond 1/ε, so both must saturate to -1/ε. A sign error here would
-// reveal inaccurate reduction of a huge angle near a singularity.
+// Very large finite angles still follow tangent's sign and saturate at the
+// matching ±1/ε bound. The inputs are the closest to any singularity: for
+// float found by checking every value, for double a known worst case. Their
+// true tangents (-6.19e8 and -2.13e18) are far beyond 1/ε, so both must
+// saturate to -1/ε. A sign error here would reveal inaccurate reduction of a
+// huge angle near a singularity.
 TEST(SafeMathFloat, TanSaturatesNearDistantSingularity) {
     const float closestToSingularity = 0x1.f37c8ap+95F;  // about 7.7e28 rad
     EXPECT_EQ(safeTanf(closestToSingularity), -kMaxTanF);
@@ -325,707 +1097,6 @@ TEST(SafeMathFloat, TanSaturatesNearDistantSingularity) {
 TEST(SafeMathDouble, TanSaturatesNearDistantSingularity) {
     const double closestToSingularity = 0x1.6ac5b262ca1ffp+849;  // 6381956970095103 * 2^797 rad
     EXPECT_EQ(safeTan(closestToSingularity), -kMaxTanD);
-}
-
-// --- 3. Special values ------------------------------------------------------
-
-// NaN and ±Inf have no tangent and return 0. Zero keeps its sign. For the
-// smallest normal and subnormal inputs, tan(x) equals x to within rounding,
-// so the result must be exactly x.
-TEST(SafeMathFloat, TanHandlesSpecialValues) {
-    EXPECT_EQ(safeTanf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeTanf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeTanf(std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_EQ(safeTanf(-std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_TRUE(std::signbit(safeTanf(-0.0F)));
-    EXPECT_FALSE(std::signbit(safeTanf(0.0F)));
-    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
-        EXPECT_EQ(safeTanf(x), x) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, TanHandlesSpecialValues) {
-    EXPECT_EQ(safeTan(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeTan(-std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeTan(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_EQ(safeTan(-std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_TRUE(std::signbit(safeTan(-0.0)));
-    EXPECT_FALSE(std::signbit(safeTan(0.0)));
-    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
-        EXPECT_EQ(safeTan(x), x) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, AtanMatchesStandardAtan) {
-    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, FLT_MAX, -FLT_MAX}) {
-        EXPECT_EQ(safeAtanf(x), std::atan(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, AtanMatchesStandardAtan) {
-    for (const double x : {0.5, 1.0, -1.0, 2.0, DBL_MAX, -DBL_MAX}) {
-        EXPECT_EQ(safeAtan(x), std::atan(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, AtanHandlesSpecialValues) {
-    const float inf = std::numeric_limits<float>::infinity();
-
-    EXPECT_EQ(safeAtanf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeAtanf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
-
-    EXPECT_EQ(safeAtanf(inf), std::atan(inf));
-    EXPECT_EQ(safeAtanf(-inf), std::atan(-inf));
-
-    EXPECT_TRUE(std::signbit(safeAtanf(-0.0F)));
-    EXPECT_FALSE(std::signbit(safeAtanf(0.0F)));
-
-    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
-        EXPECT_EQ(safeAtanf(x), std::atan(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, AtanHandlesSpecialValues) {
-    const double inf = std::numeric_limits<double>::infinity();
-
-    EXPECT_EQ(safeAtan(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeAtan(-std::numeric_limits<double>::quiet_NaN()), 0.0);
-
-    EXPECT_EQ(safeAtan(inf), std::atan(inf));
-    EXPECT_EQ(safeAtan(-inf), std::atan(-inf));
-
-    EXPECT_TRUE(std::signbit(safeAtan(-0.0)));
-    EXPECT_FALSE(std::signbit(safeAtan(0.0)));
-
-    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
-        EXPECT_EQ(safeAtan(x), std::atan(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, TanHMatchesStandardTanH) {
-    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, FLT_MAX, -FLT_MAX}) {
-        EXPECT_EQ(safeTanHf(x), std::tanh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, TanHMatchesStandardTanH) {
-    for (const double x : {0.5, 1.0, -1.0, 2.0, DBL_MAX, -DBL_MAX}) {
-        EXPECT_EQ(safeTanH(x), std::tanh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, TanHHandlesSpecialValues) {
-    const float inf = std::numeric_limits<float>::infinity();
-
-    EXPECT_EQ(safeTanHf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeTanHf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
-
-    EXPECT_EQ(safeTanHf(inf), std::tanh(inf));
-    EXPECT_EQ(safeTanHf(-inf), std::tanh(-inf));
-
-    EXPECT_TRUE(std::signbit(safeTanHf(-0.0F)));
-    EXPECT_FALSE(std::signbit(safeTanHf(0.0F)));
-
-    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
-        EXPECT_EQ(safeTanHf(x), std::tanh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, TanHHandlesSpecialValues) {
-    const double inf = std::numeric_limits<double>::infinity();
-
-    EXPECT_EQ(safeTanH(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeTanH(-std::numeric_limits<double>::quiet_NaN()), 0.0);
-
-    EXPECT_EQ(safeTanH(inf), std::tanh(inf));
-    EXPECT_EQ(safeTanH(-inf), std::tanh(-inf));
-
-    EXPECT_TRUE(std::signbit(safeTanH(-0.0)));
-    EXPECT_FALSE(std::signbit(safeTanH(0.0)));
-
-    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
-        EXPECT_EQ(safeTanH(x), std::tanh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, AtanHMatchesStandardAtanH) {
-    for (const float x : {0.5F, -0.5F, 0.9F, 1.0F - FLT_EPSILON, -(1.0F - FLT_EPSILON)}) {
-        EXPECT_EQ(safeAtanHf(x), std::atanh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, AtanHMatchesStandardAtanH) {
-    for (const double x : {0.5, -0.5, 0.9, 1.0 - DBL_EPSILON, -(1.0 - DBL_EPSILON)}) {
-        EXPECT_EQ(safeAtanH(x), std::atanh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, AtanHClampsOutsideDomain) {
-    const float bound = 1.0F - FLT_EPSILON;
-    for (const float x : {std::nextafter(1.0F, 0.0F), 1.0F, 2.0F, 200.0F, FLT_MAX}) {
-        EXPECT_EQ(safeAtanHf(x), std::atanh(bound)) << "x=" << x;
-        EXPECT_EQ(safeAtanHf(-x), std::atanh(-bound)) << "x=" << -x;
-    }
-}
-
-TEST(SafeMathDouble, AtanHClampsOutsideDomain) {
-    const double bound = 1.0 - DBL_EPSILON;
-    for (const double x : {std::nextafter(1.0, 0.0), 1.0, 2.0, 200.0, DBL_MAX}) {
-        EXPECT_EQ(safeAtanH(x), std::atanh(bound)) << "x=" << x;
-        EXPECT_EQ(safeAtanH(-x), std::atanh(-bound)) << "x=" << -x;
-    }
-}
-
-TEST(SafeMathFloat, AtanHHandlesSpecialValues) {
-    const float inf = std::numeric_limits<float>::infinity();
-
-    EXPECT_EQ(safeAtanHf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeAtanHf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
-
-    EXPECT_EQ(safeAtanHf(inf), 0.0F);
-    EXPECT_EQ(safeAtanHf(-inf), 0.0F);
-
-    EXPECT_TRUE(std::signbit(safeAtanHf(-0.0F)));
-    EXPECT_FALSE(std::signbit(safeAtanHf(0.0F)));
-
-    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
-        EXPECT_EQ(safeAtanHf(x), std::atanh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, AtanHHandlesSpecialValues) {
-    const double inf = std::numeric_limits<double>::infinity();
-
-    EXPECT_EQ(safeAtanH(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeAtanH(-std::numeric_limits<double>::quiet_NaN()), 0.0);
-
-    EXPECT_EQ(safeAtanH(inf), 0.0);
-    EXPECT_EQ(safeAtanH(-inf), 0.0);
-
-    EXPECT_TRUE(std::signbit(safeAtanH(-0.0)));
-    EXPECT_FALSE(std::signbit(safeAtanH(0.0)));
-
-    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
-        EXPECT_EQ(safeAtanH(x), std::atanh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, CosHMatchesStandardCosH) {
-    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, 10.0F, 16.0F}) {
-        EXPECT_EQ(safeCosHf(x), std::cosh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, CosHMatchesStandardCosH) {
-    for (const double x : {0.5, 1.0, -1.0, 2.0, 10.0, 36.0}) {
-        EXPECT_EQ(safeCosH(x), std::cosh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, CosHSaturatesAboveCap) {
-    for (const float x : {17.0F, -17.0F, 100.0F, FLT_MAX, -FLT_MAX}) {
-        EXPECT_EQ(safeCosHf(x), 1.0F / FLT_EPSILON) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, CosHSaturatesAboveCap) {
-    for (const double x : {37.0, -37.0, 100.0, DBL_MAX, -DBL_MAX}) {
-        EXPECT_EQ(safeCosH(x), 1.0 / DBL_EPSILON) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, CosHHandlesSpecialValues) {
-    EXPECT_EQ(safeCosHf(std::numeric_limits<float>::quiet_NaN()), 1.0F);
-    EXPECT_EQ(safeCosHf(-std::numeric_limits<float>::quiet_NaN()), 1.0F);
-    EXPECT_EQ(safeCosHf(std::numeric_limits<float>::infinity()), 1.0F / FLT_EPSILON);
-    EXPECT_EQ(safeCosHf(-std::numeric_limits<float>::infinity()), 1.0F / FLT_EPSILON);
-    for (const float x : {0.0F, -0.0F, FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
-        EXPECT_EQ(safeCosHf(x), std::cosh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, CosHHandlesSpecialValues) {
-    EXPECT_EQ(safeCosH(std::numeric_limits<double>::quiet_NaN()), 1.0);
-    EXPECT_EQ(safeCosH(-std::numeric_limits<double>::quiet_NaN()), 1.0);
-    EXPECT_EQ(safeCosH(std::numeric_limits<double>::infinity()), 1.0 / DBL_EPSILON);
-    EXPECT_EQ(safeCosH(-std::numeric_limits<double>::infinity()), 1.0 / DBL_EPSILON);
-    for (const double x : {0.0, -0.0, DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
-        EXPECT_EQ(safeCosH(x), std::cosh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, SinHMatchesStandardSinH) {
-    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, 10.0F, 16.0F, -16.0F}) {
-        EXPECT_EQ(safeSinHf(x), std::sinh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, SinHMatchesStandardSinH) {
-    for (const double x : {0.5, 1.0, -1.0, 2.0, 10.0, 36.0, -36.0}) {
-        EXPECT_EQ(safeSinH(x), std::sinh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, SinHSaturatesAboveCap) {
-    for (const float x : {17.0F, 100.0F, FLT_MAX}) {
-        EXPECT_EQ(safeSinHf(x), 1.0F / FLT_EPSILON) << "x=" << x;
-        EXPECT_EQ(safeSinHf(-x), -1.0F / FLT_EPSILON) << "x=" << -x;
-    }
-}
-
-TEST(SafeMathDouble, SinHSaturatesAboveCap) {
-    for (const double x : {37.0, 100.0, DBL_MAX}) {
-        EXPECT_EQ(safeSinH(x), 1.0 / DBL_EPSILON) << "x=" << x;
-        EXPECT_EQ(safeSinH(-x), -1.0 / DBL_EPSILON) << "x=" << -x;
-    }
-}
-
-TEST(SafeMathFloat, SinHHandlesSpecialValues) {
-    EXPECT_EQ(safeSinHf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeSinHf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeSinHf(std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_EQ(safeSinHf(-std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_TRUE(std::signbit(safeSinHf(-0.0F)));
-    EXPECT_FALSE(std::signbit(safeSinHf(0.0F)));
-    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
-        EXPECT_EQ(safeSinHf(x), std::sinh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, SinHHandlesSpecialValues) {
-    EXPECT_EQ(safeSinH(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeSinH(-std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeSinH(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_EQ(safeSinH(-std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_TRUE(std::signbit(safeSinH(-0.0)));
-    EXPECT_FALSE(std::signbit(safeSinH(0.0)));
-    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
-        EXPECT_EQ(safeSinH(x), std::sinh(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, SinMatchesStandardSin) {
-    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, 100.0F, 1e6F, FLT_MAX, -FLT_MAX}) {
-        EXPECT_EQ(safeSinf(x), std::sin(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, SinMatchesStandardSin) {
-    for (const double x : {0.5, 1.0, -1.0, 2.0, 100.0, 1e6, DBL_MAX, -DBL_MAX}) {
-        EXPECT_EQ(safeSin(x), std::sin(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, SinHandlesSpecialValues) {
-    EXPECT_EQ(safeSinf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeSinf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeSinf(std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_EQ(safeSinf(-std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_TRUE(std::signbit(safeSinf(-0.0F)));
-    EXPECT_FALSE(std::signbit(safeSinf(0.0F)));
-    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
-        EXPECT_EQ(safeSinf(x), std::sin(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, SinHandlesSpecialValues) {
-    EXPECT_EQ(safeSin(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeSin(-std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeSin(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_EQ(safeSin(-std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_TRUE(std::signbit(safeSin(-0.0)));
-    EXPECT_FALSE(std::signbit(safeSin(0.0)));
-    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
-        EXPECT_EQ(safeSin(x), std::sin(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, CosMatchesStandardCos) {
-    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, 100.0F, 1e6F, FLT_MAX, -FLT_MAX}) {
-        EXPECT_EQ(safeCosf(x), std::cos(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, CosMatchesStandardCos) {
-    for (const double x : {0.5, 1.0, -1.0, 2.0, 100.0, 1e6, DBL_MAX, -DBL_MAX}) {
-        EXPECT_EQ(safeCos(x), std::cos(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, CosHandlesSpecialValues) {
-    EXPECT_EQ(safeCosf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeCosf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeCosf(std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_EQ(safeCosf(-std::numeric_limits<float>::infinity()), 0.0F);
-    for (const float x : {0.0F, -0.0F, FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
-        EXPECT_EQ(safeCosf(x), std::cos(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, CosHandlesSpecialValues) {
-    EXPECT_EQ(safeCos(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeCos(-std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeCos(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_EQ(safeCos(-std::numeric_limits<double>::infinity()), 0.0);
-    for (const double x : {0.0, -0.0, DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
-        EXPECT_EQ(safeCos(x), std::cos(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, AcosMatchesStandardAcos) {
-    for (const float x : {0.0F, 0.5F, -0.5F, 0.9F, -0.9F, 1.0F, -1.0F}) {
-        EXPECT_EQ(safeAcosf(x), std::acos(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, AcosClampsOutsideDomain) {
-    for (const float x : {std::nextafter(1.0F, 2.0F), 2.0F, 200.0F, FLT_MAX}) {
-        EXPECT_EQ(safeAcosf(x), 0.0F) << "x=" << x;
-        EXPECT_EQ(safeAcosf(-x), std::numbers::pi_v<float>) << "x=" << -x;
-    }
-}
-
-TEST(SafeMathFloat, AcosHandlesSpecialValues) {
-    EXPECT_EQ(safeAcosf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeAcosf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeAcosf(std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_EQ(safeAcosf(-std::numeric_limits<float>::infinity()), 0.0F);
-    for (const float x : {-0.0F, FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
-        EXPECT_EQ(safeAcosf(x), std::acos(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, AcosMatchesStandardAcos) {
-    for (const double x : {0.0, 0.5, -0.5, 0.9, -0.9, 1.0, -1.0}) {
-        EXPECT_EQ(safeAcos(x), std::acos(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, AcosClampsOutsideDomain) {
-    for (const double x : {std::nextafter(1.0, 2.0), 2.0, 200.0, DBL_MAX}) {
-        EXPECT_EQ(safeAcos(x), 0.0) << "x=" << x;
-        EXPECT_EQ(safeAcos(-x), std::numbers::pi) << "x=" << -x;
-    }
-}
-
-TEST(SafeMathDouble, AcosHandlesSpecialValues) {
-    EXPECT_EQ(safeAcos(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeAcos(-std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeAcos(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_EQ(safeAcos(-std::numeric_limits<double>::infinity()), 0.0);
-    for (const double x : {-0.0, DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
-        EXPECT_EQ(safeAcos(x), std::acos(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, AsinMatchesStandardAsin) {
-    for (const float x : {0.5F, -0.5F, 0.9F, -0.9F, 1.0F, -1.0F}) {
-        EXPECT_EQ(safeAsinf(x), std::asin(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, AsinClampsOutsideDomain) {
-    for (const float x : {std::nextafter(1.0F, 2.0F), 2.0F, 200.0F, FLT_MAX}) {
-        EXPECT_EQ(safeAsinf(x), std::numbers::pi_v<float> / 2.0F) << "x=" << x;
-        EXPECT_EQ(safeAsinf(-x), -std::numbers::pi_v<float> / 2.0F) << "x=" << -x;
-    }
-}
-
-TEST(SafeMathFloat, AsinHandlesSpecialValues) {
-    EXPECT_EQ(safeAsinf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeAsinf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeAsinf(std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_EQ(safeAsinf(-std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_TRUE(std::signbit(safeAsinf(-0.0F)));
-    EXPECT_FALSE(std::signbit(safeAsinf(0.0F)));
-    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
-        EXPECT_EQ(safeAsinf(x), std::asin(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, AsinMatchesStandardAsin) {
-    for (const double x : {0.5, -0.5, 0.9, -0.9, 1.0, -1.0}) {
-        EXPECT_EQ(safeAsin(x), std::asin(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, AsinClampsOutsideDomain) {
-    for (const double x : {std::nextafter(1.0, 2.0), 2.0, 200.0, DBL_MAX}) {
-        EXPECT_EQ(safeAsin(x), std::numbers::pi / 2.0) << "x=" << x;
-        EXPECT_EQ(safeAsin(-x), -std::numbers::pi / 2.0) << "x=" << -x;
-    }
-}
-
-TEST(SafeMathDouble, AsinHandlesSpecialValues) {
-    EXPECT_EQ(safeAsin(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeAsin(-std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeAsin(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_EQ(safeAsin(-std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_TRUE(std::signbit(safeAsin(-0.0)));
-    EXPECT_FALSE(std::signbit(safeAsin(0.0)));
-    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
-        EXPECT_EQ(safeAsin(x), std::asin(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, SqrtMatchesStandardSqrt) {
-    for (const float x : {0.0F, 0.25F, 1.0F, 2.0F, 1e6F, FLT_MAX}) {
-        EXPECT_EQ(safeSqrtf(x), std::sqrt(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, SqrtClampsNegativeInputs) {
-    for (const float x : {-FLT_TRUE_MIN, -1e-9F, -1.0F, -200.0F, -FLT_MAX}) {
-        EXPECT_EQ(safeSqrtf(x), 0.0F) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, SqrtHandlesSpecialValues) {
-    EXPECT_EQ(safeSqrtf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeSqrtf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
-    EXPECT_EQ(safeSqrtf(std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_EQ(safeSqrtf(-std::numeric_limits<float>::infinity()), 0.0F);
-    EXPECT_TRUE(std::signbit(safeSqrtf(-0.0F)));
-    EXPECT_FALSE(std::signbit(safeSqrtf(0.0F)));
-    for (const float x : {FLT_TRUE_MIN, FLT_MIN}) {
-        EXPECT_EQ(safeSqrtf(x), std::sqrt(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, SqrtMatchesStandardSqrt) {
-    for (const double x : {0.0, 0.25, 1.0, 2.0, 1e6, DBL_MAX}) {
-        EXPECT_EQ(safeSqrt(x), std::sqrt(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, SqrtClampsNegativeInputs) {
-    for (const double x : {-DBL_TRUE_MIN, -1e-9, -1.0, -200.0, -DBL_MAX}) {
-        EXPECT_EQ(safeSqrt(x), 0.0) << "x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, SqrtHandlesSpecialValues) {
-    EXPECT_EQ(safeSqrt(std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeSqrt(-std::numeric_limits<double>::quiet_NaN()), 0.0);
-    EXPECT_EQ(safeSqrt(std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_EQ(safeSqrt(-std::numeric_limits<double>::infinity()), 0.0);
-    EXPECT_TRUE(std::signbit(safeSqrt(-0.0)));
-    EXPECT_FALSE(std::signbit(safeSqrt(0.0)));
-    for (const double x : {DBL_TRUE_MIN, DBL_MIN}) {
-        EXPECT_EQ(safeSqrt(x), std::sqrt(x)) << "x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, Atan2MatchesStandardAtan2) {
-    const std::array<std::array<float, 2>, 10> inputs{{{1.0F, 1.0F},
-                                                       {1.0F, -1.0F},
-                                                       {-1.0F, -1.0F},
-                                                       {-1.0F, 1.0F},
-                                                       {1.0F, 0.0F},
-                                                       {0.0F, 1.0F},
-                                                       {-1.0F, 0.0F},
-                                                       {0.0F, -1.0F},
-                                                       {-0.0F, -1.0F},
-                                                       {FLT_TRUE_MIN, 1.0F}}};
-    for (const auto& [y, x] : inputs) {
-        EXPECT_EQ(safeAtan2f(y, x), std::atan2(y, x)) << "y=" << y << " x=" << x;
-    }
-}
-
-TEST(SafeMathFloat, Atan2HandlesBothZero) {
-    for (const float y : {0.0F, -0.0F}) {
-        for (const float x : {0.0F, -0.0F}) {
-            const float result = safeAtan2f(y, x);
-            EXPECT_EQ(result, 0.0F) << "y=" << y << " x=" << x;
-            EXPECT_FALSE(std::signbit(result)) << "y=" << y << " x=" << x;
-        }
-    }
-}
-
-TEST(SafeMathFloat, Atan2HandlesSpecialValues) {
-    const float nan = std::numeric_limits<float>::quiet_NaN();
-    const float inf = std::numeric_limits<float>::infinity();
-    const std::array<std::array<float, 2>, 10> inputs{{{nan, 1.0F},
-                                                       {1.0F, nan},
-                                                       {nan, nan},
-                                                       {-nan, 1.0F},
-                                                       {inf, 1.0F},
-                                                       {-inf, 1.0F},
-                                                       {1.0F, inf},
-                                                       {1.0F, -inf},
-                                                       {inf, inf},
-                                                       {-inf, -inf}}};
-    for (const auto& [y, x] : inputs) {
-        EXPECT_EQ(safeAtan2f(y, x), 0.0F) << "y=" << y << " x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, Atan2MatchesStandardAtan2) {
-    const std::array<std::array<double, 2>, 10> inputs{{{1.0, 1.0},
-                                                        {1.0, -1.0},
-                                                        {-1.0, -1.0},
-                                                        {-1.0, 1.0},
-                                                        {1.0, 0.0},
-                                                        {0.0, 1.0},
-                                                        {-1.0, 0.0},
-                                                        {0.0, -1.0},
-                                                        {-0.0, -1.0},
-                                                        {DBL_TRUE_MIN, 1.0}}};
-    for (const auto& [y, x] : inputs) {
-        EXPECT_EQ(safeAtan2(y, x), std::atan2(y, x)) << "y=" << y << " x=" << x;
-    }
-}
-
-TEST(SafeMathDouble, Atan2HandlesBothZero) {
-    for (const double y : {0.0, -0.0}) {
-        for (const double x : {0.0, -0.0}) {
-            const double result = safeAtan2(y, x);
-            EXPECT_EQ(result, 0.0) << "y=" << y << " x=" << x;
-            EXPECT_FALSE(std::signbit(result)) << "y=" << y << " x=" << x;
-        }
-    }
-}
-
-TEST(SafeMathDouble, Atan2HandlesSpecialValues) {
-    const double nan = std::numeric_limits<double>::quiet_NaN();
-    const double inf = std::numeric_limits<double>::infinity();
-    const std::array<std::array<double, 2>, 10> inputs{{{nan, 1.0},
-                                                        {1.0, nan},
-                                                        {nan, nan},
-                                                        {-nan, 1.0},
-                                                        {inf, 1.0},
-                                                        {-inf, 1.0},
-                                                        {1.0, inf},
-                                                        {1.0, -inf},
-                                                        {inf, inf},
-                                                        {-inf, -inf}}};
-    for (const auto& [y, x] : inputs) {
-        EXPECT_EQ(safeAtan2(y, x), 0.0) << "y=" << y << " x=" << x;
-    }
-}
-
-// ============================================================================
-// Float — finiteness for extreme values
-// ============================================================================
-
-TEST(SafeMathFloat, FiniteForExtremeInputs) {
-    for (const float x : {FLT_MAX, -FLT_MAX, 1e38f, -1e38f, 0.0f, -0.0f}) {
-        EXPECT_TRUE(std::isfinite(safeCosf(x))) << "cos, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeSinf(x))) << "sin, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeTanf(x))) << "tan, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAtanf(x))) << "atan, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeTanHf(x))) << "tanh, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAtanHf(x))) << "atanh, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeCosHf(x))) << "cosh, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeSinHf(x))) << "sinh, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAcosf(x))) << "acos, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAsinf(x))) << "asin, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeSqrtf(x))) << "sqrt, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAtan2f(x, 1.0f))) << "atan2(x,1), x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAtan2f(1.0f, x))) << "atan2(1,x), x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAtan2f(x, x))) << "atan2(x,x), x=" << x;
-    }
-}
-
-// ============================================================================
-// Double — finiteness for extreme values
-// ============================================================================
-
-TEST(SafeMathDouble, FiniteForExtremeInputs) {
-    for (const double x : {DBL_MAX, -DBL_MAX, 1e308, -1e308, 0.0, -0.0}) {
-        EXPECT_TRUE(std::isfinite(safeCos(x))) << "cos, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeSin(x))) << "sin, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeTan(x))) << "tan, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAtan(x))) << "atan, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeTanH(x))) << "tanh, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAtanH(x))) << "atanh, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeCosH(x))) << "cosh, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeSinH(x))) << "sinh, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAcos(x))) << "acos, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAsin(x))) << "asin, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeSqrt(x))) << "sqrt, x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAtan2(x, 1.0))) << "atan2(x,1), x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAtan2(1.0, x))) << "atan2(1,x), x=" << x;
-        EXPECT_TRUE(std::isfinite(safeAtan2(x, x))) << "atan2(x,x), x=" << x;
-    }
-}
-
-// ============================================================================
-// NaN returns zero
-// ============================================================================
-
-// NaN inputs must produce a deterministic finite result (0.0) instead of
-// propagating. Every safe function guards against NaN as the first check.
-TEST(SafeMathFloat, NanReturnsZero) {
-    const float nan = std::numeric_limits<float>::quiet_NaN();
-    EXPECT_FLOAT_EQ(safeCosf(nan), 0.0f);
-    EXPECT_FLOAT_EQ(safeSinf(nan), 0.0f);
-    EXPECT_FLOAT_EQ(safeTanf(nan), 0.0f);
-    EXPECT_FLOAT_EQ(safeAtanf(nan), 0.0f);
-    EXPECT_FLOAT_EQ(safeTanHf(nan), 0.0f);
-    EXPECT_FLOAT_EQ(safeAtanHf(nan), 0.0f);
-    EXPECT_FLOAT_EQ(safeCosHf(nan), 1.0f);
-    EXPECT_FLOAT_EQ(safeSinHf(nan), 0.0f);
-    EXPECT_FLOAT_EQ(safeAcosf(nan), 0.0f);
-    EXPECT_FLOAT_EQ(safeAsinf(nan), 0.0f);
-    EXPECT_FLOAT_EQ(safeSqrtf(nan), 0.0f);
-    EXPECT_FLOAT_EQ(safeAtan2f(nan, 1.0f), 0.0f);
-    EXPECT_FLOAT_EQ(safeAtan2f(1.0f, nan), 0.0f);
-    EXPECT_FLOAT_EQ(safeAtan2f(nan, nan), 0.0f);
-}
-
-TEST(SafeMathDouble, NanReturnsZero) {
-    const double nan = std::numeric_limits<double>::quiet_NaN();
-    EXPECT_DOUBLE_EQ(safeCos(nan), 0.0);
-    EXPECT_DOUBLE_EQ(safeSin(nan), 0.0);
-    EXPECT_DOUBLE_EQ(safeTan(nan), 0.0);
-    EXPECT_DOUBLE_EQ(safeAtan(nan), 0.0);
-    EXPECT_DOUBLE_EQ(safeTanH(nan), 0.0);
-    EXPECT_DOUBLE_EQ(safeAtanH(nan), 0.0);
-    EXPECT_DOUBLE_EQ(safeCosH(nan), 1.0);
-    EXPECT_DOUBLE_EQ(safeSinH(nan), 0.0);
-    EXPECT_DOUBLE_EQ(safeAcos(nan), 0.0);
-    EXPECT_DOUBLE_EQ(safeAsin(nan), 0.0);
-    EXPECT_DOUBLE_EQ(safeSqrt(nan), 0.0);
-    EXPECT_DOUBLE_EQ(safeAtan2(nan, 1.0), 0.0);
-    EXPECT_DOUBLE_EQ(safeAtan2(1.0, nan), 0.0);
-    EXPECT_DOUBLE_EQ(safeAtan2(nan, nan), 0.0);
-}
-
-// ============================================================================
-// Inf returns zero
-// ============================================================================
-
-// Inf inputs must produce a deterministic finite result (0.0) instead of
-// propagating. Every safe function guards against infs as the first check.
-TEST(SafeMathFloat, InfReturnsZero) {
-    const double inf = std::numeric_limits<float>::infinity();
-    EXPECT_FLOAT_EQ(safeCosf(inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeSinf(inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeTanf(inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeAtanHf(inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeSinHf(inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeAcosf(inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeAsinf(inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeSqrtf(inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeAtan2f(inf, 1.0f), 0.0f);
-    EXPECT_FLOAT_EQ(safeAtan2f(1.0f, inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeAtan2f(inf, inf), 0.0f);
-}
-
-TEST(SafeMathDouble, InfReturnsZero) {
-    const double inf = std::numeric_limits<double>::infinity();
-    EXPECT_DOUBLE_EQ(safeCos(inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeSin(inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeTan(inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeAtanH(inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeSinH(inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeAcos(inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeAsin(inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeSqrt(inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeAtan2(inf, 1.0), 0.0);
-    EXPECT_DOUBLE_EQ(safeAtan2(1.0, inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeAtan2(inf, inf), 0.0);
 }
 
 }  // namespace
