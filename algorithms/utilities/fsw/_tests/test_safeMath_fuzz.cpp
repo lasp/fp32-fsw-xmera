@@ -213,6 +213,23 @@ void fuzzCosHAllInputsF(float x) {
 }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzCosHAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
 
+// Checks safeSinHf for every float, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Other inputs return std::sinh(x), clamped to [-1/ε, 1/ε].
+//  - The output is always finite and within [-1/ε, 1/ε].
+void fuzzSinHAllInputsF(float x) {
+    const float cap = 1.0F / FLT_EPSILON;
+    const float result = safeSinHf(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), cap);
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    EXPECT_EQ(result, std::fmax(-cap, std::fmin(std::sinh(x), cap)));
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzSinHAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
+
 // ============================================================================
 // Double — mathematical properties
 // ============================================================================
@@ -401,3 +418,20 @@ void fuzzCosHAllInputsD(double x) {
     EXPECT_EQ(result, std::fmin(std::cosh(x), cap));
 }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzCosHAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
+
+// Checks safeSinH for every double, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Other inputs return std::sinh(x), clamped to [-1/ε, 1/ε].
+//  - The output is always finite and within [-1/ε, 1/ε].
+void fuzzSinHAllInputsD(double x) {
+    const double cap = 1.0 / DBL_EPSILON;
+    const double result = safeSinH(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), cap);
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    EXPECT_EQ(result, std::fmax(-cap, std::fmin(std::sinh(x), cap)));
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzSinHAllInputsD).WithDomains(fuzztest::Arbitrary<double>());

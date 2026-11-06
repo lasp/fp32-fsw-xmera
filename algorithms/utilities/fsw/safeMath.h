@@ -207,10 +207,11 @@ inline double safeCosH(double const x) {
     return coshx;
 }
 
-/*! @brief Safe wrapper around sinhf that caps the output to [-1/ε, 1/ε]
- *         to prevent overflow for large |x|.
- *  @param x Input value
- *  @return clamp(sinhf(x), -1/ε, 1/ε)
+/*! @brief Safe wrapper around sinhf. The output is capped at ±1/ε, which is
+ *         reached for |x| > ~16.6, well before sinhf overflows.
+ *         NaN and ±Inf inputs return zero.
+ *  @param x Input value (any real)
+ *  @return clamp(sinhf(x), -1/ε, 1/ε), or 0.0F if x is NaN or ±Inf
  */
 inline float safeSinHf(float const x) {
     if (isnan(x) || isinf(x)) {
@@ -227,10 +228,11 @@ inline float safeSinHf(float const x) {
     return sinhx;
 }
 
-/*! @brief Safe wrapper around sinh that caps the output to [-1/ε, 1/ε]
- *         to prevent overflow for large |x|.
- *  @param x Input value
- *  @return clamp(sinh(x), -1/ε, 1/ε)
+/*! @brief Safe wrapper around sinh. The output is capped at ±1/ε, which is
+ *         reached for |x| > ~36.7, well before sinh overflows.
+ *         NaN and ±Inf inputs return zero.
+ *  @param x Input value (any real)
+ *  @return clamp(sinh(x), -1/ε, 1/ε), or 0.0 if x is NaN or ±Inf
  */
 inline double safeSinH(double const x) {
     if (isnan(x) || isinf(x)) {
