@@ -401,6 +401,52 @@ TEST(SafeMathDouble, AtanHandlesSpecialValues) {
     }
 }
 
+TEST(SafeMathFloat, TanHMatchesStandardTanH) {
+    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, FLT_MAX, -FLT_MAX}) {
+        EXPECT_EQ(safeTanHf(x), std::tanh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, TanHMatchesStandardTanH) {
+    for (const double x : {0.5, 1.0, -1.0, 2.0, DBL_MAX, -DBL_MAX}) {
+        EXPECT_EQ(safeTanH(x), std::tanh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathFloat, TanHHandlesSpecialValues) {
+    const float inf = std::numeric_limits<float>::infinity();
+
+    EXPECT_EQ(safeTanHf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeTanHf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
+
+    EXPECT_EQ(safeTanHf(inf), std::tanh(inf));
+    EXPECT_EQ(safeTanHf(-inf), std::tanh(-inf));
+
+    EXPECT_TRUE(std::signbit(safeTanHf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeTanHf(0.0F)));
+
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeTanHf(x), std::tanh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, TanHHandlesSpecialValues) {
+    const double inf = std::numeric_limits<double>::infinity();
+
+    EXPECT_EQ(safeTanH(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeTanH(-std::numeric_limits<double>::quiet_NaN()), 0.0);
+
+    EXPECT_EQ(safeTanH(inf), std::tanh(inf));
+    EXPECT_EQ(safeTanH(-inf), std::tanh(-inf));
+
+    EXPECT_TRUE(std::signbit(safeTanH(-0.0)));
+    EXPECT_FALSE(std::signbit(safeTanH(0.0)));
+
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeTanH(x), std::tanh(x)) << "x=" << x;
+    }
+}
+
 // ============================================================================
 // Float — finiteness for extreme values
 // ============================================================================
@@ -500,7 +546,6 @@ TEST(SafeMathFloat, InfReturnsZero) {
     EXPECT_FLOAT_EQ(safeCosf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeSinf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeTanf(inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeTanHf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeAtanHf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeCosHf(inf), 1.0f);
     EXPECT_FLOAT_EQ(safeSinHf(inf), 0.0f);
@@ -517,7 +562,6 @@ TEST(SafeMathDouble, InfReturnsZero) {
     EXPECT_DOUBLE_EQ(safeCos(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeSin(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeTan(inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeTanH(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeAtanH(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeCosH(inf), 1.0);
     EXPECT_DOUBLE_EQ(safeSinH(inf), 0.0);

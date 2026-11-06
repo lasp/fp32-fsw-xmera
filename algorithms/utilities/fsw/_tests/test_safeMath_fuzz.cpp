@@ -158,6 +158,22 @@ void fuzzAtanAllInputsF(float x) {
 }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzAtanAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
 
+// Checks safeTanHf for every float, including NaN and ±Inf:
+//  - NaN returns zero.
+//  - Otherwise it returns std::tanh(x), so ±Inf gives ±1.
+//  - The output is always finite and within ±1.
+void fuzzTanHAllInputsF(float x) {
+    const float result = safeTanHf(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), 1.0F);
+    if (std::isnan(x)) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    EXPECT_EQ(result, std::tanh(x));
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzTanHAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
+
 // ============================================================================
 // Double — mathematical properties
 // ============================================================================
@@ -291,3 +307,19 @@ void fuzzAtanAllInputsD(double x) {
     EXPECT_EQ(result, std::atan(x));
 }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtanAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
+
+// Checks safeTanH for every double, including NaN and ±Inf:
+//  - NaN returns zero.
+//  - Otherwise it returns std::tanh(x), so ±Inf gives ±1.
+//  - The output is always finite and within ±1.
+void fuzzTanHAllInputsD(double x) {
+    const double result = safeTanH(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), 1.0);
+    if (std::isnan(x)) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    EXPECT_EQ(result, std::tanh(x));
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzTanHAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
