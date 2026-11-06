@@ -174,6 +174,27 @@ void fuzzTanHAllInputsF(float x) {
 }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzTanHAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
 
+// Checks safeAtanHf for every float, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Inputs within ±(1 - ε) return std::atanh(x).
+//  - Other inputs return std::atanh(±(1 - ε)) with the sign of x.
+//  - The output is always finite.
+void fuzzAtanHAllInputsF(float x) {
+    const float bound = 1.0F - FLT_EPSILON;
+    const float result = safeAtanHf(x);
+    EXPECT_TRUE(std::isfinite(result));
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    if (std::fabs(x) <= bound) {
+        EXPECT_EQ(result, std::atanh(x));
+    } else {
+        EXPECT_EQ(result, std::copysign(std::atanh(bound), x));
+    }
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzAtanHAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
+
 // ============================================================================
 // Double — mathematical properties
 // ============================================================================
@@ -323,3 +344,24 @@ void fuzzTanHAllInputsD(double x) {
     EXPECT_EQ(result, std::tanh(x));
 }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzTanHAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
+
+// Checks safeAtanH for every double, including NaN and ±Inf:
+//  - NaN and ±Inf return zero.
+//  - Inputs within ±(1 - ε) return std::atanh(x).
+//  - Other inputs return std::atanh(±(1 - ε)) with the sign of x.
+//  - The output is always finite.
+void fuzzAtanHAllInputsD(double x) {
+    const double bound = 1.0 - DBL_EPSILON;
+    const double result = safeAtanH(x);
+    EXPECT_TRUE(std::isfinite(result));
+    if (!std::isfinite(x)) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    if (std::fabs(x) <= bound) {
+        EXPECT_EQ(result, std::atanh(x));
+    } else {
+        EXPECT_EQ(result, std::copysign(std::atanh(bound), x));
+    }
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtanHAllInputsD).WithDomains(fuzztest::Arbitrary<double>());

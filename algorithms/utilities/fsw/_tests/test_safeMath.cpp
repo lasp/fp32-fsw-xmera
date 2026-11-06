@@ -447,6 +447,68 @@ TEST(SafeMathDouble, TanHHandlesSpecialValues) {
     }
 }
 
+TEST(SafeMathFloat, AtanHMatchesStandardAtanH) {
+    for (const float x : {0.5F, -0.5F, 0.9F, 1.0F - FLT_EPSILON, -(1.0F - FLT_EPSILON)}) {
+        EXPECT_EQ(safeAtanHf(x), std::atanh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, AtanHMatchesStandardAtanH) {
+    for (const double x : {0.5, -0.5, 0.9, 1.0 - DBL_EPSILON, -(1.0 - DBL_EPSILON)}) {
+        EXPECT_EQ(safeAtanH(x), std::atanh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathFloat, AtanHClampsOutsideDomain) {
+    const float bound = 1.0F - FLT_EPSILON;
+    for (const float x : {std::nextafter(1.0F, 0.0F), 1.0F, 2.0F, 200.0F, FLT_MAX}) {
+        EXPECT_EQ(safeAtanHf(x), std::atanh(bound)) << "x=" << x;
+        EXPECT_EQ(safeAtanHf(-x), std::atanh(-bound)) << "x=" << -x;
+    }
+}
+
+TEST(SafeMathDouble, AtanHClampsOutsideDomain) {
+    const double bound = 1.0 - DBL_EPSILON;
+    for (const double x : {std::nextafter(1.0, 0.0), 1.0, 2.0, 200.0, DBL_MAX}) {
+        EXPECT_EQ(safeAtanH(x), std::atanh(bound)) << "x=" << x;
+        EXPECT_EQ(safeAtanH(-x), std::atanh(-bound)) << "x=" << -x;
+    }
+}
+
+TEST(SafeMathFloat, AtanHHandlesSpecialValues) {
+    const float inf = std::numeric_limits<float>::infinity();
+
+    EXPECT_EQ(safeAtanHf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeAtanHf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
+
+    EXPECT_EQ(safeAtanHf(inf), 0.0F);
+    EXPECT_EQ(safeAtanHf(-inf), 0.0F);
+
+    EXPECT_TRUE(std::signbit(safeAtanHf(-0.0F)));
+    EXPECT_FALSE(std::signbit(safeAtanHf(0.0F)));
+
+    for (const float x : {FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeAtanHf(x), std::atanh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, AtanHHandlesSpecialValues) {
+    const double inf = std::numeric_limits<double>::infinity();
+
+    EXPECT_EQ(safeAtanH(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeAtanH(-std::numeric_limits<double>::quiet_NaN()), 0.0);
+
+    EXPECT_EQ(safeAtanH(inf), 0.0);
+    EXPECT_EQ(safeAtanH(-inf), 0.0);
+
+    EXPECT_TRUE(std::signbit(safeAtanH(-0.0)));
+    EXPECT_FALSE(std::signbit(safeAtanH(0.0)));
+
+    for (const double x : {DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeAtanH(x), std::atanh(x)) << "x=" << x;
+    }
+}
+
 // ============================================================================
 // Float — finiteness for extreme values
 // ============================================================================
