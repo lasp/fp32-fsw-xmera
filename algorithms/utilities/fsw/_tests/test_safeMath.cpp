@@ -671,6 +671,52 @@ TEST(SafeMathDouble, CosHandlesSpecialValues) {
     }
 }
 
+TEST(SafeMathFloat, AcosMatchesStandardAcos) {
+    for (const float x : {0.0F, 0.5F, -0.5F, 0.9F, -0.9F, 1.0F, -1.0F}) {
+        EXPECT_EQ(safeAcosf(x), std::acos(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathFloat, AcosClampsOutsideDomain) {
+    for (const float x : {std::nextafter(1.0F, 2.0F), 2.0F, 200.0F, FLT_MAX}) {
+        EXPECT_EQ(safeAcosf(x), 0.0F) << "x=" << x;
+        EXPECT_EQ(safeAcosf(-x), std::numbers::pi_v<float>) << "x=" << -x;
+    }
+}
+
+TEST(SafeMathFloat, AcosHandlesSpecialValues) {
+    EXPECT_EQ(safeAcosf(std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeAcosf(-std::numeric_limits<float>::quiet_NaN()), 0.0F);
+    EXPECT_EQ(safeAcosf(std::numeric_limits<float>::infinity()), 0.0F);
+    EXPECT_EQ(safeAcosf(-std::numeric_limits<float>::infinity()), 0.0F);
+    for (const float x : {-0.0F, FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeAcosf(x), std::acos(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, AcosMatchesStandardAcos) {
+    for (const double x : {0.0, 0.5, -0.5, 0.9, -0.9, 1.0, -1.0}) {
+        EXPECT_EQ(safeAcos(x), std::acos(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, AcosClampsOutsideDomain) {
+    for (const double x : {std::nextafter(1.0, 2.0), 2.0, 200.0, DBL_MAX}) {
+        EXPECT_EQ(safeAcos(x), 0.0) << "x=" << x;
+        EXPECT_EQ(safeAcos(-x), std::numbers::pi) << "x=" << -x;
+    }
+}
+
+TEST(SafeMathDouble, AcosHandlesSpecialValues) {
+    EXPECT_EQ(safeAcos(std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeAcos(-std::numeric_limits<double>::quiet_NaN()), 0.0);
+    EXPECT_EQ(safeAcos(std::numeric_limits<double>::infinity()), 0.0);
+    EXPECT_EQ(safeAcos(-std::numeric_limits<double>::infinity()), 0.0);
+    for (const double x : {-0.0, DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeAcos(x), std::acos(x)) << "x=" << x;
+    }
+}
+
 // ============================================================================
 // Float — finiteness for extreme values
 // ============================================================================
