@@ -336,6 +336,28 @@ void fuzzSqrtAllInputsF(float x) {
 }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzSqrtAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
 
+// Checks safeAtan2f for every pair of floats, including NaN and ±Inf:
+//  - NaN in either argument returns zero.
+//  - Both arguments zero (any sign) returns zero.
+//  - Other inputs, including ±Inf, return std::atan2(y, x).
+//  - The output is always finite and within [-π, π].
+void fuzzAtan2AllInputsF(float y, float x) {
+    const float result = safeAtan2f(y, x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), std::numbers::pi_v<float>);
+    if (std::isnan(y) || std::isnan(x)) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    if (y == 0.0F && x == 0.0F) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    EXPECT_EQ(result, std::atan2(y, x));
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzAtan2AllInputsF)
+    .WithDomains(fuzztest::Arbitrary<float>(), fuzztest::Arbitrary<float>());
+
 // ============================================================================
 // Double — mathematical properties
 // ============================================================================
@@ -647,3 +669,25 @@ void fuzzSqrtAllInputsD(double x) {
     EXPECT_EQ(result, std::sqrt(x));
 }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzSqrtAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
+
+// Checks safeAtan2 for every pair of doubles, including NaN and ±Inf:
+//  - NaN in either argument returns zero.
+//  - Both arguments zero (any sign) returns zero.
+//  - Other inputs, including ±Inf, return std::atan2(y, x).
+//  - The output is always finite and within [-π, π].
+void fuzzAtan2AllInputsD(double y, double x) {
+    const double result = safeAtan2(y, x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), std::numbers::pi);
+    if (std::isnan(y) || std::isnan(x)) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    if (y == 0.0 && x == 0.0) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    EXPECT_EQ(result, std::atan2(y, x));
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtan2AllInputsD)
+    .WithDomains(fuzztest::Arbitrary<double>(), fuzztest::Arbitrary<double>());
