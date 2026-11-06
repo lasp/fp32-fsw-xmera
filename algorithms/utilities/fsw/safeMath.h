@@ -57,46 +57,32 @@ inline double safeTan(double const x) {
     return tanx;
 }
 
-/*! @brief Safe wrapper around atanf. Since atan always returns a value in
- *         (-π/2, π/2) for all real inputs, the output guards are defensive
- *         and never trigger in practice.
- *  @param x Input value
- *  @return atanf(x)
+/*! @brief Safe wrapper around atanf. atan is finite for every non-NaN
+ *         input, including ±Inf which maps to ±π/2.
+ *         NaN inputs return zero.
+ *         Preserves the sign of zero (atan(±0) = ±0).
+ *  @param x Input value (any real, unitless ratio)
+ *  @return atanf(x) in [-π/2, π/2], or 0.0F if x is NaN
  */
 inline float safeAtanf(float const x) {
-    if (isnan(x) || isinf(x)) {
+    if (isnan(x)) {
         return 0.0F;
     }
-    constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
-    float const atanx = atanf(x);
-    if (atanx > halfPi) {
-        return halfPi;
-    }
-    if (atanx < -halfPi) {
-        return -halfPi;
-    }
-    return atanx;
+    return atanf(x);
 }
 
-/*! @brief Safe wrapper around atan. Since atan always returns a value in
- *         (-π/2, π/2) for all real inputs, the output guards are defensive
- *         and never trigger in practice.
- *  @param x Input value
- *  @return atan(x)
+/*! @brief Safe wrapper around atan. atan is finite for every non-NaN
+ *         input, including ±Inf which maps to ±π/2.
+ *         NaN inputs return zero.
+ *         Preserves the sign of zero (atan(±0) = ±0).
+ *  @param x Input value (any real, unitless ratio)
+ *  @return atan(x) in [-π/2, π/2], or 0.0 if x is NaN
  */
 inline double safeAtan(double const x) {
-    if (isnan(x) || isinf(x)) {
+    if (isnan(x)) {
         return 0.0;
     }
-    constexpr double halfPi = std::numbers::pi / 2.0;
-    double const atanx = atan(x);
-    if (atanx > halfPi) {
-        return halfPi;
-    }
-    if (atanx < -halfPi) {
-        return -halfPi;
-    }
-    return atanx;
+    return atan(x);
 }
 
 /*! @brief Safe wrapper around tanhf. Since tanh always returns a value in

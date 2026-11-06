@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 #include <cfloat>
 #include <cmath>
+#include <numbers>
 
 inline constexpr float kFloatTol = 1e-6f;
 inline constexpr double kDoubleTol = 1e-12;
@@ -140,6 +141,23 @@ void fuzzTanAllInputsF(float x) {
 }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzTanAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
 
+// Checks safeAtanf for every float, including NaN and ±Inf:
+//  - NaN returns zero.
+//  - Otherwise it returns std::atan(x), so ±Inf gives ±π/2.
+//  - The output is always finite and within ±π/2.
+void fuzzAtanAllInputsF(float x) {
+    const float limit = std::numbers::pi_v<float> / 2.0F;
+    const float result = safeAtanf(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), limit + FLT_EPSILON);
+    if (std::isnan(x)) {
+        EXPECT_EQ(result, 0.0F);
+        return;
+    }
+    EXPECT_EQ(result, std::atan(x));
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzAtanAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
+
 // ============================================================================
 // Double — mathematical properties
 // ============================================================================
@@ -256,3 +274,20 @@ void fuzzTanAllInputsD(double x) {
     }
 }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzTanAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
+
+// Checks safeAtan for every double, including NaN and ±Inf:
+//  - NaN returns zero.
+//  - Otherwise it returns std::atan(x), so ±Inf gives ±π/2.
+//  - The output is always finite and within ±π/2.
+void fuzzAtanAllInputsD(double x) {
+    const double limit = std::numbers::pi / 2.0;
+    const double result = safeAtan(x);
+    EXPECT_TRUE(std::isfinite(result));
+    EXPECT_LE(std::fabs(result), limit + DBL_EPSILON);
+    if (std::isnan(x)) {
+        EXPECT_EQ(result, 0.0);
+        return;
+    }
+    EXPECT_EQ(result, std::atan(x));
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtanAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
