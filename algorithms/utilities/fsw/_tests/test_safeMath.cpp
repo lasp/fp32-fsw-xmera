@@ -15,7 +15,7 @@ namespace {
 TEST(SafeMathFloat, ClampAboveUpperBound) {
     // Inputs chosen to exceed the active clamp boundary of every function:
     // acos/asin clamp at 1.0;
-    // cosh/sinh cap when output overflows (~89.4 rad for float).
+    // cosh/sinh saturate at 1/ε once |x| > ~16.6 for float.
     // tan is periodic and these inputs are far from its singularities, so it passes through.
     // atan, tanh, cos, sin have dead-code output guards and pass through.
     for (const float over : {100.0f, 200.0f, 1e6f}) {
@@ -106,7 +106,7 @@ TEST(SafeMathFloat, Atan2PassthroughInRange) {
 TEST(SafeMathDouble, ClampAboveUpperBound) {
     // Inputs chosen to exceed the active clamp boundary of every function:
     // acos/asin clamp at 1.0;
-    // cosh/sinh cap when output overflows (~710.5 rad for double).
+    // cosh/sinh saturate at 1/ε once |x| > ~36.7 for double.
     // tan is periodic and these inputs are far from its singularities, so it passes through.
     // atan, tanh, cos, sin have dead-code output guards and pass through.
     for (const double over : {800.0, 900.0, 1e6}) {
@@ -509,6 +509,50 @@ TEST(SafeMathDouble, AtanHHandlesSpecialValues) {
     }
 }
 
+TEST(SafeMathFloat, CosHMatchesStandardCosH) {
+    for (const float x : {0.5F, 1.0F, -1.0F, 2.0F, 10.0F, 16.0F}) {
+        EXPECT_EQ(safeCosHf(x), std::cosh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, CosHMatchesStandardCosH) {
+    for (const double x : {0.5, 1.0, -1.0, 2.0, 10.0, 36.0}) {
+        EXPECT_EQ(safeCosH(x), std::cosh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathFloat, CosHSaturatesAboveCap) {
+    for (const float x : {17.0F, -17.0F, 100.0F, FLT_MAX, -FLT_MAX}) {
+        EXPECT_EQ(safeCosHf(x), 1.0F / FLT_EPSILON) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, CosHSaturatesAboveCap) {
+    for (const double x : {37.0, -37.0, 100.0, DBL_MAX, -DBL_MAX}) {
+        EXPECT_EQ(safeCosH(x), 1.0 / DBL_EPSILON) << "x=" << x;
+    }
+}
+
+TEST(SafeMathFloat, CosHHandlesSpecialValues) {
+    EXPECT_EQ(safeCosHf(std::numeric_limits<float>::quiet_NaN()), 1.0F);
+    EXPECT_EQ(safeCosHf(-std::numeric_limits<float>::quiet_NaN()), 1.0F);
+    EXPECT_EQ(safeCosHf(std::numeric_limits<float>::infinity()), 1.0F / FLT_EPSILON);
+    EXPECT_EQ(safeCosHf(-std::numeric_limits<float>::infinity()), 1.0F / FLT_EPSILON);
+    for (const float x : {0.0F, -0.0F, FLT_TRUE_MIN, -FLT_TRUE_MIN, FLT_MIN, -FLT_MIN}) {
+        EXPECT_EQ(safeCosHf(x), std::cosh(x)) << "x=" << x;
+    }
+}
+
+TEST(SafeMathDouble, CosHHandlesSpecialValues) {
+    EXPECT_EQ(safeCosH(std::numeric_limits<double>::quiet_NaN()), 1.0);
+    EXPECT_EQ(safeCosH(-std::numeric_limits<double>::quiet_NaN()), 1.0);
+    EXPECT_EQ(safeCosH(std::numeric_limits<double>::infinity()), 1.0 / DBL_EPSILON);
+    EXPECT_EQ(safeCosH(-std::numeric_limits<double>::infinity()), 1.0 / DBL_EPSILON);
+    for (const double x : {0.0, -0.0, DBL_TRUE_MIN, -DBL_TRUE_MIN, DBL_MIN, -DBL_MIN}) {
+        EXPECT_EQ(safeCosH(x), std::cosh(x)) << "x=" << x;
+    }
+}
+
 // ============================================================================
 // Float — finiteness for extreme values
 // ============================================================================
@@ -609,7 +653,6 @@ TEST(SafeMathFloat, InfReturnsZero) {
     EXPECT_FLOAT_EQ(safeSinf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeTanf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeAtanHf(inf), 0.0f);
-    EXPECT_FLOAT_EQ(safeCosHf(inf), 1.0f);
     EXPECT_FLOAT_EQ(safeSinHf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeAcosf(inf), 0.0f);
     EXPECT_FLOAT_EQ(safeAsinf(inf), 0.0f);
@@ -625,7 +668,6 @@ TEST(SafeMathDouble, InfReturnsZero) {
     EXPECT_DOUBLE_EQ(safeSin(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeTan(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeAtanH(inf), 0.0);
-    EXPECT_DOUBLE_EQ(safeCosH(inf), 1.0);
     EXPECT_DOUBLE_EQ(safeSinH(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeAcos(inf), 0.0);
     EXPECT_DOUBLE_EQ(safeAsin(inf), 0.0);

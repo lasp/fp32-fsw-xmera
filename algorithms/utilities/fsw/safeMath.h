@@ -171,13 +171,14 @@ inline double safeAtanH(double const x) {
     return atanh(x);
 }
 
-/*! @brief Safe wrapper around coshf that caps the output to [1, 1/ε]
- *         to prevent overflow for large |x|.
- *  @param x Input value
- *  @return min(coshf(x), 1/ε)
+/*! @brief Safe wrapper around coshf. The output is capped at 1/ε, which is
+ *         reached for |x| > ~16.6, well before coshf overflows.
+ *         ±Inf inputs return the cap. NaN inputs return 1 (cosh(0)).
+ *  @param x Input value (any real)
+ *  @return min(coshf(x), 1/ε) in [1, 1/ε], or 1.0F if x is NaN
  */
 inline float safeCosHf(float const x) {
-    if (isnan(x) || isinf(x)) {
+    if (isnan(x)) {
         return 1.0F;
     }
     constexpr float eps = std::numeric_limits<float>::epsilon();
@@ -188,13 +189,14 @@ inline float safeCosHf(float const x) {
     return coshx;
 }
 
-/*! @brief Safe wrapper around cosh that caps the output to [1, 1/ε]
- *         to prevent overflow for large |x|.
- *  @param x Input value
- *  @return min(cosh(x), 1/ε)
+/*! @brief Safe wrapper around cosh. The output is capped at 1/ε, which is
+ *         reached for |x| > ~36.7, well before cosh overflows.
+ *         ±Inf inputs return the cap. NaN inputs return 1 (cosh(0)).
+ *  @param x Input value (any real)
+ *  @return min(cosh(x), 1/ε) in [1, 1/ε], or 1.0 if x is NaN
  */
 inline double safeCosH(double const x) {
-    if (isnan(x) || isinf(x)) {
+    if (isnan(x)) {
         return 1.0;
     }
     constexpr double eps = std::numeric_limits<double>::epsilon();
