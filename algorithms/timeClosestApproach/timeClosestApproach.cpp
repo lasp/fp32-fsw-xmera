@@ -48,8 +48,10 @@ void TimeClosestApproach::updateState(const uint64_t currentSimNanos) {
     // The filter message is double; the algorithm is float.
     Eigen::Vector3f const r_BN_N = cArrayToEigenVector3<double>(filterStatePayload.state).cast<float>();
     Eigen::Vector3f const v_BN_N = cArrayToEigenVector3<double>(filterStatePayload.state + 3).cast<float>();
+    // The flyby filter covariance is 8 x 8 (position, velocity, two heading-bias angles); TCA uses the
+    // position-velocity block.
     Eigen::Matrix<float, 6, 6> const filterCovariance =
-        cArrayToEigenMatrix<double, 6, 6>(filterStatePayload.covar).cast<float>();
+        cArrayToEigenMatrix<double, 8, 8>(filterStatePayload.covar).topLeftCorner<6, 6>().cast<float>();
 
     TimeClosestApproachOutput out_algo = this->algorithm->update(r_BN_N, v_BN_N, filterCovariance);
     this->writeMessages(out_algo.tCA, out_algo.sigmaTca, currentSimNanos);

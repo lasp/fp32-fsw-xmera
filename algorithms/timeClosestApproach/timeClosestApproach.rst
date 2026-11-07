@@ -2,7 +2,7 @@ Executive Summary
 -----------------
 This module computes the time of closest approach (TCA) and its uncertainty during a rectilinear flyby. It is based on "Attitude Uncertainty Quantification of Rectilinear Asteroid Flybys (Teil & Calaon, 2025)".
 
-The adapter reads position, velocity, and covariance from a single ``filterInMsg`` (a 6-state filter message). The first three state elements are the relative position :math:`\mathbf{r}_{BN}^N` and the last three are the relative velocity :math:`\mathbf{v}_{BN}^N`.
+The adapter reads position, velocity, and covariance from a single ``filterInMsg``, the 8-state flyby filter message. The first three state elements are the relative position :math:`\mathbf{r}_{BN}^N` and the next three are the relative velocity :math:`\mathbf{v}_{BN}^N`; the last two, the heading-bias angles, are not used. The covariance used is the top-left 6×6 position-velocity block of the 8×8 filter covariance.
 
 Message Connection Descriptions
 -------------------------------
@@ -16,7 +16,7 @@ Message Connection Descriptions
       - Description
     * - filterInMsg
       - :ref:`FilterMsgF32Payload`
-      - Input message providing the 6-element state vector (position and velocity) and 6×6 covariance matrix.
+      - Input flyby filter message: 8-element state (position, velocity, two heading-bias angles) and 8×8 covariance; TCA uses the position, the velocity and their 6×6 covariance block.
     * - tcaOutMsg
       - :ref:`TimeClosestApproachMsgF32Payload`
       - Output message containing the TCA estimate and its standard deviation. Both fields are zero when the input guard fails.
@@ -31,7 +31,7 @@ Algorithm Inputs and Outputs
 
 - :math:`\mathbf{r}_{BN}^N \in \mathbb{R}^3` — relative position vector (``state[0:3]``)
 - :math:`\mathbf{v}_{BN}^N \in \mathbb{R}^3` — relative velocity vector (``state[3:6]``)
-- :math:`P \in \mathbb{R}^{6 \times 6}` — filter covariance (``covar``)
+- :math:`P \in \mathbb{R}^{6 \times 6}` — position-velocity block of the filter covariance (``covar``)
 
 **Outputs**:
 

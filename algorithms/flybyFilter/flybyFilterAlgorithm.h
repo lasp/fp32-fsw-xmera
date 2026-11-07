@@ -12,6 +12,8 @@
 
 #include <Eigen/Core>
 
+#include <math.h>
+
 namespace filtering::flybyFilter {
 
 /*! Raw optical-navigation heading reading consumed by FlybyFilterAlgorithm::update().
@@ -24,6 +26,16 @@ struct HeadingData {
     Eigen::Matrix3f covar_N = Eigen::Matrix3f::Zero();
 };
 
+/*! Attitude knowledge consumed by FlybyFilterAlgorithm::update() (e.g. navAggregate's attitude output): the body
+ *  attitude and the sun direction in the body frame. update() rotates the sun direction into the inertial frame,
+ *  shat_N = [BN]^T vehSunPntBdy, to define the terminator directions of a fresh heading reading's bias. With the
+ *  zero default sun direction (no attitude message), or a non-finite attitude, the reading is modeled without the
+ *  bias. */
+struct VehicleAttitude {
+    Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();      //!< [-] MRP attitude of the body frame B w.r.t. N
+    Eigen::Vector3f vehSunPntBdy = Eigen::Vector3f::Zero();  //!< [-] sun direction (spacecraft -> sun), body frame
+};
+
 /*! Snapshot returned by FlybyFilterAlgorithm::update(). Bundles the filter state with the
  *  heading residuals so the host adapter writes all output messages from one consistent
  *  post-update snapshot. */
@@ -34,9 +46,9 @@ struct FlybyFilterOutput {
 
 /*! Validated, immutable configuration for FlybyFilterAlgorithm. create() validates every constrained
  *  parameter -- alpha/beta via the shared SRuKF validators, mu, the PSD process noise / initial
- *  covariance, and the measurement-noise scale -- and throws on invalid input; the algorithm
- *  trusts the Config thereafter. All values are in internal units (the adapter converts from SI).
- *  Only initialState has no meaningful constraint. */
+ *  covariance, the measurement-noise scale, the heading-bias maxima and the initial bias within them --
+ *  and throws on invalid input; the algorithm trusts the Config thereafter. All values are in internal
+ *  units (the adapter converts from SI). */
 class FlybyFilterConfig final {
    public:
     // Reuse the framework SRuKF's static validators so filter-parameter checks live in one place.
@@ -49,6 +61,8 @@ class FlybyFilterConfig final {
                                     FlybyState const& initialState,
                                     StateMatrix const& initialCovariance,
                                     float measurementNoiseScale,
+                                    float maxAcrossTerminatorBias,
+                                    float maxAlongTerminatorBias,
                                     float measurementDelay = 0.0F) {
         if (!Srukf::alphaIsValid(alpha)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: alpha must be in (0, 1]");
@@ -73,16 +87,42 @@ class FlybyFilterConfig final {
         if (!isValidMeasurementNoiseScale(measurementNoiseScale)) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: measurement noise scale must be finite and positive");
         }
+        if (!isValidMaxBias(maxAcrossTerminatorBias)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: maximum across-terminator bias must be finite and positive");
+        }
+        if (!isValidMaxBias(maxAlongTerminatorBias)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: maximum along-terminator bias must be finite and positive");
+        }
+        if (!biasIsWithinBounds(
+                initialState.get<filtering::Bias<2>>(), maxAcrossTerminatorBias, maxAlongTerminatorBias)) {
+            FSW_THROW_INVALID_ARGUMENT("flybyFilter: initial heading bias must be within its maxima");
+        }
         if (measurementDelay < 0.0F) {
             FSW_THROW_INVALID_ARGUMENT("flybyFilter: measurement delay must not be negative");
         }
-        return {
-            alpha, beta, mu, processNoise, initialState, initialCovariance, measurementNoiseScale, measurementDelay};
+        return {alpha,
+                beta,
+                mu,
+                processNoise,
+                initialState,
+                initialCovariance,
+                measurementNoiseScale,
+                maxAcrossTerminatorBias,
+                maxAlongTerminatorBias,
+                measurementDelay};
     }
 
     static bool isValidMu(float mu) { return mu > 0.0F; }
     static bool isValidInitialState(FlybyState const& initialState) { return initialState.allFinite(); }
     static bool isValidMeasurementNoiseScale(float scale) { return fsw::is_finite(scale) && scale > 0.0F; }
+    static bool isValidMaxBias(float maxBias) { return fsw::is_finite(maxBias) && maxBias > 0.0F; }
+    /*! @return true iff each bias angle is within its maximum magnitude (false for a NaN angle)
+     *  @param bias     [rad] {across, along} terminator heading-bias angles
+     *  @param maxAcross [rad] maximum across-terminator angle magnitude
+     *  @param maxAlong  [rad] maximum along-terminator angle magnitude */
+    static bool biasIsWithinBounds(Eigen::Vector2f const& bias, float maxAcross, float maxAlong) {
+        return fabsf(bias(kAcrossTerminator)) <= maxAcross && fabsf(bias(kAlongTerminator)) <= maxAlong;
+    }
 
     float getAlpha() const { return this->alpha; }
     float getBeta() const { return this->beta; }
@@ -91,6 +131,8 @@ class FlybyFilterConfig final {
     FlybyState const& getInitialState() const { return this->initialState; }
     StateMatrix const& getInitialCovariance() const { return this->initialCovariance; }
     float getMeasurementNoiseScale() const { return this->measNoiseScale; }
+    float getMaxAcrossTerminatorBias() const { return this->maxAcrossTerminatorBias; }
+    float getMaxAlongTerminatorBias() const { return this->maxAlongTerminatorBias; }
     float getMeasurementDelay() const { return this->measurementDelay; }
 
    private:
@@ -101,6 +143,8 @@ class FlybyFilterConfig final {
                       FlybyState const& initialState,
                       StateMatrix const& initialCovariance,
                       float measurementNoiseScale,
+                      float maxAcrossTerminatorBias,
+                      float maxAlongTerminatorBias,
                       float measurementDelay)
         : alpha(alpha),
           beta(beta),
@@ -109,6 +153,8 @@ class FlybyFilterConfig final {
           initialState(initialState),
           initialCovariance(initialCovariance),
           measNoiseScale(measurementNoiseScale),
+          maxAcrossTerminatorBias(maxAcrossTerminatorBias),
+          maxAlongTerminatorBias(maxAlongTerminatorBias),
           measurementDelay(measurementDelay) {}
 
     float alpha;
@@ -117,13 +163,15 @@ class FlybyFilterConfig final {
     StateMatrix processNoise;
     FlybyState initialState;
     StateMatrix initialCovariance;
-    float measNoiseScale;  //!< [-] multiplies each reading's covar_N to form the measurement noise
+    float measNoiseScale;           //!< [-] multiplies each reading's covar_N to form the measurement noise
+    float maxAcrossTerminatorBias;  //!< [rad] across-terminator bias magnitude above which the bias is re-seeded
+    float maxAlongTerminatorBias;   //!< [rad] along-terminator bias magnitude above which the bias is re-seeded
     float measurementDelay;
 };
 
 /*! @brief Angles-only flyby navigation square-root UKF. Estimates the inertial spacecraft position
- *  and velocity relative to a central body from optical-navigation heading (unit-vector) measurements
- *  under two-body point-mass gravity. */
+ *  and velocity relative to a central body, and a constant two-angle heading bias across and along the
+ *  terminator, from optical-navigation heading (unit-vector) measurements under two-body point-mass gravity. */
 class FlybyFilterAlgorithm {
    public:
     using State = FlybyState;
@@ -133,7 +181,9 @@ class FlybyFilterAlgorithm {
 
     void setConfig(FlybyFilterConfig const& config);
 
-    FlybyFilterOutput update(double currentSeconds, HeadingData const& headingData);
+    FlybyFilterOutput update(double currentSeconds,
+                             HeadingData const& headingData,
+                             VehicleAttitude const& attitude = {});
 
     void reInitializeExceptPersistentStates();
     void reInitialize();
@@ -148,8 +198,9 @@ class FlybyFilterAlgorithm {
 
    private:
     bool applyMeasurement(HeadingMeasurement const& measurement);
+    void resetBiasOutsideBounds();
 
-    HeadingMeasurement packHeadingMeasurement(HeadingData const& headingData) const;
+    HeadingMeasurement packHeadingMeasurement(HeadingData const& headingData, VehicleAttitude const& attitude) const;
 
     FlybyFilterConfig cfg;  //!< validated configuration, supplied at construction / setConfig()
     SRuKF<State, FlybyDynamics> srukf;

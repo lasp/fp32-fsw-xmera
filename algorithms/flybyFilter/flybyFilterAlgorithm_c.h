@@ -19,14 +19,14 @@ typedef struct FlybyFilterAlgorithmHandle FlybyFilterAlgorithmHandle;
  * @brief Sized N-element state vector, so the bound is part of the type at the C boundary.
  */
 typedef struct {
-    double data[FLYBY_FILTER_NUM_STATES]; /*!< [-] one entry per filter state */
+    float data[FLYBY_FILTER_NUM_STATES]; /*!< [-] one entry per filter state */
 } FlybyFilterStateVector_c;
 
 /**
  * @brief Sized N x N state matrix, so the bound is part of the type at the C boundary.
  */
 typedef struct {
-    double data[FLYBY_FILTER_NUM_STATES * FLYBY_FILTER_NUM_STATES]; /*!< [-] row-major N x N */
+    float data[FLYBY_FILTER_NUM_STATES * FLYBY_FILTER_NUM_STATES]; /*!< [-] row-major N x N */
 } FlybyFilterStateMatrix_c;
 
 /**
@@ -41,21 +41,25 @@ uint32_t FlybyFilterAlgorithm_getNumStates(void);
  * @param beta                       [-] prior-knowledge tunable, in [0, 2].
  * @param mu                         [km^3/s^2] central-body gravitational parameter; must be > 0.
  * @param processNoise               [-] N x N process noise Q; must be positive semi-definite.
- * @param initialState               [km, km/s] N-element initial state seed.
+ * @param initialState               [km, km/s, rad] N-element initial state seed; bias angles within their maxima.
  * @param initialCovariance          [-] N x N initial covariance P0; must be positive semi-definite.
  * @param measurementNoiseScale      [-] scale applied to each reading's covar_N; must be finite and > 0.
+ * @param maxAcrossTerminatorBias    [rad] across-terminator bias magnitude that re-seeds the bias; finite, > 0.
+ * @param maxAlongTerminatorBias     [rad] along-terminator bias magnitude that re-seeds the bias; finite, > 0.
  * @param measurementDelay           [s] processing delay for late measurements; must be >= 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool FlybyFilterAlgorithm_validateConfig(double alpha,
-                                         double beta,
-                                         double mu,
+bool FlybyFilterAlgorithm_validateConfig(float alpha,
+                                         float beta,
+                                         float mu,
                                          const FlybyFilterStateMatrix_c* processNoise,
                                          const FlybyFilterStateVector_c* initialState,
                                          const FlybyFilterStateMatrix_c* initialCovariance,
-                                         double measurementNoiseScale,
-                                         double measurementDelay);
+                                         float measurementNoiseScale,
+                                         float maxAcrossTerminatorBias,
+                                         float maxAlongTerminatorBias,
+                                         float measurementDelay);
 
 /**
  * @brief Construct a filter from a validated configuration and seed its state/covariance.
@@ -63,21 +67,25 @@ bool FlybyFilterAlgorithm_validateConfig(double alpha,
  * @param beta                       [-] prior-knowledge tunable, in [0, 2].
  * @param mu                         [km^3/s^2] central-body gravitational parameter; must be > 0.
  * @param processNoise               [-] N x N process noise Q; must be positive semi-definite.
- * @param initialState               [km, km/s] N-element initial state seed.
+ * @param initialState               [km, km/s, rad] N-element initial state seed; bias angles within their maxima.
  * @param initialCovariance          [-] N x N initial covariance P0; must be positive semi-definite.
  * @param measurementNoiseScale      [-] scale applied to each reading's covar_N; must be finite and > 0.
+ * @param maxAcrossTerminatorBias    [rad] across-terminator bias magnitude that re-seeds the bias; finite, > 0.
+ * @param maxAlongTerminatorBias     [rad] along-terminator bias magnitude that re-seeds the bias; finite, > 0.
  * @param measurementDelay           [s] processing delay for late measurements; must be >= 0.
  * @return owning handle to the new instance (destroy with FlybyFilterAlgorithm_destroy)
  * @note create() validates the config and throws on invalid input; the exception propagates to Ada.
  */
-FlybyFilterAlgorithmHandle* FlybyFilterAlgorithm_create(double alpha,
-                                                        double beta,
-                                                        double mu,
+FlybyFilterAlgorithmHandle* FlybyFilterAlgorithm_create(float alpha,
+                                                        float beta,
+                                                        float mu,
                                                         const FlybyFilterStateMatrix_c* processNoise,
                                                         const FlybyFilterStateVector_c* initialState,
                                                         const FlybyFilterStateMatrix_c* initialCovariance,
-                                                        double measurementNoiseScale,
-                                                        double measurementDelay);
+                                                        float measurementNoiseScale,
+                                                        float maxAcrossTerminatorBias,
+                                                        float maxAlongTerminatorBias,
+                                                        float measurementDelay);
 
 /**
  * @brief Destroy a filter instance.
@@ -92,21 +100,25 @@ void FlybyFilterAlgorithm_destroy(FlybyFilterAlgorithmHandle* self);
  * @param beta                       [-] prior-knowledge tunable, in [0, 2].
  * @param mu                         [km^3/s^2] central-body gravitational parameter; must be > 0.
  * @param processNoise               [-] N x N process noise Q; must be positive semi-definite.
- * @param initialState               [km, km/s] N-element initial state seed.
+ * @param initialState               [km, km/s, rad] N-element initial state seed; bias angles within their maxima.
  * @param initialCovariance          [-] N x N initial covariance P0; must be positive semi-definite.
  * @param measurementNoiseScale      [-] scale applied to each reading's covar_N; must be finite and > 0.
+ * @param maxAcrossTerminatorBias    [rad] across-terminator bias magnitude that re-seeds the bias; finite, > 0.
+ * @param maxAlongTerminatorBias     [rad] along-terminator bias magnitude that re-seeds the bias; finite, > 0.
  * @param measurementDelay           [s] processing delay for late measurements; must be >= 0.
  * @note setConfig() validates the config and throws on invalid input; the exception propagates to Ada.
  */
 void FlybyFilterAlgorithm_setConfig(FlybyFilterAlgorithmHandle* self,
-                                    double alpha,
-                                    double beta,
-                                    double mu,
+                                    float alpha,
+                                    float beta,
+                                    float mu,
                                     const FlybyFilterStateMatrix_c* processNoise,
                                     const FlybyFilterStateVector_c* initialState,
                                     const FlybyFilterStateMatrix_c* initialCovariance,
-                                    double measurementNoiseScale,
-                                    double measurementDelay);
+                                    float measurementNoiseScale,
+                                    float maxAcrossTerminatorBias,
+                                    float maxAlongTerminatorBias,
+                                    float measurementDelay);
 
 /**
  * @brief Clear the internal runtime state (pending measurements and residual snapshot); the filter
@@ -126,11 +138,13 @@ void FlybyFilterAlgorithm_reInitialize(FlybyFilterAlgorithmHandle* self);
  * @param self           [-] filter handle
  * @param currentSeconds [s] simulation time to advance to
  * @param heading        [-] heading reading (timeTag > 0 to apply a measurement)
+ * @param attitude       [-] body attitude and body-frame sun direction (vehSunPntBdy zero for no sun direction)
  * @return post-update filter snapshot (state, covariance, heading residuals) in internal km units
  */
 FlybyFilterOutput_c FlybyFilterAlgorithm_update(FlybyFilterAlgorithmHandle* self,
                                                 double currentSeconds,
-                                                const FlybyHeadingData_c* heading);
+                                                const FlybyHeadingData_c* heading,
+                                                const FlybyVehicleAttitude_c* attitude);
 
 #ifdef __cplusplus
 }  // extern "C"
