@@ -19,14 +19,14 @@ typedef struct FlybyFilterAlgorithmHandle FlybyFilterAlgorithmHandle;
  * @brief Sized N-element state vector, so the bound is part of the type at the C boundary.
  */
 typedef struct {
-    double data[FLYBY_FILTER_NUM_STATES]; /*!< [-] one entry per filter state */
+    float data[FLYBY_FILTER_NUM_STATES]; /*!< [-] one entry per filter state */
 } FlybyFilterStateVector_c;
 
 /**
  * @brief Sized N x N state matrix, so the bound is part of the type at the C boundary.
  */
 typedef struct {
-    double data[FLYBY_FILTER_NUM_STATES * FLYBY_FILTER_NUM_STATES]; /*!< [-] row-major N x N */
+    float data[FLYBY_FILTER_NUM_STATES * FLYBY_FILTER_NUM_STATES]; /*!< [-] row-major N x N */
 } FlybyFilterStateMatrix_c;
 
 /**
@@ -50,16 +50,16 @@ uint32_t FlybyFilterAlgorithm_getNumStates(void);
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool FlybyFilterAlgorithm_validateConfig(double alpha,
-                                         double beta,
-                                         double mu,
+bool FlybyFilterAlgorithm_validateConfig(float alpha,
+                                         float beta,
+                                         float mu,
                                          const FlybyFilterStateMatrix_c* processNoise,
                                          const FlybyFilterStateVector_c* initialState,
                                          const FlybyFilterStateMatrix_c* initialCovariance,
-                                         double measurementNoiseScale,
-                                         double maxAcrossTerminatorBias,
-                                         double maxAlongTerminatorBias,
-                                         double measurementDelay);
+                                         float measurementNoiseScale,
+                                         float maxAcrossTerminatorBias,
+                                         float maxAlongTerminatorBias,
+                                         float measurementDelay);
 
 /**
  * @brief Construct a filter from a validated configuration and seed its state/covariance.
@@ -76,16 +76,16 @@ bool FlybyFilterAlgorithm_validateConfig(double alpha,
  * @return owning handle to the new instance (destroy with FlybyFilterAlgorithm_destroy)
  * @note create() validates the config and throws on invalid input; the exception propagates to Ada.
  */
-FlybyFilterAlgorithmHandle* FlybyFilterAlgorithm_create(double alpha,
-                                                        double beta,
-                                                        double mu,
+FlybyFilterAlgorithmHandle* FlybyFilterAlgorithm_create(float alpha,
+                                                        float beta,
+                                                        float mu,
                                                         const FlybyFilterStateMatrix_c* processNoise,
                                                         const FlybyFilterStateVector_c* initialState,
                                                         const FlybyFilterStateMatrix_c* initialCovariance,
-                                                        double measurementNoiseScale,
-                                                        double maxAcrossTerminatorBias,
-                                                        double maxAlongTerminatorBias,
-                                                        double measurementDelay);
+                                                        float measurementNoiseScale,
+                                                        float maxAcrossTerminatorBias,
+                                                        float maxAlongTerminatorBias,
+                                                        float measurementDelay);
 
 /**
  * @brief Destroy a filter instance.
@@ -109,16 +109,16 @@ void FlybyFilterAlgorithm_destroy(FlybyFilterAlgorithmHandle* self);
  * @note setConfig() validates the config and throws on invalid input; the exception propagates to Ada.
  */
 void FlybyFilterAlgorithm_setConfig(FlybyFilterAlgorithmHandle* self,
-                                    double alpha,
-                                    double beta,
-                                    double mu,
+                                    float alpha,
+                                    float beta,
+                                    float mu,
                                     const FlybyFilterStateMatrix_c* processNoise,
                                     const FlybyFilterStateVector_c* initialState,
                                     const FlybyFilterStateMatrix_c* initialCovariance,
-                                    double measurementNoiseScale,
-                                    double maxAcrossTerminatorBias,
-                                    double maxAlongTerminatorBias,
-                                    double measurementDelay);
+                                    float measurementNoiseScale,
+                                    float maxAcrossTerminatorBias,
+                                    float maxAlongTerminatorBias,
+                                    float measurementDelay);
 
 /**
  * @brief Clear the internal runtime state (pending measurements and residual snapshot); the filter

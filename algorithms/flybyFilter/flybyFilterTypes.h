@@ -15,9 +15,9 @@ extern "C" {
  *        reading whose covar_N is not finite and positive definite is dropped.
  */
 typedef struct {
-    double timeTag;       /*!< [s] measurement time tag */
-    double rhat_BN_N[3];  /*!< heading unit vector (spacecraft -> body, inertial frame) */
-    double covar_N[3][3]; /*!< [-] heading noise covariance, inertial frame (row-major) */
+    double timeTag;      /*!< [s] measurement time tag */
+    float rhat_BN_N[3];  /*!< heading unit vector (spacecraft -> body, inertial frame) */
+    float covar_N[3][3]; /*!< [-] heading noise covariance, inertial frame (row-major) */
 } FlybyHeadingData_c;
 
 /**
@@ -25,27 +25,27 @@ typedef struct {
  *        direction: a reading is then modeled without the heading bias.
  */
 typedef struct {
-    double sigma_BN[3];     /*!< [-] MRP attitude of the body frame w.r.t. the inertial frame */
-    double vehSunPntBdy[3]; /*!< [-] sun direction (spacecraft -> sun, body frame); zero if unavailable */
+    float sigma_BN[3];     /*!< [-] MRP attitude of the body frame w.r.t. the inertial frame */
+    float vehSunPntBdy[3]; /*!< [-] sun direction (spacecraft -> sun, body frame); zero if unavailable */
 } FlybyVehicleAttitude_c;
 
 /**
  * @brief C mirror of the per-cycle heading residual snapshot (valid only when a measurement fired).
  */
 typedef struct {
-    bool valid;            /*!< true iff a heading measurement fired and was applied this cycle */
-    double observation[3]; /*!< measured heading unit vector */
-    double preFit[3];      /*!< pre-fit residual */
-    double postFit[3];     /*!< post-fit residual */
+    bool valid;           /*!< true iff a heading measurement fired and was applied this cycle */
+    float observation[3]; /*!< measured heading unit vector */
+    float preFit[3];      /*!< pre-fit residual */
+    float postFit[3];     /*!< post-fit residual */
 } FlybyHeadingResiduals_c;
 
 /**
  * @brief C mirror of the post-update filter snapshot (internal km / km/s units).
  */
 typedef struct {
-    double state[FLYBY_FILTER_NUM_STATES];                               /*!< [km, km/s, rad] estimated state */
-    double covariance[FLYBY_FILTER_NUM_STATES][FLYBY_FILTER_NUM_STATES]; /*!< N x N covariance (row-major) */
-    FlybyHeadingResiduals_c headingResiduals;                            /*!< heading residual snapshot */
+    float state[FLYBY_FILTER_NUM_STATES];                               /*!< [km, km/s, rad] estimated state */
+    float covariance[FLYBY_FILTER_NUM_STATES][FLYBY_FILTER_NUM_STATES]; /*!< N x N covariance (row-major) */
+    FlybyHeadingResiduals_c headingResiduals;                           /*!< heading residual snapshot */
 } FlybyFilterOutput_c;
 
 #ifdef __cplusplus
