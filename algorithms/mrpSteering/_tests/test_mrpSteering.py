@@ -34,7 +34,7 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
     module.omegaMax = omega_max
     module.ignoreOuterLoopFeedforward = ignore_feed_forward
     module.Ki = 0.01
-    module.P = 150.0
+    module.Kd = 150.0
     module.integralLimit = 2. / module.Ki * 0.1
     module.knownTorquePntB_B = [0., 0., 0.]
     module.controlPeriod = rate
@@ -155,7 +155,7 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
     Isc = np.asarray(vehicle_config_out.ISCPntB_B)
     Isc = np.reshape(Isc, (3, 3))
     Ki = module.Ki
-    P = module.P
+    Kd = module.Kd
     jsVec = rw_config_params.JsList[0:num_rw]
     GsMatrix = (rw_config_params.GsMatrix_B)
     GsMatrix_B_array = np.reshape(GsMatrix[0:num_rw * 3], (num_rw, 3))
@@ -178,7 +178,7 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
 
         #compute torque Lr
         Lr0 = Ki * zVec  # +K*sigmaBR
-        Lr1 = Lr0 + P * omega_BBast_B  # +P*deltaOmega
+        Lr1 = Lr0 + Kd * omega_BBast_B  # +Kd*deltaOmega
 
         GsHs = np.array([0,0,0])
 
