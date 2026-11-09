@@ -37,7 +37,7 @@ def test_rw_motor_voltage(show_plots, use_large_voltage, use_availability, use_t
     module.setVoltageRange(1.0, 11.0)  # test setter method
 
     if use_torque_loop:
-        module.setGainK(1.5)
+        module.setKp(1.5)
         rw_speed_message = messaging.RWSpeedMsgF32Payload()
         rw_speed_message.wheelSpeeds = [1.0, 2.0, 1.5, -3.0]      # rad/sec Omega's
         rw_speed_in_msg = messaging.RWSpeedMsgF32().write(rw_speed_message)

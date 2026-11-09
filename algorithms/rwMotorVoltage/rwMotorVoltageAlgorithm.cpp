@@ -65,7 +65,7 @@ RwMotorVoltageData RwMotorVoltageAlgorithm::update(const uint64_t callTime,
                 if (dtValid && rwAvailability.wheelAvailability[i] == RW_MOTOR_VOLTAGE_AVAILABLE && !this->resetFlag) {
                     OmegaDot(i) = (rwSpeed.wheelSpeeds[i] - this->rwSpeedOld(i)) / dt;
                     torqueCmd.motorTorque[i] -=
-                        this->K * (this->rwConfigParams.JsList[i] * OmegaDot(i) - torqueCmd.motorTorque[i]);
+                        this->Kp * (this->rwConfigParams.JsList[i] * OmegaDot(i) - torqueCmd.motorTorque[i]);
                 }
                 this->rwSpeedOld(i) = rwSpeed.wheelSpeeds[i];
             }
@@ -126,15 +126,15 @@ Eigen::Vector2f RwMotorVoltageAlgorithm::getVoltageRange() const {
  * @brief Set the feedback gain.
  * @param gain feedback gain.
  */
-void RwMotorVoltageAlgorithm::setGainK(const float gain) {
+void RwMotorVoltageAlgorithm::setKp(const float gain) {
     if (gain < 0.0) {
         FSW_THROW_INVALID_ARGUMENT("Feedback gain must not be negative");
     }
-    this->K = gain;
+    this->Kp = gain;
 }
 
 /**
  * @brief Get the feedback gain.
  * @return float feedback gain.
  */
-float RwMotorVoltageAlgorithm::getGainK() const { return this->K; }
+float RwMotorVoltageAlgorithm::getKp() const { return this->Kp; }
