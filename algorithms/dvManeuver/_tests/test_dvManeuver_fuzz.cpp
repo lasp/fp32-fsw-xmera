@@ -3,12 +3,12 @@
 #include <fuzztest/fuzztest.h>
 
 // ---------------------------------------------------------------------------
-// Regression fuzz: for any finite configured force, commanded delta-V, acceleration, time limits and update
+// Regression fuzz: for any finite configured force, requested delta-V, acceleration, time limits and update
 // rate, the burn state machine must agree with the independent reference implementation across every step.
 // ---------------------------------------------------------------------------
 FUZZ_TEST(DvManeuverFuzz, fuzzRegressionDvManeuver)
-    .WithDomains(xmera::fuzz::Vector3fInRange(-1e3F, 1e3F),           // cmdForce_B [N]
-                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),           // cmdDv_N [m/s]
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1e3F, 1e3F),           // requestedForce_B [N]
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),           // requestedDv_N [m/s]
                  xmera::fuzz::Vector3fInRange(-1e3F, 1e3F),           // acceleration [m/s^2]
                  fuzztest::InRange<uint64_t>(0U, 1000000000000000U),  // minTime [ns], up to about 11.6 days
                  fuzztest::InRange<uint64_t>(1U, 1000000000000000U),  // maxTime - minTime [ns]
@@ -19,8 +19,8 @@ FUZZ_TEST(DvManeuverFuzz, fuzzRegressionDvManeuver)
 // limits and update rate.
 // ---------------------------------------------------------------------------
 FUZZ_TEST(DvManeuverPropertyFuzz, propertyOutputWellFormed)
-    .WithDomains(xmera::fuzz::Vector3fInRange(-1e3F, 1e3F),           // cmdForce_B [N]
-                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),           // cmdDv_N [m/s]
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1e3F, 1e3F),           // requestedForce_B [N]
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),           // requestedDv_N [m/s]
                  xmera::fuzz::Vector3fInRange(-1e3F, 1e3F),           // acceleration [m/s^2]
                  fuzztest::InRange<uint64_t>(0U, 1000000000000000U),  // minTime [ns], up to about 11.6 days
                  fuzztest::InRange<uint64_t>(1U, 1000000000000000U),  // maxTime - minTime [ns]

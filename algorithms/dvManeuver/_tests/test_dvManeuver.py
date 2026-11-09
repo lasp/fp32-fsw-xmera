@@ -61,10 +61,10 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax):
     module.controlPeriod = update_rate
     module.minTime = p2_tmin
     module.maxTime = p3_tmax
-    cmd_force_B = np.array([1.0, -2.0, 5.0])  # [N] body force commanded while the burn executes
-    module.cmdForce_B = cmd_force_B
-    cmd_dv_N = np.array([0.0, 0.0, p1_dv])  # [m/s] commanded Delta-V
-    module.cmdDv_N = cmd_dv_N
+    requested_force_B = np.array([1.0, -2.0, 5.0])  # [N] body force requested while the burn executes
+    module.requestedForce_B = requested_force_B
+    requested_dv_N = np.array([0.0, 0.0, p1_dv])  # [m/s] requested Delta-V
+    module.requestedDv_N = requested_dv_N
 
     acceleration_N = np.array([0.0, 0.0, 2.0])  # acceleration of spacecraft due to thrusters
 
@@ -97,13 +97,13 @@ def test_dv_maneuver(show_plots, p1_dv, p2_tmin, p3_tmax):
         sim.ExecuteSimulation()
 
         burn_time = update_rate * i  # the burn starts at the first update
-        if (np.linalg.norm(nav_trans_msg_data.vehAccumDV) >= np.linalg.norm(cmd_dv_N)) and \
+        if (np.linalg.norm(nav_trans_msg_data.vehAccumDV) >= np.linalg.norm(requested_dv_N)) and \
                 (burn_time >= p2_tmin) or \
                 (burn_time >= p3_tmax):
             burn_executing_true[i] = False
             burn_complete_true[i] = True
         else:
-            cmd_force_true[i] = cmd_force_B
+            cmd_force_true[i] = requested_force_B
             burn_executing_true[i] = True
             burn_complete_true[i] = False
 
