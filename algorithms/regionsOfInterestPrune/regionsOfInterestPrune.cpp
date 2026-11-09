@@ -42,10 +42,8 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
     }
 
     const FpgaRowColSumMsgF32Payload rcMsg = this->rowColSumInMsg();
-    const auto* rowSums = static_cast<const uint16_t*>(rcMsg.rowSumPointer);
-    const auto* colSums = static_cast<const uint16_t*>(rcMsg.colSumPointer);
-
-    const RoiCandidates candidates = this->algorithm->update(rowSums, rcMsg.numRows, colSums, rcMsg.numCols);
+    const RoiCandidates candidates =
+        this->algorithm->update(rcMsg.rowSums, rcMsg.numRows, rcMsg.colSums, rcMsg.numCols);
 
     RegionsIdentifiedMsgF32Payload output{};
     const uint32_t numPublished = std::min(candidates.numCandidates, static_cast<uint32_t>(MAX_NUMBER_REGIONS));

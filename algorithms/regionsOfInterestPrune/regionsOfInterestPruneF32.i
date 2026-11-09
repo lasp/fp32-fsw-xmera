@@ -23,5 +23,6 @@ struct RoiCandidateEntry;
 
 STRUCTASLIST(FpgaBinRegionF32)
 %include "msgPayloadDef/FpgaBinGridMsgF32Payload.h"
+ARRAYINTASLIST(unsigned short)
 %include "msgPayloadDef/FpgaRowColSumMsgF32Payload.h"
 %include "msgPayloadDef/RegionsIdentifiedMsgF32Payload.h"
