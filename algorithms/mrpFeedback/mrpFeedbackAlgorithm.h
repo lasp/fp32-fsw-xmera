@@ -39,8 +39,8 @@ struct MrpFeedbackInputRwData {
 
 /*! Feedback control gains, control-law variant, and update period. */
 struct MrpFeedbackControlParameters {
-    float K{};                                              //!< [N*m] proportional gain on the MRP error
-    float P{};                                              //!< [N*m*s] rate-error feedback gain
+    float Kp{};                                             //!< [N*m] proportional gain on the MRP error
+    float Kd{};                                             //!< [N*m*s] rate-error feedback gain
     float Ki{};                                             //!< [N*m] integral feedback gain (0 disables the integral)
     float integralLimit{};                                  //!< [N*m*s] anti-windup clamp on the integrated MRP error
     ControlLawType controlLawType{ControlLawType::NORMAL};  //!< control-law variant
@@ -53,11 +53,11 @@ class MrpFeedbackConfig final {
                                     const Eigen::Vector3f& knownTorquePntB_B,
                                     const Eigen::Matrix3f& ISCPntB_B,
                                     const std::optional<MrpFeedbackInputRwData>& rwConfiguration = std::nullopt) {
-        if (!isValidK(controlParameters.K)) {
-            FSW_THROW_INVALID_ARGUMENT("mrpFeedback: K must be finite and >= 0");
+        if (!isValidKp(controlParameters.Kp)) {
+            FSW_THROW_INVALID_ARGUMENT("mrpFeedback: Kp must be finite and >= 0");
         }
-        if (!isValidP(controlParameters.P)) {
-            FSW_THROW_INVALID_ARGUMENT("mrpFeedback: P must be finite and >= 0");
+        if (!isValidKd(controlParameters.Kd)) {
+            FSW_THROW_INVALID_ARGUMENT("mrpFeedback: Kd must be finite and >= 0");
         }
         if (!isValidKi(controlParameters.Ki)) {
             FSW_THROW_INVALID_ARGUMENT("mrpFeedback: Ki must be finite and >= 0");
@@ -94,8 +94,8 @@ class MrpFeedbackConfig final {
         return {controlParameters, knownTorquePntB_B, ISCPntB_B, normalizedRwConfiguration};
     }
 
-    static bool isValidK(float K) { return fsw::is_finite(K) && K >= 0.0F; }
-    static bool isValidP(float P) { return fsw::is_finite(P) && P >= 0.0F; }
+    static bool isValidKp(float Kp) { return fsw::is_finite(Kp) && Kp >= 0.0F; }
+    static bool isValidKd(float Kd) { return fsw::is_finite(Kd) && Kd >= 0.0F; }
     static bool isValidKi(float Ki) { return fsw::is_finite(Ki) && Ki >= 0.0F; }
     static bool isValidIntegralLimit(float integralLimit) {
         return fsw::is_finite(integralLimit) && integralLimit >= 0.0F;

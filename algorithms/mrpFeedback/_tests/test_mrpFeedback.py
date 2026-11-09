@@ -6,12 +6,12 @@ from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
 
-@pytest.mark.parametrize("int_gain", [0.01, 0])
+@pytest.mark.parametrize("ki", [0.01, 0])
 @pytest.mark.parametrize("rw_num", [4, 0])
 @pytest.mark.parametrize("integral_limit", [0, 20])
 @pytest.mark.parametrize("ctrl_law", [0, 1])
 @pytest.mark.parametrize("use_rw_availability", ["NO", "ON", "OFF"])
-def test_mrp_feedback(int_gain, rw_num, integral_limit, ctrl_law, use_rw_availability):
+def test_mrp_feedback(ki, rw_num, integral_limit, ctrl_law, use_rw_availability):
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
 
@@ -26,9 +26,9 @@ def test_mrp_feedback(int_gain, rw_num, integral_limit, ctrl_law, use_rw_availab
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
     # Phase 1 config: assign public properties before reset() runs.
-    module.K = 0.15
-    module.Ki = int_gain
-    module.P = 150.0
+    module.Kp = 0.15
+    module.Ki = ki
+    module.Kd = 150.0
     module.integralLimit = integral_limit
     module.controlLawType = (
         mrpFeedbackF32.ControlLawType_NORMAL if ctrl_law == 0 else mrpFeedbackF32.ControlLawType_SIMPLE_INTEGRAL
@@ -146,8 +146,8 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
     sigma_BR = np.asarray(guid_cmd_data.sigma_BR)
     Isc = np.reshape(np.asarray(vehicle_config_out.ISCPntB_B), (3, 3))
     Ki = module.Ki
-    K = module.K
-    P = module.P
+    Kp = module.Kp
+    Kd = module.Kd
     js_vec = js_list
     G_s_B_array = np.asarray(G_s_B)
     G_s_B_array = np.reshape(G_s_B_array[0:num_rw * 3], (num_rw, 3))
@@ -158,7 +158,7 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
             sigma_int = np.asarray([0.0, 0.0, 0.0])
 
         if Ki > 0:
-            sigma_int = K * dt * sigma_BR + sigma_int
+            sigma_int = Kp * dt * sigma_BR + sigma_int
             for n in range(3):
                 if abs(sigma_int[n]) > module.integralLimit:
                     sigma_int[n] *= module.integralLimit / sigma_int[n]
@@ -166,9 +166,9 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
         else:
             z_vec = np.asarray([0.0, 0.0, 0.0])
 
-        Lr0 = K * sigma_BR
-        Lr1 = Lr0 + P * omega_BR_B
-        Lr2 = Lr1 + P * Ki * z_vec
+        Lr0 = Kp * sigma_BR
+        Lr1 = Lr0 + Kd * omega_BR_B
+        Lr2 = Lr1 + Kd * Ki * z_vec
         GsHs = np.array([0.0, 0.0, 0.0])
 
         if num_rw > 0:
