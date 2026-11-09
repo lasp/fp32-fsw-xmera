@@ -83,7 +83,7 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy
 
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
-    sim_model.setDefaultLogLevel(sim_model.BSK_WARNING)
+    sim_model.set_log_level("warning")
 
     # Create a sim module as an empty container
     unit_test_sim = SimulationBaseClass.SimBaseClass()
@@ -157,7 +157,7 @@ def test_solarArrayReference_specifiedAngle(show_plots, specifiedAngle, offsetAn
 
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
-    sim_model.setDefaultLogLevel(sim_model.BSK_WARNING)
+    sim_model.set_log_level("warning")
 
     unit_test_sim = SimulationBaseClass.SimBaseClass()
     test_process_rate = macros.sec2nano(1)
