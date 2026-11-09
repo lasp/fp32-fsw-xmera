@@ -37,11 +37,11 @@ Module Parameters
       - Type
       - Default
       - Description
-    * - K
+    * - Kp
       - float
       - 0
       - proportional gain applied to MRP errors; must be >= 0
-    * - P
+    * - Kd
       - float
       - 0
       - rate-error feedback (derivative) gain; must be >= 0
@@ -72,8 +72,8 @@ The required module configuration is::
 
     module = mrpPDF32.MrpPD()
     module.modelTag = "mrpPD"
-    module.K = K
-    module.P = P
+    module.Kp = Kp
+    module.Kd = Kd
 
     module.guidInMsg.subscribeTo(guidance_msg)
     module.vehConfigInMsg.subscribeTo(vehicle_config_msg)

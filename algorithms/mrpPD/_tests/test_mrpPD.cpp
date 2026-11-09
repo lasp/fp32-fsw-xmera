@@ -53,8 +53,8 @@ TEST(MrpPDTest, SetupTest) {
 
     // Valid configuration round-trips its values.
     const auto config = MrpPDConfig::create(100.0F, 10.0F, identity);
-    EXPECT_NEAR(config.getProportionalGainK(), 100.0F, 1e-6);
-    EXPECT_NEAR(config.getDerivativeGainP(), 10.0F, 1e-6);
+    EXPECT_NEAR(config.getKp(), 100.0F, 1e-6);
+    EXPECT_NEAR(config.getKd(), 10.0F, 1e-6);
 
     // Negative gains are rejected.
     EXPECT_THROW(MrpPDConfig::create(-0.1F, 10.0F, identity), fsw::invalid_argument);
@@ -69,9 +69,9 @@ TEST(MrpPDTest, SetupTest) {
     badInertia << 3, 0, 0, 0, 1, 0, 0, 0, 1;  // violates triangle inequality
     EXPECT_THROW(MrpPDConfig::create(100.0F, 10.0F, badInertia), fsw::invalid_argument);
 
-    EXPECT_TRUE(MrpPDConfig::isValidProportionalGainK(0.0F));
-    EXPECT_FALSE(MrpPDConfig::isValidProportionalGainK(-1.0F));
-    EXPECT_TRUE(MrpPDConfig::isValidDerivativeGainP(0.0F));
-    EXPECT_FALSE(MrpPDConfig::isValidDerivativeGainP(-1.0F));
+    EXPECT_TRUE(MrpPDConfig::isValidKp(0.0F));
+    EXPECT_FALSE(MrpPDConfig::isValidKp(-1.0F));
+    EXPECT_TRUE(MrpPDConfig::isValidKd(0.0F));
+    EXPECT_FALSE(MrpPDConfig::isValidKd(-1.0F));
     EXPECT_TRUE(MrpPDConfig::isValidInertia(identity));
 }
