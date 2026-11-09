@@ -22,13 +22,13 @@ class RwMotorVoltageAlgorithm {
 
     void setVoltageRange(float minVoltageMagnitude, float maxVoltageMagnitude);
     Eigen::Vector2f getVoltageRange() const;
-    void setGainK(float gain);
-    float getGainK() const;
+    void setKp(float gain);
+    float getKp() const;
 
    private:
     float voltageMin{};                           /*!< [V]    minimum voltage below which the torque is zero */
     float voltageMax{};                           /*!< [V]    maximum output voltage */
-    float K{};                                    /*!< [V/Nm] torque tracking gain for closed loop control.*/
+    float Kp{};                                   /*!< [V/Nm] torque tracking gain for closed loop control.*/
     Eigen::Vector<float, kMaxNumRw> rwSpeedOld{}; /*!< [r/s]  the RW spin rates from the prior control step */
     uint64_t priorTime{};                         /*!< [ns]   Last time the module control was called */
     bool resetFlag{};                             /*!< []     Flag indicating that a module reset occurred */

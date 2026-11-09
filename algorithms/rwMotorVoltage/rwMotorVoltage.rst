@@ -109,9 +109,9 @@ Thus, the actual RW torque is evaluated as
 Finally, the closed loop motor torque value is computed with a
 proportional feedback component as
 
-.. math:: u_{s,CL} = u_{s} - K (u_{n} - u_{s})
+.. math:: u_{s,CL} = u_{s} - K_p (u_{n} - u_{s})
 
-where :math:`K>0` is a positive feedback gain value. Finally, this
+where :math:`K_p>0` is a positive feedback gain value. Finally, this
 :math:`u_{s,CL}` is fed to the voltage conversion process in
 Eq. `[eq:rwMV:1] <#eq:rwMV:1>`__.
 
@@ -143,4 +143,4 @@ The module is configured by::
     module = rwMotorVoltage.RwMotorVoltage(minVoltageMagnitude, maxVoltageMagnitude)
     module.modelTag = "rwMotorVoltage"
     module.setVoltageRange(newMinVoltageMagnitude, newMaxVoltageMagnitude)  # change voltage range if desired
-    module.setGainK(gain)
+    module.setKp(gain)

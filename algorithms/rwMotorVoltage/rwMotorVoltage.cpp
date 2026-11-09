@@ -85,10 +85,10 @@ Eigen::Vector2f RwMotorVoltage::getVoltageRange() const { return this->algorithm
  * @brief Set the feedback gain.
  * @param gain feedback gain.
  */
-void RwMotorVoltage::setGainK(const float gain) { this->algorithm.setGainK(gain); }
+void RwMotorVoltage::setKp(const float gain) { this->algorithm.setKp(gain); }
 
 /**
  * @brief Get the feedback gain.
  * @return float feedback gain.
  */
-float RwMotorVoltage::getGainK() const { return this->algorithm.getGainK(); }
+float RwMotorVoltage::getKp() const { return this->algorithm.getKp(); }

@@ -23,8 +23,8 @@ class RwMotorVoltage final : public SysModel {
 
     void setVoltageRange(float minVoltageMagnitude, float maxVoltageMagnitude);
     Eigen::Vector2f getVoltageRange() const;
-    void setGainK(float gain);
-    float getGainK() const;
+    void setKp(float gain);
+    float getKp() const;
 
     /* declare module IO interfaces */
     Message<RwMotorVoltageMsgF32Payload> voltageOutMsg;    /*!< voltage output message*/
