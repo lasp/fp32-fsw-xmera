@@ -27,7 +27,7 @@ class MomentumManagement : public SysModel {
 
     /* declare module public variables */
     float hsMin{};          //!< [Nms]  minimum momentum difference for dumping
-    float K{};              //!< [1/s]  proportional gain on the momentum difference (0 disables it)
+    float Kp{};             //!< [1/s]  proportional gain on the momentum difference (0 disables it)
     float Ki{};             //!< [1/s2] integral gain on the accumulated momentum difference (0 disables it)
     float integralLimit{};  //!< [Nms2] anti-windup clamp on each integral component (must be > 0 if Ki > 0)
     float controlPeriod{};  //!< [s]    integration step between updates (must be > 0 if Ki > 0)

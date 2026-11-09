@@ -50,7 +50,7 @@ MomentumManagementConfig MomentumManagement::toConfig() {
     }
 
     const MomentumManagementControlParameters controlParameters{.hsMin = this->hsMin,
-                                                                .K = this->K,
+                                                                .Kp = this->Kp,
                                                                 .Ki = this->Ki,
                                                                 .integralLimit = this->integralLimit,
                                                                 .controlPeriod = this->controlPeriod,

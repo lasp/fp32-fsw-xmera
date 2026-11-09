@@ -10,7 +10,7 @@ namespace {
 
 //! Build the validated C++ configuration from the flattened C parameters.
 MomentumManagementConfig makeConfig(float hsMin,
-                                    float K,
+                                    float Kp,
                                     float Ki,
                                     float integralLimit,
                                     float controlPeriod,
@@ -28,7 +28,7 @@ MomentumManagementConfig makeConfig(float hsMin,
 
     const MomentumManagementControlParameters controlParameters{
         .hsMin = hsMin,
-        .K = K,
+        .Kp = Kp,
         .Ki = Ki,
         .integralLimit = integralLimit,
         .controlPeriod = controlPeriod,
@@ -43,7 +43,7 @@ MomentumManagementConfig makeConfig(float hsMin,
 uint32_t MomentumManagementAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 
 bool MomentumManagementAlgorithm_validateConfig(float hsMin,
-                                                float K,
+                                                float Kp,
                                                 float Ki,
                                                 float integralLimit,
                                                 float controlPeriod,
@@ -54,7 +54,7 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
                                                 const MomentumManagementRwAvailability_c* wheelAvailability) {
     try {
         (void)makeConfig(hsMin,
-                         K,
+                         Kp,
                          Ki,
                          integralLimit,
                          controlPeriod,
@@ -71,7 +71,7 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
 
 MomentumManagementAlgorithmHandle* MomentumManagementAlgorithm_create(
     float hsMin,
-    float K,
+    float Kp,
     float Ki,
     float integralLimit,
     float controlPeriod,
@@ -82,7 +82,7 @@ MomentumManagementAlgorithmHandle* MomentumManagementAlgorithm_create(
     const MomentumManagementRwAvailability_c* wheelAvailability) {
     return fsw::createHandle<::MomentumManagementAlgorithm, MomentumManagementAlgorithmHandle>(
         makeConfig(hsMin,
-                   K,
+                   Kp,
                    Ki,
                    integralLimit,
                    controlPeriod,
@@ -99,7 +99,7 @@ void MomentumManagementAlgorithm_destroy(MomentumManagementAlgorithmHandle* self
 
 void MomentumManagementAlgorithm_setConfig(MomentumManagementAlgorithmHandle* self,
                                            float hsMin,
-                                           float K,
+                                           float Kp,
                                            float Ki,
                                            float integralLimit,
                                            float controlPeriod,
@@ -109,7 +109,7 @@ void MomentumManagementAlgorithm_setConfig(MomentumManagementAlgorithmHandle* se
                                            const MomentumManagementRwInertias_c* JsList,
                                            const MomentumManagementRwAvailability_c* wheelAvailability) {
     fsw::fromHandle<::MomentumManagementAlgorithm>(self)->setConfig(makeConfig(hsMin,
-                                                                               K,
+                                                                               Kp,
                                                                                Ki,
                                                                                integralLimit,
                                                                                controlPeriod,
