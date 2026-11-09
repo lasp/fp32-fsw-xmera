@@ -32,8 +32,8 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
                                        const RWSpeedMsgF32Payload& wheelSpeeds,
                                        const RWAvailabilityMsgPayload& wheelsAvailability) {
     const MrpFeedbackControlParameters& params = cfg.getControlParameters();
-    const float K = params.K;
-    const float P = params.P;
+    const float Kp = params.Kp;
+    const float Kd = params.Kd;
     const float Ki = params.Ki;
     const float integralLimit = params.integralLimit;
     const ControlLawType controlLawType = params.controlLawType;
@@ -48,7 +48,7 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
 
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
     if (Ki > 0.0F) {
-        int_sigma += K * params.controlPeriod * sigma_BR;
+        int_sigma += Kp * params.controlPeriod * sigma_BR;
         for (Eigen::Index i = 0; i < 3; ++i) {
             const float intCheck = fabsf(int_sigma[i]);
             if (intCheck > integralLimit) {
@@ -78,20 +78,20 @@ inline ReferenceOutput referenceUpdate(const MrpFeedbackConfig& cfg,
         momentumContribution = omega_BN_B.cross(H_B);
     }
 
-    const Eigen::Vector3f Lc = K * sigma_BR + P * omega_BR_B + P * Ki * z - momentumContribution +
+    const Eigen::Vector3f Lc = Kp * sigma_BR + Kd * omega_BR_B + Kd * Ki * z - momentumContribution +
                                ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) + knownTorquePntB_B;
 
     ReferenceOutput out{};
     out.mrpFeedbackOut.controlTorque = -Lc;
-    out.mrpFeedbackOut.integralFeedbackTorque = -(P * Ki * z);
+    out.mrpFeedbackOut.integralFeedbackTorque = -(Kd * Ki * z);
     out.int_sigma = int_sigma;
     return out;
 }
 
 inline MrpFeedbackControlParameters makeValidControlParameters() {
     return MrpFeedbackControlParameters{
-        .K = 0.0F,
-        .P = 0.0F,
+        .Kp = 0.0F,
+        .Kd = 0.0F,
         .Ki = 0.0F,
         .integralLimit = 0.0F,
         .controlLawType = ControlLawType::NORMAL,
@@ -111,8 +111,8 @@ inline void testMrpFeedbackSetup() {
     });
 
     // Negative gains/limit are rejected by the Config factory.
-    for (float MrpFeedbackControlParameters::* gain : {&MrpFeedbackControlParameters::K,
-                                                       &MrpFeedbackControlParameters::P,
+    for (float MrpFeedbackControlParameters::* gain : {&MrpFeedbackControlParameters::Kp,
+                                                       &MrpFeedbackControlParameters::Kd,
                                                        &MrpFeedbackControlParameters::Ki,
                                                        &MrpFeedbackControlParameters::integralLimit}) {
         MrpFeedbackControlParameters params = makeValidControlParameters();
@@ -138,8 +138,8 @@ inline void testMrpFeedbackSetup() {
 }
 
 inline void testMrpFeedback(const Eigen::Vector3f& sigma,
-                            float K,
-                            float P,
+                            float Kp,
+                            float Kd,
                             float Ki,
                             float integralLimit,
                             int controlLawType,
@@ -163,8 +163,8 @@ inline void testMrpFeedback(const Eigen::Vector3f& sigma,
         (controlLawType == 0) ? ControlLawType::NORMAL : ControlLawType::SIMPLE_INTEGRAL;
 
     const MrpFeedbackControlParameters params{
-        .K = K,
-        .P = P,
+        .Kp = Kp,
+        .Kd = Kd,
         .Ki = Ki,
         .integralLimit = integralLimit,
         .controlLawType = controlLawTypeAlg,

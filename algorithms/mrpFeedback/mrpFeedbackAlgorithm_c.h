@@ -46,8 +46,8 @@ uint32_t MrpFeedbackAlgorithm_getMaxNumRw(void);
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param K                 [N*m]   proportional gain on the MRP error; must be finite and >= 0.
- * @param P                 [N*m*s] rate-error feedback gain; must be finite and >= 0.
+ * @param Kp                [N*m]   proportional gain on the MRP error; must be finite and >= 0.
+ * @param Kd                [N*m*s] rate-error feedback gain; must be finite and >= 0.
  * @param Ki                [N*m]   integral feedback gain; must be finite and >= 0 (0 disables the integral).
  * @param integralLimit     [N*m*s] anti-windup clamp on the integral state; must be finite and >= 0.
  * @param controlLawType    [-]     control-law variant; must be NORMAL or SIMPLE_INTEGRAL.
@@ -61,8 +61,8 @@ uint32_t MrpFeedbackAlgorithm_getMaxNumRw(void);
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool MrpFeedbackAlgorithm_validateConfig(float K,
-                                         float P,
+bool MrpFeedbackAlgorithm_validateConfig(float Kp,
+                                         float Kd,
                                          float Ki,
                                          float integralLimit,
                                          ControlLawType_c controlLawType,
@@ -78,8 +78,8 @@ bool MrpFeedbackAlgorithm_validateConfig(float K,
  * Validate the values with validateConfig first; invalid input throws.
  * @return Pointer to a new MrpFeedbackAlgorithm (must be destroyed).
  */
-MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(float K,
-                                                        float P,
+MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(float Kp,
+                                                        float Kd,
                                                         float Ki,
                                                         float integralLimit,
                                                         ControlLawType_c controlLawType,
@@ -102,8 +102,8 @@ void MrpFeedbackAlgorithm_destroy(MrpFeedbackAlgorithmHandle* self);
  * @param self Pointer to the instance.
  */
 void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self,
-                                    float K,
-                                    float P,
+                                    float Kp,
+                                    float Kd,
                                     float Ki,
                                     float integralLimit,
                                     ControlLawType_c controlLawType,

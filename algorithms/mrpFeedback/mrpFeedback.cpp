@@ -41,8 +41,8 @@ MrpFeedbackConfig MrpFeedback::toConfig() {
     }
 
     const MrpFeedbackControlParameters controlParameters{
-        .K = this->K,
-        .P = this->P,
+        .Kp = this->Kp,
+        .Kd = this->Kd,
         .Ki = this->Ki,
         .integralLimit = this->integralLimit,
         .controlLawType = this->controlLawType,

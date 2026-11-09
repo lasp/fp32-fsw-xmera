@@ -26,8 +26,8 @@ TEST(MrpFeedbackTest, SetupTest) { testMrpFeedbackSetup(); }
 TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
     // With Ki = 0, the integral feedback torque must be zero on every cycle.
     const MrpFeedbackControlParameters params{
-        .K = 1.0F,
-        .P = 0.5F,
+        .Kp = 1.0F,
+        .Kd = 0.5F,
         .Ki = 0.0F,
         .integralLimit = 1.0F,
         .controlLawType = ControlLawType::NORMAL,
@@ -58,12 +58,12 @@ TEST(MrpFeedbackTest, IntegralFeedbackDisabledWhenKiIsZero) {
 TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
     // Drive a sustained sigma_BR with Ki > 0 and a tight integralLimit so the integral state
     // saturates within a few steps. After saturation, |int_sigma_i| should equal integralLimit.
-    constexpr float K = 1.0F;
+    constexpr float Kp = 1.0F;
     constexpr float Ki = 1.0F;
     constexpr float intLimit = 0.5F;
     const MrpFeedbackControlParameters params{
-        .K = K,
-        .P = 1.0F,
+        .Kp = Kp,
+        .Kd = 1.0F,
         .Ki = Ki,
         .integralLimit = intLimit,
         .controlLawType = ControlLawType::NORMAL,
@@ -78,7 +78,7 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
 
     const std::array<float, kMaxNumRw> wheelSpeeds{};
 
-    // Drive enough integration steps to saturate (each step accumulates K*controlPeriod*sigma = 1.0 per axis).
+    // Drive enough integration steps to saturate (each step accumulates Kp*controlPeriod*sigma = 1.0 per axis).
     constexpr int steps = 10;
     MrpFeedbackOutput out{};
     for (int step = 0; step < steps; ++step) {
@@ -88,8 +88,8 @@ TEST(MrpFeedbackTest, IntegralLimitClampsLargeError) {
             EXPECT_TRUE(std::isfinite(out.integralFeedbackTorque[i]));
         }
     }
-    // After saturation, the integral feedback torque magnitude per axis is bounded by P*Ki*intLimit.
-    constexpr float bound = 1.0F * Ki * intLimit + 1e-5F;  // P=1 in this test
+    // After saturation, the integral feedback torque magnitude per axis is bounded by Kd*Ki*intLimit.
+    constexpr float bound = 1.0F * Ki * intLimit + 1e-5F;  // Kd=1 in this test
     for (int i = 0; i < 3; ++i) {
         EXPECT_LE(std::abs(out.integralFeedbackTorque[i]), bound);
     }
