@@ -47,7 +47,7 @@ uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void);
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param desiredControlAxes_B [-] control body axis selection (x, y, z); nonzero selects the axis, and a
  * @param rwConfiguration      [-] reaction-wheel spin axes and per-wheel availability. Every slot is
- * @param omegaGain            [-] RW null-space feedback gain; must be finite and non-negative.
+ * @param Kp                   [-] RW null-space feedback gain; must be finite and non-negative.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration, including a control mapping matrix that is
  *         not full rank.
@@ -55,7 +55,7 @@ uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void);
 bool RwMotorTorqueAlgorithm_validateConfig(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
                                            const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
                                            const RwMotorTorqueRwAvailability_c* wheelAvailability,
-                                           float omegaGain);
+                                           float Kp);
 
 /**
  * @brief Construct a new RwMotorTorqueAlgorithm instance from the supplied configuration.
@@ -69,13 +69,13 @@ bool RwMotorTorqueAlgorithm_validateConfig(const RwMotorTorqueControlAxes_c* des
  *                             configured, and each spin axis must be a unit vector.
  * @param wheelAvailability    [-] availability of each wheel, one entry per slot: 0 available, 1 unavailable.
  *                             A slot carrying no wheel is marked unavailable.
- * @param omegaGain            [-] RW null-space feedback gain; must be finite and non-negative.
+ * @param Kp                   [-] RW null-space feedback gain; must be finite and non-negative.
  * @return Pointer to a new RwMotorTorqueAlgorithm (must be destroyed).
  */
 RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
                                                             const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
                                                             const RwMotorTorqueRwAvailability_c* wheelAvailability,
-                                                            float omegaGain);
+                                                            float Kp);
 
 /**
  * @brief Destroy a previously created RwMotorTorqueAlgorithm.
@@ -94,13 +94,13 @@ void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self);
  *                             configured, and each spin axis must be a unit vector.
  * @param wheelAvailability    [-] availability of each wheel, one entry per slot: 0 available, 1 unavailable.
  *                             A slot carrying no wheel is marked unavailable.
- * @param omegaGain            [-] RW null-space feedback gain; must be finite and non-negative.
+ * @param Kp                   [-] RW null-space feedback gain; must be finite and non-negative.
  */
 void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self,
                                       const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
                                       const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
                                       const RwMotorTorqueRwAvailability_c* wheelAvailability,
-                                      float omegaGain);
+                                      float Kp);
 
 /**
  * @brief Compute the per-wheel motor torques (control mapping + null-space) for a body torque.

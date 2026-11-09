@@ -13,7 +13,7 @@ solution. The desired control torque can be mapped onto particular orthogonal co
 solution for the overall attitude control torque.
 
 The module also provides an optional reaction-wheel null-space term that drives the wheel speeds toward a
-desired set without producing any net body torque. This is enabled by a non-zero ``omegaGain`` together with the
+desired set without producing any net body torque. This is enabled by a non-zero ``Kp`` together with the
 optional RW speed messages; with the default zero gain (or no speed message linked) the module reduces to the pure
 control-torque mapping.
 
@@ -78,7 +78,7 @@ The following table lists all the module parameters than can be set. The paramet
       - ``[True, True, True]``
       - which body axes (x, y, z) to control; at least one must be ``True``
       - N/A
-    * - omegaGain
+    * - Kp
       - float
       - [-]
       - :math:`0`
@@ -101,7 +101,7 @@ This code makes the following assumptions:
   is rejected) and normalized before use.
 - The null-space term requires more than three *available* reaction wheels spanning 3-D for a non-trivial
   null space. With three (or fewer) available spanning wheels the null space is empty, :math:`[\tau]` is zero, and
-  the null-space term has no effect. A zero ``omegaGain`` (the default) likewise disables the null-space term. The
+  the null-space term has no effect. A zero ``Kp`` (the default) likewise disables the null-space term. The
   available-wheel geometry :math:`[G_{s}]` must also be well conditioned (condition number below 100); a near-coplanar
   array of more than three wheels is rejected when the configuration is created.
 
@@ -255,9 +255,9 @@ in the RW null space and exerts no net torque on the spacecraft, leaving the att
 Let :math:`\Omega_{i}` be the RW spin speeds and :math:`\Omega_{i,d}` the desired speeds, with tracking error
 :math:`\Delta\Omega_i = \Omega_i - \Omega_{i,d}`. The desired null-space torque array is
 
-.. math:: \mathbf d = -K \, \Delta\bm\Omega
+.. math:: \mathbf d = -K_p \, \Delta\bm\Omega
 
-with feedback gain :math:`K = \texttt{omegaGain} \ge 0`. Mapping it through :math:`[\tau]` and adding it to the
+with feedback gain :math:`K_p = \texttt{Kp} \ge 0`. Mapping it through :math:`[\tau]` and adding it to the
 control solution :math:`\mathbf u_{s,\text{cont}}` gives the module output
 
 .. math:: \mathbf u_{s} = \mathbf u_{s,\text{cont}} + [\tau] \, \mathbf d
@@ -286,6 +286,6 @@ The code performs the following functions:
   observes the availability of the RWs and maps the torques to only
   available reaction wheels.
 
-- **Adds an optional RW null-space torque**: When ``omegaGain`` is
+- **Adds an optional RW null-space torque**: When ``Kp`` is
   non-zero, the module superimposes a null-space torque that drives the RW
   speeds toward their desired values without producing any net body torque.

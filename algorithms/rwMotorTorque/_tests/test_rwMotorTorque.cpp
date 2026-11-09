@@ -263,8 +263,8 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
     rwB.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwB.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
     rwB.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.stableNormalized();
-    constexpr float kOmegaGain = 0.5F;
-    alg.setConfig(RwMotorTorqueConfig::create(makeControlAxes(3U), rwB, kOmegaGain));
+    constexpr float kKp = 0.5F;
+    alg.setConfig(RwMotorTorqueConfig::create(makeControlAxes(3U), rwB, kKp));
 
     RwMotorTorqueSpeeds speeds{};
     speeds.rwSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};
@@ -278,7 +278,7 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
                                                                  Lr_B.cast<double>(),
                                                                  speeds.rwSpeeds.cast<double>(),
                                                                  speeds.rwDesiredSpeeds.cast<double>(),
-                                                                 static_cast<double>(kOmegaGain));
+                                                                 static_cast<double>(kKp));
 
     const float refScale = static_cast<float>(ref.cwiseAbs().maxCoeff());
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {

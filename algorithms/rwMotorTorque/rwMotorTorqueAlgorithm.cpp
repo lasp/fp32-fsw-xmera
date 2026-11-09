@@ -173,7 +173,7 @@ Eigen::Vector<float, kMaxNumRw> RwMotorTorqueAlgorithm::update(const Eigen::Vect
     const Eigen::Vector<float, kMaxNumRw> controlTorque = this->motorTorqueMap * Lr_B;
 
     // Null-space term: [tau] projects the wheel-speed feedback so it adds no body torque.
-    const Eigen::Vector<float, kMaxNumRw> d = -this->cfg.getOmegaGain() * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> d = -this->cfg.getKp() * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
     const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = this->tau * d;
 
     return controlTorque + nullSpaceTorque;

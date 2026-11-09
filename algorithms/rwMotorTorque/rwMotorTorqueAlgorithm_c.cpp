@@ -25,10 +25,10 @@ RwMotorTorqueArrayConfiguration arrayConfigurationFromC(const RwMotorTorqueRwSpi
 RwMotorTorqueConfig configFromC(const RwMotorTorqueControlAxes_c& desiredControlAxes_B,
                                 const RwMotorTorqueRwSpinAxes_c& GsMatrix_B,
                                 const RwMotorTorqueRwAvailability_c& wheelAvailability,
-                                const float omegaGain) {
+                                const float Kp) {
     const std::array<bool, 3> axes{
         desiredControlAxes_B.axis[0] != 0, desiredControlAxes_B.axis[1] != 0, desiredControlAxes_B.axis[2] != 0};
-    return RwMotorTorqueConfig::create(axes, arrayConfigurationFromC(GsMatrix_B, wheelAvailability), omegaGain);
+    return RwMotorTorqueConfig::create(axes, arrayConfigurationFromC(GsMatrix_B, wheelAvailability), Kp);
 }
 }  // namespace
 
@@ -37,11 +37,11 @@ uint32_t RwMotorTorqueAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 bool RwMotorTorqueAlgorithm_validateConfig(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
                                            const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
                                            const RwMotorTorqueRwAvailability_c* wheelAvailability,
-                                           float omegaGain) {
+                                           float Kp) {
     // Build the config through the same path create() uses: success means valid, a throw means invalid.
     // Sharing configFromC keeps the predicate from drifting from what create() accepts.
     try {
-        (void)configFromC(*desiredControlAxes_B, *GsMatrix_B, *wheelAvailability, omegaGain);
+        (void)configFromC(*desiredControlAxes_B, *GsMatrix_B, *wheelAvailability, Kp);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -51,9 +51,9 @@ bool RwMotorTorqueAlgorithm_validateConfig(const RwMotorTorqueControlAxes_c* des
 RwMotorTorqueAlgorithmHandle* RwMotorTorqueAlgorithm_create(const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
                                                             const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
                                                             const RwMotorTorqueRwAvailability_c* wheelAvailability,
-                                                            const float omegaGain) {
+                                                            const float Kp) {
     return fsw::createHandle<::RwMotorTorqueAlgorithm, RwMotorTorqueAlgorithmHandle>(
-        configFromC(*desiredControlAxes_B, *GsMatrix_B, *wheelAvailability, omegaGain));
+        configFromC(*desiredControlAxes_B, *GsMatrix_B, *wheelAvailability, Kp));
 }
 
 void RwMotorTorqueAlgorithm_destroy(RwMotorTorqueAlgorithmHandle* self) {
@@ -64,9 +64,9 @@ void RwMotorTorqueAlgorithm_setConfig(RwMotorTorqueAlgorithmHandle* self,
                                       const RwMotorTorqueControlAxes_c* desiredControlAxes_B,
                                       const RwMotorTorqueRwSpinAxes_c* GsMatrix_B,
                                       const RwMotorTorqueRwAvailability_c* wheelAvailability,
-                                      const float omegaGain) {
+                                      const float Kp) {
     fsw::fromHandle<::RwMotorTorqueAlgorithm>(self)->setConfig(
-        configFromC(*desiredControlAxes_B, *GsMatrix_B, *wheelAvailability, omegaGain));
+        configFromC(*desiredControlAxes_B, *GsMatrix_B, *wheelAvailability, Kp));
 }
 
 RwMotorTorqueOutput_c RwMotorTorqueAlgorithm_update(const RwMotorTorqueAlgorithmHandle* self,
