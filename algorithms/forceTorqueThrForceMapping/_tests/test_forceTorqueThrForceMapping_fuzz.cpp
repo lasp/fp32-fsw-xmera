@@ -72,9 +72,9 @@ FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyFiniteOutput)
 
 // Reachable-command reproduction on a fixed balanced layout. The layout (rcsPositions1 /
 // rcsDirections1, verified balanced with sum(g)=0 and sum(r×g)=0) stays fixed so DG·1 = 0 and the
-// min-shift is FT-preserving. CoM and per-thruster forces fuzz; cmd = DG·x_test is constructed
+// min-shift is FT-preserving. CoM and per-thruster forces fuzz; requested = DG·x_test is constructed
 // inside the helper so it's automatically in the row space. The check is the direct
-// achieved == cmd, since DG·1 = 0 leaves no min-shift correction to absorb.
+// achieved == requested, since DG·1 = 0 leaves no min-shift correction to absorb.
 FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyAchievesCommandForBalancedLayout)
     .WithDomains(xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
                  xmera::fuzz::EigenVectorOf<float, 8>(fuzztest::InRange(0.0F, 10.0F)));

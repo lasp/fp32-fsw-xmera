@@ -201,15 +201,15 @@ void ForceTorqueThrForceMappingAlgorithm::setConfig(const ForceTorqueThrForceMap
  * Negative entries in the pseudo-inverse solution are removed by a shift along nullSpaceShift, which
  * leaves the achieved force and torque on every selected axis unchanged. Entries no shift can lift are
  * clamped.
- @param cmdTorque_B [Nm] requested control torque in body frame
- @param cmdForce_B [N] requested control force in body frame
+ @param requestedTorque_B [Nm] requested control torque in body frame
+ @param requestedForce_B [N] requested control force in body frame
  @return per-thruster force commands [N]
 */
 Eigen::Vector<float, kMaxThrusterCount> ForceTorqueThrForceMappingAlgorithm::update(
-    const Eigen::Vector3f& cmdTorque_B,
-    const Eigen::Vector3f& cmdForce_B) const {
+    const Eigen::Vector3f& requestedTorque_B,
+    const Eigen::Vector3f& requestedForce_B) const {
     Eigen::Vector<float, 6> forceTorque_B{};
-    forceTorque_B << cmdTorque_B, cmdForce_B;
+    forceTorque_B << requestedTorque_B, requestedForce_B;
 
     const uint32_t numThrusters = this->cfg.getThrusters().numThrusters;
     Eigen::Vector<float, kMaxThrusterCount> thrusterForces = this->pseudoInverseDG * forceTorque_B;

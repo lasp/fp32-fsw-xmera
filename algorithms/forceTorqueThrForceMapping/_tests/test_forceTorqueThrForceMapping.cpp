@@ -189,9 +189,9 @@ TEST(ForceTorqueThrForceMappingTest, ClampedSolutionAchievedFTDiffersFromCommand
     ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, Eigen::Vector3f::Zero(), kAllControlAxes);
 
     // Minimum-norm solution (0, 1, 0, 0, -1, 0); the -1 clamps away, leaving a pure F_y.
-    const Eigen::Vector3f cmdTorque{1.0F, 0.0F, 0.0F};
-    const Eigen::Vector3f cmdForce = Eigen::Vector3f::Zero();
-    const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
+    const Eigen::Vector3f requestedTorque_B{1.0F, 0.0F, 0.0F};
+    const Eigen::Vector3f requestedForce_B = Eigen::Vector3f::Zero();
+    const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(requestedTorque_B, requestedForce_B);
 
     for (int i = 0; i < 6; ++i) {
         EXPECT_GE(out[i], 0.0F);
@@ -199,10 +199,10 @@ TEST(ForceTorqueThrForceMappingTest, ClampedSolutionAchievedFTDiffersFromCommand
 
     const Eigen::Matrix<float, 6, kMaxThrusterCount> DG = buildDG(config, Eigen::Vector3f::Zero());
     const Eigen::Vector<float, 6> achieved = DG * out;
-    Eigen::Vector<float, 6> cmd;
-    cmd << cmdTorque, cmdForce;
+    Eigen::Vector<float, 6> requested;
+    requested << requestedTorque_B, requestedForce_B;
 
-    const Eigen::Vector<float, 6> diff = cmd - achieved;
+    const Eigen::Vector<float, 6> diff = requested - achieved;
     EXPECT_GT(diff.cwiseAbs().maxCoeff(), 0.5F);
 }
 
@@ -417,19 +417,21 @@ TEST(ForceTorqueThrForceMappingTest, UnselectedAxisIsUnconstrained) {
     ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     const Eigen::Vector3f CoM{0.1F, 0.1F, 0.1F};
-    const Eigen::Vector3f cmdTorque{0.4F, 0.2F, 0.4F};
-    const Eigen::Vector3f cmdForce{0.0F, 0.0F, 0.0F};
+    const Eigen::Vector3f requestedTorque_B{0.4F, 0.2F, 0.4F};
+    const Eigen::Vector3f requestedForce_B{0.0F, 0.0F, 0.0F};
     const Eigen::Matrix<float, 6, kMaxThrusterCount> DG = buildDG(config, CoM);
 
     const Eigen::Vector<float, 6> torqueOnly =
-        DG * makeMappingAlgorithm(config, CoM, {true, true, true, false, false, false}).update(cmdTorque, cmdForce);
+        DG * makeMappingAlgorithm(config, CoM, {true, true, true, false, false, false})
+                 .update(requestedTorque_B, requestedForce_B);
     const Eigen::Vector<float, 6> torqueAndForce =
-        DG * makeMappingAlgorithm(config, CoM, {true, true, true, false, true, true}).update(cmdTorque, cmdForce);
+        DG * makeMappingAlgorithm(config, CoM, {true, true, true, false, true, true})
+                 .update(requestedTorque_B, requestedForce_B);
 
     // Both selections meet the commanded torque.
     for (int axis = 0; axis < 3; ++axis) {
-        EXPECT_NEAR(torqueOnly[axis], cmdTorque[axis], 1e-5F);
-        EXPECT_NEAR(torqueAndForce[axis], cmdTorque[axis], 1e-5F);
+        EXPECT_NEAR(torqueOnly[axis], requestedTorque_B[axis], 1e-5F);
+        EXPECT_NEAR(torqueAndForce[axis], requestedTorque_B[axis], 1e-5F);
     }
 
     // Unselected, force_yz drifts away from the commanded zero; selected, it is held there.
@@ -525,18 +527,18 @@ TEST(ForceTorqueThrForceMappingTest, ReachableCommandSurvivesAnUnavailableThrust
     ThrusterArrayConfiguration config{};
     ASSERT_TRUE(buildThrusterConfig(8U, rcsPositions1(), rcsDirections1(), config));
     const Eigen::Vector3f CoM{0.1F, 0.1F, 0.1F};
-    const Eigen::Vector3f cmdTorque{0.4F, 0.2F, 0.4F};
+    const Eigen::Vector3f requestedTorque_B{0.4F, 0.2F, 0.4F};
     config.thrusterAvailability.at(1) = fsw::DeviceAvailability::Unavailable;
 
     const ForceTorqueThrForceMappingAlgorithm alg =
         makeMappingAlgorithm(config, CoM, {true, true, true, false, true, true});
-    const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, Eigen::Vector3f::Zero());
+    const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(requestedTorque_B, Eigen::Vector3f::Zero());
 
     Eigen::Matrix<float, 6, kMaxThrusterCount> DG = buildDG(config, CoM);
     DG.col(1).setZero();
     const Eigen::Vector<float, 6> achieved = DG * out;
     for (int axis = 0; axis < 3; ++axis) {
-        EXPECT_NEAR(achieved[axis], cmdTorque[axis], 1e-4F);
+        EXPECT_NEAR(achieved[axis], requestedTorque_B[axis], 1e-4F);
     }
     EXPECT_FLOAT_EQ(out[1], 0.0F);
 }
