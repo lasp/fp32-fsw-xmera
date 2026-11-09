@@ -123,9 +123,9 @@ class StepperMotorControllerAlgorithm final {
 
     // State
     StepperMotorState state{StepperMotorState::IDLE};
-    int commandedPosition{};  //!< [steps] Target of the current move command
-    int desiredPosition{};    //!< [steps] Desired position from reference angle
-    uint32_t settleCount{};   //!< [ticks] Counter for settling phase
+    int targetPosition{};    //!< [steps] Target of the current move command
+    int desiredPosition{};   //!< [steps] Desired position from reference angle
+    uint32_t settleCount{};  //!< [ticks] Counter for settling phase
 };
 
 #endif

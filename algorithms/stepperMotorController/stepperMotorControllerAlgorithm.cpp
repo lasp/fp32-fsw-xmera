@@ -36,7 +36,7 @@ void StepperMotorControllerAlgorithm::cacheDerivedValues() {
 */
 void StepperMotorControllerAlgorithm::reInitialize() {
     this->state = StepperMotorState::IDLE;
-    this->commandedPosition = 0;
+    this->targetPosition = 0;
     this->desiredPosition = 0;
     this->settleCount = 0;
 }
@@ -77,7 +77,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
             if (std::cmp_greater_equal(abs(steps), this->cfg.getMinStepCommand())) {
                 output.commandType = StepperMotorCommandType::MOVE;
                 output.stepsToMove = steps;
-                this->commandedPosition = this->desiredPosition;
+                this->targetPosition = this->desiredPosition;
                 this->state = StepperMotorState::MOVING;
             }
             break;
@@ -85,7 +85,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
 
         case StepperMotorState::MOVING: {
             // Desired position changed by at least the minimum commandable step delta
-            if (std::cmp_greater_equal(abs(this->stepDelta(this->commandedPosition - this->desiredPosition)),
+            if (std::cmp_greater_equal(abs(this->stepDelta(this->targetPosition - this->desiredPosition)),
                                        this->cfg.getMinStepCommand())) {
                 output.commandType = StepperMotorCommandType::STOP;
                 this->state = StepperMotorState::STOPPING;
