@@ -163,17 +163,18 @@ void RwMotorTorqueAlgorithm::setConfig(const RwMotorTorqueConfig& config) {
     }
 }
 
-/*! Maps the commanded body torque to per-RW motor torques and adds the null-space torque.
+/*! Maps the commanded body torque to per-RW motor torques and adds the null-space torque that drives the RW
+ speeds toward the configured desired speeds.
  @param Lr_B commanded control torque on the spacecraft, body frame [N-m]
- @param speeds current and desired RW speeds for the null-space term
+ @param rwSpeeds current RW speeds for the null-space term [r/s]
  @return per-RW motor torques [N-m]
  */
 Eigen::Vector<float, kMaxNumRw> RwMotorTorqueAlgorithm::update(const Eigen::Vector3f& Lr_B,
-                                                               const RwMotorTorqueSpeeds& speeds) const {
+                                                               const Eigen::Vector<float, kMaxNumRw>& rwSpeeds) const {
     const Eigen::Vector<float, kMaxNumRw> controlTorque = this->motorTorqueMap * Lr_B;
 
     // Null-space term: [tau] projects the wheel-speed feedback so it adds no body torque.
-    const Eigen::Vector<float, kMaxNumRw> d = -this->cfg.getKp() * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> d = -this->cfg.getKp() * (rwSpeeds - this->cfg.getRwDesiredSpeeds());
     const Eigen::Vector<float, kMaxNumRw> nullSpaceTorque = this->tau * d;
 
     return controlTorque + nullSpaceTorque;

@@ -18,20 +18,14 @@ struct RwMotorTorqueArrayConfiguration {
         wheelAvailability{};  //!< [-] AVAILABLE / UNAVAILABLE state of each reaction wheel (fixed at reset)
 };
 
-/*! @brief Per-update reaction-wheel speeds for the null-space term. */
-struct RwMotorTorqueSpeeds {
-    Eigen::Vector<float, kMaxNumRw> rwSpeeds{Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [r/s] current RW speeds
-    Eigen::Vector<float, kMaxNumRw> rwDesiredSpeeds{
-        Eigen::Vector<float, kMaxNumRw>::Zero()};  //!< [r/s] desired RW speeds
-};
-
 /*!
  * @brief Validated configuration for the RW motor torque algorithm.
  *
  * Bundles the desired control-axis selection (which of body x, y, z to control), the reaction-wheel
- * spin-axis configuration, and the per-wheel availability. An instance can only exist if: at least one
- * control axis is selected; the reaction-wheel count does not exceed the compile-time maximum and each spin
- * axis is a unit vector; and the configuration yields a realizable, well-conditioned control mapping (every
+ * spin-axis configuration, the per-wheel availability, the null-space gain, and the desired wheel speeds. An
+ * instance can only exist if: at least one control axis is selected; the reaction-wheel count does not exceed
+ * the compile-time maximum and each spin axis is a unit vector; the desired wheel speeds are finite; and the
+ * configuration yields a realizable, well-conditioned control mapping (every
  * selected control axis reachable by the available wheels, with neither the control mapping nor the
  * null-space geometry ill-conditioned). Construct via RwMotorTorqueConfig::create(...).
  */
@@ -39,7 +33,8 @@ class RwMotorTorqueConfig final {
    public:
     static RwMotorTorqueConfig create(const std::array<bool, 3>& desiredControlAxes_B,
                                       const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                                      float Kp = 0.0F) {
+                                      float Kp,
+                                      const Eigen::Vector<float, kMaxNumRw>& rwDesiredSpeeds) {
         if (!isValidControlAxes(desiredControlAxes_B)) {
             FSW_THROW_INVALID_ARGUMENT("rwMotorTorque: desiredControlAxes_B must select at least one control axis.");
         }
@@ -51,6 +46,9 @@ class RwMotorTorqueConfig final {
         if (!isValidKp(Kp)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "rwMotorTorque: Kp (RW null-space feedback gain) must be finite and non-negative.");
+        }
+        if (!isValidRwDesiredSpeeds(rwDesiredSpeeds)) {
+            FSW_THROW_INVALID_ARGUMENT("rwMotorTorque: rwDesiredSpeeds must be finite.");
         }
 
         // Normalize the RW spin axes so downstream code can rely on exact unit vectors. The inputs are validated
@@ -71,7 +69,7 @@ class RwMotorTorqueConfig final {
                 "geometry is ill-conditioned.");
         }
 
-        return RwMotorTorqueConfig{desiredControlAxes_B, normalizedRwConfiguration, Kp};
+        return RwMotorTorqueConfig{desiredControlAxes_B, normalizedRwConfiguration, Kp, rwDesiredSpeeds};
     }
 
     //! At least one body axis (x, y, z) must be selected for control.
@@ -97,6 +95,10 @@ class RwMotorTorqueConfig final {
 
     static bool isValidKp(float Kp) { return fsw::is_finite(Kp) && Kp >= 0.0F; }
 
+    static bool isValidRwDesiredSpeeds(const Eigen::Vector<float, kMaxNumRw>& rwDesiredSpeeds) {
+        return rwDesiredSpeeds.allFinite();
+    }
+
     // Returns true if the (canonicalized) configuration yields a valid control mapping: every control axis is
     // reachable by the available reaction wheels, and both the control mapping and the null-space
     // geometry are well-conditioned (condition number below 100). Defined in the .cpp because it shares the
@@ -107,16 +109,22 @@ class RwMotorTorqueConfig final {
     const std::array<bool, 3>& getDesiredControlAxes() const { return this->desiredControlAxes_B; }
     const RwMotorTorqueArrayConfiguration& getRwConfiguration() const { return this->rwConfiguration; }
     float getKp() const { return this->Kp; }
+    const Eigen::Vector<float, kMaxNumRw>& getRwDesiredSpeeds() const { return this->rwDesiredSpeeds; }
 
    private:
     RwMotorTorqueConfig(const std::array<bool, 3>& desiredControlAxes_B,
                         const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                        float Kp)
-        : desiredControlAxes_B(desiredControlAxes_B), rwConfiguration(rwConfiguration), Kp(Kp) {}
+                        float Kp,
+                        const Eigen::Vector<float, kMaxNumRw>& rwDesiredSpeeds)
+        : desiredControlAxes_B(desiredControlAxes_B),
+          rwConfiguration(rwConfiguration),
+          Kp(Kp),
+          rwDesiredSpeeds(rwDesiredSpeeds) {}
 
     std::array<bool, 3> desiredControlAxes_B;
     RwMotorTorqueArrayConfiguration rwConfiguration;
     float Kp;  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
+    Eigen::Vector<float, kMaxNumRw> rwDesiredSpeeds;  //!< [r/s] desired RW speeds for the null-space term
 };
 
 /*! @brief Top level structure for the sub-module routines. */
@@ -126,12 +134,12 @@ class RwMotorTorqueAlgorithm final {
 
     void setConfig(const RwMotorTorqueConfig& config);
 
-    //! Control torque plus the RW null-space torque (pass zero speeds for control torque only).
-    //! [N-m] RW motor torques
-    Eigen::Vector<float, kMaxNumRw> update(const Eigen::Vector3f& Lr_B, const RwMotorTorqueSpeeds& speeds) const;
+    Eigen::Vector<float, kMaxNumRw> update(const Eigen::Vector3f& Lr_B,
+                                           const Eigen::Vector<float, kMaxNumRw>& rwSpeeds) const;
 
    private:
-    RwMotorTorqueConfig cfg;  //!< [-] validated configuration (control axes, RW config, availability, gain)
+    RwMotorTorqueConfig cfg;  //!< [-] validated configuration (control axes, RW config, availability, gain,
+                              //!< desired wheel speeds)
     Eigen::Matrix<float, kMaxNumRw, 3> motorTorqueMap{
         Eigen::Matrix<float, kMaxNumRw, 3>::Zero()};  //!< [-] maps the commanded body control torque to per-RW
                                                       //!< motor torques (rows of unavailable wheels are zero)

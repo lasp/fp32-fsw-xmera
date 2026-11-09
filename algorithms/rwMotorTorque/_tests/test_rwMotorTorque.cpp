@@ -1,6 +1,7 @@
 #include "rwMotorTorqueTestHelpers.hpp"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include <gtest/gtest.h>
+#include <limits>
 
 // ---------------------------------------------------------------------------
 // Regression tests — pin update() against the independent fp32 reference.
@@ -44,20 +45,40 @@ TEST(RwMotorTorqueTest, SetupTest) {
     const RwMotorTorqueArrayConfiguration rwConfiguration{};
 
     // No control axis selected is rejected.
-    EXPECT_THROW(RwMotorTorqueConfig::create({false, false, false}, rwConfiguration), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create({false, false, false}, rwConfiguration, /* Kp = */ 0.0F, kZeroRwSpeeds),
+                 fsw::invalid_argument);
 
     // A non-unit RW spin axis is rejected.
     RwMotorTorqueArrayConfiguration nonUnitRw{};
     parkUnusedWheels(nonUnitRw, 1);
     nonUnitRw.GsMatrix_B.col(0) = Eigen::Vector3f{2.0F, 0.0F, 0.0F};
-    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), nonUnitRw), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), nonUnitRw, /* Kp = */ 0.0F, kZeroRwSpeeds),
+                 fsw::invalid_argument);
 
     // A negative null-space feedback gain is rejected.
-    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), rwConfiguration, -1.0F), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(1U), rwConfiguration, /* Kp = */ -1.0F, kZeroRwSpeeds),
+                 fsw::invalid_argument);
+
+    // Non-finite desired wheel speeds are rejected, even for an otherwise valid configuration.
+    RwMotorTorqueArrayConfiguration orthogonalRw{};
+    parkUnusedWheels(orthogonalRw, 3);
+    orthogonalRw.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
+    orthogonalRw.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    orthogonalRw.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
+    EXPECT_NO_THROW(
+        (void)RwMotorTorqueConfig::create(makeControlAxes(3U), orthogonalRw, /* Kp = */ 0.5F, kZeroRwSpeeds));
+    Eigen::Vector<float, kMaxNumRw> nanDesiredSpeeds = Eigen::Vector<float, kMaxNumRw>::Zero();
+    nanDesiredSpeeds(0) = std::numeric_limits<float>::quiet_NaN();
+    EXPECT_THROW(
+        (void)RwMotorTorqueConfig::create(makeControlAxes(3U), orthogonalRw, /* Kp = */ 0.5F, nanDesiredSpeeds),
+        fsw::invalid_argument);
+    EXPECT_FALSE(RwMotorTorqueConfig::isValidRwDesiredSpeeds(nanDesiredSpeeds));
+    EXPECT_TRUE(RwMotorTorqueConfig::isValidRwDesiredSpeeds(Eigen::Vector<float, kMaxNumRw>::Zero()));
 
     // Control mapping not full rank (3 control axes but no reaction wheels): create() validates the mapping
     // and rejects the rank-deficient configuration.
-    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, /* Kp = */ 0.0F, kZeroRwSpeeds),
+                 fsw::invalid_argument);
 }
 
 // ---------------------------------------------------------------------------
@@ -146,14 +167,15 @@ TEST(RwMotorTorqueTest, ThreeSpanningWheelsHaveNoNullSpace) {
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
 
-    const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, 0.5F)};
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, /* Kp = */ 0.5F, kZeroRwSpeeds)};
 
-    RwMotorTorqueSpeeds speeds{};
-    speeds.rwSpeeds.head<3>() = Eigen::Vector3f{100.0F, -50.0F, 30.0F};
+    Eigen::Vector<float, kMaxNumRw> rwSpeeds = Eigen::Vector<float, kMaxNumRw>::Zero();
+    rwSpeeds.head<3>() = Eigen::Vector3f{100.0F, -50.0F, 30.0F};
 
     const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
-    const Eigen::Vector<float, kMaxNumRw> withSpeeds = alg.update(Lr_B, speeds);
-    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, RwMotorTorqueSpeeds{});
+    const Eigen::Vector<float, kMaxNumRw> withSpeeds = alg.update(Lr_B, rwSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, Eigen::Vector<float, kMaxNumRw>::Zero());
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         EXPECT_FLOAT_EQ(withSpeeds[i], controlOnly[i]);
@@ -169,7 +191,8 @@ TEST(RwMotorTorqueTest, IllConditionedControlMappingRejected) {
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{1.0F, 5e-3F, 0.0F}.stableNormalized();  // ~0.3 deg off wheel 0
 
     // Control body x and y: y is reachable only through the tiny y-component of the near-parallel wheels.
-    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(2U), rwConfiguration), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(2U), rwConfiguration, /* Kp = */ 0.0F, kZeroRwSpeeds),
+                 fsw::invalid_argument);
 }
 
 // Four near-coplanar wheels: the control mapping (body x, y) is well-conditioned, but the null-space
@@ -183,7 +206,8 @@ TEST(RwMotorTorqueTest, IllConditionedNullSpaceGeometryRejected) {
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{-1.0F, 0.0F, kOutOfPlane}.stableNormalized();
     rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{0.0F, -1.0F, kOutOfPlane}.stableNormalized();
 
-    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(2U), rwConfiguration, 0.5F), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(2U), rwConfiguration, /* Kp = */ 0.5F, kZeroRwSpeeds),
+                 fsw::invalid_argument);
 }
 
 // With every wheel marked unavailable there is nothing to control with, so the (otherwise valid) configuration
@@ -199,7 +223,8 @@ TEST(RwMotorTorqueTest, AllWheelsUnavailableRejected) {
     rwConfiguration.wheelAvailability[1] = fsw::DeviceAvailability::Unavailable;
     rwConfiguration.wheelAvailability[2] = fsw::DeviceAvailability::Unavailable;
 
-    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration), fsw::invalid_argument);
+    EXPECT_THROW(RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, /* Kp = */ 0.0F, kZeroRwSpeeds),
+                 fsw::invalid_argument);
 }
 
 // Determined case: three orthogonal wheels and three control axes give a square mapping with no null space, so
@@ -211,10 +236,11 @@ TEST(RwMotorTorqueTest, SquareMappingIsExact) {
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
 
-    const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration)};
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, /* Kp = */ 0.0F, kZeroRwSpeeds)};
 
     const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
-    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, RwMotorTorqueSpeeds{});
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, Eigen::Vector<float, kMaxNumRw>::Zero());
 
     EXPECT_NEAR(out[0], -Lr_B[0], 1e-6);
     EXPECT_NEAR(out[1], -Lr_B[1], 1e-6);
@@ -234,11 +260,12 @@ TEST(RwMotorTorqueTest, NonConsecutiveControlAxes) {
     rwConfiguration.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
 
-    const RwMotorTorqueConfig config = RwMotorTorqueConfig::create({true, false, true}, rwConfiguration);
+    const RwMotorTorqueConfig config =
+        RwMotorTorqueConfig::create({true, false, true}, rwConfiguration, /* Kp = */ 0.0F, kZeroRwSpeeds);
     const RwMotorTorqueAlgorithm alg{config};
 
     const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
-    const Eigen::Vector3f bodyTorque = availableGs(config) * alg.update(Lr_B, RwMotorTorqueSpeeds{});
+    const Eigen::Vector3f bodyTorque = availableGs(config) * alg.update(Lr_B, Eigen::Vector<float, kMaxNumRw>::Zero());
 
     // The controlled axes x and z realize the commanded torque (-Lr); the uncontrolled y axis is left alone
     // (its orthogonal wheel is commanded zero, so no body torque about y).
@@ -255,7 +282,7 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
     rwA.GsMatrix_B.col(0) = Eigen::Vector3f{1.0F, 0.0F, 0.0F};
     rwA.GsMatrix_B.col(1) = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
     rwA.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
-    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwA)};
+    RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwA, /* Kp = */ 0.0F, kZeroRwSpeeds)};
 
     RwMotorTorqueArrayConfiguration rwB{};
     parkUnusedWheels(rwB, 4);
@@ -264,20 +291,20 @@ TEST(RwMotorTorqueTest, SetConfigSwitchesConfiguration) {
     rwB.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
     rwB.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.stableNormalized();
     constexpr float kKp = 0.5F;
-    alg.setConfig(RwMotorTorqueConfig::create(makeControlAxes(3U), rwB, kKp));
+    alg.setConfig(RwMotorTorqueConfig::create(makeControlAxes(3U), rwB, kKp, kZeroRwSpeeds));
 
-    RwMotorTorqueSpeeds speeds{};
-    speeds.rwSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};
+    Eigen::Vector<float, kMaxNumRw> rwSpeeds = Eigen::Vector<float, kMaxNumRw>::Zero();
+    rwSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};
 
     const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
-    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, rwSpeeds);
     const Eigen::Vector<double, kMaxNumRw> ref = referenceUpdate(makeControlAxes(3U),
                                                                  rwB.GsMatrix_B.cast<double>(),
                                                                  kMaxNumRw,
                                                                  rwB.wheelAvailability,
                                                                  Lr_B.cast<double>(),
-                                                                 speeds.rwSpeeds.cast<double>(),
-                                                                 speeds.rwDesiredSpeeds.cast<double>(),
+                                                                 rwSpeeds.cast<double>(),
+                                                                 Eigen::Vector<double, kMaxNumRw>::Zero(),
                                                                  static_cast<double>(kKp));
 
     const float refScale = static_cast<float>(ref.cwiseAbs().maxCoeff());
@@ -296,15 +323,19 @@ TEST(RwMotorTorqueTest, NullSpaceZeroAtDesiredSpeed) {
     rwConfiguration.GsMatrix_B.col(2) = Eigen::Vector3f{0.0F, 0.0F, 1.0F};
     rwConfiguration.GsMatrix_B.col(3) = Eigen::Vector3f{1.0F, 1.0F, 1.0F}.stableNormalized();
 
-    const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, 0.5F)};
+    Eigen::Vector<float, kMaxNumRw> rwSpeeds = Eigen::Vector<float, kMaxNumRw>::Zero();
+    rwSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};
+    const Eigen::Vector<float, kMaxNumRw> rwDesiredSpeeds = rwSpeeds;  // zero speed error
 
-    RwMotorTorqueSpeeds speeds{};
-    speeds.rwSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};
-    speeds.rwDesiredSpeeds.head<4>() = Eigen::Vector4f{100.0F, -50.0F, 30.0F, 80.0F};  // zero speed error
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, /* Kp = */ 0.5F, rwDesiredSpeeds)};
+    const RwMotorTorqueAlgorithm controlOnlyAlg{
+        RwMotorTorqueConfig::create(makeControlAxes(3U), rwConfiguration, /* Kp = */ 0.0F, kZeroRwSpeeds)};
 
     const Eigen::Vector3f Lr_B{0.3F, -0.5F, 0.8F};
-    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
-    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, RwMotorTorqueSpeeds{});
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, rwSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> controlOnly =
+        controlOnlyAlg.update(Lr_B, Eigen::Vector<float, kMaxNumRw>::Zero());
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         EXPECT_FLOAT_EQ(out[i], controlOnly[i]);
