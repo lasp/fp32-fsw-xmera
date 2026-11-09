@@ -13,22 +13,22 @@ enum class DvManeuverBurnState : uint8_t { Executing = 0, Complete = 1 };
 /// Burn state and the body force command produced each update.
 struct DvManeuverOutput {
     DvManeuverBurnState state = DvManeuverBurnState::Executing;  ///< [-] burn state after this update
-    Eigen::Vector3f cmdForce_B = Eigen::Vector3f::Zero();        ///< [N] configured force while executing, else zero
+    Eigen::Vector3f requestedForce_B = Eigen::Vector3f::Zero();  ///< [N] configured force while executing, else zero
 };
 
 /// Validated, immutable configuration for the delta-V burn executor. Construct via create(), which
 /// enforces the parameter constraints and throws fsw::invalid_argument on a violation.
 class DvManeuverConfig final {
    public:
-    // minTime, maxTime, and controlPeriod share the double type, and cmdForce_B and cmdDv_N share the
+    // minTime, maxTime, and controlPeriod share the double type, and requestedForce_B and requestedDv_N share the
     // Eigen::Vector3f type, but each has a distinct role; construction is funneled through the named create()
     // factory, which makes the argument roles explicit at every call site.
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     static DvManeuverConfig create(double minTime,
                                    double maxTime,
                                    double controlPeriod,
-                                   const Eigen::Vector3f& cmdForce_B,
-                                   const Eigen::Vector3f& cmdDv_N) {
+                                   const Eigen::Vector3f& requestedForce_B,
+                                   const Eigen::Vector3f& requestedDv_N) {
         if (!isValidMinTime(minTime)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: minTime must be finite, non-negative, and fit in uint64_t ns.");
         }
@@ -44,13 +44,13 @@ class DvManeuverConfig final {
         if (!isValidBurnTimeline(maxTime, controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("dvManeuver: maxTime plus two controlPeriods must fit in uint64_t ns.");
         }
-        if (!isValidCmdForce(cmdForce_B)) {
-            FSW_THROW_INVALID_ARGUMENT("dvManeuver: cmdForce_B must be finite.");
+        if (!isValidRequestedForce(requestedForce_B)) {
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: requestedForce_B must be finite.");
         }
-        if (!isValidCmdDv(cmdDv_N)) {
-            FSW_THROW_INVALID_ARGUMENT("dvManeuver: cmdDv_N must be finite.");
+        if (!isValidRequestedDv(requestedDv_N)) {
+            FSW_THROW_INVALID_ARGUMENT("dvManeuver: requestedDv_N must be finite.");
         }
-        return {minTime, maxTime, controlPeriod, cmdForce_B, cmdDv_N};
+        return {minTime, maxTime, controlPeriod, requestedForce_B, requestedDv_N};
     }
 
     // Each time must convert to uint64_t ns. The validators reject NaN, Inf, and negative values, and values
@@ -81,32 +81,36 @@ class DvManeuverConfig final {
         // c <= floor(h / 2) is the same test as 2 * c <= h.
         return controlPeriodNs <= headroomNs / 2U;
     }
-    static bool isValidCmdForce(const Eigen::Vector3f& cmdForce_B) { return cmdForce_B.allFinite(); }
-    static bool isValidCmdDv(const Eigen::Vector3f& cmdDv_N) { return cmdDv_N.allFinite(); }
+    static bool isValidRequestedForce(const Eigen::Vector3f& requestedForce_B) { return requestedForce_B.allFinite(); }
+    static bool isValidRequestedDv(const Eigen::Vector3f& requestedDv_N) { return requestedDv_N.allFinite(); }
 
     double getMinTime() const { return minTime; }
     double getMaxTime() const { return maxTime; }
     double getControlPeriod() const { return controlPeriod; }
-    const Eigen::Vector3f& getCmdForce() const { return cmdForce_B; }
-    const Eigen::Vector3f& getCmdDv() const { return cmdDv_N; }
+    const Eigen::Vector3f& getRequestedForce() const { return requestedForce_B; }
+    const Eigen::Vector3f& getRequestedDv() const { return requestedDv_N; }
 
    private:
     DvManeuverConfig(double minTime,
                      double maxTime,
                      double controlPeriod,
-                     const Eigen::Vector3f& cmdForce_B,
-                     const Eigen::Vector3f& cmdDv_N)
-        : minTime(minTime), maxTime(maxTime), controlPeriod(controlPeriod), cmdForce_B(cmdForce_B), cmdDv_N(cmdDv_N) {}
+                     const Eigen::Vector3f& requestedForce_B,
+                     const Eigen::Vector3f& requestedDv_N)
+        : minTime(minTime),
+          maxTime(maxTime),
+          controlPeriod(controlPeriod),
+          requestedForce_B(requestedForce_B),
+          requestedDv_N(requestedDv_N) {}
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
     double minTime;
     double maxTime;
     double controlPeriod;
-    Eigen::Vector3f cmdForce_B;
-    Eigen::Vector3f cmdDv_N;
+    Eigen::Vector3f requestedForce_B;
+    Eigen::Vector3f requestedDv_N;
 };
 
-/// Executes a delta-V burn: compares the accumulated delta-V against the commanded delta-V and,
+/// Executes a delta-V burn: compares the accumulated delta-V against the requested delta-V and,
 /// subject to minimum/maximum burn-time gates, decides when the burn is complete. While the burn
 /// executes it commands the configured body force, otherwise a zero force. The module holds its own
 /// burn state machine across updates.
@@ -127,10 +131,10 @@ class DvManeuverAlgorithm final {
 
    private:
     DvManeuverConfig cfg;
-    float cmdDvMagnitude{};      ///< [m/s] magnitude of the configured cmdDv_N, cached by setConfig()
-    uint64_t minTimeNs{};        ///< [ns] configured minTime, rounded by setConfig()
-    uint64_t maxTimeNs{};        ///< [ns] configured maxTime, rounded by setConfig()
-    uint64_t controlPeriodNs{};  ///< [ns] configured controlPeriod, rounded by setConfig()
+    float requestedDvMagnitude{};  ///< [m/s] magnitude of the configured requestedDv_N, cached by setConfig()
+    uint64_t minTimeNs{};          ///< [ns] configured minTime, rounded by setConfig()
+    uint64_t maxTimeNs{};          ///< [ns] configured maxTime, rounded by setConfig()
+    uint64_t controlPeriodNs{};    ///< [ns] configured controlPeriod, rounded by setConfig()
     DvManeuverBurnState state = DvManeuverBurnState::Executing;  ///< [-] burn state machine state
     uint64_t burnTime{};  ///< [ns] burn time at this update: controlPeriod per executing update so far
 };

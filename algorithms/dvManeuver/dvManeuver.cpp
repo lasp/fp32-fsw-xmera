@@ -14,7 +14,8 @@ void DvManeuver::reset(const uint64_t callTime) {
 }
 
 DvManeuverConfig DvManeuver::toConfig() const {
-    return DvManeuverConfig::create(this->minTime, this->maxTime, this->controlPeriod, this->cmdForce_B, this->cmdDv_N);
+    return DvManeuverConfig::create(
+        this->minTime, this->maxTime, this->controlPeriod, this->requestedForce_B, this->requestedDv_N);
 }
 
 void DvManeuver::reconfigure() {
@@ -31,7 +32,7 @@ void DvManeuver::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! Compares the accumulated Delta-V against the commanded Delta-V and writes the body force command every
+/*! Compares the accumulated Delta-V against the requested Delta-V and writes the body force command every
     update: the configured force while the burn executes, zero otherwise. Also flags whether the burn is
     executing and whether it has completed. */
 void DvManeuver::updateState(const uint64_t callTime) {
@@ -46,7 +47,7 @@ void DvManeuver::updateState(const uint64_t callTime) {
     const DvManeuverOutput out = this->algorithm->update(dvAccumulated_B);
 
     CmdForceBodyMsgF32Payload forceMsgOut{};
-    eigenVectorToCArray(out.cmdForce_B, forceMsgOut.forceRequestBody);
+    eigenVectorToCArray(out.requestedForce_B, forceMsgOut.forceRequestBody);
     this->cmdForceOutMsg.write(forceMsgOut, this->moduleID, callTime);
 
     DvExecutionDataMsgF32Payload localExeData = {};

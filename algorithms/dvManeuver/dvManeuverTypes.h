@@ -17,11 +17,11 @@ typedef enum { DV_MANEUVER_BURN_STATE_EXECUTING_C = 0, DV_MANEUVER_BURN_STATE_CO
 /**
  * @brief Plain-old-data mirror of the C++ DvManeuverOutput fields.
  *  - state      [-] burn state after this update
- *  - cmdForce_B [N] configured body force while the burn executes, else zero
+ *  - requestedForce_B [N] configured body force while the burn executes, else zero
  */
 typedef struct {
     DvManeuverBurnState_c state;
-    Vector3f_c cmdForce_B;
+    Vector3f_c requestedForce_B;
 } DvManeuverOutput_c;
 
 #ifdef __cplusplus

@@ -3,12 +3,13 @@ Executive Summary
 
 The ``dvManeuver`` module controls a Delta-V maneuver. It monitors the Delta-V that the spacecraft accumulates
 during the current burn, and it writes a body force command. The module compares the magnitude of the
-accumulated Delta-V from the :ref:`NavTransMsgF32Payload` message with the magnitude of the configured ``cmdDv_N``.
+accumulated Delta-V from the :ref:`NavTransMsgF32Payload` message with the magnitude of the configured
+``requestedDv_N``.
 The burn starts at the first update after ``reset()`` or ``reInitialize()``. The minimum and maximum burn-time gates
 also control when the burn completes.
 
 The module writes the body force command at each update. While the burn executes, the command is equal to the
-configured ``cmdForce_B``. After the burn completes, the command is zero. A downstream
+configured ``requestedForce_B``. After the burn completes, the command is zero. A downstream
 module, for example :ref:`forceTorqueThrForceMapping`, converts the force command into thruster commands.
 
 The Delta-V and force inputs and outputs are single precision. The time parameters are double-precision seconds,
@@ -41,7 +42,7 @@ of the :ref:`DvExecutionDataMsgF32Payload` from the burn state.
       - Navigation message providing the total accumulated Delta-V of the spacecraft.
     * - ``cmdForceOutMsg``
       - :ref:`CmdForceBodyMsgF32Payload`
-      - Body force command. It is equal to ``cmdForce_B`` while the burn executes. It is zero after the burn
+      - Body force command. It is equal to ``requestedForce_B`` while the burn executes. It is zero after the burn
         completes.
     * - ``burnExecOutMsg``
       - :ref:`DvExecutionDataMsgF32Payload`
@@ -73,12 +74,12 @@ nanosecond. ``DvManeuverConfig`` rejects a time longer than the ``uint64_t`` nan
       - :math:`\ge` 1 ns, finite, in the ``uint64_t`` ns range
       - [s] Update period of the module. The burn time increases by this value at each update while the burn
         executes.
-    * - ``cmdForce_B``
+    * - ``requestedForce_B``
       - finite
-      - [N] Body force that the module commands while the burn executes. A zero force is permitted.
-    * - ``cmdDv_N``
+      - [N] Body force that the module requests while the burn executes. A zero force is permitted.
+    * - ``requestedDv_N``
       - finite
-      - [m/s] Commanded Delta-V in inertial frame components. The module compares only its magnitude with the
+      - [m/s] Requested Delta-V in inertial frame components. The module compares only its magnitude with the
         accumulated Delta-V. A zero Delta-V is permitted.
 
 Two-Phase Initialization
@@ -91,8 +92,8 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
     module.minTime = 2.0
     module.maxTime = 10.0
     module.controlPeriod = 0.5
-    module.cmdForce_B = [0.0, 0.0, 10.0]
-    module.cmdDv_N = [0.0, 0.0, 5.0]
+    module.requestedForce_B = [0.0, 0.0, 10.0]
+    module.requestedDv_N = [0.0, 0.0, 5.0]
 
     module.navDataInMsg.subscribeTo(nav_trans_msg)
 
@@ -103,7 +104,7 @@ The Python usage follows the standard adapter lifecycle: set the configuration p
 If ``navDataInMsg`` has not been connected when ``reset()`` runs, an ``std::invalid_argument`` is thrown.
 Invalid configuration values cause the configuration validator to throw fsw::invalid_argument. Each time must be
 finite. minTime must be non-negative, maxTime must be greater than minTime after rounding,
-controlPeriod must be at least 1 ns after rounding, and cmdForce_B and cmdDv_N must be finite. If
+controlPeriod must be at least 1 ns after rounding, and requestedForce_B and requestedDv_N must be finite. If
 ``updateState()`` is called before ``reset()``, an ``XmeraLifecycleException`` is thrown.
 
 Mathematical Formulation
@@ -114,7 +115,7 @@ Algorithm Layer
 
 The algorithm is a burn state machine advanced one step per ``update()`` call. Let :math:`\Delta t` be the configured
 control period, :math:`\boldsymbol{v}_{\text{accum}}` the accumulated Delta-V from navigation in body frame
-components, and :math:`\Delta\boldsymbol{v}_{\text{cmd}}` the configured ``cmdDv_N``.
+components, and :math:`\Delta\boldsymbol{v}_{\text{req}}` the configured ``requestedDv_N``.
 
 The state machine has two states: executing and complete. The burn executes from the first update after ``reset()``
 or ``reInitialize()``. Only ``reInitialize()`` moves the burn out of the complete state.
@@ -136,17 +137,17 @@ burn time reaches the maximum time:
 .. math::
 
    \text{complete} =
-   \Big( \| \boldsymbol{v}_{\text{accum}} \| \ge \| \Delta\boldsymbol{v}_{\text{cmd}} \|
+   \Big( \| \boldsymbol{v}_{\text{accum}} \| \ge \| \Delta\boldsymbol{v}_{\text{req}} \|
    \;\wedge\; t_{\text{burn}} \ge t_{\min} \Big)
    \;\vee\;
    \big( t_{\text{burn}} \ge t_{\max} \big).
 
-**Force command.** The algorithm returns the body force command :math:`\boldsymbol{F}_{\text{cmd}}` at each update.
-Let :math:`\boldsymbol{F}_{\text{cfg}}` be the configured ``cmdForce_B``:
+**Force command.** The algorithm returns the body force command :math:`\boldsymbol{F}_{\text{req}}` at each update.
+Let :math:`\boldsymbol{F}_{\text{cfg}}` be the configured ``requestedForce_B``:
 
 .. math::
 
-   \boldsymbol{F}_{\text{cmd}} =
+   \boldsymbol{F}_{\text{req}} =
    \begin{cases}
    \boldsymbol{F}_{\text{cfg}} & \text{if the burn executes,} \\
    \boldsymbol{0} & \text{after the burn completes.}
@@ -156,8 +157,8 @@ Assumptions and Limitations
 ---------------------------
 
 - Burn sequencing is assumed to be handled externally. The flight software starts each burn with ``reset()`` or
-``reInitialize()`` at the burn start time. Before a new burn, it is assumed to set ``cmdDv_N`` for that burn and to
-call ``reconfigure()``.
+``reInitialize()`` at the burn start time. Before a new burn, it is assumed to set ``requestedDv_N`` for that burn and
+to call ``reconfigure()``.
 
 - The flight software is assumed to reset the accumulated Delta-V in ``navDataInMsg`` to zero when the burn starts.
 The module compares the accumulated Delta-V with the command directly. If the flight software does not reset it,
@@ -169,5 +170,5 @@ referenced throughout the burn.
 - The configured ``controlPeriod`` is assumed to match the actual update period of the module. If it does not, the
 burn time differs from the real elapsed time, and the time gates pass early or late.
 
-- The attitude guidance is assumed to align ``cmdForce_B`` with the commanded Delta-V direction during the burn.
+- The attitude guidance is assumed to align ``requestedForce_B`` with the requested Delta-V direction during the burn.
 The module does not compare the two directions.
