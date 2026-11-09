@@ -151,9 +151,9 @@ inline void propertyDeadbandShrinksAttitudeError(std::vector<float> sunVector,
 
     const float refNorm = ref.sigma_BR.stableNorm();
     const float sunAngleErr = 4.0F * std::atan(refNorm);
-    const float commandedAngle = std::max(sunAngleErr - deadbandAngle, 0.0F);
+    const float angleErrorBeyondDeadband = std::max(sunAngleErr - deadbandAngle, 0.0F);
     const Eigen::Vector3f axis = refNorm > 0.0F ? Eigen::Vector3f(ref.sigma_BR / refNorm) : Eigen::Vector3f::Zero();
-    const Eigen::Vector3f expected = std::tan(commandedAngle * 0.25F) * axis;
+    const Eigen::Vector3f expected = std::tan(angleErrorBeyondDeadband * 0.25F) * axis;
     EXPECT_LT((out.sigma_BR - expected).norm(), 2e-5F)
         << "out=" << out.sigma_BR.transpose() << " expected=" << expected.transpose();
     EXPECT_LE(out.sigma_BR.norm(), refNorm + 1e-6F);

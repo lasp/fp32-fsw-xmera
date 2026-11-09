@@ -129,8 +129,8 @@ SunSearchPointOutput SunSearchPointAlgorithm::computePointing(const Eigen::Vecto
         }
         Eigen::Vector3f const e_hat = e_axis.stableNormalized();
         // Control to the band edge, not to zero error, so the error does not jump at the edge.
-        float const commandedAngleErr = std::max(sunAngleErr - this->cfg.getDeadbandAngle(), 0.0F);
-        Eigen::Vector3f sigma_BR = safeTanf(commandedAngleErr * 0.25F) * e_hat;
+        float const angleErrorBeyondDeadband = std::max(sunAngleErr - this->cfg.getDeadbandAngle(), 0.0F);
+        Eigen::Vector3f sigma_BR = safeTanf(angleErrorBeyondDeadband * 0.25F) * e_hat;
         sigma_BR = mrpSwitch(sigma_BR);
 
         output.sigma_BR = sigma_BR;
