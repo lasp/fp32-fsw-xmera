@@ -59,8 +59,8 @@ def test_momentum_management(hs_min, dumpable_projection, hs_desired):
 
     # [1/s] feedback gain mapping the stored momentum onto the requested torque. Sized so the ~13 Nms
     # cluster momentum is dumped over a few hundred seconds, i.e. a torque of order 0.5 Nm.
-    k_gain = 0.05
-    module.K = k_gain
+    kp = 0.05
+    module.Kp = kp
 
     # The integral term is switched off here so the logged request is a pure function of the wheel speeds and
     # can be checked against the double-precision truth values below; the integral path is covered by the C++
@@ -106,18 +106,18 @@ def test_momentum_management(hs_min, dumpable_projection, hs_desired):
 
     # The threshold gates the law: above it the whole dumpable momentum difference is dumped, below it nothing
     # is. The requested torque is the dumpable difference between the double-precision cluster momentum and the
-    # desired momentum, scaled by -K. The module writes the request every update; the wheel speeds are constant,
+    # desired momentum, scaled by -Kp. The module writes the request every update; the wheel speeds are constant,
     # so both logged steps carry the same value.
     dumpable_difference = dumpable_projection @ (CLUSTER_MOMENTUM - np.array(hs_desired))
     if np.linalg.norm(dumpable_difference) >= hs_min:
-        true_vector = -k_gain * dumpable_difference
+        true_vector = -kp * dumpable_difference
     else:
         true_vector = np.zeros(3)
 
     # FP32 tolerance: the observed error against the double truth is ~4e-7 on cluster momenta of order 10,
     # i.e. at float epsilon. The absolute error scales with the gain; the relative error does not, and must
     # stay above float32 epsilon (~1.2e-7).
-    atol = k_gain * 1e-6
+    atol = kp * 1e-6
     rtol = 1e-6
 
     assert len(data_log.torqueRequestBody) == 2

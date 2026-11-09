@@ -109,10 +109,10 @@ control law. At or above it the commanded torque opposes the dumpable momentum d
 
 .. math::
 
-    {}^{B}\bm{L}_r = -K \, {}^{B}\bm{h}_{s,\text{dmp}} - K_i \, {}^{B}\bm{H}_{s,\text{dmp}}
+    {}^{B}\bm{L}_r = -K_p \, {}^{B}\bm{h}_{s,\text{dmp}} - K_i \, {}^{B}\bm{H}_{s,\text{dmp}}
     \qquad |\bm{h}_{s,\text{dmp}}| \ge h_{s,\text{min}},
 
-with :math:`K` the proportional gain of the dumping loop and :math:`K_i` the integral gain acting on
+with :math:`K_p` the proportional gain of the dumping loop and :math:`K_i` the integral gain acting on
 
 .. math::
 
@@ -178,14 +178,14 @@ raises ``fsw::invalid_argument`` and the module is not constructed.
       - finite, :math:`\ge 0`
       - [Nms] Dumpable momentum difference at which a dump starts, and below which it ends. Zero is permitted and
         makes the module dump at all times.
-    * - K
+    * - Kp
       - float
       - finite, :math:`\ge 0`
-      - [1/s] Proportional gain :math:`K` mapping the momentum difference onto the requested torque. Zero switches
+      - [1/s] Proportional gain :math:`K_p` mapping the momentum difference onto the requested torque. Zero switches
         the proportional term off and leaves the dump to the integral term. A negative gain is rejected,
-        because it would drive the wheels away from the threshold. The reciprocal of :math:`K` is the time
-        constant of the dump, so size :math:`K` from the torque the effectors can deliver: a momentum difference of
-        10 Nms with :math:`K = 0.05` :math:`\text{s}^{-1}` asks for 0.5 Nm.
+        because it would drive the wheels away from the threshold. The reciprocal of :math:`K_p` is the time
+        constant of the dump, so size :math:`K_p` from the torque the effectors can deliver: a momentum difference of
+        10 Nms with :math:`K_p = 0.05` :math:`\text{s}^{-1}` asks for 0.5 Nm.
     * - Ki
       - float
       - finite, :math:`\ge 0`
@@ -250,7 +250,7 @@ The module uses two-phase initialization: set the public configuration propertie
 
     # Phase 1: configuration properties, set before reset()
     module.hsMin = 100.0 / 6000.0 * 100.0  # [Nms] RW cluster momentum at which a dump starts
-    module.K = 0.05                        # [1/s] dumping loop proportional gain (0 disables it)
+    module.Kp = 0.05                       # [1/s] dumping loop proportional gain (0 disables it)
     module.Ki = 0.01                       # [1/s2] integral gain (0 disables the integral term)
     module.integralLimit = 1000.0          # [Nms2] anti-windup clamp per integral component
     module.controlPeriod = 0.5             # [s] task rate; only needed when Ki > 0
@@ -293,7 +293,7 @@ Module Assumptions and Limitations
   module must actually be scheduled at that rate; a mismatch scales the integral term proportionally.
 - :math:`{}^{B}\bm{L}_r` carries no memory of how much momentum has already been dumped -- only of how long the
   momentum has stayed above the threshold -- so the downstream firing logic is responsible for tracking delivery.
-- The request is discontinuous at the threshold. It steps between zero and :math:`K \, h_{s,\text{min}}` as the
+- The request is discontinuous at the threshold. It steps between zero and :math:`K_p \, h_{s,\text{min}}` as the
   momentum difference crosses :math:`h_{s,\text{min}}`, so a difference that hovers on the threshold makes the module
   switch its request on and off. There is no hysteresis on the threshold.
 - The integral carries no state across a dump, because falling below the threshold clears it. A dump that ends
@@ -310,4 +310,4 @@ Module Assumptions and Limitations
   can grow to wheel saturation without any indication from this module.
 - Single-precision arithmetic limits the achievable accuracy to roughly seven significant figures. Against a
   double-precision reference the observed error is at float epsilon (~4e-7 absolute on cluster momenta of order
-  10 Nms), scaled by the gain :math:`K`.
+  10 Nms), scaled by the gain :math:`K_p`.

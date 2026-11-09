@@ -86,7 +86,7 @@ inline Eigen::Vector3f referenceTorque(const MomentumManagementRwArrayConfigurat
         hsInt_B[i] = std::clamp(hsInt_B[i], -params.integralLimit, params.integralLimit);
     }
 
-    return Eigen::Vector3f{-params.K * hsToDump_B - params.Ki * hsInt_B};
+    return Eigen::Vector3f{-params.Kp * hsToDump_B - params.Ki * hsInt_B};
 }
 
 // Config helper: assert that a (params, rwArrayConfig) pair is accepted and round-trips through the getters.
@@ -96,7 +96,7 @@ inline void testMomentumManagementSetup(const MomentumManagementControlParameter
     const MomentumManagementConfig cfg = MomentumManagementConfig::create(params, rwArrayConfig);
 
     EXPECT_NEAR(cfg.getControlParameters().hsMin, params.hsMin, accuracy);
-    EXPECT_NEAR(cfg.getControlParameters().K, params.K, accuracy);
+    EXPECT_NEAR(cfg.getControlParameters().Kp, params.Kp, accuracy);
     EXPECT_NEAR(cfg.getControlParameters().Ki, params.Ki, accuracy);
     EXPECT_NEAR(cfg.getControlParameters().integralLimit, params.integralLimit, accuracy);
     EXPECT_NEAR(cfg.getControlParameters().controlPeriod, params.controlPeriod, accuracy);
@@ -136,7 +136,7 @@ inline Eigen::Vector3f dumpableMomentumDifference(const MomentumManagementRwArra
 // property*/regressionFuzz* adapters below with generated three-wheel geometries.
 // ---------------------------------------------------------------------------
 
-// Above the threshold the request opposes the dumpable momentum difference with magnitude K * |difference|, below it
+// Above the threshold the request opposes the dumpable momentum difference with magnitude Kp * |difference|, below it
 // there is no request at all. Requires Ki == 0.
 inline void testProportionalTorqueOpposesStoredMomentum(const MomentumManagementRwArrayConfiguration& rwArrayConfig,
                                                         const Eigen::Vector<float, kMaxNumRw>& wheelSpeeds,
@@ -157,16 +157,16 @@ inline void testProportionalTorqueOpposesStoredMomentum(const MomentumManagement
     }
 
     // FP32 error grows with the momentum magnitude and is amplified by the gain.
-    const float tol = 1e-4F * params.K * std::max(1.0F, hsDumpableNorm);
+    const float tol = 1e-4F * params.Kp * std::max(1.0F, hsDumpableNorm);
     const float deadbandMargin = 1e-3F * std::max(1.0F, hsDumpableNorm);
 
-    EXPECT_LE(Lr_B.stableNorm(), (params.K * hsDumpableNorm) + tol);
+    EXPECT_LE(Lr_B.stableNorm(), (params.Kp * hsDumpableNorm) + tol);
 
     // Clear of the threshold either way the request is unambiguous: the whole dumpable difference or nothing.
     // Within the margin the reference norm here and the algorithm's own can land on opposite sides of it.
     if (hsDumpableNorm > params.hsMin + deadbandMargin) {
-        EXPECT_NEAR(Lr_B.stableNorm(), params.K * hsDumpableNorm, tol);
-        if (params.K > 0.0F) {
+        EXPECT_NEAR(Lr_B.stableNorm(), params.Kp * hsDumpableNorm, tol);
+        if (params.Kp > 0.0F) {
             EXPECT_LT(Lr_B.stableNormalized().dot(hsDumpable_B.stableNormalized()), 0.0F);
         }
     } else if (hsDumpableNorm < params.hsMin - deadbandMargin) {
@@ -231,7 +231,7 @@ inline void testIntegralTermStaysBounded(const MomentumManagementRwArrayConfigur
         ASSERT_TRUE(Lr_B.allFinite()) << "cycle " << cycle;
 
         for (Eigen::Index i = 0; i < 3; ++i) {
-            const float bound = params.K * std::fabs(hsToDump_B[i]) + params.Ki * params.integralLimit;
+            const float bound = params.Kp * std::fabs(hsToDump_B[i]) + params.Ki * params.integralLimit;
             const float tol = 1e-4F * std::max(1.0F, bound);
             EXPECT_LE(std::fabs(Lr_B[i]), bound + tol) << "cycle " << cycle << " component " << i;
         }
@@ -296,9 +296,9 @@ inline void propertyProportionalTorqueOpposesStoredMomentum(const Eigen::Vector3
                                                             const Eigen::Vector3f& hsDesired,
                                                             float js,
                                                             float hsMin,
-                                                            float K) {
+                                                            float Kp) {
     const MomentumManagementControlParameters params{.hsMin = hsMin,
-                                                     .K = K,
+                                                     .Kp = Kp,
                                                      .Ki = 0.0F,
                                                      .integralLimit = 0.0F,
                                                      .controlPeriod = 0.0F,
@@ -320,13 +320,13 @@ inline void propertyTorqueIsOddInWheelSpeeds(const Eigen::Vector3f& axis0,
                                              const Eigen::Vector3f& hsDesired,
                                              float js,
                                              float hsMin,
-                                             float K,
+                                             float Kp,
                                              float Ki,
                                              float integralLimit,
                                              float controlPeriod,
                                              uint32_t numCycles) {
     const MomentumManagementControlParameters params{.hsMin = hsMin,
-                                                     .K = K,
+                                                     .Kp = Kp,
                                                      .Ki = Ki,
                                                      .integralLimit = integralLimit,
                                                      .controlPeriod = controlPeriod,
@@ -348,13 +348,13 @@ inline void propertyTorqueStaysFinite(const Eigen::Vector3f& axis0,
                                       const Eigen::Vector3f& hsDesired,
                                       float js,
                                       float hsMin,
-                                      float K,
+                                      float Kp,
                                       float Ki,
                                       float integralLimit,
                                       float controlPeriod,
                                       uint32_t numCycles) {
     const MomentumManagementControlParameters params{.hsMin = hsMin,
-                                                     .K = K,
+                                                     .Kp = Kp,
                                                      .Ki = Ki,
                                                      .integralLimit = integralLimit,
                                                      .controlPeriod = controlPeriod,
@@ -376,12 +376,12 @@ inline void propertyIntegralTermStaysBounded(const Eigen::Vector3f& axis0,
                                              const Eigen::Vector3f& hsDesired,
                                              float js,
                                              float hsMin,
-                                             float K,
+                                             float Kp,
                                              float Ki,
                                              float integralLimit,
                                              float controlPeriod) {
     const MomentumManagementControlParameters params{.hsMin = hsMin,
-                                                     .K = K,
+                                                     .Kp = Kp,
                                                      .Ki = Ki,
                                                      .integralLimit = integralLimit,
                                                      .controlPeriod = controlPeriod,
@@ -403,13 +403,13 @@ inline void regressionFuzzMomentumManagement(const Eigen::Vector3f& axis0,
                                              const Eigen::Vector3f& hsDesired,
                                              float js,
                                              float hsMin,
-                                             float K,
+                                             float Kp,
                                              float Ki,
                                              float integralLimit,
                                              float controlPeriod,
                                              uint32_t numCycles) {
     const MomentumManagementControlParameters params{.hsMin = hsMin,
-                                                     .K = K,
+                                                     .Kp = Kp,
                                                      .Ki = Ki,
                                                      .integralLimit = integralLimit,
                                                      .controlPeriod = controlPeriod,
@@ -422,7 +422,7 @@ inline void regressionFuzzMomentumManagement(const Eigen::Vector3f& axis0,
     }
     // The integral accumulates rounding once per cycle, so allow the error to grow with the cycle count.
     const float hsDumpableNorm = dumpableMomentumDifference(rwArrayConfig, wheelSpeeds, params).stableNorm();
-    const float scale = K * std::max(1.0F, hsDumpableNorm) + Ki * integralLimit;
+    const float scale = Kp * std::max(1.0F, hsDumpableNorm) + Ki * integralLimit;
     const float tol = 1e-4F * static_cast<float>(numCycles) * std::max(1.0F, scale);
 
     regressionTestMomentumManagement(rwArrayConfig, wheelSpeeds, params, tol, numCycles);
