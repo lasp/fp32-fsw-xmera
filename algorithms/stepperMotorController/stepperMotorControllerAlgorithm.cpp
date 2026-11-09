@@ -19,13 +19,12 @@ void StepperMotorControllerAlgorithm::setConfig(const StepperMotorControllerConf
     this->cacheDerivedValues();
 }
 
-/*! Recompute the cached values derived from the configuration: the integer steps per revolution and the
- full-circle flag.
+/*! Recompute the cached values derived from the configuration: the step angle and the full-circle flag.
  @return void
 */
 void StepperMotorControllerAlgorithm::cacheDerivedValues() {
     constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
-    this->stepsPerRev = static_cast<int>(round(twoPi / this->cfg.getStepAngle()));
+    this->stepAngle = twoPi / static_cast<float>(this->cfg.getStepsPerRevolution());
     const StepperMotorAngleRange& angleRange = this->cfg.getAngleRange();
     this->isFullCircle =
         (angleRange.maxAngle - angleRange.minAngle) >= (twoPi - StepperMotorControllerConfig::kMinStepAngle);
@@ -122,7 +121,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm::update(
  @param angle [rad] reference angle
 */
 int StepperMotorControllerAlgorithm::angleToSteps(const float angle) const {
-    return static_cast<int>(round(angle / this->cfg.getStepAngle()));
+    return static_cast<int>(round(angle / this->stepAngle));
 }
 
 /*! Wrap a step delta to the shortest path within [-stepsPerRev/2, +stepsPerRev/2].
@@ -130,13 +129,14 @@ int StepperMotorControllerAlgorithm::angleToSteps(const float angle) const {
  @param delta [steps] unwrapped step difference
 */
 int StepperMotorControllerAlgorithm::wrapDelta(int delta) const {
-    const int half = this->stepsPerRev / 2;
-    delta = delta % this->stepsPerRev;
+    const auto stepsPerRev = static_cast<int>(this->cfg.getStepsPerRevolution());
+    const int half = stepsPerRev / 2;
+    delta = delta % stepsPerRev;
     if (delta > half) {
-        delta -= this->stepsPerRev;
+        delta -= stepsPerRev;
     }
     if (delta < -half) {
-        delta += this->stepsPerRev;
+        delta += stepsPerRev;
     }
     return delta;
 }

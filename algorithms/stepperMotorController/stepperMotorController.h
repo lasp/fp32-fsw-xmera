@@ -28,8 +28,8 @@ class StepperMotorController final : public SysModel {
     void reInitialize();
 
     // Phase 1: public config properties -- set before reset().
-    float stepAngle{};                                 //!< [rad/step] angle per motor step (must be set before reset())
-    float minAngle{0.0F};                              //!< [rad] lower bound of the motor travel range
+    uint32_t stepsPerRevolution{};  //!< [steps] motor steps per full revolution (must be set before reset())
+    float minAngle{0.0F};           //!< [rad] lower bound of the motor travel range
     float maxAngle{2.0F * std::numbers::pi_v<float>};  //!< [rad] upper bound of the motor travel range
     uint32_t settleCountMax{10};                       //!< [ticks] settling duration after stop
     uint32_t minStepCommand{1};  //!< [steps] minimum step delta magnitude that triggers a command (must be > 0)

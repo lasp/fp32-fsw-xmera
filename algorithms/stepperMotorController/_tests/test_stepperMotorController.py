@@ -52,10 +52,10 @@ def write_stepper_motor_msg(msg, motor_position, is_motor_moving, time_ns):
     msg.write(payload, time_ns)
 
 
-@pytest.mark.parametrize("step_angle", [math.radians(1.8), math.radians(1.0), math.radians(0.9)])
+@pytest.mark.parametrize("steps_per_rev", [200, 360, 400])
 @pytest.mark.parametrize("theta_init_deg", [0.0, -45.0, 90.0])
 @pytest.mark.parametrize("theta_ref_deg", [10.0, -30.0, 50.5])
-def test_stepper_motor_controller_nominal(show_plots, step_angle, theta_init_deg, theta_ref_deg):
+def test_stepper_motor_controller_nominal(show_plots, steps_per_rev, theta_init_deg, theta_ref_deg):
     r"""
     **Validation Test Description**
 
@@ -66,12 +66,11 @@ def test_stepper_motor_controller_nominal(show_plots, step_angle, theta_init_deg
     process_rate_sec = 0.1
     sim, process_rate = create_sim(process_rate_sec)
 
-    steps_per_rev = round(2 * math.pi / step_angle)
     init_step = angle_to_steps(theta_init_deg * macros.D2R, steps_per_rev)
 
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
-    motor_controller.stepAngle = step_angle
+    motor_controller.stepsPerRevolution = steps_per_rev
     motor_controller.minAngle = 0.0
     motor_controller.maxAngle = 2 * math.pi
     motor_controller.minStepCommand = 1
@@ -113,8 +112,7 @@ def test_stepper_motor_controller_shortest_path(show_plots, theta_init_deg, thet
     Verify that the controller wraps step commands to always take the shortest path around the circle,
     rather than the naive (possibly longer) path.
     """
-    step_angle = math.radians(1.0)  # 1 deg/step (= 360 steps/rev)
-    steps_per_rev = round(2 * math.pi / step_angle)
+    steps_per_rev = 360  # 1 deg/step
     process_rate_sec = 0.1
     sim, process_rate = create_sim(process_rate_sec)
 
@@ -122,7 +120,7 @@ def test_stepper_motor_controller_shortest_path(show_plots, theta_init_deg, thet
 
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
-    motor_controller.stepAngle = step_angle
+    motor_controller.stepsPerRevolution = steps_per_rev
     motor_controller.minAngle = 0.0
     motor_controller.maxAngle = 2 * math.pi
     motor_controller.minStepCommand = 1
@@ -161,13 +159,13 @@ def test_stepper_motor_controller_below_min_step_command(show_plots):
     Verify that no move command is issued when the step delta between the reference angle and
     the current motor position is below ``minStepCommand``.
     """
-    step_angle = math.radians(1.0)  # 1 deg/step (= 360 steps/rev)
+    steps_per_rev = 360  # 1 deg/step
     process_rate_sec = 0.1
     sim, process_rate = create_sim(process_rate_sec)
 
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
-    motor_controller.stepAngle = step_angle
+    motor_controller.stepsPerRevolution = steps_per_rev
     motor_controller.minAngle = 0.0
     motor_controller.maxAngle = 2 * math.pi
     motor_controller.minStepCommand = 5
@@ -206,14 +204,14 @@ def test_stepper_motor_controller_interrupt(show_plots):
     ``motorPosition`` and ``isMotorMoving`` values, so this test does not depend on the stepper
     motor dynamics module.
     """
-    step_angle = math.radians(1.0)  # 1 deg/step
+    steps_per_rev = 360  # 1 deg/step
     process_rate_sec = 0.1
     settle_ticks = 2
     sim, process_rate = create_sim(process_rate_sec)
 
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
-    motor_controller.stepAngle = step_angle
+    motor_controller.stepsPerRevolution = steps_per_rev
     motor_controller.minAngle = 0.0
     motor_controller.maxAngle = 2 * math.pi
     motor_controller.minStepCommand = 1
@@ -271,13 +269,13 @@ def test_stepper_motor_controller_position_tracking(show_plots):
     produce exactly opposite step counts, which is only true if the controller reads the motor's
     absolute position from the feedback message.
     """
-    step_angle = math.radians(1.0)
+    steps_per_rev = 360  # 1 deg/step
     process_rate_sec = 0.1
     sim, process_rate = create_sim(process_rate_sec)
 
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
-    motor_controller.stepAngle = step_angle
+    motor_controller.stepsPerRevolution = steps_per_rev
     motor_controller.minAngle = 0.0
     motor_controller.maxAngle = 2 * math.pi
     motor_controller.minStepCommand = 1
@@ -326,20 +324,20 @@ def test_stepper_motor_controller_out_of_range(show_plots, ref_deg):
     configured motor angle range. The configured range is [45 deg, 90 deg]; references at
     -10 deg (below min) and 200 deg (above max) must both result in no commanded movement.
     """
-    step_angle = math.radians(1.0)
+    steps_per_rev = 360  # 1 deg/step
     process_rate_sec = 0.1
     sim, process_rate = create_sim(process_rate_sec)
 
     motor_controller = stepperMotorControllerF32.StepperMotorController()
     motor_controller.modelTag = "stepperMotorController"
-    motor_controller.stepAngle = step_angle
+    motor_controller.stepsPerRevolution = steps_per_rev
     motor_controller.minAngle = math.radians(45.0)
     motor_controller.maxAngle = math.radians(90.0)
     motor_controller.minStepCommand = 1
     sim.AddModelToTask("unitTask", motor_controller)
 
     # Motor starts in-range at 60 deg = 60 steps
-    init_step = angle_to_steps(math.radians(60.0), round(2 * math.pi / step_angle))
+    init_step = angle_to_steps(math.radians(60.0), steps_per_rev)
 
     ref_msg_data = messaging.MotorAngleRefMsgF32Payload()
     ref_msg_data.theta = math.radians(ref_deg)

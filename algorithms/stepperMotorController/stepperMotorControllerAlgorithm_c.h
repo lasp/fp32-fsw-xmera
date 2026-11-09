@@ -16,17 +16,17 @@ typedef struct StepperMotorControllerAlgorithmHandle StepperMotorControllerAlgor
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param stepAngle      [rad/step] Angle per motor step.
- * @param minAngle       [rad] Lower bound of the motor travel range.
- * @param maxAngle       [rad] Upper bound of the motor travel range.
- * @param settleCountMax [ticks] Settling duration after stop.
- * @param minStepCommand [steps] Minimum step delta magnitude that triggers a command.
+ * @param stepsPerRevolution [steps] Motor steps per full revolution.
+ * @param minAngle           [rad] Lower bound of the motor travel range.
+ * @param maxAngle           [rad] Upper bound of the motor travel range.
+ * @param settleCountMax     [ticks] Settling duration after stop.
+ * @param minStepCommand     [steps] Minimum step delta magnitude that triggers a command.
  * @return True if the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  * @note The accepted value ranges are defined by StepperMotorControllerConfig::create; this
  *       predicate reports whether a candidate set would be accepted, without throwing.
  */
-bool StepperMotorControllerAlgorithm_validateConfig(float stepAngle,
+bool StepperMotorControllerAlgorithm_validateConfig(uint32_t stepsPerRevolution,
                                                     float minAngle,
                                                     float maxAngle,
                                                     uint32_t settleCountMax,
@@ -35,14 +35,14 @@ bool StepperMotorControllerAlgorithm_validateConfig(float stepAngle,
 /**
  * @brief Construct a new StepperMotorControllerAlgorithm instance from the supplied configuration.
  * Validate the values with validateConfig before calling; throws on invalid input.
- * @param stepAngle      [rad/step] Angle per motor step.
- * @param minAngle       [rad] Lower bound of the motor travel range.
- * @param maxAngle       [rad] Upper bound of the motor travel range.
- * @param settleCountMax [ticks] Settling duration after stop.
- * @param minStepCommand [steps] Minimum step delta magnitude that triggers a command.
+ * @param stepsPerRevolution [steps] Motor steps per full revolution.
+ * @param minAngle           [rad] Lower bound of the motor travel range.
+ * @param maxAngle           [rad] Upper bound of the motor travel range.
+ * @param settleCountMax     [ticks] Settling duration after stop.
+ * @param minStepCommand     [steps] Minimum step delta magnitude that triggers a command.
  * @return Pointer to a new StepperMotorControllerAlgorithm (must be destroyed).
  */
-StepperMotorControllerAlgorithmHandle* StepperMotorControllerAlgorithm_create(float stepAngle,
+StepperMotorControllerAlgorithmHandle* StepperMotorControllerAlgorithm_create(uint32_t stepsPerRevolution,
                                                                               float minAngle,
                                                                               float maxAngle,
                                                                               uint32_t settleCountMax,
@@ -57,15 +57,15 @@ void StepperMotorControllerAlgorithm_destroy(StepperMotorControllerAlgorithmHand
 /**
  * @brief Replace the algorithm's configuration at runtime.
  * Validate the values with validateConfig before calling; throws on invalid input.
- * @param self           Pointer to the instance.
- * @param stepAngle      [rad/step] Angle per motor step.
- * @param minAngle       [rad] Lower bound of the motor travel range.
- * @param maxAngle       [rad] Upper bound of the motor travel range.
- * @param settleCountMax [ticks] Settling duration after stop.
- * @param minStepCommand [steps] Minimum step delta magnitude that triggers a command.
+ * @param self               Pointer to the instance.
+ * @param stepsPerRevolution [steps] Motor steps per full revolution.
+ * @param minAngle           [rad] Lower bound of the motor travel range.
+ * @param maxAngle           [rad] Upper bound of the motor travel range.
+ * @param settleCountMax     [ticks] Settling duration after stop.
+ * @param minStepCommand     [steps] Minimum step delta magnitude that triggers a command.
  */
 void StepperMotorControllerAlgorithm_setConfig(StepperMotorControllerAlgorithmHandle* self,
-                                               float stepAngle,
+                                               uint32_t stepsPerRevolution,
                                                float minAngle,
                                                float maxAngle,
                                                uint32_t settleCountMax,
@@ -91,7 +91,7 @@ StepperMotorControllerOutput StepperMotorControllerAlgorithm_update(StepperMotor
                                                                     bool isMotorMoving);
 
 /**
- * @brief Convert a reference angle to an integer step position using the configured stepAngle.
+ * @brief Convert a reference angle to an integer step position using the step angle 2*pi / stepsPerRevolution.
  * @param self  Pointer to the instance.
  * @param angle [rad] Reference angle.
  * @return int32_t  Step position rounded to the nearest integer.
