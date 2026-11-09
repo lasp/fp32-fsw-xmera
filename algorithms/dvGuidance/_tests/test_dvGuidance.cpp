@@ -4,13 +4,13 @@
 
 TEST(DvGuidanceTest, ReferenceTest) {
     // The preferred 2nd-axis direction is not orthogonal to the delta-V command.
-    testDvGuidanceRegression(Eigen::Vector3f{5.0F, 5.0F, 5.0F},   // cmdDv_N
+    testDvGuidanceRegression(Eigen::Vector3f{5.0F, 5.0F, 5.0F},   // requestedDv_N
                              Eigen::Vector3f{1.0F, 0.0F, 0.0F});  // rHatPref_N
 }
 
 TEST(DvGuidanceTest, ReferenceTestRHatPrefPerpendicularToDeltaV) {
     // The preferred 2nd-axis direction is orthogonal to the delta-V command, so it becomes the 2nd axis.
-    testDvGuidanceRegression(Eigen::Vector3f{0.0F, 0.0F, 3.0F},   // cmdDv_N
+    testDvGuidanceRegression(Eigen::Vector3f{0.0F, 0.0F, 3.0F},   // requestedDv_N
                              Eigen::Vector3f{0.0F, 1.0F, 0.0F});  // rHatPref_N
 }
 
@@ -26,9 +26,9 @@ TEST(DvGuidanceTest, ZeroDeltaVCommand) {
 }
 
 TEST(DvGuidanceTest, RHatPrefParallelToDeltaV) {
-    // rHatPref_N parallel to cmdDv_N collapses the cross product, so the configuration is rejected.
-    const Eigen::Vector3f cmdDv_N{1.0F, 2.0F, -3.0F};
-    testDvGuidanceInvalidConfigRejected(cmdDv_N, cmdDv_N.stableNormalized());
+    // rHatPref_N parallel to requestedDv_N collapses the cross product, so the configuration is rejected.
+    const Eigen::Vector3f requestedDv_N{1.0F, 2.0F, -3.0F};
+    testDvGuidanceInvalidConfigRejected(requestedDv_N, requestedDv_N.stableNormalized());
 }
 
 TEST(DvGuidanceTest, ZeroRHatPref) {
@@ -37,19 +37,20 @@ TEST(DvGuidanceTest, ZeroRHatPref) {
 }
 
 TEST(DvGuidanceTest, RHatPrefAntiParallelToDeltaV) {
-    // rHatPref_N antiparallel to cmdDv_N collapses the cross product, so the configuration is rejected.
-    const Eigen::Vector3f cmdDv_N{1.0F, 2.0F, -3.0F};
-    testDvGuidanceInvalidConfigRejected(cmdDv_N, -cmdDv_N.stableNormalized());
+    // rHatPref_N antiparallel to requestedDv_N collapses the cross product, so the configuration is rejected.
+    const Eigen::Vector3f requestedDv_N{1.0F, 2.0F, -3.0F};
+    testDvGuidanceInvalidConfigRejected(requestedDv_N, -requestedDv_N.stableNormalized());
 }
 
 TEST(DvGuidanceTest, RHatPrefBelowMinCross) {
-    // rHatPref_N tilted from cmdDv_N by half of kMinCross falls below kMinCross, so the configuration is rejected.
+    // rHatPref_N tilted from requestedDv_N by half of kMinCross falls below kMinCross, so the configuration is
+    // rejected.
     testDvGuidanceInvalidConfigRejected(Eigen::Vector3f{1.0F, 0.0F, 0.0F},
                                         Eigen::Vector3f{1.0F, 0.5F * DvGuidanceConfig::kMinCross, 0.0F});
 }
 
 TEST(DvGuidanceTest, DeltaVNormBoundary) {
-    // cmdDv_N norm is tested at kMinNorm and immediately below it:
+    // requestedDv_N norm is tested at kMinNorm and immediately below it:
     // equality is expected to be accepted, while the value below is rejected.
     testDvGuidanceDeltaVNormBoundary(Eigen::Vector3f{0.0F, 1.0F, 0.0F});
 }
@@ -63,46 +64,46 @@ TEST(DvGuidanceTest, SetupTest) {
     // Valid config should not throw
     EXPECT_NO_THROW(DvGuidanceConfig::create(Eigen::Vector3f::UnitZ(), Eigen::Vector3f::UnitY()));
 
-    // Non-finite cmdDv_N or rHatPref_N should throw
+    // Non-finite requestedDv_N or rHatPref_N should throw
     const float nan = std::numeric_limits<float>::quiet_NaN();
-    const Eigen::Vector3f cmdDv_N{1.0F, 2.0F, -3.0F};
+    const Eigen::Vector3f requestedDv_N{1.0F, 2.0F, -3.0F};
     EXPECT_THROW(DvGuidanceConfig::create(Eigen::Vector3f{nan, 0.0F, 0.0F}, Eigen::Vector3f::UnitY()),
                  fsw::invalid_argument);
-    EXPECT_THROW(DvGuidanceConfig::create(cmdDv_N, Eigen::Vector3f{nan, 0.0F, 0.0F}), fsw::invalid_argument);
+    EXPECT_THROW(DvGuidanceConfig::create(requestedDv_N, Eigen::Vector3f{nan, 0.0F, 0.0F}), fsw::invalid_argument);
 
     // A non-unit rHatPref_N should throw
-    EXPECT_THROW(DvGuidanceConfig::create(cmdDv_N, Eigen::Vector3f{0.0F, 3.0F, 0.0F}), fsw::invalid_argument);
+    EXPECT_THROW(DvGuidanceConfig::create(requestedDv_N, Eigen::Vector3f{0.0F, 3.0F, 0.0F}), fsw::invalid_argument);
 
-    // Config round-trip: cmdDv_N is stored as given, rHatPref_N is stored normalized
+    // Config round-trip: requestedDv_N is stored as given, rHatPref_N is stored normalized
     const Eigen::Vector3f rHatPref_N{0.0F, 1.0005F, 0.0F};
-    const auto config = DvGuidanceConfig::create(cmdDv_N, rHatPref_N);
-    EXPECT_EQ(config.getCmdDv(), cmdDv_N);
+    const auto config = DvGuidanceConfig::create(requestedDv_N, rHatPref_N);
+    EXPECT_EQ(config.getRequestedDv(), requestedDv_N);
     EXPECT_TRUE(config.getRHatPref().isApprox(Eigen::Vector3f::UnitY(), 1e-7F));
 
     // Static validators
-    EXPECT_TRUE(DvGuidanceConfig::isValidCmdDv(cmdDv_N));
-    EXPECT_FALSE(DvGuidanceConfig::isValidCmdDv(Eigen::Vector3f::Zero()));
-    EXPECT_TRUE(DvGuidanceConfig::isValidRHatPref(cmdDv_N, rHatPref_N));
-    EXPECT_FALSE(DvGuidanceConfig::isValidRHatPref(cmdDv_N, Eigen::Vector3f::Zero()));
-    EXPECT_FALSE(DvGuidanceConfig::isValidRHatPref(cmdDv_N, Eigen::Vector3f{0.0F, 3.0F, 0.0F}));
+    EXPECT_TRUE(DvGuidanceConfig::isValidRequestedDv(requestedDv_N));
+    EXPECT_FALSE(DvGuidanceConfig::isValidRequestedDv(Eigen::Vector3f::Zero()));
+    EXPECT_TRUE(DvGuidanceConfig::isValidRHatPref(requestedDv_N, rHatPref_N));
+    EXPECT_FALSE(DvGuidanceConfig::isValidRHatPref(requestedDv_N, Eigen::Vector3f::Zero()));
+    EXPECT_FALSE(DvGuidanceConfig::isValidRHatPref(requestedDv_N, Eigen::Vector3f{0.0F, 3.0F, 0.0F}));
 }
 
 // setConfig() installs the new configuration. Thus the module uses the new delta-V command.
 TEST(DvGuidanceTest, SetConfigAppliesNewDeltaV) {
-    const Eigen::Vector3f cmdDv_N = Eigen::Vector3f::UnitZ();
+    const Eigen::Vector3f requestedDv_N = Eigen::Vector3f::UnitZ();
     const Eigen::Vector3f rHatPref_N = Eigen::Vector3f::UnitY();
-    DvGuidanceAlgorithm alg{DvGuidanceConfig::create(cmdDv_N, rHatPref_N)};
+    DvGuidanceAlgorithm alg{DvGuidanceConfig::create(requestedDv_N, rHatPref_N)};
     EXPECT_TRUE(alg.update().isZero());
 
-    const Eigen::Vector3f newCmdDv_N = Eigen::Vector3f::UnitX();
-    alg.setConfig(DvGuidanceConfig::create(newCmdDv_N, rHatPref_N));
+    const Eigen::Vector3f newRequestedDv_N = Eigen::Vector3f::UnitX();
+    alg.setConfig(DvGuidanceConfig::create(newRequestedDv_N, rHatPref_N));
     const Eigen::Matrix3f dcm_RN = mrpToDcm<float>(alg.update());
-    EXPECT_TRUE(dcm_RN.row(2).transpose().isApprox(newCmdDv_N, 1e-5F));
+    EXPECT_TRUE(dcm_RN.row(2).transpose().isApprox(newRequestedDv_N, 1e-5F));
     EXPECT_TRUE(dcm_RN.row(1).transpose().isApprox(rHatPref_N, 1e-5F));
 }
 
 TEST(DvGuidanceTest, ThirdAxisAlignedWithDeltaV) {
-    // The burn frame's 3rd axis r3 is expected to point along the commanded delta-V direction.
+    // The burn frame's 3rd axis r3 is expected to point along the requested delta-V direction.
     propertyThirdAxisAlignedWithDeltaV(Eigen::Vector3f{2.0F, -1.0F, 4.0F}, Eigen::Vector3f{0.0F, 1.0F, 0.0F});
 }
 

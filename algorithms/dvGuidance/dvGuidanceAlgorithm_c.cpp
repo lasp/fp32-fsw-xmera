@@ -7,33 +7,33 @@
 #include <Eigen/Core>
 
 namespace {
-DvGuidanceConfig configFromC(const Vector3f_c& cmdDv_N, const Vector3f_c& rHatPref_N) {
-    return DvGuidanceConfig::create(cArrayToEigenVector3<float>(cmdDv_N.data),
+DvGuidanceConfig configFromC(const Vector3f_c& requestedDv_N, const Vector3f_c& rHatPref_N) {
+    return DvGuidanceConfig::create(cArrayToEigenVector3<float>(requestedDv_N.data),
                                     cArrayToEigenVector3<float>(rHatPref_N.data));
 }
 }  // namespace
 
-bool DvGuidanceAlgorithm_validateConfig(const Vector3f_c cmdDv_N, const Vector3f_c rHatPref_N) {
+bool DvGuidanceAlgorithm_validateConfig(const Vector3f_c requestedDv_N, const Vector3f_c rHatPref_N) {
     // Attempt to build the config through the real create path; success means valid,
     // a throw means invalid. Reusing configFromC keeps validation from drifting.
     try {
-        (void)configFromC(cmdDv_N, rHatPref_N);
+        (void)configFromC(requestedDv_N, rHatPref_N);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
     }
 }
 
-DvGuidanceAlgorithmHandle* DvGuidanceAlgorithm_create(const Vector3f_c cmdDv_N, const Vector3f_c rHatPref_N) {
-    return fsw::createHandle<::DvGuidanceAlgorithm, DvGuidanceAlgorithmHandle>(configFromC(cmdDv_N, rHatPref_N));
+DvGuidanceAlgorithmHandle* DvGuidanceAlgorithm_create(const Vector3f_c requestedDv_N, const Vector3f_c rHatPref_N) {
+    return fsw::createHandle<::DvGuidanceAlgorithm, DvGuidanceAlgorithmHandle>(configFromC(requestedDv_N, rHatPref_N));
 }
 
 void DvGuidanceAlgorithm_destroy(DvGuidanceAlgorithmHandle* self) { fsw::deleteHandle<::DvGuidanceAlgorithm>(self); }
 
 void DvGuidanceAlgorithm_setConfig(DvGuidanceAlgorithmHandle* self,
-                                   const Vector3f_c cmdDv_N,
+                                   const Vector3f_c requestedDv_N,
                                    const Vector3f_c rHatPref_N) {
-    fsw::fromHandle<::DvGuidanceAlgorithm>(self)->setConfig(configFromC(cmdDv_N, rHatPref_N));
+    fsw::fromHandle<::DvGuidanceAlgorithm>(self)->setConfig(configFromC(requestedDv_N, rHatPref_N));
 }
 
 AttRefMsgF32Payload DvGuidanceAlgorithm_update(const DvGuidanceAlgorithmHandle* self) {
