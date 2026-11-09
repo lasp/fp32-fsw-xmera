@@ -127,8 +127,8 @@ class ThrustMappingAlgorithm final {
 
     void setConfig(const ThrustMappingConfig& config);
 
-    Eigen::Vector<float, kMaxThrusterCount> update(const Eigen::Vector3f& cmdTorque_B,
-                                                   const Eigen::Vector3f& cmdForce_B) const;
+    Eigen::Vector<float, kMaxThrusterCount> update(const Eigen::Vector3f& requestedTorque_B,
+                                                   const Eigen::Vector3f& requestedForce_B) const;
 
    private:
     ThrustMappingConfig cfg;  //!< validated configuration (thrusters, CoM, control-axis selection)

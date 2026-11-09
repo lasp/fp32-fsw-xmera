@@ -123,13 +123,13 @@ void ThrustMappingAlgorithm_setConfig(ThrustMappingAlgorithmHandle* self,
  * zero. update() does not throw.
  *
  * @param self        Pointer to the instance.
- * @param cmdTorque_B [Nm] requested control torque in body frame
- * @param cmdForce_B  [N]  requested control force in body frame
+ * @param requestedTorque_B [Nm] requested control torque in body frame
+ * @param requestedForce_B  [N]  requested control force in body frame
  * @return ThrForceArray_c per-thruster force commands.
  */
 ThrForceArray_c ThrustMappingAlgorithm_update(const ThrustMappingAlgorithmHandle* self,
-                                              const Vector3f_c* cmdTorque_B,
-                                              const Vector3f_c* cmdForce_B);
+                                              const Vector3f_c* requestedTorque_B,
+                                              const Vector3f_c* requestedForce_B);
 
 #ifdef __cplusplus
 }  // extern "C"
