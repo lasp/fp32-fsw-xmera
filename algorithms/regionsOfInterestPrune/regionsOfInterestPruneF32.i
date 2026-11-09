@@ -21,5 +21,7 @@ struct RoiCandidateEntry;
 %include "regionsOfInterestPrune.h"
 %include "regionsOfInterestPruneAlgorithm.h"
 
+STRUCTASLIST(FpgaBinRegionF32)
+%include "msgPayloadDef/FpgaBinGridMsgF32Payload.h"
 %include "msgPayloadDef/FpgaRowColSumMsgF32Payload.h"
 %include "msgPayloadDef/RegionsIdentifiedMsgF32Payload.h"

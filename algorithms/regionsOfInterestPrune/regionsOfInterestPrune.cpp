@@ -5,14 +5,18 @@
 
 #include <stdexcept>
 
-/*! @brief Reset internal state, validate that rowColSumInMsg is connected, and construct the algorithm
- *         from the currently-set config properties.
+/*! @brief Reset internal state, validate that rowColSumInMsg and binGridInMsg are connected, and
+ *         construct the algorithm from the currently-set config properties.
  *  @param callTime Current simulation time in nanoseconds (unused).
- *  @throws std::invalid_argument If rowColSumInMsg is not connected, or if a config property is invalid.
+ *  @throws std::invalid_argument If rowColSumInMsg or binGridInMsg is not connected, or if a config
+ *          property is invalid.
  */
 void RegionsOfInterestPrune::reset(uint64_t /*callTime*/) {
     if (!this->rowColSumInMsg.isLinked()) {
         throw std::invalid_argument("RegionsOfInterestPrune.rowColSumInMsg wasn't connected.");
+    }
+    if (!this->binGridInMsg.isLinked()) {
+        throw std::invalid_argument("RegionsOfInterestPrune.binGridInMsg wasn't connected.");
     }
     this->algorithm = std::make_unique<RegionsOfInterestPruneAlgorithm>(this->toConfig());
 }

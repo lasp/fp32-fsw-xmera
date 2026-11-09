@@ -1,6 +1,7 @@
 #ifndef F32XMERA_REGIONS_OF_INTEREST_PRUNE_H
 #define F32XMERA_REGIONS_OF_INTEREST_PRUNE_H
 
+#include "msgPayloadDef/FpgaBinGridMsgF32Payload.h"
 #include "msgPayloadDef/FpgaRowColSumMsgF32Payload.h"
 #include "msgPayloadDef/RegionsIdentifiedMsgF32Payload.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
@@ -29,6 +30,7 @@ class RegionsOfInterestPrune : public SysModel {
 
     // --- Message interfaces ---
     ReadFunctor<FpgaRowColSumMsgF32Payload> rowColSumInMsg;           //!< Row/col accumulators from fpgaImagePipeline
+    ReadFunctor<FpgaBinGridMsgF32Payload> binGridInMsg;               //!< ROI bin grid from fpgaImagePipeline
     Message<RegionsIdentifiedMsgF32Payload> regionsIdentifiedOutMsg;  //!< Pruned candidates as RegionsIdentifiedMsg
 
    private:

@@ -25,6 +25,9 @@ xmera_add_swig_message(EphemerisMsgF32Payload)
 xmera_add_swig_message(FilterMsgF32Payload)
 xmera_add_swig_message(FilterResidualsMsgF32Payload)
 xmera_add_swig_message(FlybyDiagnosticMsgF32Payload)
+xmera_add_swig_message(FpgaBinGridMsgF32Payload
+                       TEMPLATE
+                       "${CMAKE_CURRENT_SOURCE_DIR}/FpgaBinGridMsgF32Payload.i")
 xmera_add_swig_message(FpgaRowColSumMsgF32Payload)
 xmera_add_swig_message(FpgaThreshImageMsgF32Payload)
 xmera_add_swig_message(HingedRigidBodyMsgF32Payload)
