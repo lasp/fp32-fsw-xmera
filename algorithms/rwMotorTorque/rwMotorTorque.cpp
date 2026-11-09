@@ -38,7 +38,7 @@ void RwMotorTorque::reset(const uint64_t callTime) {
 
     /*! - Build the validated configuration and (re)create the algorithm (computes the mapping and
      projection; throws on an invalid config). */
-    const auto config = RwMotorTorqueConfig::create(this->desiredControlAxes_B, rwConfiguration, this->omegaGain);
+    const auto config = RwMotorTorqueConfig::create(this->desiredControlAxes_B, rwConfiguration, this->Kp);
     this->algorithm = std::make_unique<RwMotorTorqueAlgorithm>(config);
 }
 
@@ -54,7 +54,7 @@ RwMotorTorqueConfig RwMotorTorque::toConfig() {
         }
     }
 
-    return RwMotorTorqueConfig::create(this->desiredControlAxes_B, rwConfiguration, this->omegaGain);
+    return RwMotorTorqueConfig::create(this->desiredControlAxes_B, rwConfiguration, this->Kp);
 }
 
 void RwMotorTorque::reconfigure() {

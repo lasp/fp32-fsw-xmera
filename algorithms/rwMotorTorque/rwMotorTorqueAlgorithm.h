@@ -39,7 +39,7 @@ class RwMotorTorqueConfig final {
    public:
     static RwMotorTorqueConfig create(const std::array<bool, 3>& desiredControlAxes_B,
                                       const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                                      float omegaGain = 0.0F) {
+                                      float Kp = 0.0F) {
         if (!isValidControlAxes(desiredControlAxes_B)) {
             FSW_THROW_INVALID_ARGUMENT("rwMotorTorque: desiredControlAxes_B must select at least one control axis.");
         }
@@ -48,9 +48,9 @@ class RwMotorTorqueConfig final {
                 "rwMotorTorque: the spin axis matrix must be finite, and every spin axis must be a unit "
                 "vector.");
         }
-        if (!isValidOmegaGain(omegaGain)) {
+        if (!isValidKp(Kp)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "rwMotorTorque: omegaGain (RW null-space feedback gain) must be finite and non-negative.");
+                "rwMotorTorque: Kp (RW null-space feedback gain) must be finite and non-negative.");
         }
 
         // Normalize the RW spin axes so downstream code can rely on exact unit vectors. The inputs are validated
@@ -71,7 +71,7 @@ class RwMotorTorqueConfig final {
                 "geometry is ill-conditioned.");
         }
 
-        return RwMotorTorqueConfig{desiredControlAxes_B, normalizedRwConfiguration, omegaGain};
+        return RwMotorTorqueConfig{desiredControlAxes_B, normalizedRwConfiguration, Kp};
     }
 
     //! At least one body axis (x, y, z) must be selected for control.
@@ -95,7 +95,7 @@ class RwMotorTorqueConfig final {
     }
     // No isValidAvailability — any combination of AVAILABLE / UNAVAILABLE flags is valid.
 
-    static bool isValidOmegaGain(float omegaGain) { return fsw::is_finite(omegaGain) && omegaGain >= 0.0F; }
+    static bool isValidKp(float Kp) { return fsw::is_finite(Kp) && Kp >= 0.0F; }
 
     // Returns true if the (canonicalized) configuration yields a valid control mapping: every control axis is
     // reachable by the available reaction wheels, and both the control mapping and the null-space
@@ -106,17 +106,17 @@ class RwMotorTorqueConfig final {
 
     const std::array<bool, 3>& getDesiredControlAxes() const { return this->desiredControlAxes_B; }
     const RwMotorTorqueArrayConfiguration& getRwConfiguration() const { return this->rwConfiguration; }
-    float getOmegaGain() const { return this->omegaGain; }
+    float getKp() const { return this->Kp; }
 
    private:
     RwMotorTorqueConfig(const std::array<bool, 3>& desiredControlAxes_B,
                         const RwMotorTorqueArrayConfiguration& rwConfiguration,
-                        float omegaGain)
-        : desiredControlAxes_B(desiredControlAxes_B), rwConfiguration(rwConfiguration), omegaGain(omegaGain) {}
+                        float Kp)
+        : desiredControlAxes_B(desiredControlAxes_B), rwConfiguration(rwConfiguration), Kp(Kp) {}
 
     std::array<bool, 3> desiredControlAxes_B;
     RwMotorTorqueArrayConfiguration rwConfiguration;
-    float omegaGain;  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
+    float Kp;  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
 };
 
 /*! @brief Top level structure for the sub-module routines. */

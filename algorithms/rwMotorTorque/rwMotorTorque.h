@@ -27,7 +27,7 @@ class RwMotorTorque final : public SysModel {
     void setDesiredControlAxes(const std::array<bool, 3>& desiredControlAxes);
     std::array<bool, 3> getDesiredControlAxes() const;
 
-    float omegaGain{};  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
+    float Kp{};  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
 
     /* declare module IO interfaces */
     Message<RwMotorTorqueMsgF32Payload> rwMotorTorqueOutMsg;   //!< RW motor torque output message
