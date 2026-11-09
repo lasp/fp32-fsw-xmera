@@ -108,9 +108,10 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     rw_config_params.numRW = RW_EFF_CNT
     rw_config_in_msg = messaging.RWArrayConfigMsgF32().write(rw_config_params)
 
-    # Current RW speeds driving the null-space term; desired speeds default to zero (unlinked).
+    # Current RW speeds from the speed message and desired RW speeds from the configuration drive the null-space term.
     rw_speeds = [10.0 * (i + 1) for i in range(RW_EFF_CNT)]
-    desired_omega = [0.0] * RW_EFF_CNT
+    desired_omega = [4.0 * (i + 1) for i in range(RW_EFF_CNT)]
+    module.rwDesiredSpeeds = desired_omega
     input_speed_msg = messaging.RWSpeedMsgF32Payload()
     input_speed_msg.wheelSpeeds = rw_speeds
     rw_speed_in_msg = messaging.RWSpeedMsgF32().write(input_speed_msg)

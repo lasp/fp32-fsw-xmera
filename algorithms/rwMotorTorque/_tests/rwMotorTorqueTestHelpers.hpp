@@ -121,16 +121,15 @@ inline Eigen::Vector<double, kMaxNumRw> referenceUpdate(
     return motorTorqueMap * Lr_B + nullSpaceTorque;
 }
 
-// Builds RwMotorTorqueSpeeds from caller-supplied speed vectors, zero-padded to the full RW array.
-inline RwMotorTorqueSpeeds makeSpeeds(const std::vector<float>& rwSpeeds, const std::vector<float>& rwDesiredSpeeds) {
-    RwMotorTorqueSpeeds speeds{};
-    for (uint32_t i = 0U; i < rwSpeeds.size() && i < kMaxNumRw; ++i) {
-        speeds.rwSpeeds(static_cast<Eigen::Index>(i)) = rwSpeeds[i];
+inline const Eigen::Vector<float, kMaxNumRw> kZeroRwSpeeds = Eigen::Vector<float, kMaxNumRw>::Zero();
+
+// Zero-pads caller-supplied per-wheel values to the full RW array.
+inline Eigen::Vector<float, kMaxNumRw> toRwVector(const std::vector<float>& values) {
+    Eigen::Vector<float, kMaxNumRw> out = Eigen::Vector<float, kMaxNumRw>::Zero();
+    for (uint32_t i = 0U; i < values.size() && i < kMaxNumRw; ++i) {
+        out(static_cast<Eigen::Index>(i)) = values[i];
     }
-    for (uint32_t i = 0U; i < rwDesiredSpeeds.size() && i < kMaxNumRw; ++i) {
-        speeds.rwDesiredSpeeds(static_cast<Eigen::Index>(i)) = rwDesiredSpeeds[i];
-    }
-    return speeds;
+    return out;
 }
 
 // Give every wheel slot the test does not use a valid unit spin axis and mark it unavailable, so the
@@ -239,15 +238,18 @@ inline void runRegressionCase(Eigen::Vector3f Lr1_B,
     if (cmdTorque2IsLinked) {
         Lr_B += Lr2_B;
     }
-    const RwMotorTorqueSpeeds speeds = makeSpeeds(rwSpeeds, rwDesiredSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> speeds = toRwVector(rwSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> desiredSpeeds = toRwVector(rwDesiredSpeeds);
 
-    const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration, Kp)};
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration, Kp, desiredSpeeds)};
 
     // Validate the control and null-space contributions separately against the fp64 reference, each with the
-    // tolerance matched to its error source. By linearity, update(Lr, speeds) = update(Lr, 0) + update(0, speeds),
-    // so isolating the two terms lets each comparison use the right scale. A single combined tolerance would
-    // let a large ||d|| slacken the control comparison and mask a control-path error.
-    const Eigen::Vector<float, kMaxNumRw> controlOut = alg.update(Lr_B, RwMotorTorqueSpeeds{});
+    // tolerance matched to its error source. At the desired speeds the speed error is exactly zero, so by
+    // linearity update(Lr, speeds) = update(Lr, desiredSpeeds) + update(0, speeds), and isolating the two terms
+    // lets each comparison use the right scale. A single combined tolerance would let a large ||d|| slacken the
+    // control comparison and mask a control-path error.
+    const Eigen::Vector<float, kMaxNumRw> controlOut = alg.update(Lr_B, desiredSpeeds);
     const Eigen::Vector<float, kMaxNumRw> nullSpaceOut = alg.update(Eigen::Vector3f::Zero(), speeds);
     const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, speeds);
 
@@ -265,12 +267,12 @@ inline void runRegressionCase(Eigen::Vector3f Lr1_B,
                                                                           kMaxNumRw,
                                                                           rwConfiguration.wheelAvailability,
                                                                           Eigen::Vector3d::Zero(),
-                                                                          speeds.rwSpeeds.cast<double>(),
-                                                                          speeds.rwDesiredSpeeds.cast<double>(),
+                                                                          speeds.cast<double>(),
+                                                                          desiredSpeeds.cast<double>(),
                                                                           static_cast<double>(Kp));
 
     const float controlScale = static_cast<float>(controlRef.cwiseAbs().maxCoeff());
-    const Eigen::Vector<float, kMaxNumRw> nullSpaceInput = Kp * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> nullSpaceInput = Kp * (speeds - desiredSpeeds);
     const float controlTol = 1e-4F + 1e-3F * controlScale;
     const float nullSpaceTol = 1e-4F + 1e-5F * nullSpaceInput.stableNorm();
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
@@ -316,8 +318,9 @@ inline void propertyOutputIsFinite(Eigen::Vector3f Lr1_B,
     if (cmdTorque2IsLinked) {
         Lr_B += Lr2_B;
     }
-    const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration, Kp)};
-    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, makeSpeeds(rwSpeeds, rwDesiredSpeeds));
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration, Kp, toRwVector(rwDesiredSpeeds))};
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, toRwVector(rwSpeeds));
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         EXPECT_TRUE(std::isfinite(out[i]));
@@ -352,8 +355,9 @@ inline void propertyExcludedWheelsZeroTorque(Eigen::Vector3f Lr1_B,
     if (cmdTorque2IsLinked) {
         Lr_B += Lr2_B;
     }
-    const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration, Kp)};
-    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, makeSpeeds(rwSpeeds, rwDesiredSpeeds));
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration, Kp, toRwVector(rwDesiredSpeeds))};
+    const Eigen::Vector<float, kMaxNumRw> out = alg.update(Lr_B, toRwVector(rwSpeeds));
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         if (rwConfiguration.wheelAvailability[i] != fsw::DeviceAvailability::Available) {
@@ -384,11 +388,13 @@ inline void propertyNullSpaceAddsNoBodyTorque(std::vector<bool> wheelAvailabilit
         return;
     }
 
-    const RwMotorTorqueConfig config = RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration, Kp);
+    const Eigen::Vector<float, kMaxNumRw> speeds = toRwVector(rwSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> desiredSpeeds = toRwVector(rwDesiredSpeeds);
+    const RwMotorTorqueConfig config =
+        RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration, Kp, desiredSpeeds);
     const RwMotorTorqueAlgorithm alg{config};
 
     // Zero command: the control term vanishes, so the output is the null-space term tau * d on its own.
-    const RwMotorTorqueSpeeds speeds = makeSpeeds(rwSpeeds, rwDesiredSpeeds);
     const Eigen::Vector<float, kMaxNumRw> nullSpaceOut = alg.update(Eigen::Vector3f::Zero(), speeds);
 
     // The config factory rejects ill-conditioned null-space geometry, so for any constructible config the
@@ -397,7 +403,7 @@ inline void propertyNullSpaceAddsNoBodyTorque(std::vector<bool> wheelAvailabilit
     // d = -Kp * (rwSpeeds - rwDesiredSpeeds). The tolerance is therefore scaled by ||d||.
     // Essentially, this compares that the torque on the body is negligible to the torque applied to drive the wheel
     // speeds toward their desired values.
-    const Eigen::Vector<float, kMaxNumRw> nullSpaceInput = Kp * (speeds.rwSpeeds - speeds.rwDesiredSpeeds);
+    const Eigen::Vector<float, kMaxNumRw> nullSpaceInput = Kp * (speeds - desiredSpeeds);
     const Eigen::Vector3f bodyTorque = availableGs(config) * nullSpaceOut;
     EXPECT_LE(bodyTorque.stableNorm(), 1e-4F + 1e-5F * nullSpaceInput.stableNorm());
 }
@@ -429,10 +435,11 @@ inline void propertyZeroGainDisablesNullSpace(Eigen::Vector3f Lr1_B,
     if (cmdTorque2IsLinked) {
         Lr_B += Lr2_B;
     }
-    const RwMotorTorqueAlgorithm alg{RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration, 0.0F)};
+    const RwMotorTorqueAlgorithm alg{
+        RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration, 0.0F, toRwVector(rwDesiredSpeeds))};
 
-    const Eigen::Vector<float, kMaxNumRw> withSpeeds = alg.update(Lr_B, makeSpeeds(rwSpeeds, rwDesiredSpeeds));
-    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, RwMotorTorqueSpeeds{});
+    const Eigen::Vector<float, kMaxNumRw> withSpeeds = alg.update(Lr_B, toRwVector(rwSpeeds));
+    const Eigen::Vector<float, kMaxNumRw> controlOnly = alg.update(Lr_B, Eigen::Vector<float, kMaxNumRw>::Zero());
 
     for (uint32_t i = 0U; i < kMaxNumRw; ++i) {
         EXPECT_FLOAT_EQ(withSpeeds[i], controlOnly[i]);
@@ -465,11 +472,12 @@ inline void propertyControlTorqueRealized(Eigen::Vector3f Lr1_B,
     if (cmdTorque2IsLinked) {
         Lr_B += Lr2_B;
     }
-    const RwMotorTorqueConfig config = RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration);
+    const RwMotorTorqueConfig config =
+        RwMotorTorqueConfig::create(desiredControlAxes_B, rwConfiguration, /* Kp = */ 0.0F, kZeroRwSpeeds);
     const RwMotorTorqueAlgorithm alg{config};
 
     // Control-only output (zero speeds): the null-space term is absent, so this is the pure control mapping.
-    const Eigen::Vector3f bodyTorque = availableGs(config) * alg.update(Lr_B, RwMotorTorqueSpeeds{});
+    const Eigen::Vector3f bodyTorque = availableGs(config) * alg.update(Lr_B, Eigen::Vector<float, kMaxNumRw>::Zero());
     // Each selected body axis must realize the commanded torque -Lr_B on that axis.
     for (uint32_t i = 0U; i < 3U; ++i) {
         if (desiredControlAxes_B[i]) {
