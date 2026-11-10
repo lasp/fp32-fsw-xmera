@@ -277,7 +277,6 @@ struct PhaseAngleCorrectionResult {
     float phi = 0.0F;
     float gamma = 0.0F;
     float Rc = 0.0F;
-    bool validCom = false;  //!< [--] set by updateState, not by computePhaseAngleCorrection
 };
 
 /**

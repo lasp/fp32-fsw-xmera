@@ -114,8 +114,7 @@ Rotations CobConverterAlgorithm::computeRotations(const Eigen::Vector3f& sigma_B
  * @param filterVehPosition Spacecraft position
  * @param vehSunPntBdy Sun-pointing direction
  * @param dcm_BN Body-to-inertial DCM for the current cycle (from computeRotations).
- * @return alphaPA, phi, gamma, spacecraftRange and Rc. @c validCom is left at its default;
- *         updateState sets it.
+ * @return alphaPA, phi, gamma, spacecraftRange and Rc.
  */
 PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(const Eigen::Vector3d& filterVehPosition,
                                                                               const Eigen::Vector3f& vehSunPntBdy,
@@ -359,8 +358,6 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         const Eigen::Vector3f rhatCOM_SC_C_Buffer = -xy1COMCorrected.stableNormalized();
         const Eigen::Vector3f rhatCOM_SC_N_Buffer = rotations.dcm_NC * rhatCOM_SC_C_Buffer;
 
-        correction.validCom = centerOfMass.allFinite();
-
         // P_^C rhat_COM_SC
         const Eigen::Vector3f h{xCOMCorrected, yCOMCorrected, 1.0F};
         const float s = h.stableNorm();
@@ -396,14 +393,14 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
             result.output.rhat_BN_N = rhatCOM_SC_N_Buffer;
             result.output.covar_N = 0.5F * (covarPublished_N + covarPublished_N.transpose());
             result.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
-            result.output.unitVecValid = correction.validCom && goodOutlierCheck && brownConradyCOMValid;
+            result.output.unitVecValid = goodOutlierCheck && brownConradyCOMValid;
 
             result.diagnostic.centerOfMass = centerOfMass.head<2>();
             result.diagnostic.offsetFactor = correction.gamma;
             result.diagnostic.objectPixelRadius = static_cast<int>(correction.Rc);
             result.diagnostic.phaseAngle = correction.alphaPA;
             result.diagnostic.sunDirection = correction.phi;
-            result.diagnostic.comValid = correction.validCom;
+            result.diagnostic.comValid = true;
         }
     }
     return result;
