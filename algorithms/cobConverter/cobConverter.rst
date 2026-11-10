@@ -7,8 +7,7 @@ transforms into a position measurement. The written message contains a heading (
 
 The published heading is the center of mass (COM), estimated from the COB using a Sun phase angle correction. The
 correction uses the "Binary" method, which assumes a brightness of either 1 or 0 in the image of the body, and is
-applied on every cycle. The COM offset itself, along with the uncorrected COB heading, is reported on the diagnostic
-message.
+applied on every cycle. The COM offset itself is reported on the diagnostic message.
 
 Optionally, Brown-Conrady distortion coefficients can be provided; the measured normalized image-plane coordinate is
 then undistorted by inverting the Brown-Conrady model before the heading vector is computed.
@@ -41,7 +40,7 @@ provides information on what this message is used for:
       - Output COM heading vector and its covariance, inertial frame only
     * - cobConverterDiagnosticOutMsg
       - :ref:`CobConverterDiagnosticMsgPayload`
-      - Output diagnostic message: the COM heading and covariance in the camera and body frames, the uncorrected COB heading in the camera, inertial, and body frames, the pixel-space centers, the phase-angle correction metadata, whether the COM outlier check was triggered, and whether the COM and COB Brown-Conrady undistortions converged
+      - Output diagnostic message: the COM pixel coordinates, the phase-angle correction metadata, whether the COM outlier check was triggered, and whether the COM and COB Brown-Conrady undistortions converged
 
 Detailed Module Description
 ---------------------------
@@ -111,8 +110,7 @@ COM-to-spacecraft unit vector
     \hat{\mathbf{r}}^C = -\frac{\mathbf{h}}{|\mathbf{h}|}, \qquad
     \hat{\mathbf{r}}^N = [NC] \hat{\mathbf{r}}^C
 
-The COB heading, computed the same way from :math:`\bar{\mathbf{u}}_{COB}`, is used only for outlier detection and the
-diagnostic message.
+The COB pixel :math:`\bar{\mathbf{u}}_{COB}` is undistorted the same way only to report ``brownConradyCOBValid``.
 
 The variance of the phase-angle offset :math:`\beta` follows from the partials of the Geometric model correction
 with respect to the flyby and asteroid states:
@@ -223,8 +221,8 @@ stopping when :math:`\max(|x_d - x_u L - \Delta x_t|, |y_d - y_u L - \Delta y_t|
 :math:`S = \max(1, |x_d|, |y_d|, |x_u L|, |y_u L|)` finite, or after 50 iterations. Strong distortion near the edge
 of the field of view may not converge. This is flagged separately for the COM and the COB (``brownConradyCOMValid``
 and ``brownConradyCOBValid`` on the diagnostic message). A non-converged COM undistortion invalidates the published
-heading; a non-converged COB undistortion affects only the diagnostic COB heading. With all coefficients zero (the
-default) the module is an ideal pinhole camera.
+heading; a non-converged COB undistortion is only reported via ``brownConradyCOBValid``. With all coefficients zero
+(the default) the module is an ideal pinhole camera.
 
 COM outlier detection
 ^^^^^^^^^^^^^^^^^^^^^

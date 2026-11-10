@@ -117,15 +117,6 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     uVecOutMsgBuffer.valid = out.unitVecValid;
 
     CobConverterDiagnosticMsgF32Payload diagnosticMsgBuffer{};
-    eigenMatrixToCArray(diag.covar_C, diagnosticMsgBuffer.covar_C);
-    eigenMatrixToCArray(diag.covar_B, diagnosticMsgBuffer.covar_B);
-    eigenVectorToCArray(diag.rhat_BN_C, diagnosticMsgBuffer.rhat_BN_C);
-    eigenVectorToCArray(diag.rhat_BN_B, diagnosticMsgBuffer.rhat_BN_B);
-    eigenVectorToCArray(diag.rhat_COB_C, diagnosticMsgBuffer.rhat_COB_C);
-    eigenVectorToCArray(diag.rhat_COB_N, diagnosticMsgBuffer.rhat_COB_N);
-    eigenVectorToCArray(diag.rhat_COB_B, diagnosticMsgBuffer.rhat_COB_B);
-    diagnosticMsgBuffer.centerOfBrightness[0] = diag.centerOfBrightness[0];
-    diagnosticMsgBuffer.centerOfBrightness[1] = diag.centerOfBrightness[1];
     diagnosticMsgBuffer.centerOfMass[0] = diag.centerOfMass[0];
     diagnosticMsgBuffer.centerOfMass[1] = diag.centerOfMass[1];
     diagnosticMsgBuffer.offsetFactor = diag.offsetFactor;
@@ -133,7 +124,6 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     diagnosticMsgBuffer.phaseAngle = diag.phaseAngle;
     diagnosticMsgBuffer.sunDirection = diag.sunDirection;
     diagnosticMsgBuffer.cameraID = this->algorithm->getCameraId();
-    diagnosticMsgBuffer.comTimeTag = diag.comTimeTag;
     diagnosticMsgBuffer.comValid = diag.comValid;
     diagnosticMsgBuffer.comErrorOutlierTrigger = diag.comErrorOutlierTrigger;
     diagnosticMsgBuffer.brownConradyCOMValid = diag.brownConradyCOMValid;

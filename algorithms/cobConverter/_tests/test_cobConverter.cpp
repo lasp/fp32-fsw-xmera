@@ -239,15 +239,12 @@ TEST(CobConverterTest, PixelsFoundIncreaseIsSizeIncreaseTest) {
     const CobConverterUpdateResult manyPixels = alg.updateState(makeCob(1000), attitude, filter);
 
     // A bigger detected blob (more pixels found) should widen, not shrink, the COM/COB position
-    // uncertainty in every frame -- confirming this input feeds the algorithm as a size term.
-    EXPECT_GT(manyPixels.diagnostic.covar_B(0, 0), fewPixels.diagnostic.covar_B(0, 0));
-    EXPECT_GT(manyPixels.diagnostic.covar_B(1, 1), fewPixels.diagnostic.covar_B(1, 1));
+    // uncertainty -- confirming this input feeds the algorithm as a size term.
     EXPECT_GT(manyPixels.output.covar_N(0, 0), fewPixels.output.covar_N(0, 0));
-    EXPECT_GT(manyPixels.diagnostic.covar_C(0, 0), fewPixels.diagnostic.covar_C(0, 0));
 }
 
 // A non-converged COM undistortion leaves the heading at the last fixed-point iterate, so it must
-// not be published as valid; the diagnostic is still populated for debugging.
+// not be published as valid; the heading is still populated for debugging.
 TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
     const Eigen::Matrix3f zeroCovariance = Eigen::Matrix3f::Zero();
     const Eigen::Vector3f zeroMrp = Eigen::Vector3f::Zero();
@@ -287,8 +284,8 @@ TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
     EXPECT_FALSE(nonConverged.diagnostic.brownConradyCOBValid);
     EXPECT_FALSE(nonConverged.output.unitVecValid);
     EXPECT_TRUE(nonConverged.diagnostic.comValid);
-    EXPECT_TRUE(nonConverged.diagnostic.rhat_BN_C.allFinite());
-    EXPECT_GT(nonConverged.diagnostic.rhat_BN_C.norm(), 0.0F);
+    EXPECT_TRUE(nonConverged.output.rhat_BN_N.allFinite());
+    EXPECT_GT(nonConverged.output.rhat_BN_N.norm(), 0.0F);
 
     // Control: the same measurement with an ideal pinhole camera is published as valid.
     const CobConverterUpdateResult pinhole =

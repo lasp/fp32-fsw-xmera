@@ -288,8 +288,8 @@ bool CobConverterAlgorithm::comOutlierDetection(const Eigen::Vector3d& filterVeh
 /**
  * @brief Update step: convert pixel-based COB into unit vectors and return all outputs.
  *
- * Publishes the COM heading and its covariance; the COB heading only feeds outlier detection
- * and the diagnostic. Camera parameters are precomputed by setConfig().
+ * Publishes the COM heading and its covariance; the COB is undistorted only to report
+ * brownConradyCOBValid on the diagnostic. Camera parameters are precomputed by setConfig().
  *
  * @param cob COB measurement payload.
  * @param attitude Vehicle attitude knowledge (body orientation and sun direction).
@@ -329,7 +329,6 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         const auto [xCOBCorrected, yCOBCorrected, brownConradyCOBValid, brownConradyCOBIterations] =
             CobConverterAlgorithm::undistortNormalizedCoordinate(
                 xy1COB(0), xy1COB(1), this->cfg.getCalibrationCoefficients());
-        const Eigen::Vector3f xy1COBCorrected{xCOBCorrected, yCOBCorrected, 1.0F};
         result.diagnostic.brownConradyCOBValid = brownConradyCOBValid;
 
         correction.validCom = centerOfMass.allFinite();
@@ -380,9 +379,6 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
                                                              rhatCOM_SC_N_Buffer);
                 result.diagnostic.comErrorOutlierTrigger = !goodOutlierCheck;
             }
-            const Eigen::Vector3f rhatCOB_C = -xy1COBCorrected.stableNormalized();
-            const Eigen::Vector3f rhatCOB_N = rotations.dcm_NC * rhatCOB_C;
-
             const float lineOfSightVariance = 0.5F * covarRHat_N_Buffer.trace();
             const Eigen::Matrix3f covarPublished_N =
                 covarRHat_N_Buffer + (lineOfSightVariance * (rhatCOM_SC_N_Buffer * rhatCOM_SC_N_Buffer.transpose()));
@@ -392,20 +388,11 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
             result.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
             result.output.unitVecValid = correction.validCom && goodOutlierCheck && brownConradyCOMValid;
 
-            result.diagnostic.covar_C = rotations.dcm_NC.transpose() * covarRHat_N_Buffer * rotations.dcm_NC;
-            result.diagnostic.covar_B = rotations.dcm_BN * covarRHat_N_Buffer * rotations.dcm_BN.transpose();
-            result.diagnostic.rhat_BN_C = rhatCOM_SC_C_Buffer;
-            result.diagnostic.rhat_BN_B = rotations.dcm_BN * rhatCOM_SC_N_Buffer;
-            result.diagnostic.rhat_COB_C = rhatCOB_C;
-            result.diagnostic.rhat_COB_N = rhatCOB_N;
-            result.diagnostic.rhat_COB_B = rotations.dcm_BN * rhatCOB_N;
-            result.diagnostic.centerOfBrightness = centerOfBrightness.head<2>();
             result.diagnostic.centerOfMass = centerOfMass.head<2>();
             result.diagnostic.offsetFactor = correction.gamma;
             result.diagnostic.objectPixelRadius = static_cast<int>(correction.Rc);
             result.diagnostic.phaseAngle = correction.alphaPA;
             result.diagnostic.sunDirection = correction.phi;
-            result.diagnostic.comTimeTag = cob.cobTimeTag;
             result.diagnostic.comValid = correction.validCom;
         }
     }
