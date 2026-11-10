@@ -243,6 +243,14 @@ TEST(CobConverterTest, PixelsFoundIncreaseIsSizeIncreaseTest) {
     // A bigger detected blob (more pixels found) should widen, not shrink, the COM/COB position
     // uncertainty -- confirming this input feeds the algorithm as a size term.
     EXPECT_GT(manyPixels.output.covar_N(0, 0), fewPixels.output.covar_N(0, 0));
+
+    // A non-positive count is rejected like an invalid COB.
+    for (const int32_t pixelsFound : {0, -1, -75}) {
+        const CobConverterUpdateResult rejected = alg.updateState(makeCob(pixelsFound), attitude, filter);
+        EXPECT_FALSE(rejected.output.unitVecValid) << pixelsFound;
+        EXPECT_FALSE(rejected.diagnostic.comValid) << pixelsFound;
+        EXPECT_EQ(rejected.output.covar_N, Eigen::Matrix3f::Zero()) << pixelsFound;
+    }
 }
 
 // A non-converged COM undistortion falls back to the initial guess (the pinhole heading), so it must
