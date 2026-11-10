@@ -28,6 +28,7 @@ class RegionsOfInterestPrune : public SysModel {
     // Phase 1: Public config properties -- set before reset().
     uint32_t x0 = DEFAULT_X0;  //!< [px] Reference point column, in [0, MAX_IMAGE_COLS]
     uint32_t y0 = DEFAULT_Y0;  //!< [px] Reference point row, in [0, MAX_IMAGE_ROWS]
+    float alphaAreaPruneScaling = DEFAULT_ALPHA_AREA_PRUNE_SCALING;  //!< [-] Area exponent, in [-1, 1]
 
     // --- Message interfaces ---
     ReadFunctor<FpgaRowColSumMsgF32Payload> rowColSumInMsg;           //!< Row/col accumulators from fpgaImagePipeline

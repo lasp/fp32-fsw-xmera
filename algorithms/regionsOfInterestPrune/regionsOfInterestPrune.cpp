@@ -23,7 +23,7 @@ void RegionsOfInterestPrune::reset(uint64_t /*callTime*/) {
 
 /*! @brief Build a validated RegionsOfInterestPruneConfig from the adapter's stored properties. */
 RegionsOfInterestPruneConfig RegionsOfInterestPrune::toConfig() const {
-    return RegionsOfInterestPruneConfig::create(this->x0, this->y0);
+    return RegionsOfInterestPruneConfig::create(this->x0, this->y0, this->alphaAreaPruneScaling);
 }
 
 /*! @brief Push a fresh configuration into the algorithm without reconstructing it.
@@ -55,8 +55,13 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
                              .numRegionCols = gridMsg.numRegionCols,
                              .litCounts = std::span<const uint32_t>(this->litCounts.data(), numRegions)};
 
-    const RoiCandidates candidates =
-        this->algorithm->update(rcMsg.rowSums, rcMsg.numRows, rcMsg.colSums, rcMsg.numCols, binGrid);
+    const RoiCandidates candidates = this->algorithm->update(rcMsg.rowSums,
+                                                             rcMsg.numRows,
+                                                             rcMsg.colSums,
+                                                             rcMsg.numCols,
+                                                             rcMsg.rowIntensities,
+                                                             rcMsg.colIntensities,
+                                                             binGrid);
 
     RegionsIdentifiedMsgF32Payload output{};
     const uint32_t numPublished = std::min(candidates.numCandidates, static_cast<uint32_t>(MAX_NUMBER_REGIONS));

@@ -17,6 +17,8 @@ extern "C" {
  *  - row, col       [px] top-left corner of the bounding box
  *  - height, width  [px] bounding box size
  *  - count          [-]  estimated above-threshold pixel count
+ *  - intensity      [-]  estimated intensity, min(row-span intensity sum, col-span intensity sum)
+ *  - scaledIntensity [-] intensity / (width * height)^alphaAreaPruneScaling
  */
 typedef struct {
     uint32_t row;
@@ -24,12 +26,14 @@ typedef struct {
     uint32_t height;
     uint32_t width;
     uint32_t count;
+    uint64_t intensity;
+    float scaledIntensity;
 } RoiCandidateEntry_c;
 
 /**
  * @brief Plain-old-data mirror of the C++ RoiCandidates.
  *  - numCandidates carries the number of valid entries in candidates
- *  - candidates[i] for i < numCandidates is sorted by count descending; trailing slots are zero
+ *  - candidates[i] for i < numCandidates is sorted by scaledIntensity descending; trailing slots are zero
  */
 typedef struct {
     uint32_t numCandidates;
@@ -56,10 +60,12 @@ typedef struct {
  * @brief Plain-old-data mirror of the C++ RegionsOfInterestPruneConfig.
  *  - x0, y0 [px]: absolute reference point (x0 = column, y0 = row). Must satisfy
  *    x0 <= MAX_IMAGE_COLS (4096) and y0 <= MAX_IMAGE_ROWS (3000) (regionsOfInterestPruneAlgorithm.h).
+ *  - alphaAreaPruneScaling [-]: area exponent in scaledIntensity, in [-1, 1].
  */
 typedef struct {
     uint32_t x0;
     uint32_t y0;
+    float alphaAreaPruneScaling;
 } RegionsOfInterestPruneConfig_c;
 
 #ifdef __cplusplus

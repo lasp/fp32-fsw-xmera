@@ -59,14 +59,18 @@ void RegionsOfInterestPruneAlgorithm_setConfig(RegionsOfInterestPruneAlgorithmHa
  * @param numRows  Number of rows in rowSums.
  * @param colSums  Pointer to the per-column above-threshold pixel sums (length numCols).
  * @param numCols  Number of columns in colSums.
+ * @param rowIntensities  Pointer to the per-row intensity sums (length numRows).
+ * @param colIntensities  Pointer to the per-column intensity sums (length numCols).
  * @param binGrid  Pointer to the bin grid of the same image; candidates touching no lit tile are dropped.
- * @return The ranked candidates, sorted by estimated pixel count descending.
+ * @return The ranked candidates, sorted by scaledIntensity descending.
  */
 RoiCandidates_c RegionsOfInterestPruneAlgorithm_update(const RegionsOfInterestPruneAlgorithmHandle* self,
                                                        const uint16_t* rowSums,
                                                        uint32_t numRows,
                                                        const uint16_t* colSums,
                                                        uint32_t numCols,
+                                                       const uint32_t* rowIntensities,
+                                                       const uint32_t* colIntensities,
                                                        const RoiBinGrid_c* binGrid);
 
 #ifdef __cplusplus
