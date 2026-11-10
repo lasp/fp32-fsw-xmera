@@ -95,7 +95,7 @@ inline ReferenceUndistortion undistortBrownConrady(const Eigen::Vector3d& distor
         x = xNext;
         y = yNext;
     }
-    return {{x, y, 1.0}, false};
+    return {{xDistorted, yDistorted, 1.0}, false};
 }
 
 inline Eigen::Vector3d mapState(const Eigen::Vector2d& pixel,
