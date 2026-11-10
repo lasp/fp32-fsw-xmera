@@ -2,6 +2,8 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cmath>
+#include <numbers>
 #include <string>
 
 TEST(CobConverterTest, RegressionTest) {
@@ -294,6 +296,29 @@ TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
     EXPECT_TRUE(pinhole.diagnostic.brownConradyCOBValid);
     EXPECT_TRUE(pinhole.output.unitVecValid);
     EXPECT_EQ(nonConverged.output.rhat_BN_N, pinhole.output.rhat_BN_N);
+}
+
+// Realistic lenses converge within a few iterations over their full field of view (measured max in parentheses).
+TEST(CobConverterTest, BrownConradyRealisticLensConvergesTest) {
+    const auto expectConverges = [](const CalibrationCoefficients& coefficients, float fieldOfView, int maxIterations) {
+        const float halfExtent = std::tan(fieldOfView / 2.0F);
+        constexpr int kSteps = 40;
+        for (int i = 0; i <= kSteps; ++i) {
+            for (int j = 0; j <= kSteps; ++j) {
+                const float x = halfExtent * ((2.0F * static_cast<float>(i) / kSteps) - 1.0F);
+                const float y = halfExtent * ((2.0F * static_cast<float>(j) / kSteps) - 1.0F);
+                const UndistortedCoordinate result =
+                    CobConverterAlgorithm::undistortNormalizedCoordinate(x, y, coefficients);
+                EXPECT_TRUE(result.valid) << "x " << x << " y " << y;
+                EXPECT_LE(result.iterations, maxIterations) << "x " << x << " y " << y;
+            }
+        }
+    };
+    constexpr float kDeg = std::numbers::pi_v<float> / 180.0F;
+    // 60 deg full field of view (16).
+    expectConverges({.k1 = -0.3F, .k2 = 0.1F, .k3 = -0.02F, .p1 = 1e-3F, .p2 = -5e-4F}, 60.0F * kDeg, 20);
+    // 90 deg full field of view, with a lens that does not fold over the sensor (23).
+    expectConverges({.k1 = -0.2F, .k2 = 0.05F, .k3 = 0.0F, .p1 = 1e-3F, .p2 = -5e-4F}, 90.0F * kDeg, 30);
 }
 
 // The phase-angle correction needs a range above the body radius. At or inside the radius the
