@@ -9,6 +9,7 @@
 
 #include "regionsOfInterestPruneAlgorithm.h"
 
+#include <array>
 #include <memory>
 
 /*! @brief adapter for the regions-of-interest pruning module.
@@ -36,6 +37,9 @@ class RegionsOfInterestPrune : public SysModel {
    private:
     RegionsOfInterestPruneConfig toConfig() const;  //!< Single source of truth for reset() + reconfigure()
     std::unique_ptr<RegionsOfInterestPruneAlgorithm> algorithm = nullptr;
+    //!< Lit count per tile copied out of binGridInMsg each update, so the algorithm sees them contiguously.
+    //!< A member rather than a local keeps the 12 KB off the stack.
+    std::array<uint32_t, FPGA_BIN_GRID_MAX_REGIONS> litCounts{};
 };
 
 #endif

@@ -37,6 +37,22 @@ typedef struct {
 } RoiCandidates_c;
 
 /**
+ * @brief Plain-old-data mirror of the C++ RoiBinGrid.
+ *  - regionSize     [px] tile edge length
+ *  - numRegionRows  [-]  number of tile rows, = ceil(numRows / regionSize)
+ *  - numRegionCols  [-]  number of tile columns, = ceil(numCols / regionSize)
+ *  - litCounts      [-]  above-threshold pixel count per tile, row-major (numLitCounts entries)
+ *  - numLitCounts   [-]  must equal numRegionRows * numRegionCols, otherwise no candidates are returned
+ */
+typedef struct {
+    uint32_t regionSize;
+    uint32_t numRegionRows;
+    uint32_t numRegionCols;
+    const uint32_t* litCounts;
+    uint32_t numLitCounts;
+} RoiBinGrid_c;
+
+/**
  * @brief Plain-old-data mirror of the C++ RegionsOfInterestPruneConfig.
  *  - x0, y0 [px]: absolute reference point (x0 = column, y0 = row). Must satisfy
  *    x0 <= MAX_IMAGE_COLS (4096) and y0 <= MAX_IMAGE_ROWS (3000) (regionsOfInterestPruneAlgorithm.h).

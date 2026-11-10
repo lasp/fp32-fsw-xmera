@@ -19,11 +19,13 @@ void RegionsOfInterestPruneAlgorithm::setConfig(const RegionsOfInterestPruneConf
  @param numRows   Number of rows in the sum array.
  @param colSums   Pointer to the per-column above-threshold pixel sums.
  @param numCols   Number of columns in the sum array.
+ @param binGrid   Bin grid of lit tiles covering the same image; candidates touching no lit tile are dropped.
 */
 RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
                                                       uint32_t numRows,
                                                       const uint16_t* colSums,
-                                                      uint32_t numCols) const {
+                                                      uint32_t numCols,
+                                                      const RoiBinGrid& binGrid) const {
     // Reference point (x0 = col, y0 = row).
     const auto referenceRow = static_cast<float>(this->cfg.getY0());
     const auto referenceCol = static_cast<float>(this->cfg.getX0());
@@ -33,8 +35,18 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
     const RowTopSpans rowSpans = findTopSpans<ROW_SPANS_MAX>(std::span<const uint16_t>(rowSums, numRows), referenceRow);
     const ColTopSpans colSpans = findTopSpans<COL_SPANS_MAX>(std::span<const uint16_t>(colSums, numCols), referenceCol);
 
-    // Steps 2–3: form bounding boxes, sort by estimated pixel count, truncate.
-    return packOutput(buildCandidates(rowSpans, colSpans), referenceRow, referenceCol);
+    // Step 2: form bounding boxes from the cross-product of the kept spans.
+    const CandidateArray candidates = buildCandidates(rowSpans, colSpans);
+
+    // Step 3: keep only boxes that overlap at least one lit tile. A grid that does not cover this image
+    // cannot confirm any box, so it yields no candidates.
+    if (!isBinGridUsable(binGrid, numRows, numCols)) {
+        return RoiCandidates{};
+    }
+    const CandidateArray litCandidates = filterByLitTiles(candidates, binGrid);
+
+    // Step 4: sort by estimated pixel count, truncate.
+    return packOutput(litCandidates, referenceRow, referenceCol);
 }
 
 namespace {
@@ -129,6 +141,68 @@ RegionsOfInterestPruneAlgorithm::CandidateArray RegionsOfInterestPruneAlgorithm:
         }
     }
     return candidates;
+}
+
+/*! Checks that the bin grid covers the image the candidates were built from: a non-zero tile size,
+ *  ceil(numRows / regionSize) tile rows, ceil(numCols / regionSize) tile columns, and exactly one lit
+ *  count per tile. Every candidate box then lies inside the grid, so the overlap lookup stays in bounds.
+ @return true when the grid matches the image.
+ @param binGrid  Bin grid to check.
+ @param numRows  [px] Image height the row sums were taken over.
+ @param numCols  [px] Image width the column sums were taken over.
+*/
+// NOLINTBEGIN(bugprone-easily-swappable-parameters) -- numRows/numCols are the paired image dimensions,
+// in the same order as update().
+bool RegionsOfInterestPruneAlgorithm::isBinGridUsable(const RoiBinGrid& binGrid, uint32_t numRows, uint32_t numCols) {
+    if (binGrid.regionSize == 0U) {
+        return false;
+    }
+    // 64-bit so the ceil-division cannot wrap for any regionSize.
+    const uint64_t expectedRows = (static_cast<uint64_t>(numRows) + binGrid.regionSize - 1U) / binGrid.regionSize;
+    const uint64_t expectedCols = (static_cast<uint64_t>(numCols) + binGrid.regionSize - 1U) / binGrid.regionSize;
+    const uint64_t numTiles = static_cast<uint64_t>(binGrid.numRegionRows) * binGrid.numRegionCols;
+    return binGrid.numRegionRows == expectedRows && binGrid.numRegionCols == expectedCols &&
+           numTiles == binGrid.litCounts.size();
+}
+// NOLINTEND(bugprone-easily-swappable-parameters)
+
+/*! Reports whether a candidate box overlaps at least one tile with a non-zero lit count. Only the tiles
+ *  the box covers are visited (rows row/regionSize .. (row+height-1)/regionSize, same for columns), and
+ *  the scan stops at the first lit tile.
+ @return true when any covered tile has litCount > 0.
+ @param candidate  Candidate box (non-empty, inside the grid; see isBinGridUsable).
+ @param binGrid    Usable bin grid.
+*/
+bool RegionsOfInterestPruneAlgorithm::overlapsLitTile(const RoiCandidateEntry& candidate, const RoiBinGrid& binGrid) {
+    const uint32_t firstTileRow = candidate.row / binGrid.regionSize;
+    const uint32_t lastTileRow = (candidate.row + candidate.height - 1U) / binGrid.regionSize;
+    const uint32_t firstTileCol = candidate.col / binGrid.regionSize;
+    const uint32_t lastTileCol = (candidate.col + candidate.width - 1U) / binGrid.regionSize;
+    for (uint32_t tileRow = firstTileRow; tileRow <= lastTileRow; ++tileRow) {
+        for (uint32_t tileCol = firstTileCol; tileCol <= lastTileCol; ++tileCol) {
+            if (binGrid.litCounts[(tileRow * binGrid.numRegionCols) + tileCol] > 0U) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/*! Drops candidates whose box overlaps no lit tile, keeping the survivors in their original order.
+ @return CandidateArray holding only the candidates that touch a lit tile.
+ @param candidates  Candidates from buildCandidates (Step 2).
+ @param binGrid     Usable bin grid (see isBinGridUsable).
+*/
+RegionsOfInterestPruneAlgorithm::CandidateArray RegionsOfInterestPruneAlgorithm::filterByLitTiles(
+    const CandidateArray& candidates,
+    const RoiBinGrid& binGrid) {
+    CandidateArray kept;
+    for (uint32_t i = 0; i < candidates.count; ++i) {
+        if (overlapsLitTile(candidates.data[i], binGrid)) {
+            kept.data[kept.count++] = candidates.data[i];
+        }
+    }
+    return kept;
 }
 
 /*! Sorts candidates by estimated pixel count (descending); ties are broken first by squared distance

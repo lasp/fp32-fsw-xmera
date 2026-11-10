@@ -10,6 +10,13 @@ RegionsOfInterestPruneConfig configFromC(const RegionsOfInterestPruneConfig_c& c
     return RegionsOfInterestPruneConfig::create(c.x0, c.y0);
 }
 
+RoiBinGrid binGridFromC(const RoiBinGrid_c& c) {
+    return RoiBinGrid{.regionSize = c.regionSize,
+                      .numRegionRows = c.numRegionRows,
+                      .numRegionCols = c.numRegionCols,
+                      .litCounts = std::span<const uint32_t>(c.litCounts, c.numLitCounts)};
+}
+
 RoiCandidates_c outputToC(const RoiCandidates& out) {
     RoiCandidates_c result{};
     result.numCandidates = out.numCandidates;
@@ -54,8 +61,9 @@ RoiCandidates_c RegionsOfInterestPruneAlgorithm_update(const RegionsOfInterestPr
                                                        const uint16_t* rowSums,
                                                        uint32_t numRows,
                                                        const uint16_t* colSums,
-                                                       uint32_t numCols) {
-    const RoiCandidates out =
-        fsw::fromHandle<const ::RegionsOfInterestPruneAlgorithm>(self)->update(rowSums, numRows, colSums, numCols);
+                                                       uint32_t numCols,
+                                                       const RoiBinGrid_c* binGrid) {
+    const RoiCandidates out = fsw::fromHandle<const ::RegionsOfInterestPruneAlgorithm>(self)->update(
+        rowSums, numRows, colSums, numCols, binGridFromC(*binGrid));
     return outputToC(out);
 }

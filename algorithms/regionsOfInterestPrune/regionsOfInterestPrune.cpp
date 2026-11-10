@@ -42,8 +42,21 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
     }
 
     const FpgaRowColSumMsgF32Payload rcMsg = this->rowColSumInMsg();
+    // The algorithm takes its own grid type, not the payload: copy the lit counts out of the
+    // {x, y, litPixelCount} regions into a contiguous array. numRegions is clamped to the array size;
+    // the algorithm rejects a grid whose tile count does not match the image.
+    const FpgaBinGridMsgF32Payload& gridMsg = this->binGridInMsg();
+    const uint32_t numRegions = std::min(gridMsg.numRegions, static_cast<uint32_t>(FPGA_BIN_GRID_MAX_REGIONS));
+    for (uint32_t i = 0; i < numRegions; ++i) {
+        this->litCounts[i] = gridMsg.regions[i].litPixelCount;
+    }
+    const RoiBinGrid binGrid{.regionSize = gridMsg.regionSize,
+                             .numRegionRows = gridMsg.numRegionRows,
+                             .numRegionCols = gridMsg.numRegionCols,
+                             .litCounts = std::span<const uint32_t>(this->litCounts.data(), numRegions)};
+
     const RoiCandidates candidates =
-        this->algorithm->update(rcMsg.rowSums, rcMsg.numRows, rcMsg.colSums, rcMsg.numCols);
+        this->algorithm->update(rcMsg.rowSums, rcMsg.numRows, rcMsg.colSums, rcMsg.numCols, binGrid);
 
     RegionsIdentifiedMsgF32Payload output{};
     const uint32_t numPublished = std::min(candidates.numCandidates, static_cast<uint32_t>(MAX_NUMBER_REGIONS));

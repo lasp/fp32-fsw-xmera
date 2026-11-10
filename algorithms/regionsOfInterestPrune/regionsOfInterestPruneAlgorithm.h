@@ -31,6 +31,22 @@ struct RoiCandidateEntry {
     uint32_t count{};   //!< [-] Estimated above-threshold pixel count
 };
 
+/*! @brief Bin grid of ROI tiles covering the image, used to drop candidates that touch no lit tile.
+ *
+ *  Tiles are regionSize x regionSize pixels in row-major order; tiles at the right and bottom edges
+ *  can be smaller. litCounts[tileRow * numRegionCols + tileCol] is the number of above-threshold
+ *  pixels in that tile. The grid must cover the image passed to update(): numRegionRows =
+ *  ceil(numRows / regionSize), numRegionCols = ceil(numCols / regionSize), and litCounts holds
+ *  exactly numRegionRows * numRegionCols entries. Otherwise update() treats the grid as unusable and
+ *  returns no candidates.
+ */
+struct RoiBinGrid {
+    uint32_t regionSize{};                //!< [px] Tile edge length
+    uint32_t numRegionRows{};             //!< [-]  Number of tile rows
+    uint32_t numRegionCols{};             //!< [-]  Number of tile columns
+    std::span<const uint32_t> litCounts;  //!< [-]  Above-threshold pixel count per tile, row-major
+};
+
 struct RoiCandidates {
     uint32_t numCandidates{};                                        //!< [-] Number of valid entries
     std::array<RoiCandidateEntry, ROI_CANDIDATES_MAX> candidates{};  //!< [-] Sorted by count descending,
@@ -92,7 +108,11 @@ class RegionsOfInterestPruneAlgorithm final {
 
     void setConfig(const RegionsOfInterestPruneConfig& config);
 
-    RoiCandidates update(const uint16_t* rowSums, uint32_t numRows, const uint16_t* colSums, uint32_t numCols) const;
+    RoiCandidates update(const uint16_t* rowSums,
+                         uint32_t numRows,
+                         const uint16_t* colSums,
+                         uint32_t numCols,
+                         const RoiBinGrid& binGrid) const;
 
    private:
     RegionsOfInterestPruneConfig cfg;
@@ -125,7 +145,12 @@ class RegionsOfInterestPruneAlgorithm final {
     // Step 2: cross-product of top row/col spans → bounding-box candidates.
     static CandidateArray buildCandidates(const RowTopSpans& rowSpans, const ColTopSpans& colSpans);
 
-    // Step 3: sort candidates by count descending (ties broken by distance to the reference point,
+    // Step 3: drop candidates that overlap no lit tile of the bin grid.
+    static CandidateArray filterByLitTiles(const CandidateArray& candidates, const RoiBinGrid& binGrid);
+    static bool isBinGridUsable(const RoiBinGrid& binGrid, uint32_t numRows, uint32_t numCols);
+    static bool overlapsLitTile(const RoiCandidateEntry& candidate, const RoiBinGrid& binGrid);
+
+    // Step 4: sort candidates by count descending (ties broken by distance to the reference point,
     // then window area), truncate, and pack the result.
     static RoiCandidates packOutput(CandidateArray candidates, float referenceRow, float referenceCol);
 };
