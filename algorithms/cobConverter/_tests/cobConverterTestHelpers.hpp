@@ -148,9 +148,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
                                                             bool* outlierNearThreshold = nullptr) {
     CobConverterUpdateResult output;
 
-    if (!cob.cobValid || cob.cobPixelsFound == 0 ||
-        filter.filterVehPosition.stableNorm() <= static_cast<double>(cfg.getRadius()) ||
-        !attitude.vehSunPntBdy.allFinite() || attitude.vehSunPntBdy.stableNorm() == 0.0F) {
+    if (!cob.cobValid || cob.cobPixelsFound == 0) {
         return output;
     }
 
@@ -171,18 +169,34 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const double dX = cameraCalibrationMatrix(0, 0);
     const double dY = cameraCalibrationMatrix(1, 1);
 
-    // The Binary correction is unconditional, so alpha/phi/Rc/gamma always compute.
+    // Without a usable sunline, or inside the body radius, the COB is the COM.
     const Eigen::Vector3d position = filter.filterVehPosition;
-    const Eigen::Vector3d rHat_N = position.stableNormalized();
-    const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().stableNormalized();
-    const Eigen::Vector3d shat_N = dcm_BN.transpose() * shat_B;
-    const Eigen::Vector3d shat_C = dcm_CB * shat_B;
+    const bool phaseCorrected = position.stableNorm() > static_cast<double>(cfg.getRadius()) &&
+                                attitude.vehSunPntBdy.allFinite() && attitude.vehSunPntBdy.stableNorm() > 0.0F;
+    double alpha = 0.0;
+    double phi = 0.0;
+    double gamma = 0.0;
+    double objectRadiusPixels = 0.0;
+    double tanBeta = 0.0;
+    double betaVar = 0.0;
+    if (phaseCorrected) {
+        const Eigen::Vector3d rHat_N = position.stableNormalized();
+        const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().stableNormalized();
+        const Eigen::Vector3d shat_N = dcm_BN.transpose() * shat_B;
+        const Eigen::Vector3d shat_C = dcm_CB * shat_B;
 
-    const double alpha = safeAcos(rHat_N.dot(shat_N));
-    const double phi = safeAtan2(shat_C(1), shat_C(0));
-    const double gamma = (4.0 / (3.0 * std::numbers::pi)) * (1.0 - safeCos(alpha));
-    const double objectRadiusPixels = static_cast<double>(cfg.getRadius()) * dX / position.stableNorm();
-    const double tanBeta = static_cast<double>(cfg.getRadius()) * gamma / position.stableNorm();
+        alpha = safeAcos(rHat_N.dot(shat_N));
+        phi = safeAtan2(shat_C(1), shat_C(0));
+        gamma = (4.0 / (3.0 * std::numbers::pi)) * (1.0 - safeCos(alpha));
+        objectRadiusPixels = static_cast<double>(cfg.getRadius()) * dX / position.stableNorm();
+        tanBeta = static_cast<double>(cfg.getRadius()) * gamma / position.stableNorm();
+        betaVar = betaVariance(position,
+                               static_cast<double>(cfg.getRadius()),
+                               alpha,
+                               shat_N,
+                               static_cast<double>(cfg.getRadiusUncertainty()),
+                               filter.filterVehPositionCovariance);
+    }
 
     const Eigen::Vector2d cobPixels = cob.cobCenterOfBrightness.cast<double>();
     const Eigen::Vector2d comPixels(cobPixels(0) - (tanBeta * dX * safeCos(phi)),
@@ -208,13 +222,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const Eigen::Matrix3d attitudeCovariance = cfg.getAttitudeCovariance().cast<double>();
     const Eigen::Matrix2d covarCOBuv = (pixelsFound / (4.0 * std::numbers::pi)) * Eigen::Matrix2d::Identity();
     const double onePlusTanBetaSq = 1.0 + (tanBeta * tanBeta);
-    const double phaseVar = betaVariance(filter.filterVehPosition,
-                                         static_cast<double>(cfg.getRadius()),
-                                         alpha,
-                                         shat_N,
-                                         static_cast<double>(cfg.getRadiusUncertainty()),
-                                         filter.filterVehPositionCovariance) *
-                            onePlusTanBetaSq * onePlusTanBetaSq;
+    const double phaseVar = betaVar * onePlusTanBetaSq * onePlusTanBetaSq;
     Eigen::Matrix2d pixelToNormalized = Eigen::Matrix2d::Zero();
     pixelToNormalized(0, 0) = 1.0 / dX;
     pixelToNormalized(1, 1) = 1.0 / dY;
@@ -244,7 +252,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 
     bool goodOutlierCheck = true;
     bool comErrorOutlierTrigger = false;
-    if (cfg.isOutlierDetectionEnabled()) {
+    if (cfg.isOutlierDetectionEnabled() && phaseCorrected) {
         // Mirrors comOutlierDetection: COM heading vs filter heading, both COM->SC in N.
         const Eigen::Vector3d rhatNav_N = filter.filterVehPosition.stableNormalized();
         const double error = ((dcm_NC * rhatCOM_C) - rhatNav_N).stableNorm();

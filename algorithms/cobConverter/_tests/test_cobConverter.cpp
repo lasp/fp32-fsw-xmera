@@ -297,7 +297,8 @@ TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
 
 // The phase-angle correction needs a range above the body radius. At or inside the radius the
 // update is skipped and the output stays zeroed and invalid.
-TEST(CobConverterTest, VehicleAtOrInsideBodyRadiusInvalidatesOutputTest) {
+// Without a usable sunline, or at/inside the body radius, the COB is published as the COM.
+TEST(CobConverterTest, PhaseCorrectionUnavailablePublishesCobTest) {
     constexpr float radius = 25.0e3F;  // [m]
     const CobConverterAlgorithm algorithm(CobConverterConfig::create(radius,
                                                                      /*radiusUncertainty=*/0.0F,
@@ -317,24 +318,30 @@ TEST(CobConverterTest, VehicleAtOrInsideBodyRadiusInvalidatesOutputTest) {
                              .cobPixelsFound = 75,
                              .cobCenterOfBrightness = Eigen::Vector2f{256.0F, 256.0F},
                              .cobTimeTag = 12345U};
-    const auto updateAt = [&](const Eigen::Vector3d& position) {
-        const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(),
-                                       .vehSunPntBdy = position.normalized().cast<float>()};
+    const auto updateAt = [&](const Eigen::Vector3d& position, const Eigen::Vector3f& vehSunPntBdy) {
+        const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .vehSunPntBdy = vehSunPntBdy};
         const FilterState filter{.filterVehPosition = position,
                                  .filterVehPositionCovariance = Eigen::Matrix3d::Identity() * 50.0e3};
         return algorithm.updateState(cob, attitude, filter);
     };
+    const auto expectCobPublished = [&](const CobConverterUpdateResult& result, const std::string& label) {
+        EXPECT_TRUE(result.output.unitVecValid) << label;
+        EXPECT_TRUE(result.diagnostic.comValid) << label;
+        EXPECT_EQ(result.diagnostic.centerOfMass, cob.cobCenterOfBrightness) << label;
+        EXPECT_EQ(result.diagnostic.offsetFactor, 0.0F) << label;
+        // COB at the principal point with identity rotations: heading along -boresight.
+        EXPECT_TRUE(result.output.rhat_BN_N.isApprox(Eigen::Vector3f{0.0F, 0.0F, -1.0F})) << label;
+    };
 
     const Eigen::Vector3d direction = Eigen::Vector3d{-5.0, -3.0, 0.0}.normalized();
+    const Eigen::Vector3f sunAlongPosition = direction.cast<float>();
     for (const double range : {0.5 * radius, static_cast<double>(radius)}) {
-        const CobConverterUpdateResult result = updateAt(range * direction);
-        EXPECT_FALSE(result.output.unitVecValid) << "range " << range;
-        EXPECT_FALSE(result.diagnostic.comValid) << "range " << range;
-        EXPECT_EQ(result.output.rhat_BN_N, Eigen::Vector3f::Zero()) << "range " << range;
+        expectCobPublished(updateAt(range * direction, sunAlongPosition), "range " + std::to_string(range));
     }
+    expectCobPublished(updateAt(500.0e3 * direction, Eigen::Vector3f::Zero()), "zero sunline");
 
     // Control: the same geometry far outside the body is published as valid.
-    EXPECT_TRUE(updateAt(500.0e3 * direction).output.unitVecValid);
+    EXPECT_TRUE(updateAt(500.0e3 * direction, sunAlongPosition).output.unitVecValid);
 }
 
 TEST(CobConverterTest, SetupTest) {

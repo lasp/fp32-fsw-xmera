@@ -268,7 +268,7 @@ struct Rotations {
     Eigen::Matrix3f dcm_NC = Eigen::Matrix3f::Zero();
 };
 
-/*! Phase-angle correction terms, computed every cycle by computePhaseAngleCorrection. */
+/*! Phase-angle correction terms from computePhaseAngleCorrection; zero when no correction applies. */
 struct PhaseAngleCorrectionResult {
     Eigen::Vector3d sc_position = Eigen::Vector3d::Zero();
     double spacecraftRange = 0.0;

@@ -290,6 +290,7 @@ bool CobConverterAlgorithm::comOutlierDetection(const Eigen::Vector3d& filterVeh
  *
  * Publishes the COM heading and its covariance; the COB is undistorted only to report
  * brownConradyCOBValid on the diagnostic. Camera parameters are precomputed by setConfig().
+ * Without a usable sunline, or inside the body radius, the COB is published as the COM.
  *
  * @param cob COB measurement payload.
  * @param attitude Vehicle attitude knowledge (body orientation and sun direction).
@@ -301,55 +302,64 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
                                                             const FilterState& filter) const {
     CobConverterUpdateResult result;
 
-    if (cob.cobValid && cob.cobPixelsFound != 0 &&
-        filter.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius()) &&
-        attitude.vehSunPntBdy.allFinite() && attitude.vehSunPntBdy.stableNorm() > 0.0F) {
+    if (cob.cobValid && cob.cobPixelsFound != 0) {
         const Rotations rotations = this->computeRotations(attitude.sigma_BN);
 
-        PhaseAngleCorrectionResult correction =
-            this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.vehSunPntBdy, rotations.dcm_BN);
+        const Eigen::Vector3f centerOfBrightness{cob.cobCenterOfBrightness(0), cob.cobCenterOfBrightness(1), 1.0F};
+        const Eigen::Vector3f xy1COB = this->cameraCalibrationMatrixInverse * centerOfBrightness;
+        const UndistortedCoordinate cobUndistorted = CobConverterAlgorithm::undistortNormalizedCoordinate(
+            xy1COB(0), xy1COB(1), this->cfg.getCalibrationCoefficients());
+        result.diagnostic.brownConradyCOBValid = cobUndistorted.valid;
 
-        const float uCOB = cob.cobCenterOfBrightness(0);
-        const float vCOB = cob.cobCenterOfBrightness(1);
-        const auto tanBeta = static_cast<float>(this->cfg.getRadius() * correction.gamma / correction.spacecraftRange);
-        const float uCOM = uCOB - (tanBeta * this->dX * safeCosf(correction.phi));
-        const float vCOM = vCOB - (tanBeta * this->dY * safeSinf(correction.phi));
-        const Eigen::Vector3f centerOfMass{uCOM, vCOM, 1.0F};
-        const Eigen::Vector3f xy1COM = this->cameraCalibrationMatrixInverse * centerOfMass;
-        const auto [xCOMCorrected, yCOMCorrected, brownConradyCOMValid, brownConradyCOMIterations] =
-            CobConverterAlgorithm::undistortNormalizedCoordinate(
+        // P_cob_uv, and P_cob_xy in the normalized image plane
+        const Eigen::Matrix2f covarCOBuv =
+            (static_cast<float>(cob.cobPixelsFound) / kSphereSolidAngle) * Eigen::Matrix2f::Identity();
+        Eigen::Matrix2f S = Eigen::Matrix2f::Zero();
+        S(0, 0) = 1.0F / this->dX;
+        S(1, 1) = 1.0F / this->dY;
+        const Eigen::Matrix2f covarCOBxy = S * covarCOBuv * S.transpose();
+
+        // Without a usable sunline, or inside the body radius, publish the COB as the COM.
+        const bool phaseCorrected =
+            filter.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius()) &&
+            attitude.vehSunPntBdy.allFinite() && attitude.vehSunPntBdy.stableNorm() > 0.0F;
+        PhaseAngleCorrectionResult correction;
+        Eigen::Vector3f centerOfMass;
+        UndistortedCoordinate comUndistorted;
+        Eigen::Matrix2f covarCOMxy;  // P_com_xy (distorted ~= corrected)
+        if (phaseCorrected) {
+            correction =
+                this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.vehSunPntBdy, rotations.dcm_BN);
+            const auto tanBeta =
+                static_cast<float>(this->cfg.getRadius() * correction.gamma / correction.spacecraftRange);
+            const float cosPhi = safeCosf(correction.phi);
+            const float sinPhi = safeSinf(correction.phi);
+            centerOfMass << centerOfBrightness(0) - (tanBeta * this->dX * cosPhi),
+                centerOfBrightness(1) - (tanBeta * this->dY * sinPhi), 1.0F;
+            const Eigen::Vector3f xy1COM = this->cameraCalibrationMatrixInverse * centerOfMass;
+            comUndistorted = CobConverterAlgorithm::undistortNormalizedCoordinate(
                 xy1COM(0), xy1COM(1), this->cfg.getCalibrationCoefficients());
+            const float onePlusTanBetaSq = 1.0F + (tanBeta * tanBeta);
+            const float sec4Beta = onePlusTanBetaSq * onePlusTanBetaSq;
+            const float phaseVar = this->computeBetaVar(filter.filterVehPositionCovariance, correction) * sec4Beta;
+            const Eigen::Vector2f a{cosPhi, sinPhi};
+            covarCOMxy = covarCOBxy + (phaseVar * (a * a.transpose()));
+        } else {
+            // No phase-angle correction: the COB is the COM.
+            centerOfMass = centerOfBrightness;
+            comUndistorted = cobUndistorted;
+            covarCOMxy = covarCOBxy;
+        }
+
+        const float xCOMCorrected = comUndistorted.xUndistorted;
+        const float yCOMCorrected = comUndistorted.yUndistorted;
+        const bool brownConradyCOMValid = comUndistorted.valid;
         const Eigen::Vector3f xy1COMCorrected{xCOMCorrected, yCOMCorrected, 1.0F};
         result.diagnostic.brownConradyCOMValid = brownConradyCOMValid;
         const Eigen::Vector3f rhatCOM_SC_C_Buffer = -xy1COMCorrected.stableNormalized();
         const Eigen::Vector3f rhatCOM_SC_N_Buffer = rotations.dcm_NC * rhatCOM_SC_C_Buffer;
 
-        const Eigen::Vector3f centerOfBrightness{uCOB, vCOB, 1.0F};
-        const Eigen::Vector3f xy1COB = this->cameraCalibrationMatrixInverse * centerOfBrightness;
-        const auto [xCOBCorrected, yCOBCorrected, brownConradyCOBValid, brownConradyCOBIterations] =
-            CobConverterAlgorithm::undistortNormalizedCoordinate(
-                xy1COB(0), xy1COB(1), this->cfg.getCalibrationCoefficients());
-        result.diagnostic.brownConradyCOBValid = brownConradyCOBValid;
-
         correction.validCom = centerOfMass.allFinite();
-
-        // P_cob_uv
-        const Eigen::Matrix2f covarCOBuv =
-            (static_cast<float>(cob.cobPixelsFound) / kSphereSolidAngle) * Eigen::Matrix2f::Identity();
-
-        // P_com_xy (distorted ~= corrected)
-        const float onePlusTanBetaSq = 1.0F + (tanBeta * tanBeta);
-        const float sec4Beta = onePlusTanBetaSq * onePlusTanBetaSq;
-        const float betaVar = this->computeBetaVar(filter.filterVehPositionCovariance, correction);
-        const float phaseVar = betaVar * sec4Beta;
-        const float cosPhi = safeCosf(correction.phi);
-        const float sinPhi = safeSinf(correction.phi);
-        Eigen::Matrix2f S = Eigen::Matrix2f::Zero();
-        S(0, 0) = 1.0F / this->dX;
-        S(1, 1) = 1.0F / this->dY;
-        Eigen::Vector2f a;
-        a << cosPhi, sinPhi;
-        const Eigen::Matrix2f covarCOMxy = S * covarCOBuv * S.transpose() + phaseVar * (a * a.transpose());
 
         // P_^C rhat_COM_SC
         const Eigen::Vector3f h{xCOMCorrected, yCOMCorrected, 1.0F};
@@ -371,8 +381,8 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         const Eigen::Matrix3f covarRHat_N_Buffer = covarImageN + covarAttitudeN;
 
         if (rhatCOM_SC_C_Buffer.allFinite() && covarRHat_N_Buffer.allFinite()) {
-            bool goodOutlierCheck = true;  // passes when outlier detection is disabled
-            if (this->cfg.isOutlierDetectionEnabled()) {
+            bool goodOutlierCheck = true;  // passes when outlier detection is disabled or no correction applies
+            if (this->cfg.isOutlierDetectionEnabled() && phaseCorrected) {
                 goodOutlierCheck = this->comOutlierDetection(filter.filterVehPosition,
                                                              filter.filterVehPositionCovariance,
                                                              covarRHat_N_Buffer,
