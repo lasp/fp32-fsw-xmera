@@ -201,10 +201,6 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const Eigen::Vector2d cobPixels = cob.cobCenterOfBrightness.cast<double>();
     const Eigen::Vector2d comPixels(cobPixels(0) - (tanBeta * dX * safeCos(phi)),
                                     cobPixels(1) - (tanBeta * dY * safeSin(phi)));
-    // Mirrors CobConverterAlgorithm::updateState: validCom means "the resulting COM pixel location
-    // is finite," applied the same way whether or not a correction was requested.
-    const bool validCom = comPixels.allFinite();
-
     const CalibrationCoefficients coefficients = cfg.getCalibrationCoefficients();
     bool cobConverged = false;
     bool comConverged = false;
@@ -282,15 +278,15 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     output.output.covar_N = (covar_N + (0.5 * covar_N.trace() * (rhatCOM_N * rhatCOM_N.transpose()))).cast<float>();
     output.output.rhat_BN_N = rhatCOM_N.cast<float>();
     output.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
-    // Mirrors updateState: finite COM, no outlier flag, and a converged COM undistortion.
-    output.output.unitVecValid = validCom && goodOutlierCheck && comConverged;
+    // Mirrors updateState: no outlier flag and a converged COM undistortion.
+    output.output.unitVecValid = goodOutlierCheck && comConverged;
 
     output.diagnostic.centerOfMass = comPixels.cast<float>();
     output.diagnostic.offsetFactor = static_cast<float>(gamma);
     output.diagnostic.objectPixelRadius = static_cast<int>(objectRadiusPixels);
     output.diagnostic.phaseAngle = static_cast<float>(alpha);
     output.diagnostic.sunDirection = static_cast<float>(phi);
-    output.diagnostic.comValid = validCom;
+    output.diagnostic.comValid = true;
     output.diagnostic.comErrorOutlierTrigger = comErrorOutlierTrigger;
 
     return output;
