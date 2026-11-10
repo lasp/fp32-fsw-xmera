@@ -243,7 +243,7 @@ TEST(CobConverterTest, PixelsFoundIncreaseIsSizeIncreaseTest) {
     EXPECT_GT(manyPixels.output.covar_N(0, 0), fewPixels.output.covar_N(0, 0));
 }
 
-// A non-converged COM undistortion leaves the heading at the last fixed-point iterate, so it must
+// A non-converged COM undistortion falls back to the initial guess (the pinhole heading), so it must
 // not be published as valid; the heading is still populated for debugging.
 TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
     const Eigen::Matrix3f zeroCovariance = Eigen::Matrix3f::Zero();
@@ -293,6 +293,7 @@ TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
     ASSERT_TRUE(pinhole.diagnostic.brownConradyCOMValid);
     EXPECT_TRUE(pinhole.diagnostic.brownConradyCOBValid);
     EXPECT_TRUE(pinhole.output.unitVecValid);
+    EXPECT_EQ(nonConverged.output.rhat_BN_N, pinhole.output.rhat_BN_N);
 }
 
 // The phase-angle correction needs a range above the body radius. At or inside the radius the

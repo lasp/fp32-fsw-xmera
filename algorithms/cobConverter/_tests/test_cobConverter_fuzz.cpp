@@ -231,6 +231,10 @@ void fuzzUndistortArbitraryInputs(float xDistorted,
     EXPECT_TRUE(fsw::is_finite(result.yUndistorted));
     if (result.valid) {
         expectUndistortRoundTrip(xDistorted, yDistorted, coefficients, result);
+    } else {
+        // Not converged: the initial guess is returned.
+        EXPECT_EQ(result.xUndistorted, xDistorted);
+        EXPECT_EQ(result.yUndistorted, yDistorted);
     }
 }
 

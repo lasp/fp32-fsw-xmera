@@ -148,8 +148,8 @@ PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(co
  * @param xDistorted Distorted normalized x.
  * @param yDistorted Distorted normalized y.
  * @param coefficients Brown-Conrady coefficients.
- * @return Undistorted coordinate and fixed-point updates taken; valid is false (with the last
- *         finite iterate) if not converged.
+ * @return Undistorted coordinate and fixed-point updates taken; valid is false (with the initial
+ *         guess x_d, y_d) if not converged.
  */
 UndistortedCoordinate CobConverterAlgorithm::undistortNormalizedCoordinate(
     const float xDistorted,
@@ -203,8 +203,8 @@ UndistortedCoordinate CobConverterAlgorithm::undistortNormalizedCoordinate(
         xUndistorted = xNext;
         yUndistorted = yNext;
     }
-    // Not converged: return the last finite iterate, flagged.
-    return {.xUndistorted = xUndistorted, .yUndistorted = yUndistorted, .valid = false, .iterations = kMaxIterations};
+    // Not converged: return the initial guess, flagged.
+    return {.xUndistorted = xDistorted, .yUndistorted = yDistorted, .valid = false, .iterations = kMaxIterations};
 }
 
 /**
