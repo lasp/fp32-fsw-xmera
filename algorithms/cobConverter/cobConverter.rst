@@ -6,8 +6,9 @@ transforms into a position measurement. The written message contains a heading (
 (measurement noise).
 
 The published heading is the center of mass (COM), estimated from the COB using a Sun phase angle correction. The
-correction uses the "Binary" method, which assumes a brightness of either 1 or 0 in the image of the body, and is
-applied on every cycle. The COM offset itself is reported on the diagnostic message.
+correction uses the "Binary" method, which assumes a brightness of either 1 or 0 in the image of the body. Without a
+usable Sun direction, or when the range does not exceed the object radius, the COB is published as the COM, without the
+phase-angle variance or the outlier check. The COM offset itself is reported on the diagnostic message.
 
 Optionally, Brown-Conrady distortion coefficients can be provided; the measured normalized image-plane coordinate is
 then undistorted by inverting the Brown-Conrady model before the heading vector is computed.
