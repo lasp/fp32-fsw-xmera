@@ -148,7 +148,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
                                                             bool* outlierNearThreshold = nullptr) {
     CobConverterUpdateResult output;
 
-    if (!cob.cobValid || cob.cobPixelsFound == 0) {
+    if (!cob.cobValid || cob.cobPixelsFound <= 0) {
         return output;
     }
 
@@ -468,6 +468,13 @@ inline void testCobConverter(float radius,
     bool outlierNearThreshold = false;
     const CobConverterUpdateResult ref =
         referenceCobConverterUpdate(*cfg, cob, attitude, filter, &brownConradyConverged, &outlierNearThreshold);
+
+    // An invalid COB or a non-positive pixel count is rejected.
+    if (!cob.cobValid || cob.cobPixelsFound <= 0) {
+        EXPECT_FALSE(out.output.unitVecValid);
+        EXPECT_EQ(out.output.covar_N, Eigen::Matrix3f::Zero());
+        return;
+    }
 
     // No well-defined answer: non-converged Brown-Conrady inverse (either precision) or error at the outlier gate.
     if (!brownConradyConverged || !out.diagnostic.brownConradyCOMValid || !out.diagnostic.brownConradyCOBValid ||

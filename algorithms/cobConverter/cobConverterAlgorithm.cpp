@@ -294,14 +294,14 @@ bool CobConverterAlgorithm::comOutlierDetection(const Eigen::Vector3d& filterVeh
  * @param cob COB measurement payload.
  * @param attitude Vehicle attitude knowledge (body orientation and sun direction).
  * @param filter Filter position state and covariance.
- * @return Populated CobConverterUpdateResult (zeroed if cob.cobValid is false or cob.cobPixelsFound is zero).
+ * @return Populated CobConverterUpdateResult (zeroed if cob.cobValid is false or cob.cobPixelsFound is not positive).
  */
 CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement& cob,
                                                             const VehicleAttitude& attitude,
                                                             const FilterState& filter) const {
     CobConverterUpdateResult result;
 
-    if (cob.cobValid && cob.cobPixelsFound != 0) {
+    if (cob.cobValid && cob.cobPixelsFound > 0) {
         const Rotations rotations = this->computeRotations(attitude.sigma_BN);
 
         const Eigen::Vector3f centerOfBrightness{cob.cobCenterOfBrightness(0), cob.cobCenterOfBrightness(1), 1.0F};

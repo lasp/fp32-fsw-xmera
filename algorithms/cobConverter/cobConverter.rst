@@ -201,7 +201,7 @@ covariance adds the mean cross-sight variance along it, so that a consumer that 
 The residual along :math:`\hat{\mathbf{r}}^N` is second order, so the added term carries no weight. The outlier gate
 uses :math:`P^N`.
 
-If the COB message is invalid or has no pixels, the module writes empty messages.
+If the COB message is invalid or its pixel count is not positive, the module writes empty messages.
 
 Camera distortion calibration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

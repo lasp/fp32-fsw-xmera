@@ -67,11 +67,10 @@ auto arbitraryUnitVectorDomain() {
         fuzztest::InRange(-kPi, kPi));
 }
 
-// cobPixelsFound: bright-pixel count, never negative. 0 is included deliberately (with
-// cobValid=true) to exercise the "no pixels found" branch without a divide-by-zero -- both
-// scaleFactor's argument and safeSqrtf(0) are well-defined at 0. 1e6 covers a detection filling
-// most of the widest fuzzed resolution (8192x8192) without being physically absurd.
-auto cobPixelsFoundDomain() { return fuzztest::InRange(0, 1000000); }
+// cobPixelsFound: bright-pixel count. Non-positive values are included to exercise the rejection
+// gate. 1e6 covers a detection filling most of the widest fuzzed resolution (8192x8192) without
+// being physically absurd.
+auto cobPixelsFoundDomain() { return fuzztest::InRange(-1000000, 1000000); }
 
 // cobCenterOfBrightness is fuzzed as a fraction of the image in [0, 1]^2 and scaled by the
 // per-sample resolution (see testCobConverterOnSensor), so every detection lies on the sensor:
