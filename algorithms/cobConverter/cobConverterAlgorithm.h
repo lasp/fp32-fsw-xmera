@@ -57,27 +57,18 @@ struct CobConverterOutput {
     bool unitVecValid{};                                  //!< [--] COM unit vector validity flag
 };
 
-/*! Diagnostic output: the non-inertial frames, the COB quantities and the phase-angle
-    correction metadata. Maps 1:1 onto CobConverterDiagnosticMsgF32Payload. */
+/*! Diagnostic output: the COM pixel coordinates and the phase-angle correction metadata.
+    Maps 1:1 onto CobConverterDiagnosticMsgF32Payload. */
 struct CobConverterDiagnosticOutput {
-    Eigen::Matrix3f covar_C = Eigen::Matrix3f::Zero();             //!< [--] COM covariance, camera frame
-    Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();             //!< [--] COM covariance, body frame
-    Eigen::Vector3f rhat_BN_C = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, camera frame
-    Eigen::Vector3f rhat_BN_B = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, body frame
-    Eigen::Vector3f rhat_COB_C = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, camera frame
-    Eigen::Vector3f rhat_COB_N = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, inertial frame
-    Eigen::Vector3f rhat_COB_B = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, body frame
-    Eigen::Vector2f centerOfBrightness = Eigen::Vector2f::Zero();  //!< [px] COB pixel coordinates
-    Eigen::Vector2f centerOfMass = Eigen::Vector2f::Zero();        //!< [px] COM pixel coordinates
-    float offsetFactor{};                                          //!< [--] phase-angle offset factor (gamma)
-    int objectPixelRadius{};                                       //!< [px] object radius in pixels
-    float phaseAngle{};                                            //!< [rad] phase angle alpha_PA
-    float sunDirection{};                                          //!< [rad] sun direction phi in image plane
-    uint64_t comTimeTag{};                                         //!< [ns] measurement timestamp
-    bool comValid{};                                               //!< [--] COM validity flag
-    bool comErrorOutlierTrigger{};  //!< [--] true if the COM heading error exceeded the gate
-    bool brownConradyCOMValid{};    //!< [--] true if the COM Brown-Conrady undistortion converged
-    bool brownConradyCOBValid{};    //!< [--] true if the COB Brown-Conrady undistortion converged
+    Eigen::Vector2f centerOfMass = Eigen::Vector2f::Zero();  //!< [px] COM pixel coordinates
+    float offsetFactor{};                                    //!< [--] phase-angle offset factor (gamma)
+    int objectPixelRadius{};                                 //!< [px] object radius in pixels
+    float phaseAngle{};                                      //!< [rad] phase angle alpha_PA
+    float sunDirection{};                                    //!< [rad] sun direction phi in image plane
+    bool comValid{};                                         //!< [--] COM validity flag
+    bool comErrorOutlierTrigger{};                           //!< [--] true if the COM heading error exceeded the gate
+    bool brownConradyCOMValid{};  //!< [--] true if the COM Brown-Conrady undistortion converged
+    bool brownConradyCOBValid{};  //!< [--] true if the COB Brown-Conrady undistortion converged
 };
 
 /*! Pair returned by updateState: the essential output plus the diagnostic snapshot, so the
@@ -291,9 +282,8 @@ struct PhaseAngleCorrectionResult {
 
 /**
  * @class CobConverterAlgorithm
- * @brief Converts center-of-brightness (COB) pixel measurements into unit vectors
- *        (camera, body, inertial frames), with optional phase-angle correction
- *        and outlier detection.
+ * @brief Converts center-of-brightness (COB) pixel measurements into an inertial-frame
+ *        unit vector, with optional phase-angle correction and outlier detection.
  */
 class CobConverterAlgorithm final {
    public:
