@@ -17,26 +17,30 @@ typedef struct MrpRotationAlgorithmHandle MrpRotationAlgorithmHandle;
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param initialSigmaRR0 [-] seed MRP of the rotating frame R wrt R0; must be finite.
- * @param omegaRR0R        [rad/s] constant angular velocity of R wrt R0 in R components; must be finite.
- * @param controlPeriod    [s] forward-Euler integration step used every update; must be finite and > 0.
+ * @param sigma_RcR0    [-] fixed body correction, corrected frame Rc wrt input reference R0; must be finite.
+ * @param sigma_RpRc    [-] commanded pointing offset, frame Rp wrt Rc in body axes; must be finite.
+ * @param omega_RRp_R   [rad/s] constant rotation rate of R wrt Rp in output (body) axes; must be finite.
+ * @param controlPeriod [s] forward-Euler integration step used every update; must be finite and > 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool MrpRotationAlgorithm_validateConfig(const Vector3f_c* initialSigmaRR0,
-                                         const Vector3f_c* omegaRR0R,
+bool MrpRotationAlgorithm_validateConfig(const Vector3f_c* sigma_RcR0,
+                                         const Vector3f_c* sigma_RpRc,
+                                         const Vector3f_c* omega_RRp_R,
                                          float controlPeriod);
 
 /**
  * @brief Construct a new MrpRotationAlgorithm instance from the supplied configuration.
- * @param initialSigmaRR0 [-] seed MRP of the rotating frame R wrt R0; must be finite.
- * @param omegaRR0R        [rad/s] constant angular velocity of R wrt R0 in R components; must be finite.
- * @param controlPeriod    [s] forward-Euler integration step used every update; must be finite and > 0.
+ * @param sigma_RcR0    [-] fixed body correction, corrected frame Rc wrt input reference R0; must be finite.
+ * @param sigma_RpRc    [-] commanded pointing offset, frame Rp wrt Rc in body axes; must be finite.
+ * @param omega_RRp_R   [rad/s] constant rotation rate of R wrt Rp in output (body) axes; must be finite.
+ * @param controlPeriod [s] forward-Euler integration step used every update; must be finite and > 0.
  * @return Pointer to a new MrpRotationAlgorithm (must be destroyed).
  * Validate the configuration with validateConfig first; invalid input throws.
  */
-MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const Vector3f_c* initialSigmaRR0,
-                                                        const Vector3f_c* omegaRR0R,
+MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const Vector3f_c* sigma_RcR0,
+                                                        const Vector3f_c* sigma_RpRc,
+                                                        const Vector3f_c* omega_RRp_R,
                                                         float controlPeriod);
 
 /**
@@ -46,18 +50,19 @@ MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const Vector3f_c* initia
 void MrpRotationAlgorithm_destroy(MrpRotationAlgorithmHandle* self);
 
 /**
- * @brief Replace the algorithm's configuration at runtime. Re-seeds the rotating MRP set and angular
- *        velocity from the new configuration's initial values, so every reconfiguration restarts the
- *        rotating reference from its configured seed.
- * @param self             Pointer to the instance.
- * @param initialSigmaRR0 [-] seed MRP of the rotating frame R wrt R0; must be finite.
- * @param omegaRR0R        [rad/s] constant angular velocity of R wrt R0 in R components; must be finite.
- * @param controlPeriod    [s] forward-Euler integration step used every update; must be finite and > 0.
+ * @brief Replace the algorithm's configuration at runtime. The new body correction and pointing offset apply
+ *        at the next update; the integrated rotation is kept.
+ * @param self          Pointer to the instance.
+ * @param sigma_RcR0    [-] fixed body correction, corrected frame Rc wrt input reference R0; must be finite.
+ * @param sigma_RpRc    [-] commanded pointing offset, frame Rp wrt Rc in body axes; must be finite.
+ * @param omega_RRp_R   [rad/s] constant rotation rate of R wrt Rp in output (body) axes; must be finite.
+ * @param controlPeriod [s] forward-Euler integration step used every update; must be finite and > 0.
  * Validate the configuration with validateConfig first; invalid input throws.
  */
 void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self,
-                                    const Vector3f_c* initialSigmaRR0,
-                                    const Vector3f_c* omegaRR0R,
+                                    const Vector3f_c* sigma_RcR0,
+                                    const Vector3f_c* sigma_RpRc,
+                                    const Vector3f_c* omega_RRp_R,
                                     float controlPeriod);
 
 /**
@@ -72,7 +77,7 @@ MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self
                                                 const MrpRotationAttRefInputs_c* attRef);
 
 /**
- * @brief Re-seed the rotating reference MRP set (sigma_RR0) from the configured initial value.
+ * @brief Restart the integrated rotation (sigma_RRp) at identity.
  * @param self Pointer to the instance.
  */
 void MrpRotationAlgorithm_reInitialize(MrpRotationAlgorithmHandle* self);

@@ -3,58 +3,47 @@
 #include <Eigen/Geometry>
 #include <utilities/fsw/rigidBodyKinematics.hpp>
 
-/*! @brief Construct the algorithm with a validated configuration. Stores the configuration and seeds
- the integrating runtime state (sigma_RR0) from the configured initial value via reInitialize() so the
- first update produces a sensible result.
- @param config Validated configuration (initial sigma_RR0, omega_RR0_R, and integration controlPeriod).
+/*! @brief Construct the algorithm with a validated configuration and start the rotation at identity.
+ @param config Validated configuration.
  */
 MrpRotationAlgorithm::MrpRotationAlgorithm(const MrpRotationConfig& config) : cfg(config) {
     setConfig(config);
     reInitialize();
 }
 
-/*! @brief Replace the algorithm's stored configuration at runtime. The runtime integrator state
- (sigma_RR0) is preserved; call reInitialize() to restart the rotating reference from the configured seed.
- @param config New validated configuration to apply.
+/*! @brief Replace the configuration at runtime. The new body correction and pointing offset apply at the next
+ update; the integrated rotation sigma_RRp is kept.
+ @param config New validated configuration.
  */
-void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) { this->cfg = config; }
+void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) {
+    this->cfg = config;
+    this->dcm_RpR0 = mrpToDcm(this->cfg.getSigma_RpRc()) * mrpToDcm(this->cfg.getSigma_RcR0());
+}
 
-/*! @brief Re-seed the runtime integrator state (sigma_RR0) from the current configuration's initial
- value, restarting the rotating reference from its configured seed. The constant angular velocity
- omega_RR0_R is read from the configuration directly and needs no runtime copy.
- */
-void MrpRotationAlgorithm::reInitialize() { this->sigma_RR0 = this->cfg.getInitialSigmaRR0(); }
+/*! @brief Restart the integrated rotation sigma_RRp at identity. */
+void MrpRotationAlgorithm::reInitialize() { this->sigma_RRp.setZero(); }
 
-/*! @brief Take the input attitude reference frame and superimpose the algorithm's MRP rotation on
- top of it: advance sigma_RR0 by one forward-Euler step (using the configured controlPeriod as dt),
- compose with the input reference attitude/rate/acceleration, and emit the output reference frame.
- Uses the transport theorem (with R-frame d/dt(omega_RR0) = 0) for the inertial angular acceleration.
- @param attRef Guidance reference input (sigma_R0N, omega_R0N_N, domega_R0N_N), already converted to
-        Eigen by the adapter.
- @return MrpRotationOutput Output reference frame R: sigma_RN, omega_RN_N, domega_RN_N.
+/*! @brief Advance sigma_RRp one forward-Euler step of controlPeriod and compose the output reference
+ [RN] = [RRp][RpRc][RcR0][R0N].
+ @param attRef Input reference R0 (sigma_R0N, omega_R0N_N, domega_R0N_N).
+ @return MrpRotationOutput Output reference R: sigma_RN, omega_RN_N, domega_RN_N.
  */
 MrpRotationOutput MrpRotationAlgorithm::update(const MrpRotationAttRefInputs& attRef) {
-    /*! - Advance sigma_RR0 one forward-Euler step using the MRP kinematic differential equation,
-     *    then shadow-switch to keep the representation bounded. */
-    const Eigen::Vector3f sigmaDot_RR0 = dmrp(this->sigma_RR0, this->cfg.getOmegaRR0R());
-    const Eigen::Vector3f mrpSetNew = this->sigma_RR0 + (sigmaDot_RR0 * this->cfg.getControlPeriod());
-    this->sigma_RR0 = mrpSwitch(mrpSetNew);
+    const Eigen::Vector3f& omega_RRp_R = this->cfg.getOmega_RRp_R();
+    const Eigen::Vector3f sigmaDot_RRp = dmrp(this->sigma_RRp, omega_RRp_R);
+    this->sigma_RRp = mrpSwitch(Eigen::Vector3f(this->sigma_RRp + (sigmaDot_RRp * this->cfg.getControlPeriod())));
 
-    /*! - Compose with the input reference frame to produce the output R/N attitude and rates. */
-    const Eigen::Matrix3f dcm_RR0 = mrpToDcm(this->sigma_RR0);
+    const Eigen::Matrix3f dcm_RRp = mrpToDcm(this->sigma_RRp);
     const Eigen::Matrix3f dcm_R0N = mrpToDcm(attRef.sigma_R0N);
-    const Eigen::Matrix3f dcm_RN = dcm_RR0 * dcm_R0N;
+    const Eigen::Matrix3f dcm_RN = dcm_RRp * this->dcm_RpR0 * dcm_R0N;
 
-    const Eigen::Vector3f omega_RR0_N = dcm_RN.transpose() * this->cfg.getOmegaRR0R();
-    const Eigen::Vector3f domega_RR0_N = attRef.omega_R0N_N.cross(omega_RR0_N);
-
-    const Eigen::Vector3f sigma_RN = dcmToMrp(dcm_RN);
-    const Eigen::Vector3f omega_RN_N = omega_RR0_N + attRef.omega_R0N_N;
-    const Eigen::Vector3f domega_RN_N = domega_RR0_N + attRef.domega_R0N_N;
+    // Rp is fixed in R0, so omega_RR0 = omega_RRp.
+    const Eigen::Vector3f omega_RRp_N = dcm_RN.transpose() * omega_RRp_R;
+    const Eigen::Vector3f domega_RRp_N = attRef.omega_R0N_N.cross(omega_RRp_N);
 
     return MrpRotationOutput{
-        .sigma_RN = sigma_RN,
-        .omega_RN_N = omega_RN_N,
-        .domega_RN_N = domega_RN_N,
+        .sigma_RN = dcmToMrp(dcm_RN),
+        .omega_RN_N = omega_RRp_N + attRef.omega_R0N_N,
+        .domega_RN_N = domega_RRp_N + attRef.domega_R0N_N,
     };
 }
