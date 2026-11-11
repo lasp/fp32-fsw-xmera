@@ -21,9 +21,7 @@ typedef struct CobConverterAlgorithmHandle CobConverterAlgorithmHandle;
  * @param radiusUncertainty          [m]   object radius uncertainty; must be >= 0.
  * @param attitudeCovariance         [-]   attitude error-MRP covariance, body frame; must be finite.
  * @param numStandardDeviations      [-]   number of sigmas for outlier gating; must be > 0.
- * @param standardDeviation          [px]  per-axis 1-sigma of the COM pixel error, used only when
- *                                         specifiedStandardDeviation is true; must be > 0 when specified.
- * @param specifiedStandardDeviation [-]   true if standardDeviation should be used as-is.
+ * @param outlierRadiusMultiple      [-]   body radii added to the outlier gate; must be > 0.
  * @param outlierDetectionEnabled    [-]   enable COB outlier detection.
  * @param calibrationCoefficients    [-]   Brown-Conrady distortion coefficients; must be finite.
  * @param cameraId                   [-]   camera identifier (unconstrained).
@@ -40,8 +38,7 @@ bool CobConverterAlgorithm_validateConfig(float radius,
                                           float radiusUncertainty,
                                           Matrix3f_c attitudeCovariance,
                                           float numStandardDeviations,
-                                          float standardDeviation,
-                                          bool specifiedStandardDeviation,
+                                          float outlierRadiusMultiple,
                                           bool outlierDetectionEnabled,
                                           CalibrationCoefficients_c calibrationCoefficients,
                                           int32_t cameraId,
@@ -61,8 +58,7 @@ CobConverterAlgorithmHandle* CobConverterAlgorithm_create(float radius,
                                                           float radiusUncertainty,
                                                           Matrix3f_c attitudeCovariance,
                                                           float numStandardDeviations,
-                                                          float standardDeviation,
-                                                          bool specifiedStandardDeviation,
+                                                          float outlierRadiusMultiple,
                                                           bool outlierDetectionEnabled,
                                                           CalibrationCoefficients_c calibrationCoefficients,
                                                           int32_t cameraId,
@@ -89,8 +85,7 @@ void CobConverterAlgorithm_setConfig(CobConverterAlgorithmHandle* self,
                                      float radiusUncertainty,
                                      Matrix3f_c attitudeCovariance,
                                      float numStandardDeviations,
-                                     float standardDeviation,
-                                     bool specifiedStandardDeviation,
+                                     float outlierRadiusMultiple,
                                      bool outlierDetectionEnabled,
                                      CalibrationCoefficients_c calibrationCoefficients,
                                      int32_t cameraId,

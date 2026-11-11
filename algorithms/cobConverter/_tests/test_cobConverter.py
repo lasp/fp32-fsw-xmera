@@ -154,8 +154,6 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.radiusUncertainty = R_object_uncer
     module.attitudeCovariance = covar_att_B
     module.numStandardDeviations = 3
-    module.standardDeviation = 100
-    module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
     # Distinct X/Y values so this broad, heavily-parametrized regression test actually
     # exercises independent fields of view, instead of masking a bug where X and Y are
@@ -230,13 +228,6 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     unitTestSim.InitializeSimulation()
     unitTestSim.ConfigureStopTime(testProcessRate)
     unitTestSim.ExecuteSimulation()
-
-    # the target is at the center of the image, as this test assumes perfect pointing at the target.
-    # Thus, for the outlier check, the expected COB is at the center of the image.
-    # This compares the input COB with the expected COB
-    cobCenter = np.array(cameraResolution) / 2
-    cobErrorCenter = np.linalg.norm(np.array(centerOfBrightness) - cobCenter)
-    acceptedCobError = module.numStandardDeviations * module.standardDeviation
 
     # Truth Values
     if numberOfPixels > 0:
@@ -363,8 +354,6 @@ def test_coberror_outlier(
     module.radiusUncertainty = R_object_uncer
     module.attitudeCovariance = covar_att_B
     module.numStandardDeviations = 3
-    module.standardDeviation = 100
-    module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
     module.fieldOfViewX = np.deg2rad(20.0)
     module.fieldOfViewY = np.deg2rad(20.0)
@@ -432,17 +421,25 @@ def test_coberror_outlier(
     dataDiagnostic = module.cobConverterDiagnosticOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataDiagnostic)
 
-    module.numStandardDeviations = 100
-    unitTestSim.InitializeSimulation()
-    unitTestSim.ConfigureStopTime(testProcessRate)
-    unitTestSim.ExecuteSimulation()
-    np.testing.assert_equal(dataDiagnostic.comErrorOutlierTrigger, False, err_msg='comErrorOutlierTrigger should be False')
+    def run(outlierRadiusMultiple):
+        module.outlierRadiusMultiple = outlierRadiusMultiple
+        unitTestSim.InitializeSimulation()
+        unitTestSim.ConfigureStopTime(testProcessRate)
+        unitTestSim.ExecuteSimulation()
+        return np.array(dataLogUnitVec.rhat_BN_N[-1], dtype=np.float64), dataDiagnostic.comErrorOutlierTrigger[-1]
 
-    module.numStandardDeviations = 0.01
-    unitTestSim.InitializeSimulation()
-    unitTestSim.ConfigureStopTime(testProcessRate)
-    unitTestSim.ExecuteSimulation()
-    np.testing.assert_equal(dataDiagnostic.comErrorOutlierTrigger, True, err_msg='comErrorOutlierTrigger should be True')
+    # Gate: d <= N R + n_sigma sqrt(tr(P)), d the miss distance of the line of sight from the filter position.
+    rhat_N, _ = run(5.0)
+    if r_BdyZero_N @ rhat_N > 0:
+        d = np.linalg.norm(np.cross(r_BdyZero_N, rhat_N))
+    else:
+        d = np.linalg.norm(r_BdyZero_N)
+    sigma = np.sqrt(np.trace(full_covariance[:3, :3]))
+    for outlierRadiusMultiple in [0.5 * d / R_object, 2.0 * d / R_object]:
+        _, trigger = run(outlierRadiusMultiple)
+        d_max = outlierRadiusMultiple * R_object + module.numStandardDeviations * sigma
+        np.testing.assert_equal(bool(trigger), d > d_max,
+                                err_msg=f'comErrorOutlierTrigger with d = {d} m, d_max = {d_max} m')
 
 
 def apply_brown_conrady(uncalibrated, k1, k2, k3, p1, p2):

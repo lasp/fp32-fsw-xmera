@@ -8,7 +8,7 @@ transforms into a position measurement. The written message contains a heading (
 The published heading is the center of mass (COM), estimated from the COB using a Sun phase angle correction. The
 correction uses the "Binary" method, which assumes a brightness of either 1 or 0 in the image of the body. Without a
 usable Sun direction, or when the range does not exceed the object radius, the COB is published as the COM, without the
-phase-angle variance or the outlier check. The COM offset itself is reported on the diagnostic message.
+phase-angle variance; the outlier check still applies. The COM offset itself is reported on the diagnostic message.
 
 Optionally, Brown-Conrady distortion coefficients can be provided; the measured normalized image-plane coordinate is
 then undistorted by inverting the Brown-Conrady model before the heading vector is computed.
@@ -198,8 +198,7 @@ covariance adds the mean cross-sight variance along it, so that a consumer that 
 
     P^N_{pub} = P^N + \frac{\operatorname{tr}(P^N)}{2} \, \hat{\mathbf{r}}^N \hat{\mathbf{r}}^{N\,T}
 
-The residual along :math:`\hat{\mathbf{r}}^N` is second order, so the added term carries no weight. The outlier gate
-uses :math:`P^N`.
+The residual along :math:`\hat{\mathbf{r}}^N` is second order, so the added term carries no weight.
 
 If the COB message is invalid or its pixel count is not positive, the module writes empty messages.
 
@@ -235,31 +234,26 @@ heading; a non-converged COB undistortion is only reported via ``brownConradyCOB
 COM outlier detection
 ^^^^^^^^^^^^^^^^^^^^^
 
-When ``outlierDetectionEnabled`` is true, the measured COM heading :math:`\hat{\mathbf{r}}^N` is compared with the
-heading predicted by the filter position :math:`\mathbf{r}^N` (spacecraft relative to the body, from
-:ref:`FilterMsgPayload`). Both point from the COM to the spacecraft:
+When ``outlierDetectionEnabled`` is true, the measured line of sight must pass near the body center predicted by the
+filter position :math:`\mathbf{r}^N` (spacecraft relative to the body, from :ref:`FilterMsgPayload`). With
+:math:`\hat{\mathbf{r}}^N` the published COM-to-spacecraft heading, the miss distance is
 
 .. math::
 
-    \hat{\mathbf{r}}_{nav}^N = \frac{\mathbf{r}^N}{|\mathbf{r}^N|}, \qquad
-    e = | \hat{\mathbf{r}}^N - \hat{\mathbf{r}}_{nav}^N | \approx \theta
+    d = \begin{cases}
+        |\mathbf{r}^N \times \hat{\mathbf{r}}^N| & \mathbf{r}^N \cdot \hat{\mathbf{r}}^N > 0 \\
+        |\mathbf{r}^N| & \text{otherwise}
+    \end{cases}, \qquad
+    d_{max} = N R + n_\sigma \sqrt{\operatorname{tr}[P]}
 
-where :math:`\theta` is the angle between them. Unless :math:`e < n_\sigma \sigma`, with :math:`n_\sigma` =
-``numStandardDeviations``, the output unit vector is invalidated and ``comErrorOutlierTrigger`` is set.
+where :math:`N` = ``outlierRadiusMultiple``, :math:`n_\sigma` = ``numStandardDeviations`` and :math:`[P]` is the
+filter position covariance. If the heading points away from the body, the closest point of the line of sight is the
+spacecraft itself. Unless :math:`d \le d_{max}`, the output unit vector is invalidated and ``comErrorOutlierTrigger``
+is set. This runs on both the phase-corrected and the COB-as-COM paths.
 
-:math:`\sigma` is the RMS of :math:`e`. If ``specifiedStandardDeviation`` is true, ``standardDeviation`` :math:`s` is the
-per-axis 1-sigma of the COM pixel error [px], and :math:`\sigma = s \sqrt{1/d_x^2 + 1/d_y^2}` (pixel scale at
-boresight). Otherwise, treating the measurement and filter errors as independent,
-
-.. math::
-
-    P_{nav}^N = \frac{(I - \hat{\mathbf{r}}_{nav}\hat{\mathbf{r}}_{nav}^T) [P] (I - \hat{\mathbf{r}}_{nav}\hat{\mathbf{r}}_{nav}^T)}
-    {|\mathbf{r}^N|^2}, \qquad \sigma = \sqrt{\operatorname{tr}\left(P^N + P_{nav}^N\right)}
-
-where :math:`[P]` is the filter position covariance and :math:`P_{nav}^N` is its linearized effect on the predicted
-heading; the projection removes the range error. For an isotropic in-plane error, :math:`e` is Rayleigh distributed, and
-a valid measurement is rejected with probability :math:`\exp(-n_\sigma^2)`, about :math:`10^{-4}` for
-:math:`n_\sigma = 3`. The filter state is used as received, without propagation to the image time.
+:math:`N R` covers the body size: the COB-to-COM offset is at most :math:`0.85 R`. :math:`n_\sigma \sqrt{\operatorname{tr}[P]}`
+covers the filter position uncertainty, so a filter that has not converged does not reject good measurements. The
+gate uses only the published heading and the filter state as received, without propagation to the image time.
 
 User Guide
 ----------
@@ -287,13 +281,11 @@ add the module to the simulation task (``reset()`` validates the configuration a
 
 ``attitudeCovariance`` is the covariance of the attitude error MRP, in the body frame.
 
-The outlier detection is disabled by default; enable it and configure the sigma-based gate by::
+The outlier detection is disabled by default; enable it and configure the gate by::
 
     module.outlierDetectionEnabled = True
+    module.outlierRadiusMultiple = 5  # default 5
     module.numStandardDeviations = 3  # default 3
-    module.specifiedStandardDeviation = True
-    module.standardDeviation = 100  # [px]; only used when specifiedStandardDeviation is True; otherwise the standard
-                                     # deviation is dynamically computed by the module
 
 The Brown-Conrady distortion coefficients are optional and default to zero. To apply a lens calibration, populate a
 ``CalibrationCoefficients`` struct and assign it to the module::

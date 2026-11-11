@@ -246,35 +246,27 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
         return output;
     }
 
+    const Eigen::Vector3d rhatCOM_N = dcm_NC * rhatCOM_C;
+
     bool goodOutlierCheck = true;
     bool comErrorOutlierTrigger = false;
-    if (cfg.isOutlierDetectionEnabled() && phaseCorrected) {
-        // Mirrors comOutlierDetection: COM heading vs filter heading, both COM->SC in N.
-        const Eigen::Vector3d rhatNav_N = filter.filterVehPosition.stableNormalized();
-        const double error = ((dcm_NC * rhatCOM_C) - rhatNav_N).stableNorm();
-        double sigma = 0.0;
-        if (cfg.isStandardDeviationSpecified()) {
-            sigma = static_cast<double>(cfg.getStandardDeviation()) * safeSqrt((1.0 / (dX * dX)) + (1.0 / (dY * dY)));
-        } else {
-            const Eigen::Matrix3d projection = Eigen::Matrix3d::Identity() - (rhatNav_N * rhatNav_N.transpose());
-            const Eigen::Matrix3d covarNav_N = projection * filter.filterVehPositionCovariance *
-                                               projection.transpose() / filter.filterVehPosition.squaredNorm();
-            sigma = safeSqrt((covar_N + covarNav_N).trace());
-        }
-        const double threshold = static_cast<double>(cfg.getNumStandardDeviations()) * sigma;
-        goodOutlierCheck = error < threshold;
+    if (cfg.isOutlierDetectionEnabled()) {
+        // Mirrors comOutlierDetection: miss distance of the line of sight from the filter-predicted body center.
+        const double missDistance =
+            position.dot(rhatCOM_N) > 0.0 ? position.cross(rhatCOM_N).stableNorm() : position.stableNorm();
+        const double gate =
+            (static_cast<double>(cfg.getOutlierRadiusMultiple()) * static_cast<double>(cfg.getRadius())) +
+            (static_cast<double>(cfg.getNumStandardDeviations()) *
+             safeSqrt(filter.filterVehPositionCovariance.trace()));
+        goodOutlierCheck = missDistance <= gate;
         comErrorOutlierTrigger = !goodOutlierCheck;
-        // fp32 and double may disagree within rounding noise of the gate: 1e-2 relative (sigma) + 1e-6 absolute
-        // (chord).
+        // fp32 and double headings agree to ~1e-3 (the rhat tolerance), which moves d by up to ~2e-3 * |r_f|.
         if (outlierNearThreshold != nullptr) {
-            *outlierNearThreshold = std::abs(error - threshold) < (1e-2 * threshold) + 1e-6;
+            *outlierNearThreshold = std::abs(missDistance - gate) < (2e-3 * position.stableNorm()) + (1e-6 * gate);
         }
     }
 
-    const Eigen::Vector3d rhatCOM_N = dcm_NC * rhatCOM_C;
-
-    // The published covariance adds the mean cross-sight variance along the line of sight; the outlier gate and the
-    // diagnostic keep the physical one.
+    // The published covariance adds the mean cross-sight variance along the line of sight.
     output.output.covar_N = (covar_N + (0.5 * covar_N.trace() * (rhatCOM_N * rhatCOM_N.transpose()))).cast<float>();
     output.output.rhat_BN_N = rhatCOM_N.cast<float>();
     output.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
@@ -415,8 +407,7 @@ inline void testCobConverter(float radius,
                              float radiusUncertainty,
                              const Eigen::Matrix3f& attitudeCovariance,
                              float numStandardDeviations,
-                             float standardDeviation,
-                             bool specifiedStandardDeviation,
+                             float outlierRadiusMultiple,
                              bool outlierDetectionEnabled,
                              const CalibrationCoefficients& calibrationCoefficients,
                              int cameraId,
@@ -439,8 +430,7 @@ inline void testCobConverter(float radius,
                                          radiusUncertainty,
                                          attitudeCovariance,
                                          numStandardDeviations,
-                                         standardDeviation,
-                                         specifiedStandardDeviation,
+                                         outlierRadiusMultiple,
                                          outlierDetectionEnabled,
                                          calibrationCoefficients,
                                          cameraId,

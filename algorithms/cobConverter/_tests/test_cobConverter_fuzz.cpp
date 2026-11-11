@@ -23,9 +23,8 @@ auto attitudeCovarianceDomain() {
 
 // numStandardDeviations is the n-sigma outlier-gating threshold
 auto numStandardDeviationsDomain() { return fuzztest::InRange(0.0F, 100.0F); }
-// standardDeviation is the fixed 1-sigma pixel-space error bound used directly as the
-// outlier-gating sigma when specifiedStandardDeviation=true.
-auto StandardDeviationsDomain() { return fuzztest::InRange(0.0F, 1000.0F); }
+// outlierRadiusMultiple is the number of body radii in the outlier gate.
+auto outlierRadiusMultipleDomain() { return fuzztest::InRange(0.5F, 10.0F); }
 // Brown-Conrady distortion coefficients (normalized image-plane units). Ranges bracket typical
 // OpenCV/MATLAB calibrations with margin, rather than arbitrary values that put the polynomial far
 // outside any real lens.
@@ -106,8 +105,7 @@ void testCobConverterOnSensor(float radius,
                               float radiusUncertainty,
                               const Eigen::Matrix3f& attitudeCovariance,
                               float numStandardDeviations,
-                              float standardDeviation,
-                              bool specifiedStandardDeviation,
+                              float outlierRadiusMultiple,
                               bool outlierDetectionEnabled,
                               const CalibrationCoefficients& calibrationCoefficients,
                               int cameraId,
@@ -130,8 +128,7 @@ void testCobConverterOnSensor(float radius,
                      radiusUncertainty,
                      attitudeCovariance,
                      numStandardDeviations,
-                     standardDeviation,
-                     specifiedStandardDeviation,
+                     outlierRadiusMultiple,
                      outlierDetectionEnabled,
                      calibrationCoefficients,
                      cameraId,
@@ -160,9 +157,7 @@ FUZZ_TEST(CobConverterFuzz, testCobConverterOnSensor)
                  fuzztest::InRange(0.0F, 1.0e6F),  // radiusUncertainty [m]
                  attitudeCovarianceDomain(),       // attitudeCovariance
                  numStandardDeviationsDomain(),    // numStandardDeviations
-                 StandardDeviationsDomain(),       // standardDeviation
-                 fuzztest::OneOf(fuzztest::Just(true),
-                                 fuzztest::Just(false)),  // specifiedStandardDeviation
+                 outlierRadiusMultipleDomain(),    // outlierRadiusMultiple
                  fuzztest::OneOf(fuzztest::Just(true),
                                  fuzztest::Just(false)),  // outlierDetectionEnabled
                  calibrationCoefficientsDomain(),         // calibrationCoefficients
