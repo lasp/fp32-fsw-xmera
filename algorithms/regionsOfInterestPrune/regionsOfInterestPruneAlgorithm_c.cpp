@@ -25,7 +25,7 @@ RoiCandidates_c outputToC(const RoiCandidates& out) {
         result.candidates[i].col = out.candidates[i].col;
         result.candidates[i].height = out.candidates[i].height;
         result.candidates[i].width = out.candidates[i].width;
-        result.candidates[i].count = out.candidates[i].count;
+        result.candidates[i].litPixelCount = out.candidates[i].litPixelCount;
         result.candidates[i].intensity = out.candidates[i].intensity;
         result.candidates[i].scaledIntensity = out.candidates[i].scaledIntensity;
     }

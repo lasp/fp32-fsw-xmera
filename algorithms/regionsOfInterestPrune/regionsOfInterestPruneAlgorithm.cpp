@@ -39,25 +39,28 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
 
     // Step 1: locate contiguous non-zero spans, keeping only the spans closest to the reference point
     // to bound the cross-product size.
-    const RowTopSpans rowSpans = findTopSpans<ROW_SPANS_MAX>(
+    const RowClosestSpans rowSpans = findClosestSpans<ROW_SPANS_MAX>(
         std::span<const uint16_t>(rowSums, numRows), std::span<const uint32_t>(rowIntensities, numRows), referenceRow);
-    const ColTopSpans colSpans = findTopSpans<COL_SPANS_MAX>(
+    const ColClosestSpans colSpans = findClosestSpans<COL_SPANS_MAX>(
         std::span<const uint16_t>(colSums, numCols), std::span<const uint32_t>(colIntensities, numCols), referenceCol);
 
     // Step 2: form bounding boxes from the cross-product of the kept spans.
-    const CandidateArray candidates = buildCandidates(rowSpans, colSpans);
+    const RoiCandidates candidates = buildCandidates(rowSpans, colSpans);
 
-    // Step 3: keep only boxes that overlap at least one lit tile, setting each box's count to the lit
+    // Step 3: keep only boxes that overlap at least one lit tile, setting each box's litPixelCount to the lit
     // pixels of the tiles it covers. A grid that does not cover this image cannot confirm any box, so it
     // yields no candidates.
     if (!isBinGridUsable(binGrid, numRows, numCols)) {
         return RoiCandidates{};
     }
-    CandidateArray litCandidates = filterByLitTiles(candidates, binGrid);
+    RoiCandidates litCandidates = filterByLitTiles(candidates, binGrid);
 
-    // Step 4: scale intensity by area^alpha, then sort by scaledIntensity (ties: closer to the reference point).
+    // Step 4: scale each box's intensity by area^alpha.
     scaleIntensityByArea(litCandidates, this->cfg.getAlphaAreaPruneScaling());
-    return packOutput(litCandidates, referenceRow, referenceCol);
+
+    // Step 5: sort by scaledIntensity, ties broken by distance to the reference point.
+    rankCandidates(litCandidates, referenceRow, referenceCol);
+    return litCandidates;
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
@@ -81,85 +84,80 @@ float squaredDistanceToReference(const RoiCandidateEntry& candidate, float refer
 // NOLINTEND(bugprone-easily-swappable-parameters)
 }  // namespace
 
-/*! Scans a 1-D sum array for contiguous non-zero spans and keeps the Capacity spans whose midpoints
+/*! Scans a 1-D count array for contiguous non-zero spans and keeps the Capacity spans whose midpoints
  *  (start + length/2) are closest to the reference coordinate, in a single forward pass.  Each
  *  finished span is insertion-sorted into a fixed-capacity buffer (O(N * Capacity)); when the buffer
  *  is full, a span replaces the current farthest only if it is strictly closer, so on ties the
  *  earlier span wins.  Spans are found from the counts; each span also sums the matching intensities.
- @return TopSpans holding at most Capacity spans, sorted by distance ascending.
- @param s          Span over the 1-D sum array.
- @param intensities  Span over the 1-D intensity array, same length as s.
+ @return ClosestSpans holding at most Capacity spans, sorted by distance ascending.
+ @param counts       Span over the 1-D above-threshold pixel count array.
+ @param intensities  Span over the 1-D intensity array, same length as counts.
  @param reference  [px] Reference coordinate along this axis (reference row or reference col).
 */
 template <uint32_t Capacity>
-RegionsOfInterestPruneAlgorithm::TopSpans<Capacity> RegionsOfInterestPruneAlgorithm::findTopSpans(
-    std::span<const uint16_t> s,
+RegionsOfInterestPruneAlgorithm::ClosestSpans<Capacity> RegionsOfInterestPruneAlgorithm::findClosestSpans(
+    std::span<const uint16_t> counts,
     std::span<const uint32_t> intensities,
     float reference) {
-    TopSpans<Capacity> top;
-    const auto n = static_cast<uint32_t>(s.size());
+    ClosestSpans<Capacity> closest;
+    const auto n = static_cast<uint32_t>(counts.size());
     uint32_t pos = 0;
     while (pos < n) {
-        if (s[pos] == 0) {
+        if (counts[pos] == 0) {
             ++pos;
             continue;
         }
 
         const uint32_t spanStart = pos;
-        uint32_t sum = 0;
         uint64_t intensity = 0;  // 64-bit: a span of many rows can exceed uint32_t
-        while (pos < n && s[pos] != 0) {
-            sum += s[pos];
+        while (pos < n && counts[pos] != 0) {
             intensity += intensities[pos];
             ++pos;
         }
         const uint32_t length = pos - spanStart;
         const float midpoint = static_cast<float>(spanStart) + (static_cast<float>(length) / 2.0F);
         const float distance = fabsf(midpoint - reference);
-        const SpanEntry span{
-            .start = spanStart, .length = length, .sum = sum, .intensity = intensity, .distance = distance};
+        const SpanEntry span{.start = spanStart, .length = length, .intensity = intensity, .distance = distance};
 
         // Append if there is room, otherwise overwrite the farthest kept span if this one is closer.
         uint32_t slot = 0;
-        if (top.count < Capacity) {
-            slot = top.count++;
-        } else if (distance < top.data[Capacity - 1].distance) {
+        if (closest.count < Capacity) {
+            slot = closest.count++;
+        } else if (distance < closest.data[Capacity - 1].distance) {
             slot = Capacity - 1;
         } else {
             continue;
         }
         // Bubble the new span up past strictly farther spans to keep data[0..count) sorted.
-        while (slot > 0 && top.data[slot - 1].distance > distance) {
-            top.data[slot] = top.data[slot - 1];
+        while (slot > 0 && closest.data[slot - 1].distance > distance) {
+            closest.data[slot] = closest.data[slot - 1];
             --slot;
         }
-        top.data[slot] = span;
+        closest.data[slot] = span;
     }
-    return top;
+    return closest;
 }
 
-/*! Forms bounding-box candidates from the cross-product of the top row and col spans.
- *  The estimated pixel count for each box is min(R[k], C[l]) — the tightest upper bound
- *  obtainable from 1-D projections alone.  The estimated intensity is min(row-span intensity,
- *  col-span intensity) on the same reasoning; scaledIntensity is set later by scaleIntensityByArea.
- @return CandidateArray of RoiCandidateEntry, one per (row span × col span) pair.
- @param rowSpans  Closest row spans selected by findTopSpans (Step 1).
- @param colSpans  Closest col spans selected by findTopSpans (Step 1).
+/*! Forms bounding-box candidates from the cross-product of the closest row and col spans.
+ *  The estimated intensity for each box is min(row-span intensity, col-span intensity) — the tightest
+ *  upper bound obtainable from 1-D projections alone. litPixelCount is set later by filterByLitTiles
+ *  and scaledIntensity by scaleIntensityByArea.
+ @return RoiCandidates with one entry per (row span × col span) pair.
+ @param rowSpans  Closest row spans selected by findClosestSpans (Step 1).
+ @param colSpans  Closest col spans selected by findClosestSpans (Step 1).
 */
-RegionsOfInterestPruneAlgorithm::CandidateArray RegionsOfInterestPruneAlgorithm::buildCandidates(
-    const RowTopSpans& rowSpans,
-    const ColTopSpans& colSpans) {
-    CandidateArray candidates;
+RoiCandidates RegionsOfInterestPruneAlgorithm::buildCandidates(const RowClosestSpans& rowSpans,
+                                                               const ColClosestSpans& colSpans) {
+    RoiCandidates candidates;
     for (uint32_t a = 0; a < rowSpans.count; ++a) {
         const SpanEntry& r = rowSpans.data[a];
         for (uint32_t b = 0; b < colSpans.count; ++b) {
             const SpanEntry& c = colSpans.data[b];
-            candidates.data[candidates.count++] = {.row = r.start,
-                                                   .col = c.start,
-                                                   .height = r.length,
-                                                   .width = c.length,
-                                                   .count = std::min(r.sum, c.sum),
-                                                   .intensity = std::min(r.intensity, c.intensity)};
+            candidates.candidates[candidates.numCandidates++] = {.row = r.start,
+                                                                 .col = c.start,
+                                                                 .height = r.length,
+                                                                 .width = c.length,
+                                                                 .intensity = std::min(r.intensity, c.intensity)};
         }
     }
     return candidates;
@@ -210,21 +208,20 @@ uint32_t RegionsOfInterestPruneAlgorithm::sumLitTiles(const RoiCandidateEntry& c
 }
 
 /*! Drops candidates whose box overlaps no lit tile, keeping the survivors in their original order. Each
- *  survivor's count is set to the sum of the lit counts of the tiles it covers (see sumLitTiles).
- @return CandidateArray holding only the candidates that touch a lit tile.
+ *  survivor's litPixelCount is set to the sum of the lit counts of the tiles it covers (see sumLitTiles).
+ @return RoiCandidates holding only the candidates that touch a lit tile.
  @param candidates  Candidates from buildCandidates (Step 2).
  @param binGrid     Usable bin grid (see isBinGridUsable).
 */
-RegionsOfInterestPruneAlgorithm::CandidateArray RegionsOfInterestPruneAlgorithm::filterByLitTiles(
-    const CandidateArray& candidates,
-    const RoiBinGrid& binGrid) {
-    CandidateArray kept;
-    for (uint32_t i = 0; i < candidates.count; ++i) {
-        const uint32_t litPixels = sumLitTiles(candidates.data[i], binGrid);
+RoiCandidates RegionsOfInterestPruneAlgorithm::filterByLitTiles(const RoiCandidates& candidates,
+                                                                const RoiBinGrid& binGrid) {
+    RoiCandidates kept;
+    for (uint32_t i = 0; i < candidates.numCandidates; ++i) {
+        const uint32_t litPixels = sumLitTiles(candidates.candidates[i], binGrid);
         if (litPixels > 0U) {
-            RoiCandidateEntry& entry = kept.data[kept.count++];
-            entry = candidates.data[i];
-            entry.count = litPixels;
+            RoiCandidateEntry& entry = kept.candidates[kept.numCandidates++];
+            entry = candidates.candidates[i];
+            entry.litPixelCount = litPixels;
         }
     }
     return kept;
@@ -235,29 +232,28 @@ RegionsOfInterestPruneAlgorithm::CandidateArray RegionsOfInterestPruneAlgorithm:
  @param candidates             Candidates to update in place.
  @param alphaAreaPruneScaling  [-] Area exponent, in [MIN_ALPHA_AREA_PRUNE_SCALING, MAX_ALPHA_AREA_PRUNE_SCALING].
 */
-void RegionsOfInterestPruneAlgorithm::scaleIntensityByArea(CandidateArray& candidates, float alphaAreaPruneScaling) {
-    for (uint32_t i = 0; i < candidates.count; ++i) {
-        RoiCandidateEntry& candidate = candidates.data[i];
+void RegionsOfInterestPruneAlgorithm::scaleIntensityByArea(RoiCandidates& candidates, float alphaAreaPruneScaling) {
+    for (uint32_t i = 0; i < candidates.numCandidates; ++i) {
+        RoiCandidateEntry& candidate = candidates.candidates[i];
         const auto area = static_cast<float>(candidate.width) * static_cast<float>(candidate.height);
         candidate.scaledIntensity = static_cast<float>(candidate.intensity) / powf(area, alphaAreaPruneScaling);
     }
 }
 
-/*! Sorts candidates by scaledIntensity (descending); ties are broken by squared distance from the
- *  candidate's box center to the reference point (ascending — closer wins). Packs the result into a
- *  RoiCandidates; the adapter publishes the first MAX_NUMBER_REGIONS.
- @return RoiCandidates with numCandidates set and candidates[0] = highest scaledIntensity.
- @param candidates    Unsorted candidate list with scaledIntensity set (taken by value; sorted in-place).
+/*! Sorts candidates in place by scaledIntensity (descending); ties are broken by squared distance from the
+ *  candidate's box center to the reference point (ascending — closer wins). Afterwards candidates[0] has the
+ *  highest scaledIntensity; the adapter publishes the first MAX_NUMBER_REGIONS.
+ @param candidates    Candidate list with scaledIntensity set; sorted in place.
  @param referenceRow  [px] Reference point row coordinate (y0).
  @param referenceCol  [px] Reference point column coordinate (x0).
 */
 // NOLINTBEGIN(bugprone-easily-swappable-parameters) -- referenceRow/referenceCol are a legitimately
 // paired 2-D point; this shape is intentional.
-RoiCandidates RegionsOfInterestPruneAlgorithm::packOutput(CandidateArray candidates,
-                                                          float referenceRow,
-                                                          float referenceCol) {
-    std::ranges::sort(candidates.data.begin(),
-                      std::next(candidates.data.begin(), candidates.count),
+void RegionsOfInterestPruneAlgorithm::rankCandidates(RoiCandidates& candidates,
+                                                     float referenceRow,
+                                                     float referenceCol) {
+    std::ranges::sort(candidates.candidates.begin(),
+                      std::next(candidates.candidates.begin(), candidates.numCandidates),
                       [referenceRow, referenceCol](const RoiCandidateEntry& a, const RoiCandidateEntry& b) {
                           if (a.scaledIntensity != b.scaledIntensity) {
                               return a.scaledIntensity > b.scaledIntensity;
@@ -265,12 +261,5 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::packOutput(CandidateArray candida
                           return squaredDistanceToReference(a, referenceRow, referenceCol) <
                                  squaredDistanceToReference(b, referenceRow, referenceCol);
                       });
-
-    RoiCandidates outRoi{};
-    outRoi.numCandidates = std::min(candidates.count, ROI_CANDIDATES_MAX);
-    for (uint32_t i = 0; i < outRoi.numCandidates; ++i) {
-        outRoi.candidates[i] = candidates.data[i];
-    }
-    return outRoi;
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)

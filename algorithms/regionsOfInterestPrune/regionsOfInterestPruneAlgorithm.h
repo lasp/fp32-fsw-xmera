@@ -7,9 +7,12 @@
 #include <cstdint>
 #include <span>
 
-static constexpr uint32_t ROI_CANDIDATES_MAX = 16;  //!< Maximum number of candidates retained/published
-static constexpr uint32_t ROW_SPANS_MAX = 4;        //!< Number of row spans kept (closest to the reference row)
-static constexpr uint32_t COL_SPANS_MAX = 4;        //!< Number of col spans kept (closest to the reference col)
+static constexpr uint32_t ROW_SPANS_MAX = 4;  //!< Number of row spans kept (closest to the reference row)
+static constexpr uint32_t COL_SPANS_MAX = 4;  //!< Number of col spans kept (closest to the reference col)
+
+//!< Capacity of RoiCandidates: the full row-span x col-span cross-product, so no candidate is ever dropped for
+//!< lack of room. The adapter publishes the first MAX_NUMBER_REGIONS.
+static constexpr uint32_t ROI_CANDIDATES_MAX = ROW_SPANS_MAX * COL_SPANS_MAX;
 
 static constexpr uint32_t MAX_IMAGE_ROWS = 3000;  //!< [px] Full camera image height
 static constexpr uint32_t MAX_IMAGE_COLS = 4096;  //!< [px] Full camera image width
@@ -21,20 +24,15 @@ static constexpr float MIN_ALPHA_AREA_PRUNE_SCALING = -1.0F;     //!< [-] Lowest
 static constexpr float MAX_ALPHA_AREA_PRUNE_SCALING = 1.0F;      //!< [-] Highest accepted area exponent
 static constexpr float DEFAULT_ALPHA_AREA_PRUNE_SCALING = 0.0F;  //!< [-] Default area exponent (area ignored)
 
-//!< Worst-case row-span x col-span cross-product size, before ranking/truncation to ROI_CANDIDATES_MAX.
-static constexpr uint32_t MAX_RAW_CANDIDATES = ROW_SPANS_MAX * COL_SPANS_MAX;
-static_assert(MAX_RAW_CANDIDATES <= ROI_CANDIDATES_MAX,
-              "ROW_SPANS_MAX x COL_SPANS_MAX must not exceed ROI_CANDIDATES_MAX");
-
 /*! @brief Internal bounding-box candidate (corner coordinates + pixel count). */
 struct RoiCandidateEntry {
-    uint32_t row{};           //!< [px] Top-left row of the bounding box
-    uint32_t col{};           //!< [px] Top-left column of the bounding box
-    uint32_t height{};        //!< [px] Height of the bounding box
-    uint32_t width{};         //!< [px] Width of the bounding box
-    uint32_t count{};         //!< [-] Sum of litPixelCount over the bin-grid tiles the box overlaps
-    uint64_t intensity{};     //!< [-] Estimated intensity: min(row-span intensity sum, col-span intensity sum)
-    float scaledIntensity{};  //!< [-] intensity / (width * height)^alphaAreaPruneScaling
+    uint32_t row{};            //!< [px] Top-left row of the bounding box
+    uint32_t col{};            //!< [px] Top-left column of the bounding box
+    uint32_t height{};         //!< [px] Height of the bounding box
+    uint32_t width{};          //!< [px] Width of the bounding box
+    uint32_t litPixelCount{};  //!< [-] Sum of litPixelCount over the bin-grid tiles the box overlaps
+    uint64_t intensity{};      //!< [-] Estimated intensity: min(row-span intensity sum, col-span intensity sum)
+    float scaledIntensity{};   //!< [-] intensity / (width * height)^alphaAreaPruneScaling
 };
 
 /*! @brief Bin grid of ROI tiles covering the image, used to drop candidates that touch no lit tile.
@@ -53,11 +51,14 @@ struct RoiBinGrid {
     std::span<const uint32_t> litCounts;  //!< [-]  Above-threshold pixel count per tile, row-major
 };
 
+/*! @brief Fixed-capacity candidate list: candidates[0..numCandidates) are valid.
+ *
+ *  Used through the whole pipeline (built, filtered, scaled, then ranked in place). update() returns it
+ *  ranked: sorted by scaledIntensity descending, ties broken by distance to the reference point ascending.
+ */
 struct RoiCandidates {
     uint32_t numCandidates{};                                        //!< [-] Number of valid entries
-    std::array<RoiCandidateEntry, ROI_CANDIDATES_MAX> candidates{};  //!< [-] Sorted by scaledIntensity
-                                                                     //!< descending, then distance to the
-                                                                     //!< reference point ascending
+    std::array<RoiCandidateEntry, ROI_CANDIDATES_MAX> candidates{};  //!< [-] Candidate boxes
 };
 
 /*! @brief Validated configuration for the regions-of-interest pruning algorithm.
@@ -140,49 +141,42 @@ class RegionsOfInterestPruneAlgorithm final {
    private:
     RegionsOfInterestPruneConfig cfg;
 
-    //!< Contiguous non-zero run in a 1-D sum array.
+    //!< Contiguous non-zero run in a 1-D count array.
     struct SpanEntry {
         uint32_t start{};      //!< [px] First index of the span
         uint32_t length{};     //!< [px] Number of entries in the span
-        uint32_t sum{};        //!< [-] Accumulated sum over the span
         uint64_t intensity{};  //!< [-] Accumulated intensity over the span
         float distance{};      //!< [px] |span midpoint - reference coordinate|
     };
     //!< Fixed-capacity closest-K span list: data[0..count) are valid, sorted by distance ascending.
     template <uint32_t Capacity>
-    struct TopSpans {
+    struct ClosestSpans {
         uint32_t count{};
         std::array<SpanEntry, Capacity> data{};
     };
-    using RowTopSpans = TopSpans<ROW_SPANS_MAX>;
-    using ColTopSpans = TopSpans<COL_SPANS_MAX>;
-    //!< Fixed-capacity candidate list: data[0..count) are the valid entries.
-    struct CandidateArray {
-        uint32_t count{};
-        std::array<RoiCandidateEntry, MAX_RAW_CANDIDATES> data{};
-    };
+    using RowClosestSpans = ClosestSpans<ROW_SPANS_MAX>;
+    using ColClosestSpans = ClosestSpans<COL_SPANS_MAX>;
 
     // Step 1: find contiguous non-zero spans and keep the Capacity closest to `reference` in a single pass,
     // summing each span's counts and intensities.
     template <uint32_t Capacity>
-    static TopSpans<Capacity> findTopSpans(std::span<const uint16_t> s,
-                                           std::span<const uint32_t> intensities,
-                                           float reference);
+    static ClosestSpans<Capacity> findClosestSpans(std::span<const uint16_t> counts,
+                                                   std::span<const uint32_t> intensities,
+                                                   float reference);
 
-    // Step 2: cross-product of top row/col spans → bounding-box candidates.
-    static CandidateArray buildCandidates(const RowTopSpans& rowSpans, const ColTopSpans& colSpans);
+    // Step 2: cross-product of closest row/col spans → bounding-box candidates.
+    static RoiCandidates buildCandidates(const RowClosestSpans& rowSpans, const ColClosestSpans& colSpans);
 
-    // Step 3: drop candidates that overlap no lit tile of the bin grid; set count to the covered tiles' lit pixels.
-    static CandidateArray filterByLitTiles(const CandidateArray& candidates, const RoiBinGrid& binGrid);
+    // Step 3: drop candidates that overlap no lit tile of the bin grid; set litPixelCount from the covered tiles.
+    static RoiCandidates filterByLitTiles(const RoiCandidates& candidates, const RoiBinGrid& binGrid);
     static bool isBinGridUsable(const RoiBinGrid& binGrid, uint32_t numRows, uint32_t numCols);
     static uint32_t sumLitTiles(const RoiCandidateEntry& candidate, const RoiBinGrid& binGrid);
 
     // Step 4: set each candidate's scaledIntensity = intensity / area^alpha.
-    static void scaleIntensityByArea(CandidateArray& candidates, float alphaAreaPruneScaling);
+    static void scaleIntensityByArea(RoiCandidates& candidates, float alphaAreaPruneScaling);
 
-    // Step 4: sort candidates by scaledIntensity descending (ties broken by distance to the reference point)
-    // and pack the result.
-    static RoiCandidates packOutput(CandidateArray candidates, float referenceRow, float referenceCol);
+    // Step 5: sort candidates in place by scaledIntensity descending (ties broken by distance to the reference point).
+    static void rankCandidates(RoiCandidates& candidates, float referenceRow, float referenceCol);
 };
 
 #endif

@@ -76,9 +76,9 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
         output.cornerY[k] = static_cast<int>(cand.row);
         output.width[k] = static_cast<int>(cand.width);
         output.height[k] = static_cast<int>(cand.height);
-        // count is saturated at UINT32_MAX; clamp so the int field cannot wrap negative.
+        // litPixelCount is saturated at UINT32_MAX; clamp so the int field cannot wrap negative.
         output.numberOfPixels[k] =
-            static_cast<int>(std::min(cand.count, static_cast<uint32_t>(std::numeric_limits<int>::max())));
+            static_cast<int>(std::min(cand.litPixelCount, static_cast<uint32_t>(std::numeric_limits<int>::max())));
     }
     this->regionsIdentifiedOutMsg.write(output, moduleID, callTime);
 }

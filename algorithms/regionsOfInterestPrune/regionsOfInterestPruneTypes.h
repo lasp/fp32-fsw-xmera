@@ -16,7 +16,7 @@ extern "C" {
  * @brief Plain-old-data mirror of the C++ RoiCandidateEntry.
  *  - row, col       [px] top-left corner of the bounding box
  *  - height, width  [px] bounding box size
- *  - count          [-]  sum of litPixelCount over the bin-grid tiles the box overlaps
+ *  - litPixelCount  [-]  sum of litPixelCount over the bin-grid tiles the box overlaps
  *  - intensity      [-]  estimated intensity, min(row-span intensity sum, col-span intensity sum)
  *  - scaledIntensity [-] intensity / (width * height)^alphaAreaPruneScaling
  */
@@ -25,7 +25,7 @@ typedef struct {
     uint32_t col;
     uint32_t height;
     uint32_t width;
-    uint32_t count;
+    uint32_t litPixelCount;
     uint64_t intensity;
     float scaledIntensity;
 } RoiCandidateEntry_c;
