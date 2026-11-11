@@ -252,36 +252,26 @@ float CobConverterAlgorithm::computeBetaVar(const Eigen::Matrix3d& filterVehPosi
 }
 
 /**
- * @brief Outlier gate: measured COM heading vs filter-predicted heading (both COM->SC, inertial frame).
+ * @brief Outlier gate: the measured line of sight must pass near the filter-predicted body center.
  *
- * Passes when |rhatCOM_N - rhatNav_N| < numStandardDeviations * sigma, sigma the RMS of that error:
- * standardDeviation * sqrt(1/dX^2 + 1/dY^2) if specified, else sqrt(tr(covar_N + P_nav)), P_nav the filter
- * position covariance projected normal to rhatNav_N over |r|^2.
+ * d = |r_f x rhat| if r_f . rhat > 0, else |r_f|; passes when
+ * d <= outlierRadiusMultiple * radius + numStandardDeviations * sqrt(tr(P)).
  *
- * @param filterVehPosition [m] filter spacecraft position relative to the body, inertial frame.
- * @param filterVehPositionCovariance [m^2] filter position covariance, inertial frame.
- * @param covar_N COM heading covariance, inertial frame.
+ * @param filter [m, m^2] filter spacecraft position relative to the body and its covariance, inertial frame.
  * @param rhatCOM_N COM->SC unit vector, inertial frame.
- * @return True unless the error exceeds the gate.
+ * @return True unless the miss distance exceeds the gate.
  */
-bool CobConverterAlgorithm::comOutlierDetection(const Eigen::Vector3d& filterVehPosition,
-                                                const Eigen::Matrix3d& filterVehPositionCovariance,
-                                                const Eigen::Matrix3f& covar_N,
-                                                const Eigen::Vector3f& rhatCOM_N) const {
-    const Eigen::Vector3d rhatNav_N = filterVehPosition.stableNormalized();
-    const float error = (rhatCOM_N - rhatNav_N.cast<float>()).stableNorm();
-
-    float sigma = 0.0F;
-    if (this->cfg.isStandardDeviationSpecified()) {
-        sigma = this->cfg.getStandardDeviation() *
-                safeSqrtf((1.0F / (this->dX * this->dX)) + (1.0F / (this->dY * this->dY)));
-    } else {
-        const Eigen::Matrix3d projection = Eigen::Matrix3d::Identity() - (rhatNav_N * rhatNav_N.transpose());
-        const Eigen::Matrix3d covarNav_N =
-            projection * filterVehPositionCovariance * projection.transpose() / filterVehPosition.squaredNorm();
-        sigma = safeSqrtf((covar_N + covarNav_N.cast<float>()).trace());
-    }
-    return error < this->cfg.getNumStandardDeviations() * sigma;
+bool CobConverterAlgorithm::comOutlierDetection(const FilterState& filter, const Eigen::Vector3f& rhatCOM_N) const {
+    const Eigen::Vector3d& position = filter.filterVehPosition;
+    const Eigen::Vector3d rhat_N = rhatCOM_N.cast<double>();
+    // Behind the spacecraft the closest point of the line of sight is the spacecraft itself.
+    const double missDistance =
+        position.dot(rhat_N) > 0.0 ? position.cross(rhat_N).stableNorm() : position.stableNorm();
+    const double gate =
+        (static_cast<double>(this->cfg.getOutlierRadiusMultiple()) * static_cast<double>(this->cfg.getRadius())) +
+        (static_cast<double>(this->cfg.getNumStandardDeviations()) *
+         safeSqrt(filter.filterVehPositionCovariance.trace()));
+    return missDistance <= gate;
 }
 
 /**
@@ -378,12 +368,9 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         const Eigen::Matrix3f covarRHat_N_Buffer = covarImageN + covarAttitudeN;
 
         if (rhatCOM_SC_C_Buffer.allFinite() && covarRHat_N_Buffer.allFinite()) {
-            bool goodOutlierCheck = true;  // passes when outlier detection is disabled or no correction applies
-            if (this->cfg.isOutlierDetectionEnabled() && phaseCorrected) {
-                goodOutlierCheck = this->comOutlierDetection(filter.filterVehPosition,
-                                                             filter.filterVehPositionCovariance,
-                                                             covarRHat_N_Buffer,
-                                                             rhatCOM_SC_N_Buffer);
+            bool goodOutlierCheck = true;  // passes when outlier detection is disabled
+            if (this->cfg.isOutlierDetectionEnabled()) {
+                goodOutlierCheck = this->comOutlierDetection(filter, rhatCOM_SC_N_Buffer);
                 result.diagnostic.comErrorOutlierTrigger = !goodOutlierCheck;
             }
             const float lineOfSightVariance = 0.5F * covarRHat_N_Buffer.trace();

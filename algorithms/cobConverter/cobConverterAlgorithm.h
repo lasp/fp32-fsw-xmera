@@ -88,8 +88,7 @@ class CobConverterConfig final {
                                      float radiusUncertainty,
                                      const Eigen::Matrix3f& attitudeCovariance,
                                      float numStandardDeviations,
-                                     float standardDeviation,
-                                     bool specifiedStandardDeviation,
+                                     float outlierRadiusMultiple,
                                      bool outlierDetectionEnabled,
                                      const CalibrationCoefficients& calibrationCoefficients,
                                      int cameraId,
@@ -110,8 +109,8 @@ class CobConverterConfig final {
         if (!isValidNumStandardDeviations(numStandardDeviations)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: numStandardDeviations must be > 0");
         }
-        if (!isValidStandardDeviation(standardDeviation, specifiedStandardDeviation)) {
-            FSW_THROW_INVALID_ARGUMENT("cobConverter: standardDeviation must be > 0 when specified");
+        if (!isValidOutlierRadiusMultiple(outlierRadiusMultiple)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: outlierRadiusMultiple must be > 0");
         }
         if (!isValidCalibrationCoefficients(calibrationCoefficients)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: calibrationCoefficients must be finite");
@@ -145,8 +144,7 @@ class CobConverterConfig final {
                 radiusUncertainty,
                 attitudeCovariance,
                 numStandardDeviations,
-                standardDeviation,
-                specifiedStandardDeviation,
+                outlierRadiusMultiple,
                 outlierDetectionEnabled,
                 calibrationCoefficients,
                 cameraId,
@@ -167,8 +165,8 @@ class CobConverterConfig final {
     static bool isValidNumStandardDeviations(float numStandardDeviations) {
         return fsw::is_finite(numStandardDeviations) && numStandardDeviations > 0.0F;
     }
-    static bool isValidStandardDeviation(float standardDeviation, bool specifiedStandardDeviation) {
-        return !specifiedStandardDeviation || (fsw::is_finite(standardDeviation) && standardDeviation > 0.0F);
+    static bool isValidOutlierRadiusMultiple(float outlierRadiusMultiple) {
+        return fsw::is_finite(outlierRadiusMultiple) && outlierRadiusMultiple > 0.0F;
     }
     // No isValidOutlierDetectionEnabled — any bool value is valid.
     static bool isValidCalibrationCoefficients(const CalibrationCoefficients& coefficients) {
@@ -203,8 +201,7 @@ class CobConverterConfig final {
     float getRadiusUncertainty() const { return radiusUncertainty; }
     Eigen::Matrix3f getAttitudeCovariance() const { return attitudeCovariance; }
     float getNumStandardDeviations() const { return numStandardDeviations; }
-    float getStandardDeviation() const { return standardDeviation; }
-    bool isStandardDeviationSpecified() const { return specifiedStandardDeviation; }
+    float getOutlierRadiusMultiple() const { return outlierRadiusMultiple; }
     bool isOutlierDetectionEnabled() const { return outlierDetectionEnabled; }
     CalibrationCoefficients getCalibrationCoefficients() const { return calibrationCoefficients; }
     int getCameraId() const { return cameraId; }
@@ -219,8 +216,7 @@ class CobConverterConfig final {
                        float radiusUncertainty,
                        const Eigen::Matrix3f& attitudeCovariance,
                        float numStandardDeviations,
-                       float standardDeviation,
-                       bool specifiedStandardDeviation,
+                       float outlierRadiusMultiple,
                        bool outlierDetectionEnabled,
                        const CalibrationCoefficients& calibrationCoefficients,
                        int cameraId,
@@ -233,8 +229,7 @@ class CobConverterConfig final {
           radiusUncertainty(radiusUncertainty),
           attitudeCovariance(attitudeCovariance),
           numStandardDeviations(numStandardDeviations),
-          standardDeviation(standardDeviation),
-          specifiedStandardDeviation(specifiedStandardDeviation),
+          outlierRadiusMultiple(outlierRadiusMultiple),
           outlierDetectionEnabled(outlierDetectionEnabled),
           calibrationCoefficients(calibrationCoefficients),
           cameraId(cameraId),
@@ -248,8 +243,7 @@ class CobConverterConfig final {
     float radiusUncertainty;
     Eigen::Matrix3f attitudeCovariance;
     float numStandardDeviations;
-    float standardDeviation;
-    bool specifiedStandardDeviation;
+    float outlierRadiusMultiple;
     bool outlierDetectionEnabled;
     CalibrationCoefficients calibrationCoefficients;
     int cameraId;
@@ -298,10 +292,7 @@ class CobConverterAlgorithm final {
                                                                const CalibrationCoefficients& coefficients);
 
    private:
-    bool comOutlierDetection(const Eigen::Vector3d& filterVehPosition,
-                             const Eigen::Matrix3d& filterVehPositionCovariance,
-                             const Eigen::Matrix3f& covar_N,
-                             const Eigen::Vector3f& rhatCOM_N) const;
+    bool comOutlierDetection(const FilterState& filter, const Eigen::Vector3f& rhatCOM_N) const;
     void computeCameraParameters();
     Rotations computeRotations(const Eigen::Vector3f& sigma_BN) const;
     PhaseAngleCorrectionResult computePhaseAngleCorrection(const Eigen::Vector3d& filterVehPosition,

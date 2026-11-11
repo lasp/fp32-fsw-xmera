@@ -33,8 +33,7 @@ class CobConverter final : public SysModel {
     float radiusUncertainty = 0.0F;
     Eigen::Matrix3f attitudeCovariance = Eigen::Matrix3f::Zero();
     float numStandardDeviations = 3.0F;
-    float standardDeviation = 0.0F;
-    bool specifiedStandardDeviation = false;
+    float outlierRadiusMultiple = 5.0F;
     bool outlierDetectionEnabled = false;
     CalibrationCoefficients calibrationCoefficients{};
     int cameraId = 0;

@@ -46,8 +46,7 @@ TEST(CobConverterTest, RegressionTest) {
                      /*radiusUncertainty=*/8.0e3F,
                      attitudeCovariance,
                      /*numStandardDeviations=*/3.0F,
-                     /*standardDeviation=*/100.0F,
-                     /*specifiedStandardDeviation=*/true,
+                     /*outlierRadiusMultiple=*/5.0F,
                      /*outlierDetectionEnabled=*/true,
                      coefficients,
                      /*cameraId=*/0,
@@ -109,7 +108,7 @@ TEST(CobConverterTest, BrownConradyCalibrationTest) {
         {"tangential", {.k1 = 0.0F, .k2 = 0.0F, .k3 = 0.0F, .p1 = 0.5F, .p2 = 0.3F}},
         {"combined", {.k1 = -0.5F, .k2 = -1.0F, .k3 = -2.0F, .p1 = 0.2F, .p2 = -0.1F}},
     }};
-    // Off-center COB points, both inside the 3 * 100 px outlier gate around the image center.
+    // Off-center COB points, both inside the 5 R outlier gate.
     const std::array<Eigen::Vector2f, 2> cobCenters{Eigen::Vector2f{152.0F, 251.0F}, Eigen::Vector2f{400.0F, 350.0F}};
 
     for (const auto& [label, coefficients] : coefficientSets) {
@@ -120,8 +119,7 @@ TEST(CobConverterTest, BrownConradyCalibrationTest) {
                              /*radiusUncertainty=*/8.0e3F,
                              attitudeCovariance,
                              /*numStandardDeviations=*/3.0F,
-                             /*standardDeviation=*/100.0F,
-                             /*specifiedStandardDeviation=*/true,
+                             /*outlierRadiusMultiple=*/5.0F,
                              /*outlierDetectionEnabled=*/true,
                              coefficients,
                              /*cameraId=*/0,
@@ -142,60 +140,56 @@ TEST(CobConverterTest, BrownConradyCalibrationTest) {
     }
 }
 
-// RegressionTest geometry with specifiedStandardDeviation=false, so comOutlierDetection() derives sigma from the
-// heading and filter covariances (the only test covering this branch).
-TEST(CobConverterTest, OutlierDetectionDerivedSigmaTest) {
-    constexpr float attSigma = 0.001F;
-    Eigen::Matrix3f attitudeCovariance = Eigen::Matrix3f::Zero();
-    attitudeCovariance(0, 0) = attSigma * attSigma;
-    attitudeCovariance(1, 1) = (0.9F * attSigma) * (0.9F * attSigma);
-    attitudeCovariance(2, 2) = (0.95F * attSigma) * (0.95F * attSigma);
+// The line of sight must pass within N R + n_sigma sqrt(tr(P)) of the filter-predicted body center.
+// Identity attitude and a COB at the principal point give rhat = -z, so the line of sight is the z axis
+// and the miss distance d is the filter's offset from it.
+TEST(CobConverterTest, OutlierDetectionRadiusGateTest) {
+    constexpr float radius = 25.0e3F;  // [m]
+    const auto makeAlgorithm = [&](bool outlierDetectionEnabled) {
+        return CobConverterAlgorithm(CobConverterConfig::create(radius,
+                                                                /*radiusUncertainty=*/0.0F,
+                                                                Eigen::Matrix3f::Zero(),
+                                                                /*numStandardDeviations=*/3.0F,
+                                                                /*outlierRadiusMultiple=*/5.0F,
+                                                                outlierDetectionEnabled,
+                                                                CalibrationCoefficients{},
+                                                                /*cameraId=*/0,
+                                                                /*fieldOfViewX=*/0.35F,
+                                                                /*fieldOfViewY=*/0.30F,
+                                                                /*resolutionX=*/512.0F,
+                                                                /*resolutionY=*/512.0F,
+                                                                Eigen::Vector3f::Zero()));
+    };
+    const CobConverterAlgorithm algorithm = makeAlgorithm(true);
+    const CobMeasurement cob{.cobValid = true,
+                             .cobPixelsFound = 75,
+                             .cobCenterOfBrightness = Eigen::Vector2f{256.0F, 256.0F},
+                             .cobTimeTag = 12345U};
+    const Eigen::Matrix3d smallCovariance = Eigen::Matrix3d::Identity() * 50.0e3;  // [m^2]
+    const double gate = (5.0 * radius) + (3.0 * std::sqrt(smallCovariance.trace()));
+    // Sun along the position (zero phase angle) keeps COM = COB; a zero sunline takes the fallback path.
+    const auto updateAt = [&](const CobConverterAlgorithm& alg,
+                              const Eigen::Vector3d& position,
+                              const Eigen::Matrix3d& covariance,
+                              bool zeroSunline = false) {
+        const Eigen::Vector3f sunline = zeroSunline ? Eigen::Vector3f(Eigen::Vector3f::Zero())
+                                                    : Eigen::Vector3f(position.normalized().cast<float>());
+        const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .vehSunPntBdy = sunline};
+        const FilterState filter{.filterVehPosition = position, .filterVehPositionCovariance = covariance};
+        const CobConverterUpdateResult result = alg.updateState(cob, attitude, filter);
+        EXPECT_TRUE(result.output.rhat_BN_N.isApprox(Eigen::Vector3f{0.0F, 0.0F, -1.0F}));
+        EXPECT_EQ(result.output.unitVecValid, !result.diagnostic.comErrorOutlierTrigger);
+        return result.diagnostic.comErrorOutlierTrigger;
+    };
+    const auto offsetBy = [](double d) { return Eigen::Vector3d{d, 0.0, -500.0e3}; };
 
-    const CalibrationCoefficients coefficients{};  // no distortion
-    const float fieldOfViewX = static_cast<float>(20.0 * std::numbers::pi / 180.0);
-    const float fieldOfViewY = static_cast<float>(15.0 * std::numbers::pi / 180.0);
-
-    Eigen::Matrix3d dcm_CB;
-    dcm_CB << 0.0, 1.0, 0.0, 0.0, 0.0, -1.0, -1.0, 0.0, 0.0;
-    const Eigen::Vector3f bodyToCameraMrp = dcmToMrp(dcm_CB).cast<float>();
-
-    const Eigen::Vector3d r_BdyZero_N{-500.0e3, -300.0e3, 0.0};
-    const Eigen::Vector3d v_BdyZero_N{8.0e3, 0.0, 0.0};
-    const Eigen::Vector3d h1 = r_BdyZero_N.stableNormalized();
-    Eigen::Vector3d h3 = h1.cross(v_BdyZero_N.stableNormalized());
-    h3.stableNormalize();
-    const Eigen::Vector3d h2 = h3.cross(h1).stableNormalized();
-    Eigen::Matrix3d dcm_BN;
-    dcm_BN.row(0) = h1.transpose();
-    dcm_BN.row(1) = h2.transpose();
-    dcm_BN.row(2) = h3.transpose();
-    const Eigen::Vector3f sigma_BN = dcmToMrp(dcm_BN).cast<float>();
-
-    const Eigen::Vector3d sunUnit_N = Eigen::Vector3d{-1.0, -1.0, 0.0}.stableNormalized();
-    const Eigen::Vector3f vehSunPntBdy = (dcm_BN * sunUnit_N).cast<float>();
-
-    testCobConverter(/*radius=*/25.0e3F,
-                     /*radiusUncertainty=*/8.0e3F,
-                     attitudeCovariance,
-                     /*numStandardDeviations=*/3.0F,
-                     /*standardDeviation=*/100.0F,
-                     /*specifiedStandardDeviation=*/false,
-                     /*outlierDetectionEnabled=*/true,
-                     coefficients,
-                     /*cameraId=*/0,
-                     fieldOfViewX,
-                     fieldOfViewY,
-                     /*resolutionX=*/512.0F,
-                     /*resolutionY=*/512.0F,
-                     bodyToCameraMrp,
-                     /*cobValid=*/true,
-                     /*cobPixelsFound=*/75,
-                     /*cobCenterOfBrightness=*/Eigen::Vector2f{152.0F, 251.0F},
-                     /*cobTimeTag=*/12345U,
-                     sigma_BN,
-                     vehSunPntBdy,
-                     /*filterVehPosition=*/r_BdyZero_N,
-                     /*filterVehPositionCovariance=*/Eigen::Matrix3d::Identity() * 50.0e3);
+    EXPECT_FALSE(updateAt(algorithm, offsetBy(0.0), smallCovariance)) << "on the line of sight";
+    EXPECT_FALSE(updateAt(algorithm, offsetBy(0.99 * gate), smallCovariance)) << "just inside";
+    EXPECT_TRUE(updateAt(algorithm, offsetBy(1.01 * gate), smallCovariance)) << "just outside";
+    EXPECT_FALSE(updateAt(algorithm, offsetBy(200.0e3), Eigen::Matrix3d::Identity() * 1.0e10)) << "large P";
+    EXPECT_TRUE(updateAt(algorithm, Eigen::Vector3d{0.0, 0.0, 500.0e3}, smallCovariance)) << "rhat points away";
+    EXPECT_TRUE(updateAt(algorithm, offsetBy(200.0e3), smallCovariance, /*zeroSunline=*/true)) << "fallback";
+    EXPECT_FALSE(updateAt(makeAlgorithm(false), offsetBy(200.0e3), smallCovariance)) << "disabled";
 }
 
 // cobPixelsFound ("[--] bright pixels", cobConverterAlgorithm.h) is the count of bright pixels in
@@ -213,8 +207,7 @@ TEST(CobConverterTest, PixelsFoundIncreaseIsSizeIncreaseTest) {
                                                               /*radiusUncertainty=*/0.0F,
                                                               zeroCovariance,
                                                               /*numStandardDeviations=*/3.0F,
-                                                              /*standardDeviation=*/100.0F,
-                                                              /*specifiedStandardDeviation=*/true,
+                                                              /*outlierRadiusMultiple=*/5.0F,
                                                               /*outlierDetectionEnabled=*/false,
                                                               coefficients,
                                                               /*cameraId=*/0,
@@ -263,8 +256,7 @@ TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
                                                                 /*radiusUncertainty=*/0.0F,
                                                                 zeroCovariance,
                                                                 /*numStandardDeviations=*/3.0F,
-                                                                /*standardDeviation=*/100.0F,
-                                                                /*specifiedStandardDeviation=*/true,
+                                                                /*outlierRadiusMultiple=*/5.0F,
                                                                 /*outlierDetectionEnabled=*/false,
                                                                 coefficients,
                                                                 /*cameraId=*/0,
@@ -338,8 +330,7 @@ TEST(CobConverterTest, PhaseCorrectionUnavailablePublishesCobTest) {
                                                                      /*radiusUncertainty=*/0.0F,
                                                                      Eigen::Matrix3f::Zero(),
                                                                      /*numStandardDeviations=*/3.0F,
-                                                                     /*standardDeviation=*/100.0F,
-                                                                     /*specifiedStandardDeviation=*/true,
+                                                                     /*outlierRadiusMultiple=*/5.0F,
                                                                      /*outlierDetectionEnabled=*/false,
                                                                      CalibrationCoefficients{},
                                                                      /*cameraId=*/0,
@@ -391,8 +382,7 @@ TEST(CobConverterTest, SetupTest) {
                                float radiusUncertainty = 8.0e3F,
                                const Eigen::Matrix3f& attitudeCovariance = Eigen::Matrix3f::Zero(),
                                float numStandardDeviations = 3.0F,
-                               float standardDeviation = 100.0F,
-                               bool specifiedStandardDeviation = true,
+                               float outlierRadiusMultiple = 5.0F,
                                bool outlierDetectionEnabled = true,
                                const CalibrationCoefficients& calibrationCoefficients = CalibrationCoefficients{},
                                int cameraId = 0,
@@ -405,8 +395,7 @@ TEST(CobConverterTest, SetupTest) {
                                           radiusUncertainty,
                                           attitudeCovariance,
                                           numStandardDeviations,
-                                          standardDeviation,
-                                          specifiedStandardDeviation,
+                                          outlierRadiusMultiple,
                                           outlierDetectionEnabled,
                                           calibrationCoefficients,
                                           cameraId,
@@ -441,11 +430,11 @@ TEST(CobConverterTest, SetupTest) {
     EXPECT_FALSE(CobConverterConfig::isValidNumStandardDeviations(0.0F));
     EXPECT_FALSE(CobConverterConfig::isValidNumStandardDeviations(-1.0F));
 
-    // standardDeviation: only checked when specified.
-    EXPECT_TRUE(CobConverterConfig::isValidStandardDeviation(-1.0F, /*specified=*/false));
-    EXPECT_TRUE(CobConverterConfig::isValidStandardDeviation(1.0F, /*specified=*/true));
-    EXPECT_FALSE(CobConverterConfig::isValidStandardDeviation(0.0F, /*specified=*/true));
-    EXPECT_FALSE(CobConverterConfig::isValidStandardDeviation(-1.0F, /*specified=*/true));
+    // outlierRadiusMultiple: must be > 0.
+    EXPECT_TRUE(CobConverterConfig::isValidOutlierRadiusMultiple(1.0F));
+    EXPECT_FALSE(CobConverterConfig::isValidOutlierRadiusMultiple(0.0F));
+    EXPECT_FALSE(CobConverterConfig::isValidOutlierRadiusMultiple(-1.0F));
+    EXPECT_FALSE(CobConverterConfig::isValidOutlierRadiusMultiple(nan));
 
     // calibrationCoefficients: must be finite.
     EXPECT_TRUE(CobConverterConfig::isValidCalibrationCoefficients(coefficients));
@@ -477,21 +466,17 @@ TEST(CobConverterTest, SetupTest) {
     EXPECT_THROW((void)makeConfig(25.0e3F, -1.0F /* invalid radiusUncertainty */), fsw::invalid_argument);
     EXPECT_THROW((void)makeConfig(25.0e3F, 8.0e3F, nanCovariance /* invalid attitudeCovariance */),
                  fsw::invalid_argument);
-    EXPECT_THROW((void)makeConfig(25.0e3F,
-                                  8.0e3F,
-                                  zeroCovariance,
-                                  3.0F,
-                                  100.0F,
-                                  true,
-                                  true,
-                                  nanCoefficients /* invalid calibrationCoefficients */),
+    EXPECT_THROW((void)makeConfig(25.0e3F, 8.0e3F, zeroCovariance, 3.0F, 0.0F /* invalid outlierRadiusMultiple */),
                  fsw::invalid_argument);
+    EXPECT_THROW(
+        (void)makeConfig(
+            25.0e3F, 8.0e3F, zeroCovariance, 3.0F, 5.0F, true, nanCoefficients /* invalid calibrationCoefficients */),
+        fsw::invalid_argument);
     EXPECT_THROW((void)makeConfig(25.0e3F,
                                   8.0e3F,
                                   zeroCovariance,
                                   3.0F,
-                                  100.0F,
-                                  true,
+                                  5.0F,
                                   true,
                                   coefficients,
                                   0,
@@ -502,8 +487,7 @@ TEST(CobConverterTest, SetupTest) {
                                   8.0e3F,
                                   zeroCovariance,
                                   3.0F,
-                                  100.0F,
-                                  true,
+                                  5.0F,
                                   true,
                                   coefficients,
                                   0,
@@ -514,8 +498,7 @@ TEST(CobConverterTest, SetupTest) {
                                   8.0e3F,
                                   zeroCovariance,
                                   3.0F,
-                                  100.0F,
-                                  true,
+                                  5.0F,
                                   true,
                                   coefficients,
                                   0,
@@ -527,8 +510,7 @@ TEST(CobConverterTest, SetupTest) {
                                   8.0e3F,
                                   zeroCovariance,
                                   3.0F,
-                                  100.0F,
-                                  true,
+                                  5.0F,
                                   true,
                                   coefficients,
                                   0,
@@ -544,8 +526,7 @@ TEST(CobConverterTest, SetupTest) {
                                   8.0e3F,
                                   zeroCovariance,
                                   3.0F,
-                                  100.0F,
-                                  true,
+                                  5.0F,
                                   true,
                                   coefficients,
                                   0,
@@ -558,8 +539,7 @@ TEST(CobConverterTest, SetupTest) {
                                   8.0e3F,
                                   zeroCovariance,
                                   3.0F,
-                                  100.0F,
-                                  true,
+                                  5.0F,
                                   true,
                                   coefficients,
                                   0,
@@ -577,8 +557,7 @@ TEST(CobConverterTest, SetupTest) {
                                               /*radiusUncertainty=*/8.0e3F,
                                               zeroCovariance,
                                               /*numStandardDeviations=*/3.0F,
-                                              /*standardDeviation=*/100.0F,
-                                              /*specifiedStandardDeviation=*/true,
+                                              /*outlierRadiusMultiple=*/5.0F,
                                               /*outlierDetectionEnabled=*/true,
                                               coefficients,
                                               /*cameraId=*/7,
@@ -589,8 +568,7 @@ TEST(CobConverterTest, SetupTest) {
     EXPECT_FLOAT_EQ(cfg.getRadius(), 25.0e3F);
     EXPECT_FLOAT_EQ(cfg.getRadiusUncertainty(), 8.0e3F);
     EXPECT_FLOAT_EQ(cfg.getNumStandardDeviations(), 3.0F);
-    EXPECT_FLOAT_EQ(cfg.getStandardDeviation(), 100.0F);
-    EXPECT_TRUE(cfg.isStandardDeviationSpecified());
+    EXPECT_FLOAT_EQ(cfg.getOutlierRadiusMultiple(), 5.0F);
     EXPECT_TRUE(cfg.isOutlierDetectionEnabled());
     EXPECT_EQ(cfg.getCameraId(), 7);
     EXPECT_FLOAT_EQ(cfg.getFieldOfViewX(), 0.35F);
