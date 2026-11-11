@@ -48,7 +48,7 @@ uint32_t SunSearchPointAlgorithm_getMaxObservationThreshold(void);
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param rotations            [-] sun-search rotation sequence.
- * @param sHatBdyCmd           [-] commanded body vector to point at the sun.
+ * @param sunPointAxis_B       [-] body-fixed sun pointing axis to align with the sun.
  * @param sunAxisSpinRate      [rad/s] constant spin rate about the sun heading vector.
  * @param omega_RN_B           [rad/s] fallback body rate when no sun direction is available.
  * @param observationThreshold [-] CSS count at or above which to transition to pointing.
@@ -60,7 +60,7 @@ uint32_t SunSearchPointAlgorithm_getMaxObservationThreshold(void);
  *       reports whether a candidate set would be accepted, without throwing.
  */
 bool SunSearchPointAlgorithm_validateConfig(const RotationPropertiesArray4_c* rotations,
-                                            Vector3f_c sHatBdyCmd,
+                                            Vector3f_c sunPointAxis_B,
                                             float sunAxisSpinRate,
                                             Vector3f_c omega_RN_B,
                                             uint32_t observationThreshold,
@@ -71,7 +71,7 @@ bool SunSearchPointAlgorithm_validateConfig(const RotationPropertiesArray4_c* ro
  * @brief Construct a new SunSearchPointAlgorithm instance from the supplied configuration.
  * Validate the values with validateConfig before calling; throws on invalid input.
  * @param rotations            [-] sun-search rotation sequence.
- * @param sHatBdyCmd           [-] commanded body vector to point at the sun.
+ * @param sunPointAxis_B       [-] body-fixed sun pointing axis to align with the sun.
  * @param sunAxisSpinRate      [rad/s] constant spin rate about the sun heading vector.
  * @param omega_RN_B           [rad/s] fallback body rate when no sun direction is available.
  * @param observationThreshold [-] CSS count at or above which to transition to pointing.
@@ -80,7 +80,7 @@ bool SunSearchPointAlgorithm_validateConfig(const RotationPropertiesArray4_c* ro
  * @return Pointer to a new SunSearchPointAlgorithm (must be destroyed).
  */
 SunSearchPointAlgorithmHandle* SunSearchPointAlgorithm_create(const RotationPropertiesArray4_c* rotations,
-                                                              Vector3f_c sHatBdyCmd,
+                                                              Vector3f_c sunPointAxis_B,
                                                               float sunAxisSpinRate,
                                                               Vector3f_c omega_RN_B,
                                                               uint32_t observationThreshold,
@@ -98,7 +98,7 @@ void SunSearchPointAlgorithm_destroy(SunSearchPointAlgorithmHandle* self);
  *        phase). Validate the values with validateConfig before calling; throws on invalid input.
  * @param self                 Pointer to the instance.
  * @param rotations            [-] sun-search rotation sequence.
- * @param sHatBdyCmd           [-] commanded body vector to point at the sun.
+ * @param sunPointAxis_B       [-] body-fixed sun pointing axis to align with the sun.
  * @param sunAxisSpinRate      [rad/s] constant spin rate about the sun heading vector.
  * @param omega_RN_B           [rad/s] fallback body rate when no sun direction is available.
  * @param observationThreshold [-] CSS count at or above which to transition to pointing.
@@ -107,7 +107,7 @@ void SunSearchPointAlgorithm_destroy(SunSearchPointAlgorithmHandle* self);
  */
 void SunSearchPointAlgorithm_setConfig(SunSearchPointAlgorithmHandle* self,
                                        const RotationPropertiesArray4_c* rotations,
-                                       Vector3f_c sHatBdyCmd,
+                                       Vector3f_c sunPointAxis_B,
                                        float sunAxisSpinRate,
                                        Vector3f_c omega_RN_B,
                                        uint32_t observationThreshold,

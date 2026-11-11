@@ -5,7 +5,7 @@ FUZZ_TEST(SunSearchPointAlgorithmFuzz, regressionTestSunSearchPoint)
     .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3),  // sunVec
                  fuzztest::VectorOf(fuzztest::InRange(-5.0F, 5.0F)).WithSize(3),    // omega_BN_B
                  fuzztest::InRange(-5.0F, 5.0F),                                    // sunAxisSpinRate
-                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3),    // sHatBdyCmd
+                 fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3),    // sunPointAxis_B
                  fuzztest::VectorOf(fuzztest::InRange(-5.0F, 5.0F)).WithSize(3));   // omega_RN_B_cfg
 
 // ---------------------------------------------------------------------------
