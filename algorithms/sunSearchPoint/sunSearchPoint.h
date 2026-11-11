@@ -27,7 +27,8 @@ class SunSearchPoint final : public SysModel {
     void setRotation(uint32_t index, const RotationProperties& rotation);
     RotationProperties getRotation(uint32_t index) const;
 
-    Eigen::Vector3f sHatBdyCmd{Eigen::Vector3f::Zero()};  //!< [-] commanded body vector to point at the sun
+    Eigen::Vector3f sunPointAxis_B{
+        Eigen::Vector3f::Zero()};                         //!< [-] body-fixed sun pointing axis to align with the sun
     float sunAxisSpinRate{};                              //!< [rad/s] constant spin rate about the sun heading vector
     Eigen::Vector3f omega_RN_B{Eigen::Vector3f::Zero()};  //!< [rad/s] fallback rate when no sun is available
     uint32_t observationThreshold{4U};                    //!< [-] CSS count at or above which to transition to pointing

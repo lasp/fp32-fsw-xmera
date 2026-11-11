@@ -75,14 +75,14 @@ inline std::array<RotationProperties, kNumSunSearchRotations> defaultRotations()
 
 // Build a full config with pointing-parameter defaults; tests override only what they exercise.
 inline SunSearchPointConfig makeSearchConfig(const std::array<RotationProperties, kNumSunSearchRotations>& rotations,
-                                             const Eigen::Vector3f& sHatBdyCmd = Eigen::Vector3f{0.0F, 0.0F, 1.0F},
+                                             const Eigen::Vector3f& sunPointAxis_B = Eigen::Vector3f{0.0F, 0.0F, 1.0F},
                                              float sunAxisSpinRate = 0.0F,
                                              const Eigen::Vector3f& omega_RN_B = Eigen::Vector3f::Zero(),
                                              uint32_t observationThreshold = 4U,
                                              float controlPeriod = kTestControlPeriodSec,
                                              float deadbandAngle = 0.0F) {
     return SunSearchPointConfig::create(
-        rotations, sHatBdyCmd, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod, deadbandAngle);
+        rotations, sunPointAxis_B, sunAxisSpinRate, omega_RN_B, observationThreshold, controlPeriod, deadbandAngle);
 }
 
 // A valid no-op search config (default pointing params); pointUpdate runs past its 4 s sequence to
@@ -93,23 +93,23 @@ inline SunSearchPointConfig defaultSearchConfig() { return makeSearchConfig(defa
 inline SunSearchPointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
                                             const Eigen::Vector3f& omega_BN_B,
                                             float sunAxisSpinRate,
-                                            const Eigen::Vector3f& sHatBdyCmd,
+                                            const Eigen::Vector3f& sunPointAxis_B,
                                             const Eigen::Vector3f& omega_RN_B_cfg) {
     SunSearchPointOutput output{};
 
     Eigen::Vector3f rHat_SB_B = vehSunPntBdy.stableNormalized();
     if (rHat_SB_B.stableNorm() > 0.0F) {
         // Compute sun angle error
-        float cosAngle = sHatBdyCmd.dot(rHat_SB_B);
+        float cosAngle = sunPointAxis_B.dot(rHat_SB_B);
         cosAngle = std::clamp(cosAngle, -1.0f, 1.0f);
         float sunAngleErr = std::acos(cosAngle);
 
         Eigen::Vector3f e_hat{};
         constexpr float kSmallAngle = 1e-3F;
         if (static_cast<float>(M_PI) - sunAngleErr < kSmallAngle) {
-            e_hat = sHatBdyCmd.unitOrthogonal();
+            e_hat = sunPointAxis_B.unitOrthogonal();
         } else {
-            e_hat = rHat_SB_B.cross(sHatBdyCmd);
+            e_hat = rHat_SB_B.cross(sunPointAxis_B);
         }
         Eigen::Vector3f sunMnvrVec = e_hat.stableNormalized();
         Eigen::Vector3f sigma_BR = std::tan(sunAngleErr * 0.25f) * sunMnvrVec;
@@ -169,14 +169,14 @@ inline void propertyDeadbandShrinksAttitudeError(std::vector<float> sunVector,
 inline void regressionTestSunSearchPoint(std::vector<float> sunVector,
                                          std::vector<float> omega_BN_B_Vec,
                                          float sunAxisSpinRate,
-                                         std::vector<float> sHatBdyCmdVec,
+                                         std::vector<float> sunPointAxisVec_B,
                                          std::vector<float> omega_RN_B_cfgVec) {
     // The setter requires a (near-)unit vector; normalize the fuzz-generated input first.
-    Eigen::Vector3f sHatBdyCmd(sHatBdyCmdVec[0], sHatBdyCmdVec[1], sHatBdyCmdVec[2]);
-    if (sHatBdyCmd.stableNorm() < 1e-3f) {
+    Eigen::Vector3f sunPointAxis_B(sunPointAxisVec_B[0], sunPointAxisVec_B[1], sunPointAxisVec_B[2]);
+    if (sunPointAxis_B.stableNorm() < 1e-3f) {
         return;
     }
-    Eigen::Vector3f normalizedSHat = sHatBdyCmd.stableNormalized();
+    Eigen::Vector3f normalizedSHat = sunPointAxis_B.stableNormalized();
 
     Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
     Eigen::Vector3f omega_BN_B(omega_BN_B_Vec[0], omega_BN_B_Vec[1], omega_BN_B_Vec[2]);
@@ -185,10 +185,10 @@ inline void regressionTestSunSearchPoint(std::vector<float> sunVector,
     SunSearchPointConfig config = makeSearchConfig(defaultRotations(), normalizedSHat, sunAxisSpinRate, omega_RN_B_cfg);
     SunSearchPointAlgorithm alg{config};
 
-    // Compare against the exact commanded axis the algorithm uses. The config renormalizes on
+    // Compare against the exact sun pointing axis the algorithm uses. The config renormalizes on
     // construction, so the stored vector differs from normalizedSHat by ~1 ULP; near a collinear
-    // sun/command that difference flips the eigen-axis and exceeds tol.
-    Eigen::Vector3f algSHat = config.getSHatBdyCmd();
+    // sun/pointing axis that difference flips the eigen-axis and exceeds tol.
+    Eigen::Vector3f algSHat = config.getSunPointAxis_B();
 
     SunSearchPointOutput output{};
     EXPECT_NO_THROW(output = pointUpdate(alg, sunVec, omega_BN_B));
@@ -410,7 +410,7 @@ inline void searchConfigValidationChecks() {
         (void)makeSearchConfig(rotations);
     });
 
-    // sHatBdyCmd norm must be within 1e-3 of 1.0.
+    // sunPointAxis_B norm must be within 1e-3 of 1.0.
     EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), Eigen::Vector3f::Zero()));
     EXPECT_ANY_THROW((void)makeSearchConfig(makeValidRotations(), Eigen::Vector3f{2.0F, 0.0F, 0.0F}));
     EXPECT_NO_THROW((void)makeSearchConfig(makeValidRotations(), Eigen::Vector3f{0.0F, 1.0F, 0.0F}));
