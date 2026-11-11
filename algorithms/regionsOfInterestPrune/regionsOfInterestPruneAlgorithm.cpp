@@ -3,6 +3,7 @@
 #include <math.h>
 #include <algorithm>
 #include <iterator>
+#include <limits>
 
 RegionsOfInterestPruneAlgorithm::RegionsOfInterestPruneAlgorithm(const RegionsOfInterestPruneConfig& config)
     : cfg(config) {
@@ -13,8 +14,8 @@ void RegionsOfInterestPruneAlgorithm::setConfig(const RegionsOfInterestPruneConf
 
 /*! Update method for the regions-of-interest pruning algorithm.  Orchestrates
  *  the pipeline steps and returns a fully populated RoiCandidates.
- @return RoiCandidates  Candidates sorted by scaledIntensity (descending), ties broken by
-                        distance to the reference point (ascending) then window area (ascending).
+ @return RoiCandidates  Candidates sorted by scaledIntensity (descending), ties broken by distance from the box
+                        center to the reference point (ascending).
  @param rowSums   Pointer to the per-row above-threshold pixel sums.
  @param numRows   Number of rows in the sum array.
  @param colSums   Pointer to the per-column above-threshold pixel sums.
@@ -46,14 +47,15 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
     // Step 2: form bounding boxes from the cross-product of the kept spans.
     const CandidateArray candidates = buildCandidates(rowSpans, colSpans);
 
-    // Step 3: keep only boxes that overlap at least one lit tile. A grid that does not cover this image
-    // cannot confirm any box, so it yields no candidates.
+    // Step 3: keep only boxes that overlap at least one lit tile, setting each box's count to the lit
+    // pixels of the tiles it covers. A grid that does not cover this image cannot confirm any box, so it
+    // yields no candidates.
     if (!isBinGridUsable(binGrid, numRows, numCols)) {
         return RoiCandidates{};
     }
     CandidateArray litCandidates = filterByLitTiles(candidates, binGrid);
 
-    // Step 4: scale intensity by area^alpha, then sort by scaledIntensity.
+    // Step 4: scale intensity by area^alpha, then sort by scaledIntensity (ties: closer to the reference point).
     scaleIntensityByArea(litCandidates, this->cfg.getAlphaAreaPruneScaling());
     return packOutput(litCandidates, referenceRow, referenceCol);
 }
@@ -186,29 +188,29 @@ bool RegionsOfInterestPruneAlgorithm::isBinGridUsable(const RoiBinGrid& binGrid,
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
-/*! Reports whether a candidate box overlaps at least one tile with a non-zero lit count. Only the tiles
- *  the box covers are visited (rows row/regionSize .. (row+height-1)/regionSize, same for columns), and
- *  the scan stops at the first lit tile.
- @return true when any covered tile has litCount > 0.
+/*! Sums the lit counts of every tile a candidate box overlaps. Only the tiles the box covers are visited
+ *  (rows row/regionSize .. (row+height-1)/regionSize, same for columns). Tiles at the box edge usually
+ *  extend past it, so the sum can exceed the lit pixels inside the box itself.
+ @return Sum of litCounts over the covered tiles, saturated at UINT32_MAX.
  @param candidate  Candidate box (non-empty, inside the grid; see isBinGridUsable).
  @param binGrid    Usable bin grid.
 */
-bool RegionsOfInterestPruneAlgorithm::overlapsLitTile(const RoiCandidateEntry& candidate, const RoiBinGrid& binGrid) {
+uint32_t RegionsOfInterestPruneAlgorithm::sumLitTiles(const RoiCandidateEntry& candidate, const RoiBinGrid& binGrid) {
     const uint32_t firstTileRow = candidate.row / binGrid.regionSize;
     const uint32_t lastTileRow = (candidate.row + candidate.height - 1U) / binGrid.regionSize;
     const uint32_t firstTileCol = candidate.col / binGrid.regionSize;
     const uint32_t lastTileCol = (candidate.col + candidate.width - 1U) / binGrid.regionSize;
+    uint64_t sum = 0;  // 64-bit so many large tile counts cannot wrap before saturating
     for (uint32_t tileRow = firstTileRow; tileRow <= lastTileRow; ++tileRow) {
         for (uint32_t tileCol = firstTileCol; tileCol <= lastTileCol; ++tileCol) {
-            if (binGrid.litCounts[(tileRow * binGrid.numRegionCols) + tileCol] > 0U) {
-                return true;
-            }
+            sum += binGrid.litCounts[(tileRow * binGrid.numRegionCols) + tileCol];
         }
     }
-    return false;
+    return static_cast<uint32_t>(std::min<uint64_t>(sum, std::numeric_limits<uint32_t>::max()));
 }
 
-/*! Drops candidates whose box overlaps no lit tile, keeping the survivors in their original order.
+/*! Drops candidates whose box overlaps no lit tile, keeping the survivors in their original order. Each
+ *  survivor's count is set to the sum of the lit counts of the tiles it covers (see sumLitTiles).
  @return CandidateArray holding only the candidates that touch a lit tile.
  @param candidates  Candidates from buildCandidates (Step 2).
  @param binGrid     Usable bin grid (see isBinGridUsable).
@@ -218,8 +220,11 @@ RegionsOfInterestPruneAlgorithm::CandidateArray RegionsOfInterestPruneAlgorithm:
     const RoiBinGrid& binGrid) {
     CandidateArray kept;
     for (uint32_t i = 0; i < candidates.count; ++i) {
-        if (overlapsLitTile(candidates.data[i], binGrid)) {
-            kept.data[kept.count++] = candidates.data[i];
+        const uint32_t litPixels = sumLitTiles(candidates.data[i], binGrid);
+        if (litPixels > 0U) {
+            RoiCandidateEntry& entry = kept.data[kept.count++];
+            entry = candidates.data[i];
+            entry.count = litPixels;
         }
     }
     return kept;
@@ -238,11 +243,10 @@ void RegionsOfInterestPruneAlgorithm::scaleIntensityByArea(CandidateArray& candi
     }
 }
 
-/*! Sorts candidates by scaledIntensity (descending); ties are broken first by squared distance from the
- *  candidate's box center to the reference point (ascending — closer wins), then by window area
- *  (ascending — smaller wins). Truncates to ROI_CANDIDATES_MAX and packs the result into a
- *  RoiCandidates ready for publication.
- @return RoiCandidates with numCandidates set and candidates[0] = rank-1.
+/*! Sorts candidates by scaledIntensity (descending); ties are broken by squared distance from the
+ *  candidate's box center to the reference point (ascending — closer wins). Packs the result into a
+ *  RoiCandidates; the adapter publishes the first MAX_NUMBER_REGIONS.
+ @return RoiCandidates with numCandidates set and candidates[0] = highest scaledIntensity.
  @param candidates    Unsorted candidate list with scaledIntensity set (taken by value; sorted in-place).
  @param referenceRow  [px] Reference point row coordinate (y0).
  @param referenceCol  [px] Reference point column coordinate (x0).
@@ -258,12 +262,8 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::packOutput(CandidateArray candida
                           if (a.scaledIntensity != b.scaledIntensity) {
                               return a.scaledIntensity > b.scaledIntensity;
                           }
-                          const float distA = squaredDistanceToReference(a, referenceRow, referenceCol);
-                          const float distB = squaredDistanceToReference(b, referenceRow, referenceCol);
-                          if (distA != distB) {
-                              return distA < distB;
-                          }
-                          return a.height * a.width < b.height * b.width;
+                          return squaredDistanceToReference(a, referenceRow, referenceCol) <
+                                 squaredDistanceToReference(b, referenceRow, referenceCol);
                       });
 
     RoiCandidates outRoi{};

@@ -3,6 +3,8 @@
 #include "utilities/fsw/timeConversion.hpp"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
+#include <algorithm>
+#include <limits>
 #include <stdexcept>
 
 /*! @brief Reset internal state, validate that rowColSumInMsg and binGridInMsg are connected, and
@@ -66,6 +68,7 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
     RegionsIdentifiedMsgF32Payload output{};
     const uint32_t numPublished = std::min(candidates.numCandidates, static_cast<uint32_t>(MAX_NUMBER_REGIONS));
     const double timeTagSec = fsw::nanosToSeconds(callTime);
+    output.numberOfRegions = static_cast<int>(numPublished);
     for (uint32_t k = 0; k < numPublished; ++k) {
         const auto& cand = candidates.candidates[k];
         output.timeTag[k] = timeTagSec;
@@ -73,7 +76,9 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
         output.cornerY[k] = static_cast<int>(cand.row);
         output.width[k] = static_cast<int>(cand.width);
         output.height[k] = static_cast<int>(cand.height);
-        output.numberOfPixels[k] = static_cast<int>(cand.count);
+        // count is saturated at UINT32_MAX; clamp so the int field cannot wrap negative.
+        output.numberOfPixels[k] =
+            static_cast<int>(std::min(cand.count, static_cast<uint32_t>(std::numeric_limits<int>::max())));
     }
     this->regionsIdentifiedOutMsg.write(output, moduleID, callTime);
 }

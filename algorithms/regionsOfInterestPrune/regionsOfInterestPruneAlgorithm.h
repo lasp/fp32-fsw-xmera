@@ -32,7 +32,7 @@ struct RoiCandidateEntry {
     uint32_t col{};           //!< [px] Top-left column of the bounding box
     uint32_t height{};        //!< [px] Height of the bounding box
     uint32_t width{};         //!< [px] Width of the bounding box
-    uint32_t count{};         //!< [-] Estimated above-threshold pixel count
+    uint32_t count{};         //!< [-] Sum of litPixelCount over the bin-grid tiles the box overlaps
     uint64_t intensity{};     //!< [-] Estimated intensity: min(row-span intensity sum, col-span intensity sum)
     float scaledIntensity{};  //!< [-] intensity / (width * height)^alphaAreaPruneScaling
 };
@@ -55,10 +55,9 @@ struct RoiBinGrid {
 
 struct RoiCandidates {
     uint32_t numCandidates{};                                        //!< [-] Number of valid entries
-    std::array<RoiCandidateEntry, ROI_CANDIDATES_MAX> candidates{};  //!< [-] Sorted by scaledIntensity descending,
-                                                                     //!< then distance to the reference
-                                                                     //!< point ascending, then area
-                                                                     //!< ascending
+    std::array<RoiCandidateEntry, ROI_CANDIDATES_MAX> candidates{};  //!< [-] Sorted by scaledIntensity
+                                                                     //!< descending, then distance to the
+                                                                     //!< reference point ascending
 };
 
 /*! @brief Validated configuration for the regions-of-interest pruning algorithm.
@@ -173,16 +172,16 @@ class RegionsOfInterestPruneAlgorithm final {
     // Step 2: cross-product of top row/col spans → bounding-box candidates.
     static CandidateArray buildCandidates(const RowTopSpans& rowSpans, const ColTopSpans& colSpans);
 
-    // Step 3: drop candidates that overlap no lit tile of the bin grid.
+    // Step 3: drop candidates that overlap no lit tile of the bin grid; set count to the covered tiles' lit pixels.
     static CandidateArray filterByLitTiles(const CandidateArray& candidates, const RoiBinGrid& binGrid);
     static bool isBinGridUsable(const RoiBinGrid& binGrid, uint32_t numRows, uint32_t numCols);
-    static bool overlapsLitTile(const RoiCandidateEntry& candidate, const RoiBinGrid& binGrid);
+    static uint32_t sumLitTiles(const RoiCandidateEntry& candidate, const RoiBinGrid& binGrid);
 
     // Step 4: set each candidate's scaledIntensity = intensity / area^alpha.
     static void scaleIntensityByArea(CandidateArray& candidates, float alphaAreaPruneScaling);
 
-    // Step 4: sort candidates by scaledIntensity descending (ties broken by distance to the reference point,
-    // then window area), truncate, and pack the result.
+    // Step 4: sort candidates by scaledIntensity descending (ties broken by distance to the reference point)
+    // and pack the result.
     static RoiCandidates packOutput(CandidateArray candidates, float referenceRow, float referenceCol);
 };
 
