@@ -2,6 +2,7 @@
 
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 
+#include <optional>
 #include <utility>
 #include <variant>
 
@@ -52,6 +53,36 @@ class RateMeasurementModel {
 
 static_assert(filtering::Measurement<StAttMeasurementModel, State>);
 static_assert(filtering::Measurement<RateMeasurementModel, State>);
+
+/*! A state and its covariance, as a pair for the shadow-set switch. */
+struct StateAndCovariance {
+    State state;
+    StateMatrix covariance;
+};
+
+/*! Map an MRP attitude past |sigma| = 1 to its inner shadow set sigma_s = -sigma/|sigma|^2, and the covariance
+ *  through the switch's Jacobian T = blockdiag(J, I): P -> T P T^T, with
+ *  J = d(sigma_s)/d(sigma) = -(1/|sigma|^2) (I - 2 sigma sigma^T/|sigma|^2). The attitude block becomes J P J^T and
+ *  the attitude-rate correlations J P; the body rate and its block are untouched. The result is symmetrized
+ *  against rounding.
+ *  @return the switched state and covariance, or nullopt when the attitude is already in the inner set
+ *  @param state      [-] state to regularize
+ *  @param covariance [-] its covariance */
+std::optional<StateAndCovariance> switchToInnerMrpSet(State const& state, StateMatrix const& covariance) {
+    Eigen::Vector3f const sigma = state.get<filtering::MrpAttitude<3>>();
+    float const s2 = sigma.squaredNorm();
+    if (!(s2 > 1.0F)) {
+        return std::nullopt;
+    }
+    constexpr int offset = State::offsetOf<filtering::MrpAttitude<3>>();
+    StateMatrix T = StateMatrix::Identity();
+    T.block<3, 3>(offset, offset) = -(Eigen::Matrix3f::Identity() - ((2.0F / s2) * sigma * sigma.transpose())) / s2;
+    StateMatrix const mapped = T * covariance * T.transpose();
+
+    StateAndCovariance switched{.state = state, .covariance = 0.5F * (mapped + mapped.transpose())};
+    switched.state.set<filtering::MrpAttitude<3>>(mrpShadow(sigma));
+    return switched;
+}
 
 }  // namespace
 
@@ -112,8 +143,7 @@ InertialFilterOutput InertialFilterAlgorithm::update(double currentSeconds,
         this->measurements.enqueue(rateData.timeTag, this->packRateMeasurement(rateData));
     }
     applySequentialRobust(this->measurements, *this, currentSeconds);
-    this->srukf.setState(regularize(this->srukf.getState()));
-    this->srukf.setStateLastMeasurement(regularize(this->srukf.getStateAtLastMeasurement()));
+    this->regularize();
 
     return InertialFilterOutput{
         .filterState = this->getFilterOutput(),
@@ -202,13 +232,20 @@ RateMeasurement InertialFilterAlgorithm::packRateMeasurement(RateData const& rat
     return packed;
 }
 
-/*! Map the MRP attitude to its inner shadow set when |sigma| > 1; the body rate is left untouched.
- *  @return sanitized copy of State
- *  @param state [-] state to regularize */
-InertialFilterAlgorithm::State InertialFilterAlgorithm::regularize(State const& state) {
-    State outputState = state;
-    outputState.set<filtering::MrpAttitude<3>>(mrpSwitch(outputState.get<filtering::MrpAttitude<3>>(), 1.0F));
-    return outputState;
+/*! Map the MRP attitude to its inner shadow set when |sigma| > 1, in the working state and in the last-measurement
+ *  anchor (which the next propagation starts from), each with its covariance mapped through that switch's
+ *  Jacobian; the body rate is left untouched. A state already in the inner set, and its covariance, are kept
+ *  as they are. */
+void InertialFilterAlgorithm::regularize() {
+    if (auto const switched = switchToInnerMrpSet(this->srukf.getState(), this->srukf.getCovariance())) {
+        this->srukf.setState(switched->state);
+        this->srukf.setCovariance(switched->covariance);
+    }
+    if (auto const switched = switchToInnerMrpSet(this->srukf.getStateAtLastMeasurement(),
+                                                  this->srukf.getCovarianceAtLastMeasurement())) {
+        this->srukf.setStateLastMeasurement(switched->state);
+        this->srukf.setCovarianceLastMeasurement(switched->covariance);
+    }
 }
 
 /*! Bundle the SRuKF's current state and covariance into the output POD.

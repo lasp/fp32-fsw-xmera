@@ -8,7 +8,7 @@
 //   * timeUpdate(): zero-rate / zero-dt / NaN invariants; covariance growth under Q.
 //   * Measurement packing + application (through update()) and residual recording.
 //   * measurementUpdate(): covariance shrink + symmetry + PSD; high-noise limit; bad-update rejection.
-//   * Regularization: MRP shadow-set switch on over-unity attitude.
+//   * Regularization: MRP shadow-set switch on over-unity attitude, with its covariance.
 //   * State convergence (exact and seeded-noisy measurements).
 
 #include "inertialFilterAlgorithm.h"
@@ -806,7 +806,8 @@ TEST(InertialFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
 
 // ============================================================================
 // Regularization: the MRP attitude is mapped to its inner shadow set when
-// |sigma| > 1; the rate block is untouched. Exercised through update().
+// |sigma| > 1, and its covariance through the switch's Jacobian; the rate is
+// untouched. Exercised through update().
 // ============================================================================
 
 TEST(InertialFilterAlgorithmRegularize, SwitchesOverUnityMrpToInnerSet) {
@@ -831,6 +832,57 @@ TEST(InertialFilterAlgorithmRegularize, LeavesRateUnchanged) {
     algo.update(0.0, StAttData{}, RateData{});
 
     EXPECT_TRUE(algo.getState().get<filtering::AngularRate<3>>().isApprox(omega, 1E-12));
+}
+
+// The covariance is switched with the attitude: P -> T P T^T, with T = blockdiag(J, I) and J the Jacobian of the
+// shadow map (here by central differences, in double). The attitude-rate correlations are mapped too, so an
+// attitude innovation after the switch still moves the rate the right way. The last-measurement anchor, which the
+// next propagation starts from, is switched the same way: timeUpdate(0) rewinds to it.
+TEST(InertialFilterAlgorithmRegularize, SwitchesTheCovarianceThroughTheShadowJacobian) {
+    Eigen::Vector3f const overUnity(0.9, -0.5, 0.6);  // |sigma|^2 = 1.42
+    Matrix6 L;                                        // a full covariance, with attitude-rate correlations
+    L << 5E-2, 0.0, 0.0, 0.0, 0.0, 0.0,               //
+        1E-2, 4E-2, 0.0, 0.0, 0.0, 0.0,               //
+        -2E-2, 1E-2, 3E-2, 0.0, 0.0, 0.0,             //
+        4E-3, -2E-3, 1E-3, 1E-2, 0.0, 0.0,            //
+        -1E-3, 3E-3, 2E-3, 2E-3, 1E-2, 0.0,           //
+        2E-3, 1E-3, -3E-3, -1E-3, 2E-3, 1E-2;
+    Matrix6 const LLt = L * L.transpose();
+    Matrix6 const P = 0.5F * (LLt + LLt.transpose());
+    InertialFilterAlgorithm algo(baseConfig(makeState(overUnity, Eigen::Vector3f(0.01, -0.02, 0.03)), P));
+
+    // currentSeconds = 0: no propagation, no measurements -- only regularization runs.
+    algo.update(0.0, StAttData{}, RateData{});
+
+    Eigen::Vector3d const sigma = overUnity.cast<double>();
+    double const h = 1E-6;
+    Eigen::Matrix<double, 6, 6> T = Eigen::Matrix<double, 6, 6>::Identity();
+    for (int k = 0; k < 3; ++k) {
+        Eigen::Vector3d const step = h * Eigen::Vector3d::Unit(k);
+        T.block<3, 1>(0, k) = (mrpShadow<double>(sigma + step) - mrpShadow<double>(sigma - step)) / (2.0 * h);
+    }
+    Matrix6 const expected = (T * P.cast<double>() * T.transpose()).cast<float>();
+
+    EXPECT_TRUE(algo.getCovariance().isApprox(expected, 1E-4F)) << algo.getCovariance() << "\nvs\n" << expected;
+    EXPECT_FALSE(algo.getCovariance().isApprox(P, 1E-2F)) << "the switch should change the covariance";
+    EXPECT_TRUE(isValidCovariance<6>(algo.getCovariance()));
+
+    ASSERT_TRUE(algo.timeUpdate(0.0F));
+    EXPECT_TRUE(algo.getCovariance().isApprox(expected, 1E-4F)) << "the anchor covariance is switched too";
+    EXPECT_TRUE(algo.getState().get<filtering::MrpAttitude<3>>().isApprox(mrpShadow(overUnity), kRoundoffTol));
+}
+
+// An attitude already in the inner set is not switched: the state and covariance are kept exactly, with no refactor
+// of the covariance square root.
+TEST(InertialFilterAlgorithmRegularize, InnerSetKeepsTheCovariance) {
+    Eigen::Vector3f const inner(0.5, -0.3, 0.2);
+    Matrix6 const P = diagCovariance(1E-2, 1E-3);
+    InertialFilterAlgorithm algo(baseConfig(makeState(inner, Eigen::Vector3f::Zero()), P));
+
+    algo.update(0.0, StAttData{}, RateData{});
+
+    EXPECT_EQ(algo.getState().get<filtering::MrpAttitude<3>>(), inner);
+    EXPECT_EQ(algo.getCovariance(), P);
 }
 
 // ============================================================================
