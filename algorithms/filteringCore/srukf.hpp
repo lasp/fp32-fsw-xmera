@@ -470,6 +470,8 @@ class SRuKF {
     State getStateAtLastMeasurement() const { return this->stateLastMeasurement; }
     /*! @return current full covariance */
     Covariance getCovariance() const { return this->covariance; }
+    /*! @return last-measurement covariance (post-last-measurement) */
+    Covariance getCovarianceAtLastMeasurement() const { return this->covarianceLastMeasurement; }
 
     /*! Overwrite the working state.
      *  @param newState [-] new working state */
@@ -477,6 +479,19 @@ class SRuKF {
     /*! Overwrite the last-measurement state
      *  @param newStateLastMeas [-] new last-measurement state */
     void setStateLastMeasurement(State const& newStateLastMeas) { this->stateLastMeasurement = newStateLastMeas; }
+    /*! Overwrite the working covariance and refactor its square root, e.g. when the state changes representation
+     *  (an MRP shadow-set switch maps the covariance through the switch's Jacobian).
+     *  @param newCovariance [-] new working covariance; symmetric positive semi-definite */
+    void setCovariance(Covariance const& newCovariance) {
+        this->covariance = newCovariance;
+        this->sqrtCovar = choleskyDecomposition<State::size>(newCovariance);
+    }
+    /*! Overwrite the last-measurement covariance and refactor its square root. See setCovariance().
+     *  @param newCovarianceLastMeas [-] new last-measurement covariance; symmetric positive semi-definite */
+    void setCovarianceLastMeasurement(Covariance const& newCovarianceLastMeas) {
+        this->covarianceLastMeasurement = newCovarianceLastMeas;
+        this->sqrtCovarLastMeasurement = choleskyDecomposition<State::size>(newCovarianceLastMeas);
+    }
 
    private:
     /*! Replace the covariance block of one component by its initial block, zero its correlations with the other

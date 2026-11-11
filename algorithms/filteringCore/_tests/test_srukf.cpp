@@ -409,6 +409,49 @@ TEST(StateVectorApi, ScaleComponentScalesOnlyTheNamedComponent) {
     EXPECT_TRUE(P.isApprox(expectedP, 1E-15));
 }
 
+// setCovariance() and setCovarianceLastMeasurement() replace the covariance and refactor its square root: the
+// working covariance reads back as set, and timeUpdate(0) rewinds to the anchor's, with sigma points spread by it.
+TEST(SrukfApi, SetCovarianceReplacesTheWorkingAndAnchorCovariance) {
+    SRuKF<BiasedState, BiasedZeroDynamics> filter;
+    filter.setAlpha(0.5);
+    filter.setBeta(2.0);
+    filter.setInitialState(BiasedState{});
+    filter.setInitialCovariance(Eigen::Matrix<float, 6, 6>::Identity());
+    filter.setProcessNoise(1E-6F * Eigen::Matrix<float, 6, 6>::Identity());
+    filter.configure();
+    filter.reInitialize();
+
+    Eigen::Matrix<float, 6, 6> working = 2.0F * Eigen::Matrix<float, 6, 6>::Identity();
+    working(0, 3) = working(3, 0) = 0.5F;
+    Eigen::Matrix<float, 6, 6> anchor = 3.0F * Eigen::Matrix<float, 6, 6>::Identity();
+    anchor(1, 4) = anchor(4, 1) = -0.7F;
+
+    filter.setCovariance(working);
+    filter.setCovarianceLastMeasurement(anchor);
+    EXPECT_EQ(filter.getCovariance(), working);
+    EXPECT_EQ(filter.getCovarianceAtLastMeasurement(), anchor);
+
+    // A dt = 0 time update rewinds to the anchor, and the measurement update that follows spreads its sigma points
+    // with the anchor's refactored square root: it matches a filter seeded with the anchor covariance.
+    SRuKF<BiasedState, BiasedZeroDynamics> reference;
+    reference.setAlpha(0.5);
+    reference.setBeta(2.0);
+    reference.setInitialState(BiasedState{});
+    reference.setInitialCovariance(anchor);
+    reference.setProcessNoise(1E-6F * Eigen::Matrix<float, 6, 6>::Identity());
+    reference.configure();
+    reference.reInitialize();
+
+    ASSERT_TRUE(filter.timeUpdate(0.0));
+    ASSERT_TRUE(reference.timeUpdate(0.0));
+    EXPECT_EQ(filter.getCovariance(), anchor);
+    BiasedPositionMeasurement const reading{{0.3F, -0.2F, 0.1F}};
+    ASSERT_TRUE(filter.measurementUpdate(reading).has_value());
+    ASSERT_TRUE(reference.measurementUpdate(reading).has_value());
+    EXPECT_EQ(filter.getState().raw(), reference.getState().raw());
+    EXPECT_EQ(filter.getCovariance(), reference.getCovariance());
+}
+
 TEST(SrukfApi, ReInitializeComponentReseedsOnlyThatComponent) {
     SRuKF<BiasedState, BiasedZeroDynamics> filter;
     filter.setAlpha(0.5);
