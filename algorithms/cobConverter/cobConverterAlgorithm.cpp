@@ -227,7 +227,10 @@ float CobConverterAlgorithm::computeBetaVar(const Eigen::Matrix3d& filterVehPosi
     const Eigen::RowVector3d deltaBinary_delta_r =
         (-correction.sc_position.stableNormalized() / correction.spacecraftRange * constants_deltaR);
 
-    const float deltaBinary_delta_R = (constants_deltaR / radius);
+    // deltaBinary_delta_R = constants_deltaR / radius
+    const float deltaBinary_delta_R = static_cast<float>(
+        kBinaryPhaseCoeff / correction.spacecraftRange * oneMinusCosAlpha /
+        (1.0 + pow(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0)));
 
     const auto deltaBinary_deltaAlpha = static_cast<float>(
         kBinaryPhaseCoeff * radius / correction.spacecraftRange /
