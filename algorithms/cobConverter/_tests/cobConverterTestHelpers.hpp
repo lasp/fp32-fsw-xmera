@@ -172,7 +172,9 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 
     // With a zero radius, an unusable filter state, without a usable sunline, or inside the body radius, the COB is
     // the COM.
-    const Eigen::Vector3d position = filter.filterVehPosition;
+    // The algorithm takes the filter state in float; the reference promotes the same values to double.
+    const Eigen::Vector3d position = filter.filterVehPosition.cast<double>();
+    const Eigen::Matrix3d positionCovariance = filter.filterVehPositionCovariance.cast<double>();
     const bool filterUsable = CobConverterConfig::isUsableFilterState(filter);
     const bool phaseCorrected = filterUsable && cfg.getRadius() > 0.0F &&
                                 position.stableNorm() > static_cast<double>(cfg.getRadius()) &&
@@ -199,7 +201,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
                                alpha,
                                shat_N,
                                static_cast<double>(cfg.getRadiusUncertainty()),
-                               filter.filterVehPositionCovariance);
+                               positionCovariance);
         // Mirrors updateState: a non-finite correction (in fp32) falls back to the COB.
         const double sec2Beta = 1.0 + (tanBeta * tanBeta);
         const bool finiteCom =
@@ -274,8 +276,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
             position.dot(rhatCOM_N) > 0.0 ? position.cross(rhatCOM_N).stableNorm() : position.stableNorm();
         const double gate =
             (static_cast<double>(cfg.getOutlierRadiusMultiple()) * static_cast<double>(cfg.getRadius())) +
-            (static_cast<double>(cfg.getNumStandardDeviations()) *
-             safeSqrt(filter.filterVehPositionCovariance.trace()));
+            (static_cast<double>(cfg.getNumStandardDeviations()) * safeSqrt(positionCovariance.trace()));
         goodOutlierCheck = filterUsable && missDistance <= gate;
         comErrorOutlierTrigger = !goodOutlierCheck;
         // fp32 and double headings agree to ~1e-3 (the rhat tolerance), which moves d by up to ~2e-3 * |r_f|.
@@ -466,8 +467,9 @@ inline void testCobConverter(float radius,
                              .cobCenterOfBrightness = cobCenterOfBrightness,
                              .cobTimeTag = cobTimeTag};
     const VehicleAttitude attitude{.sigma_BN = sigma_BN, .vehSunPntBdy = vehSunPntBdy};
-    const FilterState filter{.filterVehPosition = filterVehPosition,
-                             .filterVehPositionCovariance = filterVehPositionCovariance};
+    // The adapter casts the double filter message to float.
+    const FilterState filter{.filterVehPosition = filterVehPosition.cast<float>(),
+                             .filterVehPositionCovariance = filterVehPositionCovariance.cast<float>()};
 
     CobConverterAlgorithm alg(*cfg);
     CobConverterUpdateResult out;

@@ -43,9 +43,9 @@ struct VehicleAttitude {
 /*! Filter state: only position (and its covariance) is consumed by this algorithm.
     The upstream filter state is a fixed 6-d [position (3), velocity (3)]; velocity is unused. */
 struct FilterState {
-    Eigen::Vector3d filterVehPosition = Eigen::Vector3d::Zero();  //!< [m] spacecraft position, inertial frame
-    Eigen::Matrix3d filterVehPositionCovariance =
-        Eigen::Matrix3d::Zero();  //!< [m^2] spacecraft position covariance, inertial frame
+    Eigen::Vector3f filterVehPosition = Eigen::Vector3f::Zero();  //!< [m] spacecraft position, inertial frame
+    Eigen::Matrix3f filterVehPositionCovariance =
+        Eigen::Matrix3f::Zero();  //!< [m^2] spacecraft position covariance, inertial frame
 };
 
 /*! Essential heading measurement output: the COM unit vector and its covariance, inertial
@@ -157,7 +157,7 @@ class CobConverterConfig final {
 
     /*! [m] smallest |r| of a usable filter state. Below it r_hat and the 1/r partials are dominated by rounding. Far
      below any real range. */
-    static constexpr double kMinPositionNorm = 1e-3;
+    static constexpr float kMinPositionNorm = 1e-3F;
 
     /*! Check whether a filter state can drive the phase correction and the outlier gate: finite position with
      |r| >= kMinPositionNorm, and finite position covariance.
@@ -279,8 +279,8 @@ struct Rotations {
 
 /*! Phase-angle correction terms from computePhaseAngleCorrection; zero when no correction applies. */
 struct PhaseAngleCorrectionResult {
-    Eigen::Vector3d sc_position = Eigen::Vector3d::Zero();
-    double spacecraftRange = 0.0;
+    Eigen::Vector3f sc_position = Eigen::Vector3f::Zero();
+    float spacecraftRange = 0.0F;
     Eigen::Vector3f shat_N = Eigen::Vector3f::Zero();
     float alphaPA = 0.0F;
     float phi = 0.0F;
@@ -292,6 +292,8 @@ struct PhaseAngleCorrectionResult {
  * @class CobConverterAlgorithm
  * @brief Converts center-of-brightness (COB) pixel measurements into an inertial-frame
  *        unit vector, with optional phase-angle correction and outlier detection.
+ *
+ * Computes in single precision (float); the adapter casts the double filter message.
  */
 class CobConverterAlgorithm final {
    public:
@@ -310,10 +312,10 @@ class CobConverterAlgorithm final {
     bool comOutlierDetection(const FilterState& filter, const Eigen::Vector3f& rhatCOM_N) const;
     void computeCameraParameters();
     Rotations computeRotations(const Eigen::Vector3f& sigma_BN) const;
-    PhaseAngleCorrectionResult computePhaseAngleCorrection(const Eigen::Vector3d& filterVehPosition,
+    PhaseAngleCorrectionResult computePhaseAngleCorrection(const Eigen::Vector3f& filterVehPosition,
                                                            const Eigen::Vector3f& vehSunPntBdy,
                                                            const Eigen::Matrix3f& dcm_BN) const;
-    float computeBetaVar(const Eigen::Matrix3d& filterVehPositionCovariance,
+    float computeBetaVar(const Eigen::Matrix3f& filterVehPositionCovariance,
                          const PhaseAngleCorrectionResult& correction) const;
 
     CobConverterConfig cfg;

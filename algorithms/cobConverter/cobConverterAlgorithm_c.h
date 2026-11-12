@@ -115,8 +115,8 @@ CobConverterOutput_c CobConverterAlgorithm_updateState(CobConverterAlgorithmHand
                                                        uint64_t cobTimeTag,
                                                        Vector3f_c sigma_BN,
                                                        Vector3f_c vehSunPntBdy,
-                                                       Vector3d_c filterVehPosition,
-                                                       Matrix3d_c filterVehPositionCovariance);
+                                                       Vector3f_c filterVehPosition,
+                                                       Matrix3f_c filterVehPositionCovariance);
 
 #ifdef __cplusplus
 }  // extern "C"
