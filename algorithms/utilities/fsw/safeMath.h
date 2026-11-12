@@ -456,17 +456,13 @@ inline double safeSqrt(double const x) {
 /*! @brief Safe wrapper around atan2f. When both arguments are zero (any sign),
  *         the direction is undefined and zero is returned, instead of the
  *         ±0 or ±π that atan2f picks from the signs of the zeros.
- *         ±Inf inputs follow atan2f (e.g. atan2f(1, -Inf) = π, atan2f(Inf, Inf) = π/4).
- *         NaN in either argument returns zero.
+ *         NaN or ±Inf in either argument returns zero.
  *  @param y Numerator argument (opposite side)
  *  @param x Denominator argument (adjacent side)
- *  @return atan2f(y, x) in [-π, π], or 0.0F if either argument is NaN or both are zero
+ *  @return atan2f(y, x) in [-π, π], or 0.0F if either argument is NaN or ±Inf, or both are zero
  */
 inline float safeAtan2f(float const y, float const x) {
-    if (isnan(y) || isnan(x)) {
-        return 0.0F;
-    }
-    if (y == 0.0F && x == 0.0F) {
+    if (isnan(y) || isnan(x) || isinf(y) || isinf(x) || (y == 0.0F && x == 0.0F)) {
         return 0.0F;
     }
     return atan2f(y, x);
@@ -475,17 +471,13 @@ inline float safeAtan2f(float const y, float const x) {
 /*! @brief Safe wrapper around atan2. When both arguments are zero (any sign),
  *         the direction is undefined and zero is returned, instead of the
  *         ±0 or ±π that atan2 picks from the signs of the zeros.
- *         ±Inf inputs follow atan2 (e.g. atan2(1, -Inf) = π, atan2(Inf, Inf) = π/4).
- *         NaN in either argument returns zero.
+ *         NaN or ±Inf in either argument returns zero.
  *  @param y Numerator argument (opposite side)
  *  @param x Denominator argument (adjacent side)
- *  @return atan2(y, x) in [-π, π], or 0.0 if either argument is NaN or both are zero
+ *  @return atan2(y, x) in [-π, π], or 0.0 if either argument is NaN or ±Inf, or both are zero
  */
 inline double safeAtan2(double const y, double const x) {
-    if (isnan(y) || isnan(x)) {
-        return 0.0;
-    }
-    if (y == 0.0 && x == 0.0) {
+    if (isnan(y) || isnan(x) || isinf(y) || isinf(x) || (y == 0.0 && x == 0.0)) {
         return 0.0;
     }
     return atan2(y, x);

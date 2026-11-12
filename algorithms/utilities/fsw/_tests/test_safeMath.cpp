@@ -344,16 +344,17 @@ TEST(SafeMathFloat, Atan2HandlesBothZero) {
     }
 }
 
-// NaN in either argument returns zero; ±Inf follows std::atan2, which picks the
-// quadrant from the signs of y and x.
+// NaN or ±Inf in either argument returns +0, including ±Inf paired with ±0.
 TEST(SafeMathFloat, Atan2HandlesSpecialValues) {
     const float nan = std::numeric_limits<float>::quiet_NaN();
     const float inf = std::numeric_limits<float>::infinity();
     const std::array<std::array<float, 2>, 4> nanInputs{{{{nan, 1.0F}}, {{1.0F, nan}}, {{nan, nan}}, {{-nan, 1.0F}}}};
     for (const auto& [y, x] : nanInputs) {
-        EXPECT_EQ(safeAtan2f(y, x), 0.0F) << "y=" << y << " x=" << x;
+        const float result = safeAtan2f(y, x);
+        EXPECT_EQ(result, 0.0F) << "y=" << y << " x=" << x;
+        EXPECT_FALSE(std::signbit(result)) << "y=" << y << " x=" << x;
     }
-    const std::array<std::array<float, 2>, 10> infInputs{{{{inf, 1.0F}},
+    const std::array<std::array<float, 2>, 14> infInputs{{{{inf, 1.0F}},
                                                           {{-inf, 1.0F}},
                                                           {{1.0F, inf}},
                                                           {{-1.0F, inf}},
@@ -362,11 +363,15 @@ TEST(SafeMathFloat, Atan2HandlesSpecialValues) {
                                                           {{inf, inf}},
                                                           {{-inf, inf}},
                                                           {{inf, -inf}},
-                                                          {{-inf, -inf}}}};
+                                                          {{-inf, -inf}},
+                                                          {{inf, 0.0F}},
+                                                          {{-inf, -0.0F}},
+                                                          {{0.0F, -inf}},
+                                                          {{-0.0F, -inf}}}};
     for (const auto& [y, x] : infInputs) {
         const float result = safeAtan2f(y, x);
-        EXPECT_EQ(result, std::atan2(y, x)) << "y=" << y << " x=" << x;
-        EXPECT_EQ(std::signbit(result), std::signbit(std::atan2(y, x))) << "y=" << y << " x=" << x;
+        EXPECT_EQ(result, 0.0F) << "y=" << y << " x=" << x;
+        EXPECT_FALSE(std::signbit(result)) << "y=" << y << " x=" << x;
     }
 }
 
@@ -727,16 +732,17 @@ TEST(SafeMathDouble, Atan2HandlesBothZero) {
     }
 }
 
-// NaN in either argument returns zero; ±Inf follows std::atan2, which picks the
-// quadrant from the signs of y and x.
+// NaN or ±Inf in either argument returns +0, including ±Inf paired with ±0.
 TEST(SafeMathDouble, Atan2HandlesSpecialValues) {
     const double nan = std::numeric_limits<double>::quiet_NaN();
     const double inf = std::numeric_limits<double>::infinity();
     const std::array<std::array<double, 2>, 4> nanInputs{{{{nan, 1.0}}, {{1.0, nan}}, {{nan, nan}}, {{-nan, 1.0}}}};
     for (const auto& [y, x] : nanInputs) {
-        EXPECT_EQ(safeAtan2(y, x), 0.0) << "y=" << y << " x=" << x;
+        const double result = safeAtan2(y, x);
+        EXPECT_EQ(result, 0.0) << "y=" << y << " x=" << x;
+        EXPECT_FALSE(std::signbit(result)) << "y=" << y << " x=" << x;
     }
-    const std::array<std::array<double, 2>, 10> infInputs{{{{inf, 1.0}},
+    const std::array<std::array<double, 2>, 14> infInputs{{{{inf, 1.0}},
                                                            {{-inf, 1.0}},
                                                            {{1.0, inf}},
                                                            {{-1.0, inf}},
@@ -745,11 +751,15 @@ TEST(SafeMathDouble, Atan2HandlesSpecialValues) {
                                                            {{inf, inf}},
                                                            {{-inf, inf}},
                                                            {{inf, -inf}},
-                                                           {{-inf, -inf}}}};
+                                                           {{-inf, -inf}},
+                                                           {{inf, 0.0}},
+                                                           {{-inf, -0.0}},
+                                                           {{0.0, -inf}},
+                                                           {{-0.0, -inf}}}};
     for (const auto& [y, x] : infInputs) {
         const double result = safeAtan2(y, x);
-        EXPECT_EQ(result, std::atan2(y, x)) << "y=" << y << " x=" << x;
-        EXPECT_EQ(std::signbit(result), std::signbit(std::atan2(y, x))) << "y=" << y << " x=" << x;
+        EXPECT_EQ(result, 0.0) << "y=" << y << " x=" << x;
+        EXPECT_FALSE(std::signbit(result)) << "y=" << y << " x=" << x;
     }
 }
 
