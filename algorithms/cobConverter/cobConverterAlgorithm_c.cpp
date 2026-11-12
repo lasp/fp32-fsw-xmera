@@ -163,8 +163,8 @@ CobConverterOutput_c CobConverterAlgorithm_updateState(CobConverterAlgorithmHand
                                                        uint64_t cobTimeTag,
                                                        Vector3f_c sigma_BN,
                                                        Vector3f_c vehSunPntBdy,
-                                                       Vector3d_c filterVehPosition,
-                                                       Matrix3d_c filterVehPositionCovariance) {
+                                                       Vector3f_c filterVehPosition,
+                                                       Matrix3f_c filterVehPositionCovariance) {
     const CobMeasurement cob{
         .cobValid = cobValid,
         .cobPixelsFound = cobPixelsFound,
@@ -176,8 +176,8 @@ CobConverterOutput_c CobConverterAlgorithm_updateState(CobConverterAlgorithmHand
         .vehSunPntBdy = cArrayToEigenVector3<float>(vehSunPntBdy.data),
     };
     const FilterState filter{
-        .filterVehPosition = cArrayToEigenVector3<double>(filterVehPosition.data),
-        .filterVehPositionCovariance = c2DArrayToEigenMatrix3<double>(filterVehPositionCovariance.data),
+        .filterVehPosition = cArrayToEigenVector3<float>(filterVehPosition.data),
+        .filterVehPositionCovariance = c2DArrayToEigenMatrix3<float>(filterVehPositionCovariance.data),
     };
 
     const auto [out, diag] = fsw::fromHandle<::CobConverterAlgorithm>(self)->updateState(cob, attitude, filter);

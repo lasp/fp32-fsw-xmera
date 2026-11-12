@@ -102,10 +102,11 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
     attitude.sigma_BN = cArrayToEigenVector(navAttMsg.sigma_BN);
     attitude.vehSunPntBdy = cArrayToEigenVector(navAttMsg.vehSunPntBdy);
 
+    // The message carries double; the single-precision algorithm takes the filter state cast to float.
     FilterState filter;
-    filter.filterVehPosition = cArrayToEigenVector3<double>(filterMsg.state);
+    filter.filterVehPosition = cArrayToEigenVector3(filterMsg.state).cast<float>();
     filter.filterVehPositionCovariance =
-        cArrayToEigenMatrix<double, kFilterStates, kFilterStates>(filterMsg.covar).topLeftCorner<3, 3>();
+        cArrayToEigenMatrix<double, kFilterStates, kFilterStates>(filterMsg.covar).topLeftCorner<3, 3>().cast<float>();
 
     const auto [out, diag] = this->algorithm->updateState(cob, attitude, filter);
 

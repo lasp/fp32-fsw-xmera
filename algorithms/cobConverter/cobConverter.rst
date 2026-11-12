@@ -14,6 +14,8 @@ the phase-angle variance; the outlier check still applies. The COM offset itself
 Optionally, Brown-Conrady distortion coefficients can be provided; the measured normalized image-plane coordinate is
 then undistorted by inverting the Brown-Conrady model before the heading vector is computed.
 
+The algorithm computes in single precision; the filter message (double) is cast to float on input.
+
 Message Connection Descriptions
 -------------------------------
 The following table lists all the module input and output messages.  The module msg connection is set by the

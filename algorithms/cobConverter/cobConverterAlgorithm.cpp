@@ -116,12 +116,12 @@ Rotations CobConverterAlgorithm::computeRotations(const Eigen::Vector3f& sigma_B
  * @param dcm_BN Body-to-inertial DCM for the current cycle (from computeRotations).
  * @return alphaPA, phi, gamma, spacecraftRange and Rc.
  */
-PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(const Eigen::Vector3d& filterVehPosition,
+PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(const Eigen::Vector3f& filterVehPosition,
                                                                               const Eigen::Vector3f& vehSunPntBdy,
                                                                               const Eigen::Matrix3f& dcm_BN) const {
     PhaseAngleCorrectionResult correction;
     correction.sc_position = filterVehPosition;
-    const Eigen::Vector3f rhat_N = correction.sc_position.stableNormalized().cast<float>();
+    const Eigen::Vector3f rhat_N = correction.sc_position.stableNormalized();
     const Eigen::Vector3f shat_B = vehSunPntBdy.stableNormalized();
     correction.shat_N = dcm_BN.transpose() * shat_B;
     const Eigen::Vector3f shat_C = this->dcm_CB * shat_B;
@@ -131,8 +131,7 @@ PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(co
     const float oneMinusCosAlpha = 2.0F * powf(safeSinf(correction.alphaPA / 2.0F), 2.0F);
     correction.gamma = kBinaryPhaseCoeff * oneMinusCosAlpha;
     correction.spacecraftRange = correction.sc_position.stableNorm();
-    correction.Rc =
-        static_cast<float>(this->cfg.getRadius() * this->dX / correction.spacecraftRange);  // object radius in pixels
+    correction.Rc = this->cfg.getRadius() * this->dX / correction.spacecraftRange;  // object radius in pixels
     return correction;
 }
 
@@ -214,43 +213,44 @@ UndistortedCoordinate CobConverterAlgorithm::undistortNormalizedCoordinate(
  *        computePhaseAngleCorrection).
  * @return [rad^2] beta variance.
  */
-float CobConverterAlgorithm::computeBetaVar(const Eigen::Matrix3d& filterVehPositionCovariance,
+float CobConverterAlgorithm::computeBetaVar(const Eigen::Matrix3f& filterVehPositionCovariance,
                                             const PhaseAngleCorrectionResult& correction) const {
     // Compute partials of the phase angle and Geometric model correction
     const float radius = this->cfg.getRadius();
 
     const float oneMinusCosAlpha = 2.0F * powf(safeSinf(correction.alphaPA / 2.0F), 2.0F);
-    const auto constants_deltaR = static_cast<float>(
+    const float constants_deltaR =
         kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha /
-        (1.0 + pow(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0)));
+        (1.0F + powf(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0F));
 
-    const Eigen::RowVector3d deltaBinary_delta_r =
+    const Eigen::RowVector3f deltaBinary_delta_r =
         (-correction.sc_position.stableNormalized() / correction.spacecraftRange * constants_deltaR);
 
     // deltaBinary_delta_R = constants_deltaR / radius
-    const float deltaBinary_delta_R = static_cast<float>(
+    const float deltaBinary_delta_R =
         kBinaryPhaseCoeff / correction.spacecraftRange * oneMinusCosAlpha /
-        (1.0 + pow(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0)));
+        (1.0F + powf(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0F));
 
-    const auto deltaBinary_deltaAlpha = static_cast<float>(
+    const float deltaBinary_deltaAlpha =
         kBinaryPhaseCoeff * radius / correction.spacecraftRange /
-        (1.0 + pow(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0)));
+        (1.0F + powf(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0F));
 
-    const Eigen::Matrix<double, 3, 3> I = Eigen::Matrix3d::Identity();
-    const Eigen::RowVector3d sr = correction.shat_N.cast<double>() / correction.spacecraftRange;
-    const Eigen::Matrix<double, 3, 3> rr =
+    const Eigen::Matrix3f I = Eigen::Matrix3f::Identity();
+    const Eigen::RowVector3f sr = correction.shat_N / correction.spacecraftRange;
+    const Eigen::Matrix3f rr =
         I - (correction.sc_position.stableNormalized() * correction.sc_position.stableNormalized().transpose());
     // deltaAlpha_delta_R omits the 1/sin(alpha) factor from the full d(alpha)/d(r) expression
     // (see cobConverter.rst): it cancels against a matching missing factor in
     // deltaBinary_deltaAlpha, avoiding a division that blows up near alpha = 0 or pi.
-    const Eigen::RowVector3d deltaAlpha_delta_R = -(sr * rr);
+    const Eigen::RowVector3f deltaAlpha_delta_R = -(sr * rr);
 
-    const Eigen::RowVector3d deltaBinary_r = deltaBinary_delta_r + (deltaBinary_deltaAlpha * deltaAlpha_delta_R);
+    const Eigen::RowVector3f deltaBinary_r = deltaBinary_delta_r + (deltaBinary_deltaAlpha * deltaAlpha_delta_R);
 
-    const double total_deltaBinary_partials = deltaBinary_r * filterVehPositionCovariance * deltaBinary_r.transpose();
+    // Multiply by P first so the small partials don't underflow at large range.
+    const float total_deltaBinary_partials = (deltaBinary_r * filterVehPositionCovariance).dot(deltaBinary_r);
     // Vanishes for a perfectly known radius; the nav-position partials above still propagate.
     const float term2 = powf(deltaBinary_delta_R, 2.0F) * powf(this->cfg.getRadiusUncertainty(), 2.0F);
-    const float sigma_beta_squared = static_cast<float>(total_deltaBinary_partials) + term2;
+    const float sigma_beta_squared = total_deltaBinary_partials + term2;
     return sigma_beta_squared;
 }
 
@@ -265,15 +265,12 @@ float CobConverterAlgorithm::computeBetaVar(const Eigen::Matrix3d& filterVehPosi
  * @return True unless the miss distance exceeds the gate.
  */
 bool CobConverterAlgorithm::comOutlierDetection(const FilterState& filter, const Eigen::Vector3f& rhatCOM_N) const {
-    const Eigen::Vector3d& position = filter.filterVehPosition;
-    const Eigen::Vector3d rhat_N = rhatCOM_N.cast<double>();
+    const Eigen::Vector3f& position = filter.filterVehPosition;
     // Behind the spacecraft the closest point of the line of sight is the spacecraft itself.
-    const double missDistance =
-        position.dot(rhat_N) > 0.0 ? position.cross(rhat_N).stableNorm() : position.stableNorm();
-    const double gate =
-        (static_cast<double>(this->cfg.getOutlierRadiusMultiple()) * static_cast<double>(this->cfg.getRadius())) +
-        (static_cast<double>(this->cfg.getNumStandardDeviations()) *
-         safeSqrt(filter.filterVehPositionCovariance.trace()));
+    const float missDistance =
+        position.dot(rhatCOM_N) > 0.0F ? position.cross(rhatCOM_N).stableNorm() : position.stableNorm();
+    const float gate = (this->cfg.getOutlierRadiusMultiple() * this->cfg.getRadius()) +
+                       (this->cfg.getNumStandardDeviations() * safeSqrtf(filter.filterVehPositionCovariance.trace()));
     return missDistance <= gate;
 }
 
@@ -316,7 +313,7 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         // the COB as the COM.
         const bool filterUsable = CobConverterConfig::isUsableFilterState(filter);
         bool phaseCorrected = filterUsable && this->cfg.getRadius() > 0.0F &&
-                              filter.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius()) &&
+                              filter.filterVehPosition.stableNorm() > this->cfg.getRadius() &&
                               attitude.vehSunPntBdy.allFinite() && attitude.vehSunPntBdy.stableNorm() > 0.0F;
         PhaseAngleCorrectionResult correction;
         Eigen::Vector3f centerOfMass;
@@ -325,8 +322,7 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         if (phaseCorrected) {
             correction =
                 this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.vehSunPntBdy, rotations.dcm_BN);
-            const auto tanBeta =
-                static_cast<float>(this->cfg.getRadius() * correction.gamma / correction.spacecraftRange);
+            const float tanBeta = this->cfg.getRadius() * correction.gamma / correction.spacecraftRange;
             const float cosPhi = safeCosf(correction.phi);
             const float sinPhi = safeSinf(correction.phi);
             centerOfMass << centerOfBrightness(0) - (tanBeta * this->dX * cosPhi),

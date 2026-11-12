@@ -18,13 +18,6 @@ typedef struct {
 } Vector2f_c;
 
 /**
- * @brief POD representation of a double-precision 3x3 matrix (Eigen::Matrix3d), row-major.
- */
-typedef struct {
-    double data[3][3];
-} Matrix3d_c;
-
-/**
  * @brief Plain-old-data mirror of the C++ CalibrationCoefficients fields.
  */
 typedef struct {

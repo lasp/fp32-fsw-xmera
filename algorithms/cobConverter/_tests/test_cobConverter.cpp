@@ -165,15 +165,15 @@ TEST(CobConverterTest, OutlierDetectionRadiusGateTest) {
                              .cobPixelsFound = 75,
                              .cobCenterOfBrightness = Eigen::Vector2f{256.0F, 256.0F},
                              .cobTimeTag = 12345U};
-    const Eigen::Matrix3d smallCovariance = Eigen::Matrix3d::Identity() * 50.0e3;  // [m^2]
-    const double gate = (5.0 * radius) + (3.0 * std::sqrt(smallCovariance.trace()));
+    const Eigen::Matrix3f smallCovariance = Eigen::Matrix3f::Identity() * 50.0e3F;  // [m^2]
+    const double gate = (5.0 * radius) + (3.0 * std::sqrt(static_cast<double>(smallCovariance.trace())));
     // Sun along the position (zero phase angle) keeps COM = COB; a zero sunline takes the fallback path.
     const auto updateAt = [&](const CobConverterAlgorithm& alg,
-                              const Eigen::Vector3d& position,
-                              const Eigen::Matrix3d& covariance,
+                              const Eigen::Vector3f& position,
+                              const Eigen::Matrix3f& covariance,
                               bool zeroSunline = false) {
-        const Eigen::Vector3f sunline = zeroSunline ? Eigen::Vector3f(Eigen::Vector3f::Zero())
-                                                    : Eigen::Vector3f(position.normalized().cast<float>());
+        const Eigen::Vector3f sunline =
+            zeroSunline ? Eigen::Vector3f(Eigen::Vector3f::Zero()) : Eigen::Vector3f(position.normalized());
         const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .vehSunPntBdy = sunline};
         const FilterState filter{.filterVehPosition = position, .filterVehPositionCovariance = covariance};
         const CobConverterUpdateResult result = alg.updateState(cob, attitude, filter);
@@ -181,14 +181,14 @@ TEST(CobConverterTest, OutlierDetectionRadiusGateTest) {
         EXPECT_EQ(result.output.unitVecValid, !result.diagnostic.comErrorOutlierTrigger);
         return result.diagnostic.comErrorOutlierTrigger;
     };
-    const auto offsetBy = [](double d) { return Eigen::Vector3d{d, 0.0, -500.0e3}; };
+    const auto offsetBy = [](double d) { return Eigen::Vector3f{static_cast<float>(d), 0.0F, -500.0e3F}; };
 
     EXPECT_FALSE(updateAt(algorithm, offsetBy(0.0), smallCovariance)) << "on the line of sight";
     EXPECT_FALSE(updateAt(algorithm, offsetBy(0.99 * gate), smallCovariance)) << "just inside";
     EXPECT_TRUE(updateAt(algorithm, offsetBy(1.01 * gate), smallCovariance)) << "just outside";
-    EXPECT_FALSE(updateAt(algorithm, offsetBy(200.0e3), Eigen::Matrix3d::Identity() * 1.0e10)) << "large P";
-    EXPECT_TRUE(updateAt(algorithm, Eigen::Vector3d{0.0, 0.0, 500.0e3}, smallCovariance)) << "rhat points away";
-    EXPECT_TRUE(updateAt(algorithm, Eigen::Vector3d{0.0, 0.0, -1.0e-4}, smallCovariance)) << "unusable filter";
+    EXPECT_FALSE(updateAt(algorithm, offsetBy(200.0e3), Eigen::Matrix3f::Identity() * 1.0e10F)) << "large P";
+    EXPECT_TRUE(updateAt(algorithm, Eigen::Vector3f{0.0F, 0.0F, 500.0e3F}, smallCovariance)) << "rhat points away";
+    EXPECT_TRUE(updateAt(algorithm, Eigen::Vector3f{0.0F, 0.0F, -1.0e-4F}, smallCovariance)) << "unusable filter";
     EXPECT_TRUE(updateAt(algorithm, offsetBy(200.0e3), smallCovariance, /*zeroSunline=*/true)) << "fallback";
     EXPECT_FALSE(updateAt(makeAlgorithm(false), offsetBy(200.0e3), smallCovariance)) << "disabled";
 }
@@ -222,8 +222,8 @@ TEST(CobConverterTest, PixelsFoundIncreaseIsSizeIncreaseTest) {
     // Same attitude/filter geometry throughout -- only cobPixelsFound differs.
     const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(),
                                    .vehSunPntBdy = Eigen::Vector3f{1.0F, 0.0F, 0.0F}};
-    const FilterState filter{.filterVehPosition = Eigen::Vector3d{-500.0e3, -300.0e3, 0.0},
-                             .filterVehPositionCovariance = Eigen::Matrix3d::Identity() * 50.0e3};
+    const FilterState filter{.filterVehPosition = Eigen::Vector3f{-500.0e3F, -300.0e3F, 0.0F},
+                             .filterVehPositionCovariance = Eigen::Matrix3f::Identity() * 50.0e3F};
     const auto makeCob = [](int32_t pixelsFound) {
         return CobMeasurement{.cobValid = true,
                               .cobPixelsFound = pixelsFound,
@@ -269,11 +269,10 @@ TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
     };
 
     // Sun along the position vector: zero phase angle, so the COM coincides with the COB.
-    const Eigen::Vector3d position{-500.0e3, -300.0e3, 0.0};
-    const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(),
-                                   .vehSunPntBdy = position.normalized().cast<float>()};
+    const Eigen::Vector3f position{-500.0e3F, -300.0e3F, 0.0F};
+    const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .vehSunPntBdy = position.normalized()};
     const FilterState filter{.filterVehPosition = position,
-                             .filterVehPositionCovariance = Eigen::Matrix3d::Identity() * 50.0e3};
+                             .filterVehPositionCovariance = Eigen::Matrix3f::Identity() * 50.0e3F};
     // Normalized x_d ~= 0.17. With k1 = 1000 the fixed point has k1 * r^2 ~= 2.4 > 1, so the
     // iteration falls into a 2-cycle and never converges (a deliberately unphysical lens).
     const CobMeasurement cob{.cobValid = true,
@@ -346,13 +345,13 @@ TEST(CobConverterTest, PhaseCorrectionUnavailablePublishesCobTest) {
                              .cobCenterOfBrightness = Eigen::Vector2f{256.0F, 256.0F},
                              .cobTimeTag = 12345U};
     const auto updateWith =
-        [&](const CobConverterAlgorithm& alg, const Eigen::Vector3d& position, const Eigen::Vector3f& vehSunPntBdy) {
+        [&](const CobConverterAlgorithm& alg, const Eigen::Vector3f& position, const Eigen::Vector3f& vehSunPntBdy) {
             const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .vehSunPntBdy = vehSunPntBdy};
             const FilterState filter{.filterVehPosition = position,
-                                     .filterVehPositionCovariance = Eigen::Matrix3d::Identity() * 50.0e3};
+                                     .filterVehPositionCovariance = Eigen::Matrix3f::Identity() * 50.0e3F};
             return alg.updateState(cob, attitude, filter);
         };
-    const auto updateAt = [&](const Eigen::Vector3d& position, const Eigen::Vector3f& vehSunPntBdy) {
+    const auto updateAt = [&](const Eigen::Vector3f& position, const Eigen::Vector3f& vehSunPntBdy) {
         return updateWith(algorithm, position, vehSunPntBdy);
     };
     const auto expectCobPublished = [&](const CobConverterUpdateResult& result, const std::string& label) {
@@ -364,28 +363,29 @@ TEST(CobConverterTest, PhaseCorrectionUnavailablePublishesCobTest) {
         EXPECT_TRUE(result.output.rhat_BN_N.isApprox(Eigen::Vector3f{0.0F, 0.0F, -1.0F})) << label;
     };
 
-    const Eigen::Vector3d direction = Eigen::Vector3d{-5.0, -3.0, 0.0}.normalized();
-    const Eigen::Vector3f sunAlongPosition = direction.cast<float>();
-    for (const double range : {0.5 * radius, static_cast<double>(radius)}) {
+    // Axis-aligned, so |range * direction| is exact in float.
+    const Eigen::Vector3f direction{-1.0F, 0.0F, 0.0F};
+    const Eigen::Vector3f sunAlongPosition = direction;
+    for (const float range : {0.5F * radius, radius}) {
         expectCobPublished(updateAt(range * direction, sunAlongPosition), "range " + std::to_string(range));
     }
-    expectCobPublished(updateAt(500.0e3 * direction, Eigen::Vector3f::Zero()), "zero sunline");
+    expectCobPublished(updateAt(500.0e3F * direction, Eigen::Vector3f::Zero()), "zero sunline");
     // Sun off the position: a nonzero phase angle that would shift the COM if the radius were set.
     const Eigen::Vector3f sunOffPosition = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
-    const CobConverterUpdateResult zeroRadius = updateWith(makeAlgorithm(0.0F), 500.0e3 * direction, sunOffPosition);
+    const CobConverterUpdateResult zeroRadius = updateWith(makeAlgorithm(0.0F), 500.0e3F * direction, sunOffPosition);
     expectCobPublished(zeroRadius, "zero radius");
-    EXPECT_EQ(zeroRadius.output.covar_N, updateAt(500.0e3 * direction, Eigen::Vector3f::Zero()).output.covar_N);
-    EXPECT_NE(updateAt(500.0e3 * direction, sunOffPosition).diagnostic.offsetFactor, 0.0F);
+    EXPECT_EQ(zeroRadius.output.covar_N, updateAt(500.0e3F * direction, Eigen::Vector3f::Zero()).output.covar_N);
+    EXPECT_NE(updateAt(500.0e3F * direction, sunOffPosition).diagnostic.offsetFactor, 0.0F);
     // An unusable filter state (|r| below kMinPositionNorm, or non-finite) falls back to the COB.
-    expectCobPublished(updateWith(makeAlgorithm(1.0e-30F), 2.0e-30 * direction, sunOffPosition), "degenerate range");
-    expectCobPublished(updateAt(Eigen::Vector3d{std::numeric_limits<double>::infinity(), 0.0, 0.0}, sunOffPosition),
+    expectCobPublished(updateWith(makeAlgorithm(1.0e-30F), 2.0e-30F * direction, sunOffPosition), "degenerate range");
+    expectCobPublished(updateAt(Eigen::Vector3f{std::numeric_limits<float>::infinity(), 0.0F, 0.0F}, sunOffPosition),
                        "non-finite position");
     // sigma_R^2 overflows in fp32, so the correction is not finite and falls back to the COB.
-    expectCobPublished(updateWith(makeAlgorithm(radius, 1.0e30F), 500.0e3 * direction, sunOffPosition),
+    expectCobPublished(updateWith(makeAlgorithm(radius, 1.0e30F), 500.0e3F * direction, sunOffPosition),
                        "non-finite correction");
 
     // Control: the same geometry far outside the body is published as valid.
-    EXPECT_TRUE(updateAt(500.0e3 * direction, sunAlongPosition).output.unitVecValid);
+    EXPECT_TRUE(updateAt(500.0e3F * direction, sunAlongPosition).output.unitVecValid);
 }
 
 TEST(CobConverterTest, SetupTest) {
@@ -480,18 +480,18 @@ TEST(CobConverterTest, SetupTest) {
     EXPECT_FALSE(CobConverterConfig::isValidBodyToCameraMrp(Eigen::Vector3f{nan, 0.0F, 0.0F}));
 
     // Filter state: finite, |r| >= kMinPositionNorm, finite covariance.
-    const auto usable = [](const Eigen::Vector3d& position, const Eigen::Matrix3d& covariance) {
+    const auto usable = [](const Eigen::Vector3f& position, const Eigen::Matrix3f& covariance) {
         return CobConverterConfig::isUsableFilterState(
             FilterState{.filterVehPosition = position, .filterVehPositionCovariance = covariance});
     };
-    const Eigen::Matrix3d nominalCovariance = Eigen::Matrix3d::Identity() * 50.0e3;
-    Eigen::Matrix3d infCovariance = nominalCovariance;
-    infCovariance(0, 1) = std::numeric_limits<double>::infinity();
-    EXPECT_TRUE(usable(Eigen::Vector3d{-500.0e3, -300.0e3, 0.0}, nominalCovariance));
-    EXPECT_FALSE(usable(Eigen::Vector3d::Zero(), nominalCovariance));
-    EXPECT_FALSE(usable(Eigen::Vector3d{1.0e-4, 0.0, 0.0}, nominalCovariance));
-    EXPECT_FALSE(usable(Eigen::Vector3d{std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0}, nominalCovariance));
-    EXPECT_FALSE(usable(Eigen::Vector3d{-500.0e3, -300.0e3, 0.0}, infCovariance));
+    const Eigen::Matrix3f nominalCovariance = Eigen::Matrix3f::Identity() * 50.0e3F;
+    Eigen::Matrix3f infCovariance = nominalCovariance;
+    infCovariance(0, 1) = std::numeric_limits<float>::infinity();
+    EXPECT_TRUE(usable(Eigen::Vector3f{-500.0e3F, -300.0e3F, 0.0F}, nominalCovariance));
+    EXPECT_FALSE(usable(Eigen::Vector3f::Zero(), nominalCovariance));
+    EXPECT_FALSE(usable(Eigen::Vector3f{1.0e-4F, 0.0F, 0.0F}, nominalCovariance));
+    EXPECT_FALSE(usable(Eigen::Vector3f{nan, 0.0F, 0.0F}, nominalCovariance));
+    EXPECT_FALSE(usable(Eigen::Vector3f{-500.0e3F, -300.0e3F, 0.0F}, infCovariance));
 
     // create() throws on the first invalid field it encounters, so each case below spells out
     // every field up through the one under test (all valid except the last) and leaves the rest
