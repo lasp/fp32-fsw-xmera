@@ -378,8 +378,9 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         const Eigen::Matrix3f covarRHat_N_Buffer = covarImageN + covarAttitudeN;
 
         if (rhatCOM_SC_C_Buffer.allFinite() && covarRHat_N_Buffer.allFinite()) {
-            bool goodOutlierCheck = true;  // passes when outlier detection is disabled
-            if (this->cfg.isOutlierDetectionEnabled()) {
+            const bool outlierDetectionEnabled = this->cfg.isOutlierDetectionEnabled();
+            bool goodOutlierCheck = false;  // set only when outlier detection runs
+            if (outlierDetectionEnabled) {
                 // An unusable filter state can't validate the measurement.
                 goodOutlierCheck = filterUsable && this->comOutlierDetection(filter, rhatCOM_SC_N_Buffer);
                 result.diagnostic.comErrorOutlierTrigger = !goodOutlierCheck;
@@ -391,7 +392,8 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
             result.output.rhat_BN_N = rhatCOM_SC_N_Buffer;
             result.output.covar_N = 0.5F * (covarPublished_N + covarPublished_N.transpose());
             result.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
-            result.output.unitVecValid = goodOutlierCheck && brownConradyCOMValid;
+            // Disabled outlier detection bypasses the check.
+            result.output.unitVecValid = brownConradyCOMValid && (!outlierDetectionEnabled || goodOutlierCheck);
 
             result.diagnostic.centerOfMass = centerOfMass.head<2>();
             result.diagnostic.offsetFactor = correction.gamma;
