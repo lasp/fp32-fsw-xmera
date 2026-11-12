@@ -23,9 +23,8 @@ auto attitudeCovarianceDomain() {
 
 // numStandardDeviations is the n-sigma outlier-gating threshold
 auto numStandardDeviationsDomain() { return fuzztest::InRange(0.0F, 100.0F); }
-// standardDeviation is the fixed 1-sigma pixel-space error bound used directly as the
-// outlier-gating sigma when specifiedStandardDeviation=true.
-auto StandardDeviationsDomain() { return fuzztest::InRange(0.0F, 1000.0F); }
+// outlierRadiusMultiple is the number of body radii in the outlier gate.
+auto outlierRadiusMultipleDomain() { return fuzztest::InRange(0.5F, 10.0F); }
 // Brown-Conrady distortion coefficients (normalized image-plane units). Ranges bracket typical
 // OpenCV/MATLAB calibrations with margin, rather than arbitrary values that put the polynomial far
 // outside any real lens.
@@ -67,11 +66,10 @@ auto arbitraryUnitVectorDomain() {
         fuzztest::InRange(-kPi, kPi));
 }
 
-// cobPixelsFound: bright-pixel count, never negative. 0 is included deliberately (with
-// cobValid=true) to exercise the "no pixels found" branch without a divide-by-zero -- both
-// scaleFactor's argument and safeSqrtf(0) are well-defined at 0. 1e6 covers a detection filling
-// most of the widest fuzzed resolution (8192x8192) without being physically absurd.
-auto cobPixelsFoundDomain() { return fuzztest::InRange(0, 1000000); }
+// cobPixelsFound: bright-pixel count. Non-positive values are included to exercise the rejection
+// gate. 1e6 covers a detection filling most of the widest fuzzed resolution (8192x8192) without
+// being physically absurd.
+auto cobPixelsFoundDomain() { return fuzztest::InRange(-1000000, 1000000); }
 
 // cobCenterOfBrightness is fuzzed as a fraction of the image in [0, 1]^2 and scaled by the
 // per-sample resolution (see testCobConverterOnSensor), so every detection lies on the sensor:
@@ -107,8 +105,7 @@ void testCobConverterOnSensor(float radius,
                               float radiusUncertainty,
                               const Eigen::Matrix3f& attitudeCovariance,
                               float numStandardDeviations,
-                              float standardDeviation,
-                              bool specifiedStandardDeviation,
+                              float outlierRadiusMultiple,
                               bool outlierDetectionEnabled,
                               const CalibrationCoefficients& calibrationCoefficients,
                               int cameraId,
@@ -131,8 +128,7 @@ void testCobConverterOnSensor(float radius,
                      radiusUncertainty,
                      attitudeCovariance,
                      numStandardDeviations,
-                     standardDeviation,
-                     specifiedStandardDeviation,
+                     outlierRadiusMultiple,
                      outlierDetectionEnabled,
                      calibrationCoefficients,
                      cameraId,
@@ -154,16 +150,12 @@ void testCobConverterOnSensor(float radius,
 }  // namespace
 
 FUZZ_TEST(CobConverterFuzz, testCobConverterOnSensor)
-    .WithDomains(fuzztest::InRange(
-                     1.0F,
-                     1.0e6F),  // radius [m]
-                               // Keep 0: it no longer gates the covariance propagation, it only zeroes its own term.
-                 fuzztest::InRange(0.0F, 1.0e6F),  // radiusUncertainty [m]
-                 attitudeCovarianceDomain(),       // attitudeCovariance
-                 numStandardDeviationsDomain(),    // numStandardDeviations
-                 StandardDeviationsDomain(),       // standardDeviation
-                 fuzztest::OneOf(fuzztest::Just(true),
-                                 fuzztest::Just(false)),  // specifiedStandardDeviation
+    .WithDomains(fuzztest::OneOf(fuzztest::Just(0.0F),
+                                 fuzztest::InRange(1.0F, 1.0e6F)),  // radius [m]; 0 disables the correction
+                 fuzztest::InRange(0.0F, 1.0e6F),                   // radiusUncertainty [m]
+                 attitudeCovarianceDomain(),                        // attitudeCovariance
+                 numStandardDeviationsDomain(),                     // numStandardDeviations
+                 outlierRadiusMultipleDomain(),                     // outlierRadiusMultiple
                  fuzztest::OneOf(fuzztest::Just(true),
                                  fuzztest::Just(false)),  // outlierDetectionEnabled
                  calibrationCoefficientsDomain(),         // calibrationCoefficients
@@ -231,6 +223,10 @@ void fuzzUndistortArbitraryInputs(float xDistorted,
     EXPECT_TRUE(fsw::is_finite(result.yUndistorted));
     if (result.valid) {
         expectUndistortRoundTrip(xDistorted, yDistorted, coefficients, result);
+    } else {
+        // Not converged: the initial guess is returned.
+        EXPECT_EQ(result.xUndistorted, xDistorted);
+        EXPECT_EQ(result.yUndistorted, yDistorted);
     }
 }
 

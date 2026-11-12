@@ -43,9 +43,9 @@ struct VehicleAttitude {
 /*! Filter state: only position (and its covariance) is consumed by this algorithm.
     The upstream filter state is a fixed 6-d [position (3), velocity (3)]; velocity is unused. */
 struct FilterState {
-    Eigen::Vector3d filterVehPosition = Eigen::Vector3d::Zero();  //!< [m] spacecraft position, inertial frame
-    Eigen::Matrix3d filterVehPositionCovariance =
-        Eigen::Matrix3d::Zero();  //!< [m^2] spacecraft position covariance, inertial frame
+    Eigen::Vector3f filterVehPosition = Eigen::Vector3f::Zero();  //!< [m] spacecraft position, inertial frame
+    Eigen::Matrix3f filterVehPositionCovariance =
+        Eigen::Matrix3f::Zero();  //!< [m^2] spacecraft position covariance, inertial frame
 };
 
 /*! Essential heading measurement output: the COM unit vector and its covariance, inertial
@@ -57,27 +57,18 @@ struct CobConverterOutput {
     bool unitVecValid{};                                  //!< [--] COM unit vector validity flag
 };
 
-/*! Diagnostic output: the non-inertial frames, the COB quantities and the phase-angle
-    correction metadata. Maps 1:1 onto CobConverterDiagnosticMsgF32Payload. */
+/*! Diagnostic output: the COM pixel coordinates and the phase-angle correction metadata.
+    Maps 1:1 onto CobConverterDiagnosticMsgF32Payload. */
 struct CobConverterDiagnosticOutput {
-    Eigen::Matrix3f covar_C = Eigen::Matrix3f::Zero();             //!< [--] COM covariance, camera frame
-    Eigen::Matrix3f covar_B = Eigen::Matrix3f::Zero();             //!< [--] COM covariance, body frame
-    Eigen::Vector3f rhat_BN_C = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, camera frame
-    Eigen::Vector3f rhat_BN_B = Eigen::Vector3f::Zero();           //!< [--] COM unit vector, body frame
-    Eigen::Vector3f rhat_COB_C = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, camera frame
-    Eigen::Vector3f rhat_COB_N = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, inertial frame
-    Eigen::Vector3f rhat_COB_B = Eigen::Vector3f::Zero();          //!< [--] COB unit vector, body frame
-    Eigen::Vector2f centerOfBrightness = Eigen::Vector2f::Zero();  //!< [px] COB pixel coordinates
-    Eigen::Vector2f centerOfMass = Eigen::Vector2f::Zero();        //!< [px] COM pixel coordinates
-    float offsetFactor{};                                          //!< [--] phase-angle offset factor (gamma)
-    int objectPixelRadius{};                                       //!< [px] object radius in pixels
-    float phaseAngle{};                                            //!< [rad] phase angle alpha_PA
-    float sunDirection{};                                          //!< [rad] sun direction phi in image plane
-    uint64_t comTimeTag{};                                         //!< [ns] measurement timestamp
-    bool comValid{};                                               //!< [--] COM validity flag
-    bool comErrorOutlierTrigger{};  //!< [--] true if the COM heading error exceeded the gate
-    bool brownConradyCOMValid{};    //!< [--] true if the COM Brown-Conrady undistortion converged
-    bool brownConradyCOBValid{};    //!< [--] true if the COB Brown-Conrady undistortion converged
+    Eigen::Vector2f centerOfMass = Eigen::Vector2f::Zero();  //!< [px] COM pixel coordinates
+    float offsetFactor{};                                    //!< [--] phase-angle offset factor (gamma)
+    int objectPixelRadius{};                                 //!< [px] object radius in pixels
+    float phaseAngle{};                                      //!< [rad] phase angle alpha_PA
+    float sunDirection{};                                    //!< [rad] sun direction phi in image plane
+    bool comValid{};                                         //!< [--] COM validity flag
+    bool comErrorOutlierTrigger{};                           //!< [--] true if the COM heading error exceeded the gate
+    bool brownConradyCOMValid{};  //!< [--] true if the COM Brown-Conrady undistortion converged
+    bool brownConradyCOBValid{};  //!< [--] true if the COB Brown-Conrady undistortion converged
 };
 
 /*! Pair returned by updateState: the essential output plus the diagnostic snapshot, so the
@@ -97,8 +88,7 @@ class CobConverterConfig final {
                                      float radiusUncertainty,
                                      const Eigen::Matrix3f& attitudeCovariance,
                                      float numStandardDeviations,
-                                     float standardDeviation,
-                                     bool specifiedStandardDeviation,
+                                     float outlierRadiusMultiple,
                                      bool outlierDetectionEnabled,
                                      const CalibrationCoefficients& calibrationCoefficients,
                                      int cameraId,
@@ -108,7 +98,7 @@ class CobConverterConfig final {
                                      float resolutionY,
                                      const Eigen::Vector3f& bodyToCameraMrp) {
         if (!isValidRadius(radius)) {
-            FSW_THROW_INVALID_ARGUMENT("cobConverter: radius must be > 0");
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: radius must be >= 0");
         }
         if (!isValidRadiusUncertainty(radiusUncertainty)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: radiusUncertainty must be >= 0");
@@ -119,8 +109,8 @@ class CobConverterConfig final {
         if (!isValidNumStandardDeviations(numStandardDeviations)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: numStandardDeviations must be > 0");
         }
-        if (!isValidStandardDeviation(standardDeviation, specifiedStandardDeviation)) {
-            FSW_THROW_INVALID_ARGUMENT("cobConverter: standardDeviation must be > 0 when specified");
+        if (!isValidOutlierRadiusMultiple(outlierRadiusMultiple)) {
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: outlierRadiusMultiple must be > 0");
         }
         if (!isValidCalibrationCoefficients(calibrationCoefficients)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: calibrationCoefficients must be finite");
@@ -154,8 +144,7 @@ class CobConverterConfig final {
                 radiusUncertainty,
                 attitudeCovariance,
                 numStandardDeviations,
-                standardDeviation,
-                specifiedStandardDeviation,
+                outlierRadiusMultiple,
                 outlierDetectionEnabled,
                 calibrationCoefficients,
                 cameraId,
@@ -166,7 +155,22 @@ class CobConverterConfig final {
                 bodyToCameraMrp};
     }
 
-    static bool isValidRadius(float radius) { return fsw::is_finite(radius) && radius > 0.0F; }
+    /*! [m] smallest |r| of a usable filter state. Below it r_hat and the 1/r partials are dominated by rounding. Far
+     below any real range. */
+    static constexpr float kMinPositionNorm = 1e-3F;
+
+    /*! Check whether a filter state can drive the phase correction and the outlier gate: finite position with
+     |r| >= kMinPositionNorm, and finite position covariance.
+     @return true if the filter state is usable
+     @param filter [m, m^2] filter position and covariance
+     */
+    static bool isUsableFilterState(const FilterState& filter) {
+        return filter.filterVehPosition.allFinite() && filter.filterVehPosition.stableNorm() >= kMinPositionNorm &&
+               filter.filterVehPositionCovariance.allFinite();
+    }
+
+    // Zero disables the phase-angle correction.
+    static bool isValidRadius(float radius) { return fsw::is_finite(radius) && radius >= 0.0F; }
     static bool isValidRadiusUncertainty(float radiusUncertainty) {
         return fsw::is_finite(radiusUncertainty) && radiusUncertainty >= 0.0F;
     }
@@ -176,8 +180,8 @@ class CobConverterConfig final {
     static bool isValidNumStandardDeviations(float numStandardDeviations) {
         return fsw::is_finite(numStandardDeviations) && numStandardDeviations > 0.0F;
     }
-    static bool isValidStandardDeviation(float standardDeviation, bool specifiedStandardDeviation) {
-        return !specifiedStandardDeviation || (fsw::is_finite(standardDeviation) && standardDeviation > 0.0F);
+    static bool isValidOutlierRadiusMultiple(float outlierRadiusMultiple) {
+        return fsw::is_finite(outlierRadiusMultiple) && outlierRadiusMultiple > 0.0F;
     }
     // No isValidOutlierDetectionEnabled — any bool value is valid.
     static bool isValidCalibrationCoefficients(const CalibrationCoefficients& coefficients) {
@@ -212,8 +216,7 @@ class CobConverterConfig final {
     float getRadiusUncertainty() const { return radiusUncertainty; }
     Eigen::Matrix3f getAttitudeCovariance() const { return attitudeCovariance; }
     float getNumStandardDeviations() const { return numStandardDeviations; }
-    float getStandardDeviation() const { return standardDeviation; }
-    bool isStandardDeviationSpecified() const { return specifiedStandardDeviation; }
+    float getOutlierRadiusMultiple() const { return outlierRadiusMultiple; }
     bool isOutlierDetectionEnabled() const { return outlierDetectionEnabled; }
     CalibrationCoefficients getCalibrationCoefficients() const { return calibrationCoefficients; }
     int getCameraId() const { return cameraId; }
@@ -228,8 +231,7 @@ class CobConverterConfig final {
                        float radiusUncertainty,
                        const Eigen::Matrix3f& attitudeCovariance,
                        float numStandardDeviations,
-                       float standardDeviation,
-                       bool specifiedStandardDeviation,
+                       float outlierRadiusMultiple,
                        bool outlierDetectionEnabled,
                        const CalibrationCoefficients& calibrationCoefficients,
                        int cameraId,
@@ -242,8 +244,7 @@ class CobConverterConfig final {
           radiusUncertainty(radiusUncertainty),
           attitudeCovariance(attitudeCovariance),
           numStandardDeviations(numStandardDeviations),
-          standardDeviation(standardDeviation),
-          specifiedStandardDeviation(specifiedStandardDeviation),
+          outlierRadiusMultiple(outlierRadiusMultiple),
           outlierDetectionEnabled(outlierDetectionEnabled),
           calibrationCoefficients(calibrationCoefficients),
           cameraId(cameraId),
@@ -257,8 +258,7 @@ class CobConverterConfig final {
     float radiusUncertainty;
     Eigen::Matrix3f attitudeCovariance;
     float numStandardDeviations;
-    float standardDeviation;
-    bool specifiedStandardDeviation;
+    float outlierRadiusMultiple;
     bool outlierDetectionEnabled;
     CalibrationCoefficients calibrationCoefficients;
     int cameraId;
@@ -277,23 +277,23 @@ struct Rotations {
     Eigen::Matrix3f dcm_NC = Eigen::Matrix3f::Zero();
 };
 
-/*! Phase-angle correction terms, computed every cycle by computePhaseAngleCorrection. */
+/*! Phase-angle correction terms from computePhaseAngleCorrection; zero when no correction applies. */
 struct PhaseAngleCorrectionResult {
-    Eigen::Vector3d sc_position = Eigen::Vector3d::Zero();
-    double spacecraftRange = 0.0;
+    Eigen::Vector3f sc_position = Eigen::Vector3f::Zero();
+    float spacecraftRange = 0.0F;
     Eigen::Vector3f shat_N = Eigen::Vector3f::Zero();
     float alphaPA = 0.0F;
     float phi = 0.0F;
     float gamma = 0.0F;
     float Rc = 0.0F;
-    bool validCom = false;  //!< [--] set by updateState, not by computePhaseAngleCorrection
 };
 
 /**
  * @class CobConverterAlgorithm
- * @brief Converts center-of-brightness (COB) pixel measurements into unit vectors
- *        (camera, body, inertial frames), with optional phase-angle correction
- *        and outlier detection.
+ * @brief Converts center-of-brightness (COB) pixel measurements into an inertial-frame
+ *        unit vector, with optional phase-angle correction and outlier detection.
+ *
+ * Computes in single precision (float); the adapter casts the double filter message.
  */
 class CobConverterAlgorithm final {
    public:
@@ -309,16 +309,13 @@ class CobConverterAlgorithm final {
                                                                const CalibrationCoefficients& coefficients);
 
    private:
-    bool comOutlierDetection(const Eigen::Vector3d& filterVehPosition,
-                             const Eigen::Matrix3d& filterVehPositionCovariance,
-                             const Eigen::Matrix3f& covar_N,
-                             const Eigen::Vector3f& rhatCOM_N) const;
+    bool comOutlierDetection(const FilterState& filter, const Eigen::Vector3f& rhatCOM_N) const;
     void computeCameraParameters();
     Rotations computeRotations(const Eigen::Vector3f& sigma_BN) const;
-    PhaseAngleCorrectionResult computePhaseAngleCorrection(const Eigen::Vector3d& filterVehPosition,
+    PhaseAngleCorrectionResult computePhaseAngleCorrection(const Eigen::Vector3f& filterVehPosition,
                                                            const Eigen::Vector3f& vehSunPntBdy,
                                                            const Eigen::Matrix3f& dcm_BN) const;
-    float computeBetaVar(const Eigen::Matrix3d& filterVehPositionCovariance,
+    float computeBetaVar(const Eigen::Matrix3f& filterVehPositionCovariance,
                          const PhaseAngleCorrectionResult& correction) const;
 
     CobConverterConfig cfg;

@@ -7,6 +7,7 @@
 #include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConversion.hpp"
 #include <gtest/gtest.h>
+#include <cmath>
 #include <limits>
 #include <numbers>
 #include <optional>
@@ -95,7 +96,7 @@ inline ReferenceUndistortion undistortBrownConrady(const Eigen::Vector3d& distor
         x = xNext;
         y = yNext;
     }
-    return {{x, y, 1.0}, false};
+    return {{xDistorted, yDistorted, 1.0}, false};
 }
 
 inline Eigen::Vector3d mapState(const Eigen::Vector2d& pixel,
@@ -148,9 +149,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
                                                             bool* outlierNearThreshold = nullptr) {
     CobConverterUpdateResult output;
 
-    if (!cob.cobValid || cob.cobPixelsFound == 0 ||
-        filter.filterVehPosition.stableNorm() <= static_cast<double>(cfg.getRadius()) ||
-        !attitude.vehSunPntBdy.allFinite() || attitude.vehSunPntBdy.stableNorm() == 0.0F) {
+    if (!cob.cobValid || cob.cobPixelsFound <= 0) {
         return output;
     }
 
@@ -171,30 +170,61 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const double dX = cameraCalibrationMatrix(0, 0);
     const double dY = cameraCalibrationMatrix(1, 1);
 
-    // The Binary correction is unconditional, so alpha/phi/Rc/gamma always compute.
-    const Eigen::Vector3d position = filter.filterVehPosition;
-    const Eigen::Vector3d rHat_N = position.stableNormalized();
-    const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().stableNormalized();
-    const Eigen::Vector3d shat_N = dcm_BN.transpose() * shat_B;
-    const Eigen::Vector3d shat_C = dcm_CB * shat_B;
+    // With a zero radius, an unusable filter state, without a usable sunline, or inside the body radius, the COB is
+    // the COM.
+    // The algorithm takes the filter state in float; the reference promotes the same values to double.
+    const Eigen::Vector3d position = filter.filterVehPosition.cast<double>();
+    const Eigen::Matrix3d positionCovariance = filter.filterVehPositionCovariance.cast<double>();
+    const bool filterUsable = CobConverterConfig::isUsableFilterState(filter);
+    const bool phaseCorrected = filterUsable && cfg.getRadius() > 0.0F &&
+                                position.stableNorm() > static_cast<double>(cfg.getRadius()) &&
+                                attitude.vehSunPntBdy.allFinite() && attitude.vehSunPntBdy.stableNorm() > 0.0F;
+    double alpha = 0.0;
+    double phi = 0.0;
+    double gamma = 0.0;
+    double objectRadiusPixels = 0.0;
+    double tanBeta = 0.0;
+    double betaVar = 0.0;
+    if (phaseCorrected) {
+        const Eigen::Vector3d rHat_N = position.stableNormalized();
+        const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().stableNormalized();
+        const Eigen::Vector3d shat_N = dcm_BN.transpose() * shat_B;
+        const Eigen::Vector3d shat_C = dcm_CB * shat_B;
 
-    const double alpha = safeAcos(rHat_N.dot(shat_N));
-    const double phi = safeAtan2(shat_C(1), shat_C(0));
-    const double gamma = (4.0 / (3.0 * std::numbers::pi)) * (1.0 - safeCos(alpha));
-    const double objectRadiusPixels = static_cast<double>(cfg.getRadius()) * dX / position.stableNorm();
-    const double tanBeta = static_cast<double>(cfg.getRadius()) * gamma / position.stableNorm();
+        alpha = safeAcos(rHat_N.dot(shat_N));
+        phi = safeAtan2(shat_C(1), shat_C(0));
+        gamma = (4.0 / (3.0 * std::numbers::pi)) * (1.0 - safeCos(alpha));
+        objectRadiusPixels = static_cast<double>(cfg.getRadius()) * dX / position.stableNorm();
+        tanBeta = static_cast<double>(cfg.getRadius()) * gamma / position.stableNorm();
+        betaVar = betaVariance(position,
+                               static_cast<double>(cfg.getRadius()),
+                               alpha,
+                               shat_N,
+                               static_cast<double>(cfg.getRadiusUncertainty()),
+                               positionCovariance);
+        // Mirrors updateState: a non-finite correction (in fp32) falls back to the COB.
+        const double sec2Beta = 1.0 + (tanBeta * tanBeta);
+        const bool finiteCom =
+            std::isfinite(static_cast<double>(cob.cobCenterOfBrightness(0)) - (tanBeta * dX * safeCos(phi))) &&
+            std::isfinite(static_cast<double>(cob.cobCenterOfBrightness(1)) - (tanBeta * dY * safeSin(phi)));
+        if (!finiteCom || !std::isfinite(static_cast<float>(betaVar * sec2Beta * sec2Beta))) {
+            alpha = 0.0;
+            phi = 0.0;
+            gamma = 0.0;
+            objectRadiusPixels = 0.0;
+            tanBeta = 0.0;
+            betaVar = 0.0;
+        }
+    }
 
     const Eigen::Vector2d cobPixels = cob.cobCenterOfBrightness.cast<double>();
     const Eigen::Vector2d comPixels(cobPixels(0) - (tanBeta * dX * safeCos(phi)),
                                     cobPixels(1) - (tanBeta * dY * safeSin(phi)));
-    // Mirrors CobConverterAlgorithm::updateState: validCom means "the resulting COM pixel location
-    // is finite," applied the same way whether or not a correction was requested.
-    const bool validCom = comPixels.allFinite();
-
     const CalibrationCoefficients coefficients = cfg.getCalibrationCoefficients();
     bool cobConverged = false;
     bool comConverged = false;
-    const Eigen::Vector3d rhatCOB_C = mapState(cobPixels, cameraCalibrationMatrix, coefficients, &cobConverged);
+    // The COB heading is not reported; only its convergence flag is.
+    mapState(cobPixels, cameraCalibrationMatrix, coefficients, &cobConverged);
     const Eigen::Vector3d rhatCOM_C = mapState(comPixels, cameraCalibrationMatrix, coefficients, &comConverged);
     if (brownConradyConverged != nullptr) {
         *brownConradyConverged = cobConverged && comConverged;
@@ -207,13 +237,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const Eigen::Matrix3d attitudeCovariance = cfg.getAttitudeCovariance().cast<double>();
     const Eigen::Matrix2d covarCOBuv = (pixelsFound / (4.0 * std::numbers::pi)) * Eigen::Matrix2d::Identity();
     const double onePlusTanBetaSq = 1.0 + (tanBeta * tanBeta);
-    const double phaseVar = betaVariance(filter.filterVehPosition,
-                                         static_cast<double>(cfg.getRadius()),
-                                         alpha,
-                                         shat_N,
-                                         static_cast<double>(cfg.getRadiusUncertainty()),
-                                         filter.filterVehPositionCovariance) *
-                            onePlusTanBetaSq * onePlusTanBetaSq;
+    const double phaseVar = betaVar * onePlusTanBetaSq * onePlusTanBetaSq;
     Eigen::Matrix2d pixelToNormalized = Eigen::Matrix2d::Zero();
     pixelToNormalized(0, 0) = 1.0 / dX;
     pixelToNormalized(1, 1) = 1.0 / dY;
@@ -235,65 +259,45 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const Eigen::Matrix3d covar_N =
         (dcm_NC * covarRHat_C * dcm_NC.transpose()) +
         (16.0 * dcm_BN.transpose() * rHatSkew_B * attitudeCovariance * rHatSkew_B.transpose() * dcm_BN);
-    const Eigen::Matrix3d covar_B = dcm_BN * covar_N * dcm_BN.transpose();
 
     // Mirrors updateState's publish gate: COM unit vector and covariance must be finite.
     if (!rhatCOM_C.allFinite() || !covar_N.allFinite()) {
         return output;
     }
 
-    bool goodOutlierCheck = true;
+    const Eigen::Vector3d rhatCOM_N = dcm_NC * rhatCOM_C;
+
+    bool goodOutlierCheck = false;  // set only when outlier detection runs
     bool comErrorOutlierTrigger = false;
     if (cfg.isOutlierDetectionEnabled()) {
-        // Mirrors comOutlierDetection: COM heading vs filter heading, both COM->SC in N.
-        const Eigen::Vector3d rhatNav_N = filter.filterVehPosition.stableNormalized();
-        const double error = ((dcm_NC * rhatCOM_C) - rhatNav_N).stableNorm();
-        double sigma = 0.0;
-        if (cfg.isStandardDeviationSpecified()) {
-            sigma = static_cast<double>(cfg.getStandardDeviation()) * safeSqrt((1.0 / (dX * dX)) + (1.0 / (dY * dY)));
-        } else {
-            const Eigen::Matrix3d projection = Eigen::Matrix3d::Identity() - (rhatNav_N * rhatNav_N.transpose());
-            const Eigen::Matrix3d covarNav_N = projection * filter.filterVehPositionCovariance *
-                                               projection.transpose() / filter.filterVehPosition.squaredNorm();
-            sigma = safeSqrt((covar_N + covarNav_N).trace());
-        }
-        const double threshold = static_cast<double>(cfg.getNumStandardDeviations()) * sigma;
-        goodOutlierCheck = error < threshold;
+        // Mirrors comOutlierDetection (an unusable filter state rejects): miss distance of the line of sight from the
+        // filter-predicted body center.
+        const double missDistance =
+            position.dot(rhatCOM_N) > 0.0 ? position.cross(rhatCOM_N).stableNorm() : position.stableNorm();
+        const double gate =
+            (static_cast<double>(cfg.getOutlierRadiusMultiple()) * static_cast<double>(cfg.getRadius())) +
+            (static_cast<double>(cfg.getNumStandardDeviations()) * safeSqrt(positionCovariance.trace()));
+        goodOutlierCheck = filterUsable && missDistance <= gate;
         comErrorOutlierTrigger = !goodOutlierCheck;
-        // fp32 and double may disagree within rounding noise of the gate: 1e-2 relative (sigma) + 1e-6 absolute
-        // (chord).
-        if (outlierNearThreshold != nullptr) {
-            *outlierNearThreshold = std::abs(error - threshold) < (1e-2 * threshold) + 1e-6;
+        // fp32 and double headings agree to ~1e-3 (the rhat tolerance), which moves d by up to ~2e-3 * |r_f|.
+        if (filterUsable && outlierNearThreshold != nullptr) {
+            *outlierNearThreshold = std::abs(missDistance - gate) < (2e-3 * position.stableNorm()) + (1e-6 * gate);
         }
     }
 
-    const Eigen::Vector3d rhatCOM_N = dcm_NC * rhatCOM_C;
-    const Eigen::Vector3d rhatCOM_B = dcm_BN * rhatCOM_N;
-    const Eigen::Matrix3d covar_C = dcm_NC.transpose() * covar_N * dcm_NC;
-
-    // The published covariance adds the mean cross-sight variance along the line of sight; the outlier gate and the
-    // diagnostic keep the physical one.
+    // The published covariance adds the mean cross-sight variance along the line of sight.
     output.output.covar_N = (covar_N + (0.5 * covar_N.trace() * (rhatCOM_N * rhatCOM_N.transpose()))).cast<float>();
     output.output.rhat_BN_N = rhatCOM_N.cast<float>();
     output.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
-    // Mirrors updateState: finite COM, no outlier flag, and a converged COM undistortion.
-    output.output.unitVecValid = validCom && goodOutlierCheck && comConverged;
+    // Mirrors updateState: a converged COM undistortion, and the outlier check unless it is disabled.
+    output.output.unitVecValid = comConverged && (!cfg.isOutlierDetectionEnabled() || goodOutlierCheck);
 
-    output.diagnostic.covar_C = covar_C.cast<float>();
-    output.diagnostic.covar_B = covar_B.cast<float>();
-    output.diagnostic.rhat_BN_C = rhatCOM_C.cast<float>();
-    output.diagnostic.rhat_BN_B = rhatCOM_B.cast<float>();
-    output.diagnostic.rhat_COB_C = rhatCOB_C.cast<float>();
-    output.diagnostic.rhat_COB_N = (dcm_NC * rhatCOB_C).cast<float>();
-    output.diagnostic.rhat_COB_B = (dcm_CB.transpose() * rhatCOB_C).cast<float>();
-    output.diagnostic.centerOfBrightness = cobPixels.cast<float>();
     output.diagnostic.centerOfMass = comPixels.cast<float>();
     output.diagnostic.offsetFactor = static_cast<float>(gamma);
     output.diagnostic.objectPixelRadius = static_cast<int>(objectRadiusPixels);
     output.diagnostic.phaseAngle = static_cast<float>(alpha);
     output.diagnostic.sunDirection = static_cast<float>(phi);
-    output.diagnostic.comTimeTag = cob.cobTimeTag;
-    output.diagnostic.comValid = validCom;
+    output.diagnostic.comValid = true;
     output.diagnostic.comErrorOutlierTrigger = comErrorOutlierTrigger;
 
     return output;
@@ -303,7 +307,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 // below are derived from operation count * float epsilon (1.19e-7) * margin, not picked by trial
 // and error -- a wrong sign or dropped term is orders of magnitude bigger than any bound here.
 //
-// `tol` (1e-3F) covers rhat_BN_N/C/B, rhat_COB_C/N/B, offsetFactor, phaseAngle, sunDirection.
+// `tol` (1e-3F) covers rhat_BN_N, offsetFactor, phaseAngle, sunDirection.
 // phaseAngle sets it:
 // its acos(dot(rHat_N, shat_N)) is ill-conditioned as alpha -> 0 or pi (d(acos)/dx = -1/sin(alpha)),
 // giving a floor of ~sqrt(2*n*epsilon) ~= 1.5e-3 for n ~ 5-10 upstream ops -- not a bug, since
@@ -312,7 +316,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 // 1e-3F. The other fields (~150-250 ops each: DCM builds, calibration, Brown-Conrady) only need
 // ~2.4e-5 and share this bound with margin to spare.
 //
-// covar_N/C/B scale with radius * dX / range and radiusUncertainty^2, from O(1) to
+// covar_N scales with radius * dX / range and radiusUncertainty^2, from O(1) to
 // O(1e6)+, where a single ULP exceeds 1e-3. Use atol + rtol*max(|reference|, noiseScale) instead:
 //   - covarRtol = 1e-4F, covarAtol = 1e-3F: both sized off the pipeline's ~2.4e-5 baseline
 //     (~150-250 ops). A prior radius>>range + anisotropic-covariance case pushed the observed error
@@ -328,7 +332,7 @@ inline void expectNear(float actual, float reference, float atol, float rtol, fl
     EXPECT_NEAR(actual, reference, atol + (rtol * std::max(std::abs(reference), noiseScale)));
 }
 
-// centerOfBrightness/centerOfMass/objectPixelRadius are pixel coordinates whose magnitude scales
+// centerOfMass/objectPixelRadius are pixel coordinates whose magnitude scales
 // with radius * dX / range, reaching O(1e5)+ for narrow fieldOfView + large radius. A flat +-1px
 // bound covers most cases, but at that scale relative rounding drift exceeds 1px while staying
 // physically meaningless, so add an rtol term scaled by magnitude: kPixelRtol = 1e-4F holds clean
@@ -376,44 +380,25 @@ inline void expectOutputsNear(const CobConverterUpdateResult& out,
     constexpr float covarAtol = 1e-3F;
     constexpr float covarRtol = 1e-4F;
     const float covarNScale = covarNoiseScale(out.output.covar_N, ref.output.covar_N);
-    const float covarCScale = covarNoiseScale(out.diagnostic.covar_C, ref.diagnostic.covar_C);
-    const float covarBScale = covarNoiseScale(out.diagnostic.covar_B, ref.diagnostic.covar_B);
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(out.output.rhat_BN_N(i), ref.output.rhat_BN_N(i), tol);
-        EXPECT_NEAR(out.diagnostic.rhat_BN_C(i), ref.diagnostic.rhat_BN_C(i), tol);
-        EXPECT_NEAR(out.diagnostic.rhat_BN_B(i), ref.diagnostic.rhat_BN_B(i), tol);
-        EXPECT_NEAR(out.diagnostic.rhat_COB_C(i), ref.diagnostic.rhat_COB_C(i), tol);
-        EXPECT_NEAR(out.diagnostic.rhat_COB_N(i), ref.diagnostic.rhat_COB_N(i), tol);
-        EXPECT_NEAR(out.diagnostic.rhat_COB_B(i), ref.diagnostic.rhat_COB_B(i), tol);
         for (int j = 0; j < 3; ++j) {
             expectNear(out.output.covar_N(i, j), ref.output.covar_N(i, j), covarAtol, covarRtol, covarNScale);
-            expectNear(out.diagnostic.covar_C(i, j), ref.diagnostic.covar_C(i, j), covarAtol, covarRtol, covarCScale);
-            expectNear(out.diagnostic.covar_B(i, j), ref.diagnostic.covar_B(i, j), covarAtol, covarRtol, covarBScale);
         }
     }
     // finiteness
     EXPECT_TRUE(out.output.rhat_BN_N.allFinite());
-    EXPECT_TRUE(out.diagnostic.rhat_BN_C.allFinite());
-    EXPECT_TRUE(out.diagnostic.rhat_BN_B.allFinite());
-    EXPECT_TRUE(out.diagnostic.rhat_COB_C.allFinite());
-    EXPECT_TRUE(out.diagnostic.rhat_COB_N.allFinite());
-    EXPECT_TRUE(out.diagnostic.rhat_COB_B.allFinite());
     EXPECT_TRUE(out.output.covar_N.allFinite());
-    EXPECT_TRUE(out.diagnostic.covar_C.allFinite());
-    EXPECT_TRUE(out.diagnostic.covar_B.allFinite());
 
     EXPECT_EQ(out.output.unitVecTimeTag, ref.output.unitVecTimeTag);
     EXPECT_EQ(out.output.unitVecValid, ref.output.unitVecValid);
 
     const float pixelNoiseScale = static_cast<float>(
         std::max(std::abs(out.diagnostic.objectPixelRadius), std::abs(ref.diagnostic.objectPixelRadius)));
-    expectPixelNear(out.diagnostic.centerOfBrightness(0), ref.diagnostic.centerOfBrightness(0), pixelNoiseScale);
-    expectPixelNear(out.diagnostic.centerOfBrightness(1), ref.diagnostic.centerOfBrightness(1), pixelNoiseScale);
     expectPixelNear(out.diagnostic.centerOfMass(0), ref.diagnostic.centerOfMass(0), pixelNoiseScale);
     const float pixelNoiseScaleY = pixelNoiseScale * pixelScaleRatioY;
     expectPixelNear(out.diagnostic.centerOfMass(1), ref.diagnostic.centerOfMass(1), pixelNoiseScaleY);
     // finiteness
-    EXPECT_TRUE(out.diagnostic.centerOfBrightness.allFinite());
     EXPECT_TRUE(out.diagnostic.centerOfMass.allFinite());
 
     expectPixelNear(static_cast<float>(out.diagnostic.objectPixelRadius),
@@ -428,7 +413,6 @@ inline void expectOutputsNear(const CobConverterUpdateResult& out,
     EXPECT_TRUE(std::isfinite(out.diagnostic.phaseAngle));
     EXPECT_TRUE(std::isfinite(out.diagnostic.sunDirection));
 
-    EXPECT_EQ(out.diagnostic.comTimeTag, ref.diagnostic.comTimeTag);
     EXPECT_EQ(out.diagnostic.comValid, ref.diagnostic.comValid);
     EXPECT_EQ(out.diagnostic.comErrorOutlierTrigger, ref.diagnostic.comErrorOutlierTrigger);
 }
@@ -442,8 +426,7 @@ inline void testCobConverter(float radius,
                              float radiusUncertainty,
                              const Eigen::Matrix3f& attitudeCovariance,
                              float numStandardDeviations,
-                             float standardDeviation,
-                             bool specifiedStandardDeviation,
+                             float outlierRadiusMultiple,
                              bool outlierDetectionEnabled,
                              const CalibrationCoefficients& calibrationCoefficients,
                              int cameraId,
@@ -466,8 +449,7 @@ inline void testCobConverter(float radius,
                                          radiusUncertainty,
                                          attitudeCovariance,
                                          numStandardDeviations,
-                                         standardDeviation,
-                                         specifiedStandardDeviation,
+                                         outlierRadiusMultiple,
                                          outlierDetectionEnabled,
                                          calibrationCoefficients,
                                          cameraId,
@@ -485,8 +467,9 @@ inline void testCobConverter(float radius,
                              .cobCenterOfBrightness = cobCenterOfBrightness,
                              .cobTimeTag = cobTimeTag};
     const VehicleAttitude attitude{.sigma_BN = sigma_BN, .vehSunPntBdy = vehSunPntBdy};
-    const FilterState filter{.filterVehPosition = filterVehPosition,
-                             .filterVehPositionCovariance = filterVehPositionCovariance};
+    // The adapter casts the double filter message to float.
+    const FilterState filter{.filterVehPosition = filterVehPosition.cast<float>(),
+                             .filterVehPositionCovariance = filterVehPositionCovariance.cast<float>()};
 
     CobConverterAlgorithm alg(*cfg);
     CobConverterUpdateResult out;
@@ -495,6 +478,13 @@ inline void testCobConverter(float radius,
     bool outlierNearThreshold = false;
     const CobConverterUpdateResult ref =
         referenceCobConverterUpdate(*cfg, cob, attitude, filter, &brownConradyConverged, &outlierNearThreshold);
+
+    // An invalid COB or a non-positive pixel count is rejected.
+    if (!cob.cobValid || cob.cobPixelsFound <= 0) {
+        EXPECT_FALSE(out.output.unitVecValid);
+        EXPECT_EQ(out.output.covar_N, Eigen::Matrix3f::Zero());
+        return;
+    }
 
     // No well-defined answer: non-converged Brown-Conrady inverse (either precision) or error at the outlier gate.
     if (!brownConradyConverged || !out.diagnostic.brownConradyCOMValid || !out.diagnostic.brownConradyCOBValid ||

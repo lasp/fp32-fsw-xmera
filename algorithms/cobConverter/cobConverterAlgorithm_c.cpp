@@ -13,8 +13,7 @@ CobConverterConfig makeConfig(float radius,
                               float radiusUncertainty,
                               Matrix3f_c attitudeCovariance,
                               float numStandardDeviations,
-                              float standardDeviation,
-                              bool specifiedStandardDeviation,
+                              float outlierRadiusMultiple,
                               bool outlierDetectionEnabled,
                               CalibrationCoefficients_c calibrationCoefficients,
                               int32_t cameraId,
@@ -32,8 +31,7 @@ CobConverterConfig makeConfig(float radius,
                                       radiusUncertainty,
                                       c2DArrayToEigenMatrix3(attitudeCovariance.data),
                                       numStandardDeviations,
-                                      standardDeviation,
-                                      specifiedStandardDeviation,
+                                      outlierRadiusMultiple,
                                       outlierDetectionEnabled,
                                       coefficients,
                                       cameraId,
@@ -50,20 +48,11 @@ CobConverterOutput_c outputToC(const CobConverterOutput& out, const CobConverter
     eigenVectorToCArray(out.rhat_BN_N, result.rhat_BN_N.data);
     result.unitVecTimeTag = out.unitVecTimeTag;
     result.unitVecValid = out.unitVecValid;
-    eigenMatrixToCArray2D(diag.covar_C, result.covar_C.data);
-    eigenMatrixToCArray2D(diag.covar_B, result.covar_B.data);
-    eigenVectorToCArray(diag.rhat_BN_C, result.rhat_BN_C.data);
-    eigenVectorToCArray(diag.rhat_BN_B, result.rhat_BN_B.data);
-    eigenVectorToCArray(diag.rhat_COB_C, result.rhat_COB_C.data);
-    eigenVectorToCArray(diag.rhat_COB_N, result.rhat_COB_N.data);
-    eigenVectorToCArray(diag.rhat_COB_B, result.rhat_COB_B.data);
-    eigenVectorToCArray(diag.centerOfBrightness, result.centerOfBrightness.data);
     eigenVectorToCArray(diag.centerOfMass, result.centerOfMass.data);
     result.offsetFactor = diag.offsetFactor;
     result.objectPixelRadius = diag.objectPixelRadius;
     result.phaseAngle = diag.phaseAngle;
     result.sunDirection = diag.sunDirection;
-    result.comTimeTag = diag.comTimeTag;
     result.comValid = diag.comValid;
     result.comErrorOutlierTrigger = diag.comErrorOutlierTrigger;
     result.brownConradyCOMValid = diag.brownConradyCOMValid;
@@ -77,8 +66,7 @@ bool CobConverterAlgorithm_validateConfig(float radius,
                                           float radiusUncertainty,
                                           Matrix3f_c attitudeCovariance,
                                           float numStandardDeviations,
-                                          float standardDeviation,
-                                          bool specifiedStandardDeviation,
+                                          float outlierRadiusMultiple,
                                           bool outlierDetectionEnabled,
                                           CalibrationCoefficients_c calibrationCoefficients,
                                           int32_t cameraId,
@@ -92,8 +80,7 @@ bool CobConverterAlgorithm_validateConfig(float radius,
                          radiusUncertainty,
                          attitudeCovariance,
                          numStandardDeviations,
-                         standardDeviation,
-                         specifiedStandardDeviation,
+                         outlierRadiusMultiple,
                          outlierDetectionEnabled,
                          calibrationCoefficients,
                          cameraId,
@@ -112,8 +99,7 @@ CobConverterAlgorithmHandle* CobConverterAlgorithm_create(float radius,
                                                           float radiusUncertainty,
                                                           Matrix3f_c attitudeCovariance,
                                                           float numStandardDeviations,
-                                                          float standardDeviation,
-                                                          bool specifiedStandardDeviation,
+                                                          float outlierRadiusMultiple,
                                                           bool outlierDetectionEnabled,
                                                           CalibrationCoefficients_c calibrationCoefficients,
                                                           int32_t cameraId,
@@ -122,21 +108,19 @@ CobConverterAlgorithmHandle* CobConverterAlgorithm_create(float radius,
                                                           float resolutionX,
                                                           float resolutionY,
                                                           Vector3f_c bodyToCameraMrp) {
-    return fsw::createHandle<::CobConverterAlgorithm, CobConverterAlgorithmHandle>(
-        makeConfig(radius,
-                   radiusUncertainty,
-                   attitudeCovariance,
-                   numStandardDeviations,
-                   standardDeviation,
-                   specifiedStandardDeviation,
-                   outlierDetectionEnabled,
-                   calibrationCoefficients,
-                   cameraId,
-                   fieldOfViewX,
-                   fieldOfViewY,
-                   resolutionX,
-                   resolutionY,
-                   bodyToCameraMrp));
+    return fsw::createHandle<::CobConverterAlgorithm, CobConverterAlgorithmHandle>(makeConfig(radius,
+                                                                                              radiusUncertainty,
+                                                                                              attitudeCovariance,
+                                                                                              numStandardDeviations,
+                                                                                              outlierRadiusMultiple,
+                                                                                              outlierDetectionEnabled,
+                                                                                              calibrationCoefficients,
+                                                                                              cameraId,
+                                                                                              fieldOfViewX,
+                                                                                              fieldOfViewY,
+                                                                                              resolutionX,
+                                                                                              resolutionY,
+                                                                                              bodyToCameraMrp));
 }
 
 void CobConverterAlgorithm_destroy(CobConverterAlgorithmHandle* self) {
@@ -148,8 +132,7 @@ void CobConverterAlgorithm_setConfig(CobConverterAlgorithmHandle* self,
                                      float radiusUncertainty,
                                      Matrix3f_c attitudeCovariance,
                                      float numStandardDeviations,
-                                     float standardDeviation,
-                                     bool specifiedStandardDeviation,
+                                     float outlierRadiusMultiple,
                                      bool outlierDetectionEnabled,
                                      CalibrationCoefficients_c calibrationCoefficients,
                                      int32_t cameraId,
@@ -162,8 +145,7 @@ void CobConverterAlgorithm_setConfig(CobConverterAlgorithmHandle* self,
                                                                          radiusUncertainty,
                                                                          attitudeCovariance,
                                                                          numStandardDeviations,
-                                                                         standardDeviation,
-                                                                         specifiedStandardDeviation,
+                                                                         outlierRadiusMultiple,
                                                                          outlierDetectionEnabled,
                                                                          calibrationCoefficients,
                                                                          cameraId,
@@ -181,8 +163,8 @@ CobConverterOutput_c CobConverterAlgorithm_updateState(CobConverterAlgorithmHand
                                                        uint64_t cobTimeTag,
                                                        Vector3f_c sigma_BN,
                                                        Vector3f_c vehSunPntBdy,
-                                                       Vector3d_c filterVehPosition,
-                                                       Matrix3d_c filterVehPositionCovariance) {
+                                                       Vector3f_c filterVehPosition,
+                                                       Matrix3f_c filterVehPositionCovariance) {
     const CobMeasurement cob{
         .cobValid = cobValid,
         .cobPixelsFound = cobPixelsFound,
@@ -194,8 +176,8 @@ CobConverterOutput_c CobConverterAlgorithm_updateState(CobConverterAlgorithmHand
         .vehSunPntBdy = cArrayToEigenVector3<float>(vehSunPntBdy.data),
     };
     const FilterState filter{
-        .filterVehPosition = cArrayToEigenVector3<double>(filterVehPosition.data),
-        .filterVehPositionCovariance = c2DArrayToEigenMatrix3<double>(filterVehPositionCovariance.data),
+        .filterVehPosition = cArrayToEigenVector3<float>(filterVehPosition.data),
+        .filterVehPositionCovariance = c2DArrayToEigenMatrix3<float>(filterVehPositionCovariance.data),
     };
 
     const auto [out, diag] = fsw::fromHandle<::CobConverterAlgorithm>(self)->updateState(cob, attitude, filter);

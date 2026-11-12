@@ -18,13 +18,6 @@ typedef struct {
 } Vector2f_c;
 
 /**
- * @brief POD representation of a double-precision 3x3 matrix (Eigen::Matrix3d), row-major.
- */
-typedef struct {
-    double data[3][3];
-} Matrix3d_c;
-
-/**
  * @brief Plain-old-data mirror of the C++ CalibrationCoefficients fields.
  */
 typedef struct {
@@ -47,24 +40,15 @@ typedef struct {
     bool unitVecValid;     /*!< [-] COM unit vector validity flag */
 
     /* Diagnostic output. */
-    Matrix3f_c covar_C;            /*!< [-] COM covariance, camera frame */
-    Matrix3f_c covar_B;            /*!< [-] COM covariance, body frame */
-    Vector3f_c rhat_BN_C;          /*!< [-] COM unit vector, camera frame */
-    Vector3f_c rhat_BN_B;          /*!< [-] COM unit vector, body frame */
-    Vector3f_c rhat_COB_C;         /*!< [-] COB unit vector, camera frame */
-    Vector3f_c rhat_COB_N;         /*!< [-] COB unit vector, inertial frame */
-    Vector3f_c rhat_COB_B;         /*!< [-] COB unit vector, body frame */
-    Vector2f_c centerOfBrightness; /*!< [px] COB pixel coordinates */
-    Vector2f_c centerOfMass;       /*!< [px] COM pixel coordinates */
-    float offsetFactor;            /*!< [-] phase-angle offset factor (gamma) */
-    int32_t objectPixelRadius;     /*!< [px] object radius in pixels */
-    float phaseAngle;              /*!< [rad] phase angle alpha_PA */
-    float sunDirection;            /*!< [rad] sun direction phi in image plane */
-    uint64_t comTimeTag;           /*!< [ns] measurement timestamp */
-    bool comValid;                 /*!< [-] COM validity flag */
-    bool comErrorOutlierTrigger;   /*!< [-] true if the COM heading error exceeded the gate */
-    bool brownConradyCOMValid;     /*!< [-] true if the COM Brown-Conrady undistortion converged */
-    bool brownConradyCOBValid;     /*!< [-] true if the COB Brown-Conrady undistortion converged */
+    Vector2f_c centerOfMass;     /*!< [px] COM pixel coordinates */
+    float offsetFactor;          /*!< [-] phase-angle offset factor (gamma) */
+    int32_t objectPixelRadius;   /*!< [px] object radius in pixels */
+    float phaseAngle;            /*!< [rad] phase angle alpha_PA */
+    float sunDirection;          /*!< [rad] sun direction phi in image plane */
+    bool comValid;               /*!< [-] COM validity flag */
+    bool comErrorOutlierTrigger; /*!< [-] true if the COM heading error exceeded the gate */
+    bool brownConradyCOMValid;   /*!< [-] true if the COM Brown-Conrady undistortion converged */
+    bool brownConradyCOBValid;   /*!< [-] true if the COB Brown-Conrady undistortion converged */
 } CobConverterOutput_c;
 
 #ifdef __cplusplus

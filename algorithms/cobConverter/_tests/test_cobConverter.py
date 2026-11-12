@@ -154,8 +154,6 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     module.radiusUncertainty = R_object_uncer
     module.attitudeCovariance = covar_att_B
     module.numStandardDeviations = 3
-    module.standardDeviation = 100
-    module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
     # Distinct X/Y values so this broad, heavily-parametrized regression test actually
     # exercises independent fields of view, instead of masking a bug where X and Y are
@@ -231,13 +229,6 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
     unitTestSim.ConfigureStopTime(testProcessRate)
     unitTestSim.ExecuteSimulation()
 
-    # the target is at the center of the image, as this test assumes perfect pointing at the target.
-    # Thus, for the outlier check, the expected COB is at the center of the image.
-    # This compares the input COB with the expected COB
-    cobCenter = np.array(cameraResolution) / 2
-    cobErrorCenter = np.linalg.norm(np.array(centerOfBrightness) - cobCenter)
-    acceptedCobError = module.numStandardDeviations * module.standardDeviation
-
     # Truth Values
     if numberOfPixels > 0:
         goodPixels = 1
@@ -293,7 +284,7 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
 
     # module output
     com = dataLogCOM.centerOfMass[0]
-    time_COM = dataLogCOM.comTimeTag[0]
+    time_COM = dataLogUnitVec.timeTag[0]
     valid_COM = dataLogCOM.comValid[0]
     rhat_COM_N = dataLogUnitVec.rhat_BN_N[0]
     covar_N = dataLogUnitVec.covar_N[0]
@@ -324,10 +315,10 @@ def cob_converter_test_function(show_plots, cameraResolution, centerOfBrightness
                                err_msg='Variable: com',
                                verbose=True)
     np.testing.assert_allclose(time_COM,
-                               timeTag_true_ns,
-                               rtol=0,
-                               atol=tolerance,
-                               err_msg='Variable: time_COM_ns',
+                               timeTag_true,
+                               rtol=1e-12,
+                               atol=0,
+                               err_msg='Variable: time_COM',
                                verbose=True)
     np.testing.assert_equal(valid_COM,
                             valid_COM_true,
@@ -363,8 +354,6 @@ def test_coberror_outlier(
     module.radiusUncertainty = R_object_uncer
     module.attitudeCovariance = covar_att_B
     module.numStandardDeviations = 3
-    module.standardDeviation = 100
-    module.specifiedStandardDeviation = True
     module.outlierDetectionEnabled = True
     module.fieldOfViewX = np.deg2rad(20.0)
     module.fieldOfViewY = np.deg2rad(20.0)
@@ -432,17 +421,25 @@ def test_coberror_outlier(
     dataDiagnostic = module.cobConverterDiagnosticOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataDiagnostic)
 
-    module.numStandardDeviations = 100
-    unitTestSim.InitializeSimulation()
-    unitTestSim.ConfigureStopTime(testProcessRate)
-    unitTestSim.ExecuteSimulation()
-    np.testing.assert_equal(dataDiagnostic.comErrorOutlierTrigger, False, err_msg='comErrorOutlierTrigger should be False')
+    def run(outlierRadiusMultiple):
+        module.outlierRadiusMultiple = outlierRadiusMultiple
+        unitTestSim.InitializeSimulation()
+        unitTestSim.ConfigureStopTime(testProcessRate)
+        unitTestSim.ExecuteSimulation()
+        return np.array(dataLogUnitVec.rhat_BN_N[-1], dtype=np.float64), dataDiagnostic.comErrorOutlierTrigger[-1]
 
-    module.numStandardDeviations = 0.01
-    unitTestSim.InitializeSimulation()
-    unitTestSim.ConfigureStopTime(testProcessRate)
-    unitTestSim.ExecuteSimulation()
-    np.testing.assert_equal(dataDiagnostic.comErrorOutlierTrigger, True, err_msg='comErrorOutlierTrigger should be True')
+    # Gate: d <= N R + n_sigma sqrt(tr(P)), d the miss distance of the line of sight from the filter position.
+    rhat_N, _ = run(5.0)
+    if r_BdyZero_N @ rhat_N > 0:
+        d = np.linalg.norm(np.cross(r_BdyZero_N, rhat_N))
+    else:
+        d = np.linalg.norm(r_BdyZero_N)
+    sigma = np.sqrt(np.trace(full_covariance[:3, :3]))
+    for outlierRadiusMultiple in [0.5 * d / R_object, 2.0 * d / R_object]:
+        _, trigger = run(outlierRadiusMultiple)
+        d_max = outlierRadiusMultiple * R_object + module.numStandardDeviations * sigma
+        np.testing.assert_equal(bool(trigger), d > d_max,
+                                err_msg=f'comErrorOutlierTrigger with d = {d} m, d_max = {d_max} m')
 
 
 def apply_brown_conrady(uncalibrated, k1, k2, k3, p1, p2):
@@ -511,8 +508,8 @@ def test_brown_conrady_polynomial_monotonicity(k1, k2, k3, label):
 @pytest.mark.parametrize("centerOfBrightness", [[152, 251], [400, 350], [256, 256]])
 @pytest.mark.skipif(cv2 is None, reason="OpenCV not installed")
 def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness):
-    """Verify that the Brown-Conrady coefficients are wired into the COB unit-vector pipeline.
-    Asserts on the diagnostic COB heading, which is unaffected by the phase-angle correction."""
+    """Verify that the Brown-Conrady coefficients are wired into the COM unit-vector pipeline.
+    Asserts on the published heading against the diagnostic COM pixel mapped through the calibration."""
     cameraResolution = [512, 512]
     numberOfPixels = 75
     sunDirection = [-1.0, -1.0, 0.0]
@@ -603,38 +600,34 @@ def test_brown_conrady_calibration(k1, k2, k3, p1, p2, label, centerOfBrightness
     unitTestSim.ConfigureStopTime(testProcessRate)
     unitTestSim.ExecuteSimulation()
 
-    rhat_COB_C_true = map_state_with_calibration(centerOfBrightness, inputCamera, k1, k2, k3, p1, p2)
+    # The published heading is the phase-angle-corrected COM; take its pixel from the diagnostic so
+    # the truth isolates the calibration step.
+    centerOfMass = dataDiagnostic.centerOfMass[0]
+    rhat_COM_C_true = map_state_with_calibration(centerOfMass, inputCamera, k1, k2, k3, p1, p2)
     dcm_NC = dcm_BN.T @ dcm_CB.T
-    rhat_COB_N_true = dcm_NC @ rhat_COB_C_true
-    rhat_COB_B_true = dcm_CB.T @ rhat_COB_C_true
+    rhat_COM_N_true = dcm_NC @ rhat_COM_C_true
 
-    # The output message carries the phase-angle-corrected COM, which is offset from the COB.
-    rhat_COB_C_out = dataDiagnostic.rhat_COB_C[0]
-    rhat_COB_N_out = dataDiagnostic.rhat_COB_N[0]
-    rhat_COB_B_out = dataDiagnostic.rhat_COB_B[0]
+    rhat_COM_N_out = dataLogUnitVec.rhat_BN_N[0]
+    rhat_COM_C_out = dcm_NC.T @ rhat_COM_N_out
 
     tolerance = 1e-6
-    np.testing.assert_allclose(rhat_COB_C_out, rhat_COB_C_true, rtol=0, atol=tolerance,
-                               err_msg=f"rhat_COB_C ({label})")
-    np.testing.assert_allclose(rhat_COB_N_out, rhat_COB_N_true, rtol=0, atol=tolerance,
-                               err_msg=f"rhat_COB_N ({label})")
-    np.testing.assert_allclose(rhat_COB_B_out, rhat_COB_B_true, rtol=0, atol=tolerance,
-                               err_msg=f"rhat_COB_B ({label})")
+    np.testing.assert_allclose(rhat_COM_N_out, rhat_COM_N_true, rtol=0, atol=tolerance,
+                               err_msg=f"rhat_BN_N ({label})")
 
     # These in-image points converge for every coefficient set, so both solver flags reach the message as True.
     np.testing.assert_equal(dataDiagnostic.brownConradyCOMValid[0], True, err_msg=f"brownConradyCOMValid ({label})")
     np.testing.assert_equal(dataDiagnostic.brownConradyCOBValid[0], True, err_msg=f"brownConradyCOBValid ({label})")
 
-    # For a non-centered COB, removing barrel and pincushion distortion should push the undistorted
-    # radius in opposite directions relative to the identity case. Skip this check when the COB
-    # happens to land at the principal point (no radial term).
+    # For a non-centered COM, removing barrel and pincushion distortion should push the undistorted
+    # radius in opposite directions relative to the identity case. Skip when the COB is at the
+    # principal point (no radial term).
     radius_pixels = np.linalg.norm(np.array(centerOfBrightness) - np.array(cameraResolution) / 2.0)
     if label in ("barrel", "pincushion") and radius_pixels > 0.0:
-        rhat_identity = map_state_with_calibration(centerOfBrightness, inputCamera, 0, 0, 0, 0, 0)
+        rhat_identity = map_state_with_calibration(centerOfMass, inputCamera, 0, 0, 0, 0, 0)
         # In the camera frame, +z is the boresight. Barrel compresses the image, so undoing it
         # increases |x|, |y|; undoing pincushion decreases them.
         radial_identity = np.hypot(rhat_identity[0], rhat_identity[1])
-        radial_distorted = np.hypot(rhat_COB_C_out[0], rhat_COB_C_out[1])
+        radial_distorted = np.hypot(rhat_COM_C_out[0], rhat_COM_C_out[1])
         if label == "barrel":
             assert radial_distorted > radial_identity, (
                 f"Removing barrel distortion should increase the off-axis component "
