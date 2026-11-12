@@ -12,9 +12,10 @@ struct Types {
 };
 
 /**
- *  Switch from the current mrp to its shadow set
- * @param mrp
- * @return Eigen::Vector3d
+ * Map an MRP to its shadow set, sigma_s = -sigma / |sigma|^2. Both describe the same attitude.
+ * @param mrp [-] MRP set; must be non-zero, because the shadow set is singular at the zero rotation (zero gives
+ *            non-finite output). In float, |mrp| below about 1e-19 loses accuracy or overflows.
+ * @return [-] shadow MRP set
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> mrpShadow(const Eigen::Vector3<ScalarT>& mrp) {

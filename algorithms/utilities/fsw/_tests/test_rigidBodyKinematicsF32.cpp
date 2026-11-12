@@ -1124,7 +1124,10 @@ TYPED_TEST(RepresentationDerivativesTest, mrpSwitch) {
     EXPECT_LT(relativeErrorNorm(mrpSwitch<T>(mrp, value), expected), tolerance);
 }
 
-TYPED_TEST(RepresentationDerivativesTest, mrpShadow) {
+// ---------------------------------------------------------------------------
+// mrpShadow: maps an MRP set to its shadow set, which describes the same attitude.
+// ---------------------------------------------------------------------------
+TYPED_TEST(RepresentationDerivativesTest, mrpShadowMatchesCReference) {
     using T = TypeParam;
     typename TestFixture::Vec3 mrp = TestFixture::randVec3();
 
@@ -1138,6 +1141,40 @@ TYPED_TEST(RepresentationDerivativesTest, mrpShadow) {
     typename TestFixture::Vec3 expected = Eigen::Map<typename TestFixture::Vec3>(expectedArray);
     T const tolerance = std::max(rotationParameterTolerance(expected), TestFixture::accuracy);
     EXPECT_LT(relativeErrorNorm(mrpShadow<T>(mrp), expected), tolerance);
+}
+
+// Verify the shadow transformation and its inverse.
+TYPED_TEST(RepresentationDerivativesTest, mrpShadowKnownValues) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix<T, 3, 3>;
+
+    Vec3 const mrp(T(1), T(1), T(0));
+    Vec3 const shadow = mrpShadow(mrp);
+
+    // Verify the expected shadow set.
+    EXPECT_EQ(shadow, Vec3(T(-0.5), T(-0.5), T(0)));
+
+    // Applying the shadow transformation twice restores the original MRP.
+    EXPECT_EQ(mrpShadow(shadow), mrp);
+
+    // The product of the squared MRP norms is 1.
+    EXPECT_EQ(mrp.squaredNorm() * shadow.squaredNorm(), T(1));
+
+    // The original and shadow MRP sets represent the same attitude.
+    Mat3 const dcmMrp = mrpToDcm(mrp);
+    Mat3 const dcmShadow = mrpToDcm(shadow);
+
+    EXPECT_LT(relativeErrorNorm(dcmShadow, dcmMrp), rotationParameterTolerance(dcmMrp));
+}
+
+// The shadow set is undefined for a zero MRP.
+TYPED_TEST(RepresentationDerivativesTest, mrpShadowOfZeroIsNonFinite) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const zeroMrp = Vec3::Zero();
+    EXPECT_FALSE(mrpShadow(zeroMrp).allFinite());
 }
 
 TYPED_TEST(RepresentationDerivativesTest, rotationMatrix) {

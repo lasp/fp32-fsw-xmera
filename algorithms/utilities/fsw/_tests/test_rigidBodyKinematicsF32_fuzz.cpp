@@ -1,9 +1,13 @@
 #include "utilities/fsw/rigidBodyKinematics.hpp"
+#include "utilities/testUtilities/eigenFuzzDomains.hpp"
 
 #include <fuzztest/fuzztest.h>
 #include <gtest/gtest.h>
 
 #include <Eigen/Dense>
+#include <cmath>
+#include <limits>
+#include <type_traits>
 
 namespace {
 //! Build a unit quaternion from four arbitrary doubles, falling back to identity near zero.
@@ -87,4 +91,62 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, euler321ExtractionFinite)
                  fuzztest::InRange(-1.0, 1.0),
                  fuzztest::InRange(-1.0, 1.0),
                  fuzztest::InRange(-1.0, 1.0));
+
+// ---------------------------------------------------------------------------
+// mrpShadow: maps an MRP set to its shadow set, which describes the same attitude.
+// ---------------------------------------------------------------------------
+template <typename T>
+void mrpShadowProperties(const Eigen::Vector3<T>& direction, T log10MrpNorm) {
+    using Vec3 = Eigen::Vector3<T>;
+
+    // The zero MRP has no shadow set.
+    if (direction.isZero(T(0))) {
+        return;
+    }
+
+    // Generate direction and magnitude independently to exercise vectors across
+    // multiple orders of magnitude while retaining coverage of arbitrary directions.
+    // Directly sampling components over a wide range would rarely reach small
+    // magnitudes or specific norm boundaries.
+    Vec3 const mrp = direction.stableNormalized() * std::pow(T(10), log10MrpNorm);
+    Vec3 const shadow = mrpShadow(mrp);
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    // Verify that the shadow MRP contains only finite values.
+    ASSERT_TRUE(shadow.allFinite());
+
+    // The shadow MRP points in the opposite direction.
+    EXPECT_TRUE(shadow.stableNormalized().isApprox(-mrp.stableNormalized(), tol));
+
+    // The product of the squared MRP norms is 1.
+    EXPECT_NEAR(mrp.squaredNorm() * shadow.squaredNorm(), T(1), tol);
+
+    // Applying the shadow transformation twice restores the original MRP.
+    EXPECT_TRUE(mrpShadow(shadow).isApprox(mrp, tol));
+
+    // The original and shadow MRP sets represent the same attitude.
+    // Limit DCM comparisons to magnitudes with finite intermediate calculations: (1 + |mrp|^2)^2 in mrpToDcm
+    // overflows above |mrp| ~4e9 in float and ~1e77 in double.
+    T const maxLog10MrpNormForDcm = std::is_same_v<T, float> ? T(9) : T(76);
+
+    if (std::abs(log10MrpNorm) <= maxLog10MrpNormForDcm) {
+        EXPECT_TRUE(mrpToDcm(shadow).isApprox(mrpToDcm(mrp), tol));
+    }
+}
+
+void mrpShadowPropertiesFloat(const Eigen::Vector3f& direction, float log10MrpNorm) {
+    mrpShadowProperties(direction, log10MrpNorm);
+}
+
+void mrpShadowPropertiesDouble(const Eigen::Vector3d& direction, double log10MrpNorm) {
+    mrpShadowProperties(direction, log10MrpNorm);
+}
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, mrpShadowPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // Random X, Y, Z direction components.
+                 fuzztest::InRange(-18.0F, 18.0F));          // MRP norms from 1e-18 to 1e18.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, mrpShadowPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),  // Random X, Y, Z direction components.
+                 fuzztest::InRange(-150.0, 150.0));        // MRP norms from 1e-150 to 1e150.
 }  // namespace
