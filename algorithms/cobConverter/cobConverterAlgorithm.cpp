@@ -116,6 +116,7 @@ Rotations CobConverterAlgorithm::computeRotations(const Eigen::Vector3f& sigma_B
  * @param dcm_BN Body-to-inertial DCM for the current cycle (from computeRotations).
  * @return alphaPA, phi, gamma, spacecraftRange and Rc.
  */
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- position and sun direction are distinct, named inputs.
 PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(const Eigen::Vector3f& filterVehPosition,
                                                                               const Eigen::Vector3f& vehSunPntBdy,
                                                                               const Eigen::Matrix3f& dcm_BN) const {
