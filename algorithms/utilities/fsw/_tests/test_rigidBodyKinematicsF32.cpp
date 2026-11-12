@@ -15,7 +15,7 @@
 #include <type_traits>
 
 /**
- * @file test_rigidBodyKinematics.cpp
+ * @file test_rigidBodyKinematicsF32.cpp
  * @brief Comprehensive regression tests for rigid-body kinematics utilities.
  *
  * @section scope Scope
