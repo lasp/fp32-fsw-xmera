@@ -17,7 +17,7 @@ typedef struct CobConverterAlgorithmHandle CobConverterAlgorithmHandle;
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param radius                     [m]   object radius; must be > 0.
+ * @param radius                     [m]   object radius; must be >= 0 (0 disables the phase-angle correction).
  * @param radiusUncertainty          [m]   object radius uncertainty; must be >= 0.
  * @param attitudeCovariance         [-]   attitude error-MRP covariance, body frame; must be finite.
  * @param numStandardDeviations      [-]   number of sigmas for outlier gating; must be > 0.

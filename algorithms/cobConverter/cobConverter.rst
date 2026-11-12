@@ -6,9 +6,10 @@ transforms into a position measurement. The written message contains a heading (
 (measurement noise).
 
 The published heading is the center of mass (COM), estimated from the COB using a Sun phase angle correction. The
-correction uses the "Binary" method, which assumes a brightness of either 1 or 0 in the image of the body. Without a
-usable Sun direction, or when the range does not exceed the object radius, the COB is published as the COM, without the
-phase-angle variance; the outlier check still applies. The COM offset itself is reported on the diagnostic message.
+correction uses the "Binary" method, which assumes a brightness of either 1 or 0 in the image of the body. With a zero
+object radius, an unusable filter state (non-finite, or a range below 1 mm), without a usable Sun direction, when the
+range does not exceed the object radius, or when the correction is not finite, the COB is published as the COM, without
+the phase-angle variance; the outlier check still applies. The COM offset itself is reported on the diagnostic message.
 
 Optionally, Brown-Conrady distortion coefficients can be provided; the measured normalized image-plane coordinate is
 then undistorted by inverting the Brown-Conrady model before the heading vector is computed.
@@ -249,7 +250,8 @@ filter position :math:`\mathbf{r}^N` (spacecraft relative to the body, from :ref
 where :math:`N` = ``outlierRadiusMultiple``, :math:`n_\sigma` = ``numStandardDeviations`` and :math:`[P]` is the
 filter position covariance. If the heading points away from the body, the closest point of the line of sight is the
 spacecraft itself. Unless :math:`d \le d_{max}`, the output unit vector is invalidated and ``comErrorOutlierTrigger``
-is set. This runs on both the phase-corrected and the COB-as-COM paths.
+is set. This runs on both the phase-corrected and the COB-as-COM paths. An unusable filter state cannot validate the
+measurement, so it is rejected.
 
 :math:`N R` covers the body size: the COB-to-COM offset is at most :math:`0.85 R`. :math:`n_\sigma \sqrt{\operatorname{tr}[P]}`
 covers the filter position uncertainty, so a filter that has not converged does not reject good measurements. The
@@ -279,7 +281,8 @@ add the module to the simulation task (``reset()`` validates the configuration a
 
     sim.AddModelToTask(taskName, module)
 
-``attitudeCovariance`` is the covariance of the attitude error MRP, in the body frame.
+``attitudeCovariance`` is the covariance of the attitude error MRP, in the body frame. ``radius = 0`` disables the
+phase-angle correction (the COB is published as the COM) and ``radiusUncertainty`` is then unused.
 
 The outlier detection is disabled by default; enable it and configure the gate by::
 

@@ -188,6 +188,7 @@ TEST(CobConverterTest, OutlierDetectionRadiusGateTest) {
     EXPECT_TRUE(updateAt(algorithm, offsetBy(1.01 * gate), smallCovariance)) << "just outside";
     EXPECT_FALSE(updateAt(algorithm, offsetBy(200.0e3), Eigen::Matrix3d::Identity() * 1.0e10)) << "large P";
     EXPECT_TRUE(updateAt(algorithm, Eigen::Vector3d{0.0, 0.0, 500.0e3}, smallCovariance)) << "rhat points away";
+    EXPECT_TRUE(updateAt(algorithm, Eigen::Vector3d{0.0, 0.0, -1.0e-4}, smallCovariance)) << "unusable filter";
     EXPECT_TRUE(updateAt(algorithm, offsetBy(200.0e3), smallCovariance, /*zeroSunline=*/true)) << "fallback";
     EXPECT_FALSE(updateAt(makeAlgorithm(false), offsetBy(200.0e3), smallCovariance)) << "disabled";
 }
@@ -321,33 +322,38 @@ TEST(CobConverterTest, BrownConradyRealisticLensConvergesTest) {
     expectConverges({.k1 = -0.2F, .k2 = 0.05F, .k3 = 0.0F, .p1 = 1e-3F, .p2 = -5e-4F}, 90.0F * kDeg, 30);
 }
 
-// The phase-angle correction needs a range above the body radius. At or inside the radius the
-// update is skipped and the output stays zeroed and invalid.
-// Without a usable sunline, or at/inside the body radius, the COB is published as the COM.
+// With a zero radius, without a usable sunline, or at/inside the body radius, the COB is published as the COM.
 TEST(CobConverterTest, PhaseCorrectionUnavailablePublishesCobTest) {
     constexpr float radius = 25.0e3F;  // [m]
-    const CobConverterAlgorithm algorithm(CobConverterConfig::create(radius,
-                                                                     /*radiusUncertainty=*/0.0F,
-                                                                     Eigen::Matrix3f::Zero(),
-                                                                     /*numStandardDeviations=*/3.0F,
-                                                                     /*outlierRadiusMultiple=*/5.0F,
-                                                                     /*outlierDetectionEnabled=*/false,
-                                                                     CalibrationCoefficients{},
-                                                                     /*cameraId=*/0,
-                                                                     /*fieldOfViewX=*/0.35F,
-                                                                     /*fieldOfViewY=*/0.30F,
-                                                                     /*resolutionX=*/512.0F,
-                                                                     /*resolutionY=*/512.0F,
-                                                                     Eigen::Vector3f::Zero()));
+    const auto makeAlgorithm = [](float configuredRadius, float radiusUncertainty = 8.0e3F) {
+        return CobConverterAlgorithm(CobConverterConfig::create(configuredRadius,
+                                                                radiusUncertainty,
+                                                                Eigen::Matrix3f::Zero(),
+                                                                /*numStandardDeviations=*/3.0F,
+                                                                /*outlierRadiusMultiple=*/5.0F,
+                                                                /*outlierDetectionEnabled=*/false,
+                                                                CalibrationCoefficients{},
+                                                                /*cameraId=*/0,
+                                                                /*fieldOfViewX=*/0.35F,
+                                                                /*fieldOfViewY=*/0.30F,
+                                                                /*resolutionX=*/512.0F,
+                                                                /*resolutionY=*/512.0F,
+                                                                Eigen::Vector3f::Zero()));
+    };
+    const CobConverterAlgorithm algorithm = makeAlgorithm(radius);
     const CobMeasurement cob{.cobValid = true,
                              .cobPixelsFound = 75,
                              .cobCenterOfBrightness = Eigen::Vector2f{256.0F, 256.0F},
                              .cobTimeTag = 12345U};
+    const auto updateWith =
+        [&](const CobConverterAlgorithm& alg, const Eigen::Vector3d& position, const Eigen::Vector3f& vehSunPntBdy) {
+            const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .vehSunPntBdy = vehSunPntBdy};
+            const FilterState filter{.filterVehPosition = position,
+                                     .filterVehPositionCovariance = Eigen::Matrix3d::Identity() * 50.0e3};
+            return alg.updateState(cob, attitude, filter);
+        };
     const auto updateAt = [&](const Eigen::Vector3d& position, const Eigen::Vector3f& vehSunPntBdy) {
-        const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .vehSunPntBdy = vehSunPntBdy};
-        const FilterState filter{.filterVehPosition = position,
-                                 .filterVehPositionCovariance = Eigen::Matrix3d::Identity() * 50.0e3};
-        return algorithm.updateState(cob, attitude, filter);
+        return updateWith(algorithm, position, vehSunPntBdy);
     };
     const auto expectCobPublished = [&](const CobConverterUpdateResult& result, const std::string& label) {
         EXPECT_TRUE(result.output.unitVecValid) << label;
@@ -364,6 +370,19 @@ TEST(CobConverterTest, PhaseCorrectionUnavailablePublishesCobTest) {
         expectCobPublished(updateAt(range * direction, sunAlongPosition), "range " + std::to_string(range));
     }
     expectCobPublished(updateAt(500.0e3 * direction, Eigen::Vector3f::Zero()), "zero sunline");
+    // Sun off the position: a nonzero phase angle that would shift the COM if the radius were set.
+    const Eigen::Vector3f sunOffPosition = Eigen::Vector3f{0.0F, 1.0F, 0.0F};
+    const CobConverterUpdateResult zeroRadius = updateWith(makeAlgorithm(0.0F), 500.0e3 * direction, sunOffPosition);
+    expectCobPublished(zeroRadius, "zero radius");
+    EXPECT_EQ(zeroRadius.output.covar_N, updateAt(500.0e3 * direction, Eigen::Vector3f::Zero()).output.covar_N);
+    EXPECT_NE(updateAt(500.0e3 * direction, sunOffPosition).diagnostic.offsetFactor, 0.0F);
+    // An unusable filter state (|r| below kMinPositionNorm, or non-finite) falls back to the COB.
+    expectCobPublished(updateWith(makeAlgorithm(1.0e-30F), 2.0e-30 * direction, sunOffPosition), "degenerate range");
+    expectCobPublished(updateAt(Eigen::Vector3d{std::numeric_limits<double>::infinity(), 0.0, 0.0}, sunOffPosition),
+                       "non-finite position");
+    // sigma_R^2 overflows in fp32, so the correction is not finite and falls back to the COB.
+    expectCobPublished(updateWith(makeAlgorithm(radius, 1.0e30F), 500.0e3 * direction, sunOffPosition),
+                       "non-finite correction");
 
     // Control: the same geometry far outside the body is published as valid.
     EXPECT_TRUE(updateAt(500.0e3 * direction, sunAlongPosition).output.unitVecValid);
@@ -409,8 +428,9 @@ TEST(CobConverterTest, SetupTest) {
     const float nan = std::numeric_limits<float>::quiet_NaN();
 
     // radius: must be > 0.
+    // radius: must be >= 0; zero disables the phase-angle correction.
     EXPECT_TRUE(CobConverterConfig::isValidRadius(1.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidRadius(0.0F));
+    EXPECT_TRUE(CobConverterConfig::isValidRadius(0.0F));
     EXPECT_FALSE(CobConverterConfig::isValidRadius(-1.0F));
     EXPECT_FALSE(CobConverterConfig::isValidRadius(nan));
 
@@ -459,10 +479,24 @@ TEST(CobConverterTest, SetupTest) {
     EXPECT_TRUE(CobConverterConfig::isValidBodyToCameraMrp(zeroMrp));
     EXPECT_FALSE(CobConverterConfig::isValidBodyToCameraMrp(Eigen::Vector3f{nan, 0.0F, 0.0F}));
 
+    // Filter state: finite, |r| >= kMinPositionNorm, finite covariance.
+    const auto usable = [](const Eigen::Vector3d& position, const Eigen::Matrix3d& covariance) {
+        return CobConverterConfig::isUsableFilterState(
+            FilterState{.filterVehPosition = position, .filterVehPositionCovariance = covariance});
+    };
+    const Eigen::Matrix3d nominalCovariance = Eigen::Matrix3d::Identity() * 50.0e3;
+    Eigen::Matrix3d infCovariance = nominalCovariance;
+    infCovariance(0, 1) = std::numeric_limits<double>::infinity();
+    EXPECT_TRUE(usable(Eigen::Vector3d{-500.0e3, -300.0e3, 0.0}, nominalCovariance));
+    EXPECT_FALSE(usable(Eigen::Vector3d::Zero(), nominalCovariance));
+    EXPECT_FALSE(usable(Eigen::Vector3d{1.0e-4, 0.0, 0.0}, nominalCovariance));
+    EXPECT_FALSE(usable(Eigen::Vector3d{std::numeric_limits<double>::quiet_NaN(), 0.0, 0.0}, nominalCovariance));
+    EXPECT_FALSE(usable(Eigen::Vector3d{-500.0e3, -300.0e3, 0.0}, infCovariance));
+
     // create() throws on the first invalid field it encounters, so each case below spells out
     // every field up through the one under test (all valid except the last) and leaves the rest
     // at makeConfig's nominal defaults.
-    EXPECT_THROW((void)makeConfig(0.0F /* invalid radius */), fsw::invalid_argument);
+    EXPECT_THROW((void)makeConfig(-1.0F /* invalid radius */), fsw::invalid_argument);
     EXPECT_THROW((void)makeConfig(25.0e3F, -1.0F /* invalid radiusUncertainty */), fsw::invalid_argument);
     EXPECT_THROW((void)makeConfig(25.0e3F, 8.0e3F, nanCovariance /* invalid attitudeCovariance */),
                  fsw::invalid_argument);

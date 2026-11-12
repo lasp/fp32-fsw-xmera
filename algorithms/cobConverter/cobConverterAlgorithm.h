@@ -98,7 +98,7 @@ class CobConverterConfig final {
                                      float resolutionY,
                                      const Eigen::Vector3f& bodyToCameraMrp) {
         if (!isValidRadius(radius)) {
-            FSW_THROW_INVALID_ARGUMENT("cobConverter: radius must be > 0");
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: radius must be >= 0");
         }
         if (!isValidRadiusUncertainty(radiusUncertainty)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: radiusUncertainty must be >= 0");
@@ -155,7 +155,22 @@ class CobConverterConfig final {
                 bodyToCameraMrp};
     }
 
-    static bool isValidRadius(float radius) { return fsw::is_finite(radius) && radius > 0.0F; }
+    /*! [m] smallest |r| of a usable filter state. Below it r_hat and the 1/r partials are dominated by rounding. Far
+     below any real range. */
+    static constexpr double kMinPositionNorm = 1e-3;
+
+    /*! Check whether a filter state can drive the phase correction and the outlier gate: finite position with
+     |r| >= kMinPositionNorm, and finite position covariance.
+     @return true if the filter state is usable
+     @param filter [m, m^2] filter position and covariance
+     */
+    static bool isUsableFilterState(const FilterState& filter) {
+        return filter.filterVehPosition.allFinite() && filter.filterVehPosition.stableNorm() >= kMinPositionNorm &&
+               filter.filterVehPositionCovariance.allFinite();
+    }
+
+    // Zero disables the phase-angle correction.
+    static bool isValidRadius(float radius) { return fsw::is_finite(radius) && radius >= 0.0F; }
     static bool isValidRadiusUncertainty(float radiusUncertainty) {
         return fsw::is_finite(radiusUncertainty) && radiusUncertainty >= 0.0F;
     }

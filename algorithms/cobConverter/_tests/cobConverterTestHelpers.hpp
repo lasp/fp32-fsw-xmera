@@ -7,6 +7,7 @@
 #include "utilities/fsw/safeMath.h"
 #include "utilities/fsw/timeConversion.hpp"
 #include <gtest/gtest.h>
+#include <cmath>
 #include <limits>
 #include <numbers>
 #include <optional>
@@ -169,9 +170,12 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const double dX = cameraCalibrationMatrix(0, 0);
     const double dY = cameraCalibrationMatrix(1, 1);
 
-    // Without a usable sunline, or inside the body radius, the COB is the COM.
+    // With a zero radius, an unusable filter state, without a usable sunline, or inside the body radius, the COB is
+    // the COM.
     const Eigen::Vector3d position = filter.filterVehPosition;
-    const bool phaseCorrected = position.stableNorm() > static_cast<double>(cfg.getRadius()) &&
+    const bool filterUsable = CobConverterConfig::isUsableFilterState(filter);
+    const bool phaseCorrected = filterUsable && cfg.getRadius() > 0.0F &&
+                                position.stableNorm() > static_cast<double>(cfg.getRadius()) &&
                                 attitude.vehSunPntBdy.allFinite() && attitude.vehSunPntBdy.stableNorm() > 0.0F;
     double alpha = 0.0;
     double phi = 0.0;
@@ -196,6 +200,19 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
                                shat_N,
                                static_cast<double>(cfg.getRadiusUncertainty()),
                                filter.filterVehPositionCovariance);
+        // Mirrors updateState: a non-finite correction (in fp32) falls back to the COB.
+        const double sec2Beta = 1.0 + (tanBeta * tanBeta);
+        const bool finiteCom =
+            std::isfinite(static_cast<double>(cob.cobCenterOfBrightness(0)) - (tanBeta * dX * safeCos(phi))) &&
+            std::isfinite(static_cast<double>(cob.cobCenterOfBrightness(1)) - (tanBeta * dY * safeSin(phi)));
+        if (!finiteCom || !std::isfinite(static_cast<float>(betaVar * sec2Beta * sec2Beta))) {
+            alpha = 0.0;
+            phi = 0.0;
+            gamma = 0.0;
+            objectRadiusPixels = 0.0;
+            tanBeta = 0.0;
+            betaVar = 0.0;
+        }
     }
 
     const Eigen::Vector2d cobPixels = cob.cobCenterOfBrightness.cast<double>();
@@ -251,17 +268,18 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     bool goodOutlierCheck = true;
     bool comErrorOutlierTrigger = false;
     if (cfg.isOutlierDetectionEnabled()) {
-        // Mirrors comOutlierDetection: miss distance of the line of sight from the filter-predicted body center.
+        // Mirrors comOutlierDetection (an unusable filter state rejects): miss distance of the line of sight from the
+        // filter-predicted body center.
         const double missDistance =
             position.dot(rhatCOM_N) > 0.0 ? position.cross(rhatCOM_N).stableNorm() : position.stableNorm();
         const double gate =
             (static_cast<double>(cfg.getOutlierRadiusMultiple()) * static_cast<double>(cfg.getRadius())) +
             (static_cast<double>(cfg.getNumStandardDeviations()) *
              safeSqrt(filter.filterVehPositionCovariance.trace()));
-        goodOutlierCheck = missDistance <= gate;
+        goodOutlierCheck = filterUsable && missDistance <= gate;
         comErrorOutlierTrigger = !goodOutlierCheck;
         // fp32 and double headings agree to ~1e-3 (the rhat tolerance), which moves d by up to ~2e-3 * |r_f|.
-        if (outlierNearThreshold != nullptr) {
+        if (filterUsable && outlierNearThreshold != nullptr) {
             *outlierNearThreshold = std::abs(missDistance - gate) < (2e-3 * position.stableNorm()) + (1e-6 * gate);
         }
     }

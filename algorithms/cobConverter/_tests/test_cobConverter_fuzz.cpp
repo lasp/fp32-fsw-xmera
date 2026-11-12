@@ -150,14 +150,12 @@ void testCobConverterOnSensor(float radius,
 }  // namespace
 
 FUZZ_TEST(CobConverterFuzz, testCobConverterOnSensor)
-    .WithDomains(fuzztest::InRange(
-                     1.0F,
-                     1.0e6F),  // radius [m]
-                               // Keep 0: it no longer gates the covariance propagation, it only zeroes its own term.
-                 fuzztest::InRange(0.0F, 1.0e6F),  // radiusUncertainty [m]
-                 attitudeCovarianceDomain(),       // attitudeCovariance
-                 numStandardDeviationsDomain(),    // numStandardDeviations
-                 outlierRadiusMultipleDomain(),    // outlierRadiusMultiple
+    .WithDomains(fuzztest::OneOf(fuzztest::Just(0.0F),
+                                 fuzztest::InRange(1.0F, 1.0e6F)),  // radius [m]; 0 disables the correction
+                 fuzztest::InRange(0.0F, 1.0e6F),                   // radiusUncertainty [m]
+                 attitudeCovarianceDomain(),                        // attitudeCovariance
+                 numStandardDeviationsDomain(),                     // numStandardDeviations
+                 outlierRadiusMultipleDomain(),                     // outlierRadiusMultiple
                  fuzztest::OneOf(fuzztest::Just(true),
                                  fuzztest::Just(false)),  // outlierDetectionEnabled
                  calibrationCoefficientsDomain(),         // calibrationCoefficients

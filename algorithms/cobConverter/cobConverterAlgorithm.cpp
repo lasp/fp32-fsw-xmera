@@ -282,7 +282,8 @@ bool CobConverterAlgorithm::comOutlierDetection(const FilterState& filter, const
  *
  * Publishes the COM heading and its covariance; the COB is undistorted only to report
  * brownConradyCOBValid on the diagnostic. Camera parameters are precomputed by setConfig().
- * Without a usable sunline, or inside the body radius, the COB is published as the COM.
+ * With a zero radius, an unusable filter state, without a usable sunline, inside the body radius, or when the
+ * correction is not finite, the COB is published as the COM.
  *
  * @param cob COB measurement payload.
  * @param attitude Vehicle attitude knowledge (body orientation and sun direction).
@@ -311,10 +312,12 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         S(1, 1) = 1.0F / this->dY;
         const Eigen::Matrix2f covarCOBxy = S * covarCOBuv * S.transpose();
 
-        // Without a usable sunline, or inside the body radius, publish the COB as the COM.
-        const bool phaseCorrected =
-            filter.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius()) &&
-            attitude.vehSunPntBdy.allFinite() && attitude.vehSunPntBdy.stableNorm() > 0.0F;
+        // With a zero radius, an unusable filter state, without a usable sunline, or inside the body radius, publish
+        // the COB as the COM.
+        const bool filterUsable = CobConverterConfig::isUsableFilterState(filter);
+        bool phaseCorrected = filterUsable && this->cfg.getRadius() > 0.0F &&
+                              filter.filterVehPosition.stableNorm() > static_cast<double>(this->cfg.getRadius()) &&
+                              attitude.vehSunPntBdy.allFinite() && attitude.vehSunPntBdy.stableNorm() > 0.0F;
         PhaseAngleCorrectionResult correction;
         Eigen::Vector3f centerOfMass;
         UndistortedCoordinate comUndistorted;
@@ -336,8 +339,12 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
             const float phaseVar = this->computeBetaVar(filter.filterVehPositionCovariance, correction) * sec4Beta;
             const Eigen::Vector2f a{cosPhi, sinPhi};
             covarCOMxy = covarCOBxy + (phaseVar * (a * a.transpose()));
-        } else {
+            // A non-finite correction (degenerate radius or filter state) also falls back to the COB.
+            phaseCorrected = centerOfMass.allFinite() && fsw::is_finite(phaseVar);
+        }
+        if (!phaseCorrected) {
             // No phase-angle correction: the COB is the COM.
+            correction = PhaseAngleCorrectionResult{};
             centerOfMass = centerOfBrightness;
             comUndistorted = cobUndistorted;
             covarCOMxy = covarCOBxy;
@@ -373,7 +380,8 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         if (rhatCOM_SC_C_Buffer.allFinite() && covarRHat_N_Buffer.allFinite()) {
             bool goodOutlierCheck = true;  // passes when outlier detection is disabled
             if (this->cfg.isOutlierDetectionEnabled()) {
-                goodOutlierCheck = this->comOutlierDetection(filter, rhatCOM_SC_N_Buffer);
+                // An unusable filter state can't validate the measurement.
+                goodOutlierCheck = filterUsable && this->comOutlierDetection(filter, rhatCOM_SC_N_Buffer);
                 result.diagnostic.comErrorOutlierTrigger = !goodOutlierCheck;
             }
             const float lineOfSightVariance = 0.5F * covarRHat_N_Buffer.trace();
