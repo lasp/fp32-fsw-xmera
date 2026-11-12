@@ -149,4 +149,43 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, mrpShadowPropertiesFloat)
 FUZZ_TEST(RigidBodyKinematicsFuzz, mrpShadowPropertiesDouble)
     .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),  // Random X, Y, Z direction components.
                  fuzztest::InRange(-150.0, 150.0));        // MRP norms from 1e-150 to 1e150.
+
+// ---------------------------------------------------------------------------
+// mrpSwitch: keeps an MRP within the norm limit, otherwise returns its shadow set.
+// ---------------------------------------------------------------------------
+template <typename T>
+void mrpSwitchProperties(const Eigen::Vector3<T>& mrp, T mrpNormLimit) {
+    Eigen::Vector3<T> const result = mrpSwitch(mrp, mrpNormLimit);
+
+    // The result never exceeds the norm limit.
+    EXPECT_LE(result.norm(), mrpNormLimit);
+
+    // An MRP set within the limit is returned unchanged. The exact boundary is covered by the mrpSwitchBoundary GTest.
+    if (mrp.norm() < mrpNormLimit) {
+        EXPECT_EQ(result, mrp);
+    }
+
+    // The result describes the same attitude as the input: an MRP set and its shadow set give the same DCM.
+    EXPECT_TRUE(mrpToDcm(result).isApprox(mrpToDcm(mrp), T(10) * std::numeric_limits<T>::epsilon()));
+
+    // With the default limit of 1, mrpSwitch(mrp) is mrpSwitch(mrp, 1).
+    EXPECT_EQ(mrpSwitch(mrp), mrpSwitch(mrp, T(1)));
+}
+
+void mrpSwitchPropertiesFloat(const Eigen::Vector3f& mrp, float mrpNormLimit) {
+    mrpSwitchProperties(mrp, mrpNormLimit);
+}
+
+void mrpSwitchPropertiesDouble(const Eigen::Vector3d& mrp, double mrpNormLimit) {
+    mrpSwitchProperties(mrp, mrpNormLimit);
+}
+
+// Fuzz MRP components and norm limits on both sides of the switching condition.
+FUZZ_TEST(RigidBodyKinematicsFuzz, mrpSwitchPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),  // Random MRP components.
+                 fuzztest::InRange(1.0F, 3.0F));             // MRP norm limits from 1 to 3.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, mrpSwitchPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-2.0, 2.0),  // Random MRP components.
+                 fuzztest::InRange(1.0, 3.0));             // MRP norm limits from 1 to 3.
 }  // namespace

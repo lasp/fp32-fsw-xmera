@@ -23,13 +23,13 @@ Eigen::Vector3<ScalarT> mrpShadow(const Eigen::Vector3<ScalarT>& mrp) {
 }
 
 /**
- * Check if mrp norm is larger than s. If so, map mrp to its shadow set.
- * @param mrp
- * @param s
- * @return Eigen::Vector3d
+ * Map an MRP set to its shadow set when its norm is larger than s.
+ * @param mrp [-] MRP set
+ * @param s [-] switching threshold on the MRP norm; must be >= 1 (default 1)
+ * @return [-] mrp, or its shadow set if |mrp| > s; with s = 1 the result represents the shortest rotation
  */
 template <typename ScalarT>
-Eigen::Vector3<ScalarT> mrpSwitch(const Eigen::Vector3<ScalarT>& mrp, const ScalarT s = 1.0) {
+Eigen::Vector3<ScalarT> mrpSwitch(const Eigen::Vector3<ScalarT>& mrp, const ScalarT s = ScalarT(1)) {
     if (mrp.squaredNorm() > s * s) {
         return mrpShadow(mrp);
     }

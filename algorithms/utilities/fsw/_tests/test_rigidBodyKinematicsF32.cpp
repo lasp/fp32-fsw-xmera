@@ -1107,21 +1107,48 @@ TYPED_TEST(RepresentationDerivativesTest, ddmrpToOmega) {
     EXPECT_LT(relativeErrorNorm(ddmrpTodOmega<T>(mrp, dmrp, ddmrp), expected), tolerance);
 }
 
-TYPED_TEST(RepresentationDerivativesTest, mrpSwitch) {
+// ---------------------------------------------------------------------------
+// mrpSwitch: keeps an MRP within the norm limit, otherwise returns its shadow set.
+// ---------------------------------------------------------------------------
+TYPED_TEST(RepresentationDerivativesTest, mrpSwitchMatchesCReference) {
     using T = TypeParam;
     typename TestFixture::Vec3 mrp = TestFixture::randVec3();
-    T value = TestFixture::dist(TestFixture::generator);
+    // The MRP norm limit must be at least 1 (documented contract), so draw it from [1, 3].
+    std::uniform_real_distribution<T> mrpNormLimitDistribution{T(1), T(3)};
+    T const mrpNormLimit = mrpNormLimitDistribution(TestFixture::generator);
 
     T expectedArray[3] = {};
     if constexpr (std::is_same_v<T, float>) {
-        MRPswitch_float(mrp.data(), value, expectedArray);
+        MRPswitch_float(mrp.data(), mrpNormLimit, expectedArray);
     } else {
-        MRPswitch(mrp.data(), value, expectedArray);
+        MRPswitch(mrp.data(), mrpNormLimit, expectedArray);
     }
 
     typename TestFixture::Vec3 expected = Eigen::Map<typename TestFixture::Vec3>(expectedArray);
     T const tolerance = std::max(rotationParameterTolerance(expected), TestFixture::accuracy);
-    EXPECT_LT(relativeErrorNorm(mrpSwitch<T>(mrp, value), expected), tolerance);
+    EXPECT_LT(relativeErrorNorm(mrpSwitch<T>(mrp, mrpNormLimit), expected), tolerance);
+}
+
+// A zero MRP remains zero after switching.
+TYPED_TEST(RepresentationDerivativesTest, mrpSwitchKeepsZero) {
+    using T = TypeParam;
+    Eigen::Vector3<T> const zeroMrp = Eigen::Vector3<T>::Zero();
+
+    EXPECT_EQ(mrpSwitch(zeroMrp), zeroMrp);
+}
+
+// Keep MRPs within the norm limit (default 1) and switch those above it to their shadow set.
+TYPED_TEST(RepresentationDerivativesTest, mrpSwitchBoundary) {
+    using T = TypeParam;
+
+    Eigen::Vector3<T> const mrpBelowNormLimit(T(0.9), 0, 0);
+    Eigen::Vector3<T> const mrpAtNormLimit(T(1), 0, 0);
+    Eigen::Vector3<T> const mrpAboveNormLimit(T(2), 0, 0);
+    Eigen::Vector3<T> const shadowOfMrpAboveNormLimit(T(-0.5), 0, 0);
+
+    EXPECT_EQ(mrpSwitch(mrpBelowNormLimit), mrpBelowNormLimit);
+    EXPECT_EQ(mrpSwitch(mrpAtNormLimit), mrpAtNormLimit);
+    EXPECT_EQ(mrpSwitch(mrpAboveNormLimit), shadowOfMrpAboveNormLimit);
 }
 
 // ---------------------------------------------------------------------------
