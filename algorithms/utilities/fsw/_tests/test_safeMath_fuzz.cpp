@@ -334,15 +334,15 @@ void fuzzSqrtAllInputsF(float x) {
 FUZZ_TEST(SafeMathFloatFuzz, fuzzSqrtAllInputsF).WithDomains(fuzztest::Arbitrary<float>());
 
 // Checks safeAtan2f for every pair of floats, including NaN and ±Inf:
-//  - NaN in either argument returns zero.
+//  - NaN or ±Inf in either argument returns zero.
 //  - Both arguments zero (any sign) returns zero.
-//  - Other inputs, including ±Inf, return std::atan2(y, x).
+//  - Other inputs return std::atan2(y, x).
 //  - The output is always finite and within [-π, π].
 void fuzzAtan2AllInputsF(float y, float x) {
     const float result = safeAtan2f(y, x);
     EXPECT_TRUE(std::isfinite(result));
     EXPECT_LE(std::fabs(result), std::numbers::pi_v<float>);
-    if (std::isnan(y) || std::isnan(x)) {
+    if (std::isnan(y) || std::isnan(x) || std::isinf(y) || std::isinf(x)) {
         EXPECT_EQ(result, 0.0F);
         return;
     }
@@ -680,15 +680,15 @@ void fuzzSqrtAllInputsD(double x) {
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzSqrtAllInputsD).WithDomains(fuzztest::Arbitrary<double>());
 
 // Checks safeAtan2 for every pair of doubles, including NaN and ±Inf:
-//  - NaN in either argument returns zero.
+//  - NaN or ±Inf in either argument returns zero.
 //  - Both arguments zero (any sign) returns zero.
-//  - Other inputs, including ±Inf, return std::atan2(y, x).
+//  - Other inputs return std::atan2(y, x).
 //  - The output is always finite and within [-π, π].
 void fuzzAtan2AllInputsD(double y, double x) {
     const double result = safeAtan2(y, x);
     EXPECT_TRUE(std::isfinite(result));
     EXPECT_LE(std::fabs(result), std::numbers::pi);
-    if (std::isnan(y) || std::isnan(x)) {
+    if (std::isnan(y) || std::isnan(x) || std::isinf(y) || std::isinf(x)) {
         EXPECT_EQ(result, 0.0);
         return;
     }
