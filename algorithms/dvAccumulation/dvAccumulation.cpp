@@ -5,7 +5,9 @@
 
 #include <stdexcept>
 
-DvAccumulationConfig DvAccumulation::toConfig() const { return DvAccumulationConfig::create(this->controlPeriod); }
+DvAccumulationConfig DvAccumulation::toConfig() const {
+    return DvAccumulationConfig::create(this->controlPeriod, this->accelBias_B);
+}
 
 void DvAccumulation::reset(const uint64_t /*callTime*/) {
     if (!this->imuInMsg.isLinked()) {
@@ -36,7 +38,7 @@ void DvAccumulation::updateState(const uint64_t callTime) {
 
     const IMUSensorBodyMsgF32Payload imuData = this->imuInMsg();
     const Eigen::Vector3f rDDotNoGravity_BN_B = cArrayToEigenVector(imuData.AccelBody);
-    const Eigen::Vector3f vehAccumDV_B = this->algorithm->update(rDDotNoGravity_BN_B, this->accelBias_B);
+    const Eigen::Vector3f vehAccumDV_B = this->algorithm->update(rDDotNoGravity_BN_B);
 
     NavTransMsgF32Payload outputData = NavTransMsgF32Payload();
     outputData.timeTag = fsw::nanosToSeconds(callTime);
