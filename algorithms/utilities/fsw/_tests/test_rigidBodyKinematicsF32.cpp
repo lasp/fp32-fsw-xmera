@@ -593,7 +593,10 @@ class DcmToRepresentationTest : public ::testing::Test {
 
 TYPED_TEST_SUITE(DcmToRepresentationTest, FloatingPointTypes);
 
-TYPED_TEST(DcmToRepresentationTest, dcmToMrp) {
+// ---------------------------------------------------------------------------
+// dcmToMrp: converts a DCM to the principal MRP set with norm at most 1.
+// ---------------------------------------------------------------------------
+TYPED_TEST(DcmToRepresentationTest, dcmToMrpMatchesCReference) {
     using T = TypeParam;
     typename TestFixture::Mat3 dcm1 = rotationMatrix(this->dist(this->generator), 1);
     typename TestFixture::Mat3 dcm2 = rotationMatrix(this->dist(this->generator), 2);
@@ -616,6 +619,100 @@ TYPED_TEST(DcmToRepresentationTest, dcmToMrp) {
 
     T const valueTolerance = std::max(rotationParameterTolerance(expected), this->accuracy);
     EXPECT_LT(relativeErrorNorm(dcmToMrp(dcm), expected), valueTolerance);
+}
+
+// The identity DCM gives the zero MRP.
+TYPED_TEST(DcmToRepresentationTest, dcmToMrpIdentityIsZero) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    Mat3 const identity = Mat3::Identity();
+    EXPECT_EQ(dcmToMrp(identity), Vec3::Zero());
+}
+
+// Verify DCM-to-MRP conversion for a 90-degree rotation about X.
+TYPED_TEST(DcmToRepresentationTest, dcmToMrp90DegX) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    // DCM representing a 90-degree rotation about X.
+    Mat3 dcm;
+    dcm << T(1), T(0), T(0), T(0), T(0), T(1), T(0), T(-1), T(0);
+
+    // Calculate the expected MRP using sigma = axis * tan(phi / 4).
+    Vec3 const axis(T(1), T(0), T(0));
+    T const phi = T(90) * std::numbers::pi_v<T> / T(180);
+    Vec3 const expected = axis * std::tan(phi / T(4));
+
+    // Verify the converted MRP against the analytical result.
+    Vec3 const result = dcmToMrp(dcm);
+    EXPECT_TRUE(result.isApprox(expected, tol));
+}
+
+// A 270-degree rotation about X is equivalent to a -90-degree rotation
+// about X. dcmToMrp must return the principal (shortest-rotation) MRP set,
+// whose norm is at most 1.
+TYPED_TEST(DcmToRepresentationTest, dcmToMrp270DegX) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    Mat3 dcm270AboutX;
+    dcm270AboutX << T(1), T(0), T(0), T(0), T(0), T(-1), T(0), T(1), T(0);
+
+    // Calculate the expected MRP using sigma = axis * tan(phi / 4).
+    // The equivalent shortest rotation is 90 degrees about the negative X-axis.
+    Vec3 const principalAxis(T(-1), T(0), T(0));
+    T const principalAngle = T(90) * std::numbers::pi_v<T> / T(180);
+    Vec3 const expectedMrp = principalAxis * std::tan(principalAngle / T(4));
+
+    // Verify that the 270-degree DCM produces the MRP of the equivalent -90-degree rotation.
+    Vec3 const result = dcmToMrp(dcm270AboutX);
+    EXPECT_TRUE(result.isApprox(expectedMrp, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Verify 180-degree rotations about each axis.
+TYPED_TEST(DcmToRepresentationTest, dcmToMrp180Degrees) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix<T, 3, 3>;
+
+    Mat3 const dcm180AboutX = Vec3(T(1), T(-1), T(-1)).asDiagonal();
+    Mat3 const dcm180AboutY = Vec3(T(-1), T(1), T(-1)).asDiagonal();
+    Mat3 const dcm180AboutZ = Vec3(T(-1), T(-1), T(1)).asDiagonal();
+
+    // At 180 degrees, sigma = axis * tan(phi / 4) = +/-axis.
+    EXPECT_EQ(dcmToMrp(dcm180AboutX).cwiseAbs(), Vec3::UnitX());
+    EXPECT_EQ(dcmToMrp(dcm180AboutY).cwiseAbs(), Vec3::UnitY());
+    EXPECT_EQ(dcmToMrp(dcm180AboutZ).cwiseAbs(), Vec3::UnitZ());
+}
+
+// Verify that dcmToMrp preserves a very small rotation about the Z-axis.
+// At 1e-8 radians, cos(angle) rounds to 1 in float and double, so the
+// rotation is mainly represented by the off-diagonal DCM elements.
+// The expected MRP is nonzero, approximately [0, 0, 2.5e-9].
+TYPED_TEST(DcmToRepresentationTest, dcmToMrpSmallRotation) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix<T, 3, 3>;
+
+    T const angle = T(1e-8);
+    Vec3 const axis(T(0), T(0), T(1));
+
+    // Construct the DCM for a small rotation about Z.
+    Mat3 dcm;
+    dcm << std::cos(angle), std::sin(angle), T(0), -std::sin(angle), std::cos(angle), T(0), T(0), T(0), T(1);
+
+    // Calculate the expected MRP using sigma = axis * tan(angle / 4).
+    Vec3 const expected = axis * std::tan(angle / T(4));
+
+    // Verify that the small rotation is preserved instead of returning zero.
+    Vec3 const result = dcmToMrp(dcm);
+    EXPECT_TRUE(result.isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
 }
 
 TYPED_TEST(DcmToRepresentationTest, mrpToDcm) {

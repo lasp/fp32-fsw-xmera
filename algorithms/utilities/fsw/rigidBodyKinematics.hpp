@@ -299,15 +299,14 @@ Eigen::Vector4<ScalarT> dcmToEp(const Eigen::Matrix3<ScalarT>& dcm) {
 }
 
 /**
- * Translate a direction cosine matrix into the corresponding mrp vector where the mrp vector is chosen such
- * that its norm is less than 1
- * @param dcm
- * @return Eigen::Vector3d
+ * Convert a direction cosine matrix to the MRP set with norm at most 1.
+ * @param dcm [-] direction cosine matrix; must be a proper rotation (orthonormal, det = +1)
+ * @return [-] MRP set, norm <= 1 up to rounding (equal to 1 at a 180 deg rotation)
  */
 template <typename ScalarT>
-Eigen::Vector3<ScalarT> dcmToMrp(const Eigen::Matrix<ScalarT, 3, 3>& dcm) {
+Eigen::Vector3<ScalarT> dcmToMrp(const Eigen::Matrix3<ScalarT>& dcm) {
     Eigen::Vector4<ScalarT> ep = dcmToEp(dcm);
-    return ep.template tail<3>() / (1.0 + ep(0));
+    return ep.template tail<3>() / (ScalarT(1) + ep(0));
 }
 
 /**

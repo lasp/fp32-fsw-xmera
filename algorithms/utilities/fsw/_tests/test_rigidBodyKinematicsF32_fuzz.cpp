@@ -188,4 +188,65 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, mrpSwitchPropertiesFloat)
 FUZZ_TEST(RigidBodyKinematicsFuzz, mrpSwitchPropertiesDouble)
     .WithDomains(xmera::fuzz::Vector3dInRange(-2.0, 2.0),  // Random MRP components.
                  fuzztest::InRange(1.0, 3.0));             // MRP norm limits from 1 to 3.
+
+// ---------------------------------------------------------------------------
+// dcmToMrp: converts a DCM to the principal MRP set with norm at most 1.
+// ---------------------------------------------------------------------------
+template <typename T>
+void dcmToMrpProperties(const Eigen::Vector3<T>& direction, T log10MrpNorm) {
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix<T, 3, 3>;
+
+    // A zero direction produces a zero MRP, representing the identity rotation.
+    Vec3 inputMrp = Vec3::Zero();
+    if (!direction.isZero(T(0))) {
+        inputMrp = direction.stableNormalized() * std::pow(T(10), log10MrpNorm);
+    }
+
+    Mat3 const dcm = mrpToDcm(inputMrp);
+    Vec3 const resultMrp = dcmToMrp(dcm);
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    // Verify that the converted MRP contains only finite values.
+    ASSERT_TRUE(resultMrp.allFinite());
+
+    // The principal MRP norm must not exceed 1, allowing for rounding at 180 degrees.
+    EXPECT_LE(resultMrp.norm(), T(1) + tol);
+
+    // Converting the result back to a DCM must preserve the original attitude.
+    EXPECT_TRUE(mrpToDcm(resultMrp).isApprox(dcm, tol));
+
+    T const inputMrpNorm = inputMrp.stableNorm();
+    if (inputMrpNorm < T(1) - tol) {
+        // Principal MRPs must be recovered unchanged.
+        EXPECT_TRUE(resultMrp.isApprox(inputMrp, tol));
+    } else if (inputMrpNorm > T(1) + tol) {
+        // Non-principal MRPs must be converted to their shadow set.
+        EXPECT_TRUE(resultMrp.isApprox(mrpShadow(inputMrp), tol));
+    } else {
+        // Near the 180-degree boundary, rounding can affect principal/shadow
+        // selection. Accept either equivalent MRP representation within tolerance.
+        EXPECT_TRUE(resultMrp.isApprox(inputMrp, tol) || resultMrp.isApprox(mrpShadow(inputMrp), tol));
+    }
+}
+
+void dcmToMrpPropertiesFloat(const Eigen::Vector3f& direction, float log10MrpNorm) {
+    dcmToMrpProperties(direction, log10MrpNorm);
+}
+
+void dcmToMrpPropertiesDouble(const Eigen::Vector3d& direction, double log10MrpNorm) {
+    dcmToMrpProperties(direction, log10MrpNorm);
+}
+
+// The largest norms stay below the mrpToDcm overflow (|mrp| ~4e9 in float, ~1e77 in double).
+// The second range (MRP norms 0.9977 to 1.0023) tests rotations close to 180 deg, where the MRP norm is 1.
+FUZZ_TEST(RigidBodyKinematicsFuzz, dcmToMrpPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),             // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-18.0F, 9.0F),       // MRP norms from 1e-18 to 1e9.
+                                 fuzztest::InRange(-0.001F, 0.001F)));  // Rotations from 179.74 to 180.26 deg.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, dcmToMrpPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),             // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-150.0, 76.0),     // MRP norms from 1e-150 to 1e76.
+                                 fuzztest::InRange(-0.001, 0.001)));  // Rotations from 179.74 to 180.26 deg.
 }  // namespace
