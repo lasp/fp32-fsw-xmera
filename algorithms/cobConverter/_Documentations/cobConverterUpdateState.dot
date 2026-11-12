@@ -1,0 +1,54 @@
+// CobConverterAlgorithm::updateState() flow chart.
+// Render: dot -Tpng -Gdpi=150 cobConverterUpdateState.dot -o cobConverterUpdateState.png
+digraph cobConverterUpdateState {
+    rankdir=TB;
+    nodesep=0.4;
+    ranksep=0.35;
+    node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#ffffff"];
+    edge [fontname="Helvetica", fontsize=10];
+
+    label="CobConverterAlgorithm::updateState";
+    labelloc=t;
+    fontname="Helvetica-Bold"; fontsize=12;
+
+    start [label="Inputs: CobMeasurement, VehicleAttitude, FilterState", style="filled", fillcolor="#dde8f5"];
+
+    cobValid [label="cobValid and\ncobPixelsFound > 0?", shape=diamond, style="filled", fillcolor="#fff4cc"];
+    zeroResult [label="Default result: output all zero, unitVecValid = false\ndiagnostic all zero, comValid = false\n(brownConradyCOBValid / brownConradyCOMValid\nkept if already set)", fillcolor="#f6d5d5"];
+
+    cob [label="Rotations [BN], [NC]\nCOB pixel → K⁻¹ → Brown-Conrady undistort (brownConradyCOBValid)\nP_cob_xy = S (N_pix / 4π) I Sᵀ"];
+
+    canCorrect [label="Phase correction possible?\nisUsableFilterState: r and P finite, ‖r‖ ≥ 1 mm\nR > 0, ‖r‖ > R\nsunline finite and nonzero", shape=diamond, style="filled", fillcolor="#fff4cc"];
+
+    correct [label="computePhaseAngleCorrection (α, φ, γ)\ntan β = R γ / ‖r‖\nCOM = COB − tan β (dX cos φ, dY sin φ)\nBrown-Conrady undistort COM\nσ²_φ = σ²_β sec⁴β,  P_com_xy = P_cob_xy + σ²_φ a aᵀ"];
+    finite [label="COM and σ²_φ\nfinite?", shape=diamond, style="filled", fillcolor="#fff4cc"];
+    fallback [label="Fallback: COM = COB\nP_com_xy = P_cob_xy\ncorrection zeroed (offsetFactor = 0)", fillcolor="#e6f2e6"];
+
+    heading [label="r̂_C = −normalize([x, y, 1]) of undistorted COM\nr̂_N = [NC] r̂_C\nP_N = P_image + P_attitude"];
+    headingFinite [label="r̂ and P_N\nfinite?", shape=diamond, style="filled", fillcolor="#fff4cc"];
+
+    outlierEnabled [label="Outlier detection\nenabled?", shape=diamond, style="filled", fillcolor="#fff4cc"];
+    gate [label="goodOutlierCheck = filterUsable and d ≤ N R + n_σ √tr(P)\nd = ‖r × r̂‖ (or ‖r‖ if r · r̂ ≤ 0)\ncomErrorOutlierTrigger = !goodOutlierCheck"];
+    noGate [label="Outlier check bypassed\ngoodOutlierCheck = false (not run)\ncomErrorOutlierTrigger = false"];
+
+    publish [label="Publish\nP_N inflated along r̂ and symmetrized\nunitVecValid = brownConradyCOMValid and\n(outlier detection disabled or goodOutlierCheck)\ndiagnostics filled, comValid = true", fillcolor="#d5ecd5"];
+
+    start -> cobValid;
+
+    cobValid -> zeroResult [label=" no"];
+    cobValid -> cob [label=" yes"];
+    cob -> canCorrect;
+    canCorrect -> correct [label=" yes"];
+    canCorrect -> fallback [label=" no"];
+    correct -> finite;
+    finite -> heading [label=" yes"];
+    finite -> fallback [label=" no"];
+    fallback -> heading;
+    heading -> headingFinite;
+    headingFinite -> zeroResult [label=" no"];
+    headingFinite -> outlierEnabled [label=" yes"];
+    outlierEnabled -> gate [label=" yes"];
+    outlierEnabled -> noGate [label=" no"];
+    gate -> publish;
+    noGate -> publish;
+}

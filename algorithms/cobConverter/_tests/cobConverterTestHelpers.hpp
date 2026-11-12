@@ -265,7 +265,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 
     const Eigen::Vector3d rhatCOM_N = dcm_NC * rhatCOM_C;
 
-    bool goodOutlierCheck = true;
+    bool goodOutlierCheck = false;  // set only when outlier detection runs
     bool comErrorOutlierTrigger = false;
     if (cfg.isOutlierDetectionEnabled()) {
         // Mirrors comOutlierDetection (an unusable filter state rejects): miss distance of the line of sight from the
@@ -288,8 +288,8 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     output.output.covar_N = (covar_N + (0.5 * covar_N.trace() * (rhatCOM_N * rhatCOM_N.transpose()))).cast<float>();
     output.output.rhat_BN_N = rhatCOM_N.cast<float>();
     output.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
-    // Mirrors updateState: no outlier flag and a converged COM undistortion.
-    output.output.unitVecValid = goodOutlierCheck && comConverged;
+    // Mirrors updateState: a converged COM undistortion, and the outlier check unless it is disabled.
+    output.output.unitVecValid = comConverged && (!cfg.isOutlierDetectionEnabled() || goodOutlierCheck);
 
     output.diagnostic.centerOfMass = comPixels.cast<float>();
     output.diagnostic.offsetFactor = static_cast<float>(gamma);
