@@ -7,7 +7,7 @@ Executive Summary
 ``dvAccumulation`` integrates one sample of the body-frame acceleration into a Delta-V accumulator.
 Each ``updateState()`` reads one ``IMUSensorBodyMsgF32Payload``. It uses the ``AccelBody`` field as
 the body-frame acceleration :math:`\ddot{\mathbf{r}}_{B}` that gravity does not cause. The module
-subtracts the accelerometer bias :math:`\mathbf{b}` that the caller supplies. Then it integrates
+subtracts the configured accelerometer bias :math:`\mathbf{b}`. Then it integrates
 the remainder during the configured control period :math:`\Delta t`. Thus each sample gives
 :math:`\Delta\mathbf{v} = \Delta\mathbf{v} + \Delta t \, (\ddot{\mathbf{r}}_{B} - \mathbf{b})`. The
 module writes the accumulator to the output message. It tags the message with the module call time.
@@ -54,9 +54,8 @@ Module Parameters
       - [m/s^2]
       - zeros
       - Accelerometer bias that the measured body-frame acceleration contains. The algorithm
-        subtracts it from each sample. A value of zero makes no correction. The adapter gives it to
-        the algorithm on each ``updateState()``, thus an edit takes effect on the next call.
-      - None. The algorithm does not validate the bias
+        subtracts it from each sample. A value of zero makes no correction.
+      - Must be finite
 
 ``DvAccumulationConfig::create`` applies these limits at ``reset()``. If a parameter is not in its
 limits, ``create`` throws ``fsw::invalid_argument``.
@@ -74,10 +73,8 @@ Module Assumptions and Limitations
 - The bias is one body-frame vector. The module applies it after ``averageMimuData`` makes the
   average of the devices. Thus it is the total of the biases of the devices. If the set of devices
   changes (for example, a MIMU dropout), the total changes. Then the configured value is not correct.
-- ``accelBias_B`` is an argument to ``update()`` and not a configuration parameter. Thus the caller
-  owns the bias, and the algorithm keeps no calibration state. The algorithm does not validate the
-  bias. A bias integrates, thus a unit error or a g-level value causes an error in a full burn, and a
-  bias that is not finite gives a Delta-V that is not finite with no exception.
+- A bias integrates. Thus a unit error or a g-level value in ``accelBias_B`` causes an error in a
+  full burn.
 - The algorithm has no time input. It integrates during the configured ``controlPeriod`` on each
   call. Thus the caller must use it one time in each control period. ``dvAccumulation`` operates at
   the same rate as its upstream producer, and immediately after it. Thus the acceleration sample is
@@ -164,21 +161,23 @@ The module has three layers:
   writes the output message. The adapter holds the algorithm in a ``std::unique_ptr``. It constructs
   the algorithm in ``reset()``, after it makes sure that ``imuInMsg`` is linked.
 - **Algorithm (``dvAccumulationAlgorithm.h/.cpp``, ``class DvAccumulationAlgorithm``).** Pure
-  algorithm — no SysModel, no messages, no time. ``update(rDDotNoGravity_BN_B, accelBias_B)`` gets
-  two ``Eigen::Vector3f``. It subtracts the ``accelBias_B``, then it integrates during the
-  ``controlPeriod``. Its validated ``DvAccumulationConfig`` holds the ``controlPeriod``. ``update``
+  algorithm — no SysModel, no messages, no time. ``update(rDDotNoGravity_BN_B)`` gets one
+  ``Eigen::Vector3f``. It subtracts the ``accelBias_B``, then it integrates during the
+  ``controlPeriod``. Its validated ``DvAccumulationConfig`` holds the ``controlPeriod`` and the
+  ``accelBias_B``. ``update``
   gives the accumulated ``vehAccumDV_B`` (``Eigen::Vector3f``, m/s). The adapter puts the time tag on
   the output message.
 - **C shim (``dvAccumulationAlgorithm_c.h/.cpp``).** Pure-C interface for Ada FFI: an opaque handle
   and ``DvAccumulationAlgorithm_create``/``_destroy``/``_validateConfig``/``_setConfig``/
-  ``_reInitialize``/``_update``. ``_update`` gets a ``Vector3f_c`` acceleration and a ``Vector3f_c``
-  bias, and gives a ``Vector3f_c`` Delta-V. It uses the shared ``Vector3f_c`` from
+  ``_reInitialize``/``_update``. ``_create``, ``_validateConfig`` and ``_setConfig`` get the
+  ``controlPeriod`` and a ``Vector3f_c`` bias. ``_update`` gets a ``Vector3f_c`` acceleration and
+  gives a ``Vector3f_c`` Delta-V. It uses the shared ``Vector3f_c`` from
   ``utilities/fsw/plainCAlgorithmDataTypes.h``.
 
 Algorithm Layer
 ---------------
-The configured control period is :math:`\Delta t` (``controlPeriod``). Each ``update()`` call gets
-two arguments: the bias :math:`\mathbf{b}` (``accelBias_B``) and the body-frame acceleration
+The configured control period is :math:`\Delta t` (``controlPeriod``) and the configured bias is
+:math:`\mathbf{b}` (``accelBias_B``). Each ``update()`` call gets the body-frame acceleration
 ``rDDotNoGravity_BN_B``.
 
 1. On the first ``update()`` after construction or after ``reInitialize()``, start the accumulation
@@ -209,7 +208,7 @@ The necessary module configuration is::
 Set ``controlPeriod`` to the rate of the adapter before ``reset()``. Use ``reset(callTime)`` one time
 before the first ``updateState(callTime)``. ``reset`` throws ``std::invalid_argument`` if
 ``imuInMsg`` is not linked. It throws ``fsw::invalid_argument`` if ``controlPeriod`` is not more than
-zero. If you edit ``controlPeriod`` after ``reset()``, the next ``reconfigure()`` installs it.
-``reconfigure()`` does not start a new accumulation window. ``accelBias_B`` needs no
-``reconfigure()``: the adapter reads the property on each ``updateState()``. On a state transition the
-flight software uses ``reInitialize()`` and not ``reset()``.
+zero, or if ``accelBias_B`` is not finite. If you edit ``controlPeriod`` or ``accelBias_B`` after
+``reset()``, the next ``reconfigure()`` installs them. ``reconfigure()`` does not start a new
+accumulation window. On a state transition the flight software uses ``reInitialize()`` and not
+``reset()``.
