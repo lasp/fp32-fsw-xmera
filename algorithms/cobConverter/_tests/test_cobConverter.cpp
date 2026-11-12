@@ -427,7 +427,6 @@ TEST(CobConverterTest, SetupTest) {
 
     const float nan = std::numeric_limits<float>::quiet_NaN();
 
-    // radius: must be > 0.
     // radius: must be >= 0; zero disables the phase-angle correction.
     EXPECT_TRUE(CobConverterConfig::isValidRadius(1.0F));
     EXPECT_TRUE(CobConverterConfig::isValidRadius(0.0F));
