@@ -474,6 +474,12 @@ TEST(CobConverterTest, SetupTest) {
     EXPECT_TRUE(CobConverterConfig::isValidResolutionY(512.0F));
     EXPECT_FALSE(CobConverterConfig::isValidResolutionY(0.0F));
 
+    // Focal scale: pX = 2 tan(fov/2) and dX = resolution / pX must be normal fp32.
+    const float tinyFov = std::numeric_limits<float>::denorm_min();  // valid fov, but pX underflows to 0
+    EXPECT_TRUE(CobConverterConfig::isValidFocalScale(0.35F, 0.30F, 512.0F, 512.0F));
+    EXPECT_FALSE(CobConverterConfig::isValidFocalScale(tinyFov, 0.30F, 512.0F, 512.0F));
+    EXPECT_FALSE(CobConverterConfig::isValidFocalScale(0.35F, tinyFov, 512.0F, 512.0F));
+
     // bodyToCameraMrp: must be finite.
     EXPECT_TRUE(CobConverterConfig::isValidBodyToCameraMrp(zeroMrp));
     EXPECT_FALSE(CobConverterConfig::isValidBodyToCameraMrp(Eigen::Vector3f{nan, 0.0F, 0.0F}));
@@ -564,6 +570,19 @@ TEST(CobConverterTest, SetupTest) {
                                   coefficients,
                                   0,
                                   std::numbers::pi_v<float> - 0.01F /* fieldOfViewX pushes tan() near +/-pi/2 */,
+                                  0.30F,
+                                  512.0F,
+                                  512.0F),
+                 fsw::invalid_argument);
+    EXPECT_THROW((void)makeConfig(25.0e3F,
+                                  8.0e3F,
+                                  zeroCovariance,
+                                  3.0F,
+                                  5.0F,
+                                  true,
+                                  coefficients,
+                                  0,
+                                  tinyFov /* fieldOfViewX underflows the focal scale */,
                                   0.30F,
                                   512.0F,
                                   512.0F),
