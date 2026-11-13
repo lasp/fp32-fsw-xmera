@@ -1,8 +1,8 @@
-#include "forceTorqueThrForceMappingTestHelpers.hpp"
+#include "thrustMappingTestHelpers.hpp"
 #include "utilities/testUtilities/eigenFuzzDomains.hpp"
 #include <fuzztest/fuzztest.h>
 
-FUZZ_TEST(ForceTorqueThrForceMappingFuzz, runRegressionCase)
+FUZZ_TEST(ThrustMappingFuzz, runRegressionCase)
     .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
@@ -14,7 +14,7 @@ FUZZ_TEST(ForceTorqueThrForceMappingFuzz, runRegressionCase)
 // Property fuzz tests
 // ---------------------------------------------------------------------------
 
-FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyNonNegativeForces)
+FUZZ_TEST(ThrustMappingPropertyFuzz, propertyNonNegativeForces)
     .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
@@ -24,12 +24,12 @@ FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyNonNegativeForces)
 
 // A zero minimum holds only on a balanced layout, so the layout stays fixed at layout 1; the CoM and
 // the commands fuzz.
-FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyMinimumIsZeroForBalancedLayout)
+FUZZ_TEST(ThrustMappingPropertyFuzz, propertyMinimumIsZeroForBalancedLayout)
     .WithDomains(xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
                  xmera::fuzz::Vector3fInRange(-1e3F, 1e3F));
 
-FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyPaddingIsZero)
+FUZZ_TEST(ThrustMappingPropertyFuzz, propertyPaddingIsZero)
     .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
@@ -45,7 +45,7 @@ FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyPaddingIsZero)
 // configured ranges. Command magnitude and scale factor stay capped so that min-shift cancellation
 // (subtraction of two values each with eps*||pinv||*||ft|| absolute precision) stays inside the
 // test's atol=1e-4 budget.
-FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyScaleInvariance)
+FUZZ_TEST(ThrustMappingPropertyFuzz, propertyScaleInvariance)
     .WithDomains(fuzztest::InRange<std::uint32_t>(6U, kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
@@ -54,7 +54,7 @@ FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyScaleInvariance)
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
                  fuzztest::InRange(0.1F, 10.0F));
 
-FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyStateless)
+FUZZ_TEST(ThrustMappingPropertyFuzz, propertyStateless)
     .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
@@ -62,7 +62,7 @@ FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyStateless)
                  xmera::fuzz::Vector3fInRange(-10.0F, 10.0F),
                  xmera::fuzz::Vector3fInRange(-1e3F, 1e3F));
 
-FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyFiniteOutput)
+FUZZ_TEST(ThrustMappingPropertyFuzz, propertyFiniteOutput)
     .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),
@@ -75,11 +75,11 @@ FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyFiniteOutput)
 // min-shift is FT-preserving. CoM and per-thruster forces fuzz; cmd = DG·x_test is constructed
 // inside the helper so it's automatically in the row space. The check is the direct
 // achieved == cmd, since DG·1 = 0 leaves no min-shift correction to absorb.
-FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyAchievesCommandForBalancedLayout)
+FUZZ_TEST(ThrustMappingPropertyFuzz, propertyAchievesCommandForBalancedLayout)
     .WithDomains(xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),
                  xmera::fuzz::EigenVectorOf<float, 8>(fuzztest::InRange(0.0F, 10.0F)));
 
-FUZZ_TEST(ForceTorqueThrForceMappingPropertyFuzz, propertyOutputMagnitudeBounded)
+FUZZ_TEST(ThrustMappingPropertyFuzz, propertyOutputMagnitudeBounded)
     .WithDomains(fuzztest::InRange<std::uint32_t>(1U, kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-5.0F, 5.0F)).WithSize(kMaxThrusterCount),
                  fuzztest::VectorOf(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F)).WithSize(kMaxThrusterCount),

@@ -47,10 +47,6 @@ algorithms/flybyPoint/flybyPoint.h
 algorithms/flybyPoint/flybyPoint.cpp
 algorithms/flybyPoint/flybyPointAlgorithm_c.h
 algorithms/flybyPoint/flybyPointAlgorithm_c.cpp
-algorithms/forceTorqueThrForceMapping/forceTorqueThrForceMapping.h
-algorithms/forceTorqueThrForceMapping/forceTorqueThrForceMapping.cpp
-algorithms/forceTorqueThrForceMapping/forceTorqueThrForceMappingAlgorithm_c.h
-algorithms/forceTorqueThrForceMapping/forceTorqueThrForceMappingAlgorithm_c.cpp
 algorithms/gimbalAnglesToMotorAngles/gimbalAnglesToMotorAngles.h
 algorithms/gimbalAnglesToMotorAngles/gimbalAnglesToMotorAngles.cpp
 algorithms/gimbalAnglesToMotorAnglesTable/gimbalAnglesToMotorAnglesTable.h
@@ -129,6 +125,10 @@ algorithms/momentumManagement/momentumManagement.h
 algorithms/momentumManagement/momentumManagement.cpp
 algorithms/momentumManagement/momentumManagementAlgorithm_c.h
 algorithms/momentumManagement/momentumManagementAlgorithm_c.cpp
+algorithms/thrustMapping/thrustMapping.h
+algorithms/thrustMapping/thrustMapping.cpp
+algorithms/thrustMapping/thrustMappingAlgorithm_c.h
+algorithms/thrustMapping/thrustMappingAlgorithm_c.cpp
 algorithms/thrustVectoring/thrustVectoring.h
 algorithms/thrustVectoring/thrustVectoring.cpp
 algorithms/thrustVectoring/thrustVectoringAlgorithm_c.h

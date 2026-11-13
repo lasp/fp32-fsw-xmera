@@ -1,4 +1,4 @@
-#include "forceTorqueThrForceMappingAlgorithm.h"
+#include "thrustMappingAlgorithm.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <Eigen/Geometry>
@@ -37,7 +37,7 @@ Eigen::Vector<float, kMaxThrusterCount> computeNullSpaceShift(
     }
     uint32_t numAvailable = 0;
     for (uint32_t i = 0; i < numThrusters; ++i) {
-        if (ForceTorqueThrForceMappingConfig::isAvailable(thrusters, i)) {
+        if (ThrustMappingConfig::isAvailable(thrusters, i)) {
             ++numAvailable;
         }
     }
@@ -48,7 +48,7 @@ Eigen::Vector<float, kMaxThrusterCount> computeNullSpaceShift(
     // Ones over the available thrusters only: the shift must not raise a thruster the mapping cannot use.
     Eigen::Vector<float, kMaxThrusterCount> ones{Eigen::Vector<float, kMaxThrusterCount>::Zero()};
     for (uint32_t i = 0; i < numThrusters; ++i) {
-        if (ForceTorqueThrForceMappingConfig::isAvailable(thrusters, i)) {
+        if (ThrustMappingConfig::isAvailable(thrusters, i)) {
             ones(i) = 1.0F;
         }
     }
@@ -78,7 +78,7 @@ Eigen::Matrix<float, 6, kMaxThrusterCount> buildControlMappingMatrix(const Thrus
     Eigen::Matrix<float, 3, kMaxThrusterCount> torquePntC_B{Eigen::Matrix<float, 3, kMaxThrusterCount>::Zero()};
     Eigen::Matrix<float, 3, kMaxThrusterCount> tHat_B{Eigen::Matrix<float, 3, kMaxThrusterCount>::Zero()};
     for (uint32_t i = 0; i < thrusters.numThrusters; ++i) {
-        if (ForceTorqueThrForceMappingConfig::isAvailable(thrusters, i)) {
+        if (ThrustMappingConfig::isAvailable(thrusters, i)) {
             const Eigen::Vector3f r_TB_B(thrusters.thrusters.at(i).r_TB_B.data());
             tHat_B.col(i) = Eigen::Vector3f(thrusters.thrusters.at(i).tHat_B.data()).stableNormalized();
             torquePntC_B.col(i) = (r_TB_B - centerOfMass_B).cross(tHat_B.col(i));
@@ -170,23 +170,22 @@ std::optional<ThrusterMapping> computeThrusterMapping(const ThrusterArrayConfigu
 
 }  // namespace
 
-bool ForceTorqueThrForceMappingConfig::isValidMapping(const ThrusterArrayConfiguration& thrusters,
-                                                      const Eigen::Vector3f& centerOfMass_B,
-                                                      const std::array<bool, 6>& desiredControlAxes_B) {
+bool ThrustMappingConfig::isValidMapping(const ThrusterArrayConfiguration& thrusters,
+                                         const Eigen::Vector3f& centerOfMass_B,
+                                         const std::array<bool, 6>& desiredControlAxes_B) {
     return computeThrusterMapping(thrusters, centerOfMass_B, desiredControlAxes_B).has_value();
 }
 
 // create() already rejected configs that do not yield a valid mapping, so computeThrusterMapping() returns a
 // value here; the guard avoids a throw in the impossible nullopt case.
 // Config is fixed-size/trivially copyable, so move == copy; pass-by-value would only add an extra copy.
-ForceTorqueThrForceMappingAlgorithm::ForceTorqueThrForceMappingAlgorithm(
-    const ForceTorqueThrForceMappingConfig& config)  // NOLINT(modernize-pass-by-value)
+ThrustMappingAlgorithm::ThrustMappingAlgorithm(const ThrustMappingConfig& config)  // NOLINT(modernize-pass-by-value)
     : cfg(config) {
     setConfig(config);
 }
 
 //! Replace the configuration and recompute the thruster mapping matrix.
-void ForceTorqueThrForceMappingAlgorithm::setConfig(const ForceTorqueThrForceMappingConfig& config) {
+void ThrustMappingAlgorithm::setConfig(const ThrustMappingConfig& config) {
     this->cfg = config;
     const std::optional<ThrusterMapping> mapping = computeThrusterMapping(
         this->cfg.getThrusters(), this->cfg.getCenterOfMass_B(), this->cfg.getDesiredControlAxes());
@@ -205,9 +204,8 @@ void ForceTorqueThrForceMappingAlgorithm::setConfig(const ForceTorqueThrForceMap
  @param cmdForce_B [N] requested control force in body frame
  @return per-thruster force commands [N]
 */
-Eigen::Vector<float, kMaxThrusterCount> ForceTorqueThrForceMappingAlgorithm::update(
-    const Eigen::Vector3f& cmdTorque_B,
-    const Eigen::Vector3f& cmdForce_B) const {
+Eigen::Vector<float, kMaxThrusterCount> ThrustMappingAlgorithm::update(const Eigen::Vector3f& cmdTorque_B,
+                                                                       const Eigen::Vector3f& cmdForce_B) const {
     Eigen::Vector<float, 6> forceTorque_B{};
     forceTorque_B << cmdTorque_B, cmdForce_B;
 

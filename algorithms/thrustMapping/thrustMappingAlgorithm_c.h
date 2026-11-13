@@ -1,7 +1,7 @@
-#ifndef F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_C_H
-#define F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_C_H
+#ifndef F32XMERA_THRUST_MAPPING_ALGORITHM_C_H
+#define F32XMERA_THRUST_MAPPING_ALGORITHM_C_H
 
-#include "forceTorqueThrForceMappingTypes.h"
+#include "thrustMappingTypes.h"
 #include "utilities/fsw/deviceAvailability.h"
 
 #include <stdbool.h>
@@ -12,9 +12,9 @@ extern "C" {
 #endif
 
 /**
- * @brief Opaque handle to the C++ ForceTorqueThrForceMappingAlgorithm instance.
+ * @brief Opaque handle to the C++ ThrustMappingAlgorithm instance.
  */
-typedef struct ForceTorqueThrForceMappingAlgorithmHandle ForceTorqueThrForceMappingAlgorithmHandle;
+typedef struct ThrustMappingAlgorithmHandle ThrustMappingAlgorithmHandle;
 
 /**
  * @brief Thruster geometry table, three components per thruster in row major order.
@@ -34,7 +34,7 @@ typedef struct {
  * @brief Get the maximum thruster count constant for validation.
  * @return The maximum thruster count (kMaxThrusterCount).
  */
-uint32_t ForceTorqueThrForceMappingAlgorithm_getMaxThrusterCount(void);
+uint32_t ThrustMappingAlgorithm_getMaxThrusterCount(void);
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
@@ -52,15 +52,15 @@ uint32_t ForceTorqueThrForceMappingAlgorithm_getMaxThrusterCount(void);
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool ForceTorqueThrForceMappingAlgorithm_validateConfig(uint32_t numThrusters,
-                                                        const ThrusterGeometryArray_c* rThruster_B,
-                                                        const ThrusterGeometryArray_c* tHatThruster_B,
-                                                        const Vector3f_c* centerOfMass_B,
-                                                        const ForceTorqueControlAxes_c* desiredControlAxes_B,
-                                                        const ThrusterAvailabilityArray_c* thrusterAvailability);
+bool ThrustMappingAlgorithm_validateConfig(uint32_t numThrusters,
+                                           const ThrusterGeometryArray_c* rThruster_B,
+                                           const ThrusterGeometryArray_c* tHatThruster_B,
+                                           const Vector3f_c* centerOfMass_B,
+                                           const ForceTorqueControlAxes_c* desiredControlAxes_B,
+                                           const ThrusterAvailabilityArray_c* thrusterAvailability);
 
 /**
- * @brief Construct a new ForceTorqueThrForceMappingAlgorithm from the supplied configuration.
+ * @brief Construct a new ThrustMappingAlgorithm from the supplied configuration.
  *
  * Validates the configuration and immediately computes the thruster mapping matrix. Validate the
  * values with validateConfig first; invalid input throws -- if desiredControlAxes_B selects no axis,
@@ -76,21 +76,20 @@ bool ForceTorqueThrForceMappingAlgorithm_validateConfig(uint32_t numThrusters,
  * @param thrusterAvailability [-] Availability of each thruster, one entry per slot: 0 available,
  *                             1 unavailable. An unavailable thruster is left out of the mapping
  *                             and always receives a zero command; a minimum of one must be available.
- * @return Pointer to a new ForceTorqueThrForceMappingAlgorithm (must be destroyed).
+ * @return Pointer to a new ThrustMappingAlgorithm (must be destroyed).
  */
-ForceTorqueThrForceMappingAlgorithmHandle* ForceTorqueThrForceMappingAlgorithm_create(
-    uint32_t numThrusters,
-    const ThrusterGeometryArray_c* rThruster_B,
-    const ThrusterGeometryArray_c* tHatThruster_B,
-    const Vector3f_c* centerOfMass_B,
-    const ForceTorqueControlAxes_c* desiredControlAxes_B,
-    const ThrusterAvailabilityArray_c* thrusterAvailability);
+ThrustMappingAlgorithmHandle* ThrustMappingAlgorithm_create(uint32_t numThrusters,
+                                                            const ThrusterGeometryArray_c* rThruster_B,
+                                                            const ThrusterGeometryArray_c* tHatThruster_B,
+                                                            const Vector3f_c* centerOfMass_B,
+                                                            const ForceTorqueControlAxes_c* desiredControlAxes_B,
+                                                            const ThrusterAvailabilityArray_c* thrusterAvailability);
 
 /**
- * @brief Destroy a previously created ForceTorqueThrForceMappingAlgorithm.
+ * @brief Destroy a previously created ThrustMappingAlgorithm.
  * @param self Pointer to the instance to destroy.
  */
-void ForceTorqueThrForceMappingAlgorithm_destroy(ForceTorqueThrForceMappingAlgorithmHandle* self);
+void ThrustMappingAlgorithm_destroy(ThrustMappingAlgorithmHandle* self);
 
 /**
  * @brief Replace the configuration at runtime and recompute the thruster mapping matrix.
@@ -109,13 +108,13 @@ void ForceTorqueThrForceMappingAlgorithm_destroy(ForceTorqueThrForceMappingAlgor
  *                             1 unavailable. An unavailable thruster is left out of the mapping
  *                             and always receives a zero command; a minimum of one must be available.
  */
-void ForceTorqueThrForceMappingAlgorithm_setConfig(ForceTorqueThrForceMappingAlgorithmHandle* self,
-                                                   uint32_t numThrusters,
-                                                   const ThrusterGeometryArray_c* rThruster_B,
-                                                   const ThrusterGeometryArray_c* tHatThruster_B,
-                                                   const Vector3f_c* centerOfMass_B,
-                                                   const ForceTorqueControlAxes_c* desiredControlAxes_B,
-                                                   const ThrusterAvailabilityArray_c* thrusterAvailability);
+void ThrustMappingAlgorithm_setConfig(ThrustMappingAlgorithmHandle* self,
+                                      uint32_t numThrusters,
+                                      const ThrusterGeometryArray_c* rThruster_B,
+                                      const ThrusterGeometryArray_c* tHatThruster_B,
+                                      const Vector3f_c* centerOfMass_B,
+                                      const ForceTorqueControlAxes_c* desiredControlAxes_B,
+                                      const ThrusterAvailabilityArray_c* thrusterAvailability);
 
 /**
  * @brief Compute thruster force commands from the requested torque and force vectors.
@@ -128,12 +127,12 @@ void ForceTorqueThrForceMappingAlgorithm_setConfig(ForceTorqueThrForceMappingAlg
  * @param cmdForce_B  [N]  requested control force in body frame
  * @return ThrForceArray_c per-thruster force commands.
  */
-ThrForceArray_c ForceTorqueThrForceMappingAlgorithm_update(const ForceTorqueThrForceMappingAlgorithmHandle* self,
-                                                           const Vector3f_c* cmdTorque_B,
-                                                           const Vector3f_c* cmdForce_B);
+ThrForceArray_c ThrustMappingAlgorithm_update(const ThrustMappingAlgorithmHandle* self,
+                                              const Vector3f_c* cmdTorque_B,
+                                              const Vector3f_c* cmdForce_B);
 
 #ifdef __cplusplus
 }  // extern "C"
 #endif
 
-#endif  // F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_C_H
+#endif  // F32XMERA_THRUST_MAPPING_ALGORITHM_C_H

@@ -1,6 +1,6 @@
 .. raw:: latex
 
-    {\LARGE \textbf{forceTorqueThrForceMapping}}
+    {\LARGE \textbf{thrustMapping}}
 
 Executive Summary
 -----------------
@@ -71,17 +71,17 @@ The module follows the three-layer adapter / algorithm / C-shim pattern shared a
 A reader interested only in the math can skip to *Detailed Module Description* below; this section documents the
 messaging/lifecycle plumbing.
 
-Adapter layer (``forceTorqueThrForceMapping.h/.cpp``)
+Adapter layer (``thrustMapping.h/.cpp``)
     Inherits ``SysModel``. Holds ``desiredControlAxes_B`` as a Phase-1 property exposed to Python (set before
     ``reset()``). On ``reset()``, the adapter validates input messages, reads the thruster array
     (``thrConfigInMsg``) and center of mass (``vehConfigInMsg``), builds a validated
-    ``ForceTorqueThrForceMappingConfig`` and constructs the algorithm via ``std::make_unique``. Each
+    ``ThrustMappingConfig`` and constructs the algorithm via ``std::make_unique``. Each
     ``updateState()`` reads the (optional) command messages, invokes the algorithm, and writes
     ``thrForceCmdOutMsg``. Calling ``updateState()`` before ``reset()`` throws ``XmeraLifecycleException``.
 
-Algorithm layer (``forceTorqueThrForceMappingAlgorithm.h/.cpp``)
+Algorithm layer (``thrustMappingAlgorithm.h/.cpp``)
     The pure FP32 algorithm with no framework dependencies. The immutable
-    ``ForceTorqueThrForceMappingConfig`` (created via the static ``::create`` factory) carries the thruster
+    ``ThrustMappingConfig`` (created via the static ``::create`` factory) carries the thruster
     geometry, center of mass, and axis selection. Validators are: ``numThrusters`` :math:`\in
     [1, \text{MAX\_EFF\_CNT}]`, each active direction :math:`\hat{\mathbf{t}}_{i}` within 1e-3 of unit norm,
     ``centerOfMass_B`` finite (``Eigen::Vector3f::allFinite()``), and ``desiredControlAxes_B`` with a minimum of
@@ -91,9 +91,9 @@ Algorithm layer (``forceTorqueThrForceMappingAlgorithm.h/.cpp``)
     constructor and ``setConfig`` then cache the pseudo-inverse from the validated config; ``update()`` is
     ``const`` and never throws.
 
-C shim (``forceTorqueThrForceMappingAlgorithm_c.h/.cpp``)
+C shim (``thrustMappingAlgorithm_c.h/.cpp``)
     Pure-C ``extern "C"`` wrapper around the algorithm for Ada (Adamant) FFI. The opaque
-    ``ForceTorqueThrForceMappingAlgorithm`` handle is created from a ``ForceTorqueThrForceMappingConfig_c``
+    ``ThrustMappingAlgorithm`` handle is created from a ``ThrustMappingConfig_c``
     POD (``ThrusterArrayConfiguration_c`` count + per-thruster ``Vector3f_c`` arrays, ``Vector3f_c``
     CoM, ``uint8_t[6]`` axes). The ``configFromC`` helper bridges the C/C++ representations via
     ``architecture/utilities/eigenSupport.h``.
@@ -124,8 +124,8 @@ Initialization
 --------------
 The module is configured by::
 
-    module = forceTorqueThrForceMapping.ForceTorqueThrForceMapping()
-    module.modelTag = "forceTorqueThrForceMappingTag"
+    module = thrustMapping.ThrustMapping()
+    module.modelTag = "thrustMappingTag"
     # Phase 1 (set before InitializeSimulation -> reset() builds the validated config):
     # the axes the mapping controls (torque xyz, force xyz in body frame B).
     module.desiredControlAxes_B = [True, True, True, True, True, False]
@@ -159,7 +159,7 @@ The ``thrAvailInMsg`` is optional. Connect it to exclude a thruster from the map
 
 Detailed Module Description
 ---------------------------
-The following text describes the mathematics behind the ``forceTorqueThrForceMapping`` module.
+The following text describes the mathematics behind the ``thrustMapping`` module.
 
 Force and Torque Mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^

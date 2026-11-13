@@ -215,7 +215,7 @@ To invert the equation above, the minimum-norm solution
 is used. It is evaluated through the Moore-Penrose pseudo-inverse of :math:`[CG_{s}]` computed from a singular value
 decomposition (a truncated SVD, :math:`[V][\Sigma]^{-1}[U]^{T}`, with singular values below a relative tolerance
 treated as zero) rather than by forming and inverting the normal-equation Gram matrix :math:`[CG_{s}][CG_{s}]^{T}`. The
-SVD form avoids squaring the condition number and is the same construction used by ``forceTorqueThrForceMapping``. The
+SVD form avoids squaring the condition number and is the same construction used by ``thrustMapping``. The
 controllability and conditioning of :math:`[CG_{s}]` are checked from this same decomposition (see Model Assumptions).
 
 The final step is to map the array of available motor torques

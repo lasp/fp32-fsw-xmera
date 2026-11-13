@@ -27,7 +27,7 @@ The module can apply a duty cycle to thrusters that remove momentum from the rea
 
     momentumManagement              requested dumping torque   [Nm]
       -> vectorDutyCycle              gated dumping torque       [Nm]
-        -> forceTorqueThrForceMapping   per-thruster force         [N]
+        -> thrustMapping                per-thruster force         [N]
           -> thrFiringRemainder / thrFiringSchmitt   thruster on-time  [s]
             -> thrusters
 

@@ -8,7 +8,7 @@ configured threshold sets the momentum difference at which a dump starts and end
 
 The momentum check runs on **every** update, so the requested torque tracks the RW speeds as they evolve.
 
-A downstream mapping module (``forceTorqueThrForceMapping``) converts the commanded torque into per-thruster
+A downstream mapping module (``thrustMapping``) converts the commanded torque into per-thruster
 forces, and a thruster firing module converts those into thruster on-times.
 
 All numeric computation is single-precision (``float`` / fp32).

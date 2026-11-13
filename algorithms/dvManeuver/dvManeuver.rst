@@ -9,7 +9,7 @@ also control when the burn completes.
 
 The module writes the body force command at each update. While the burn executes, the command is equal to the
 configured ``cmdForce_B``. After the burn completes, the command is zero. A downstream
-module, for example :ref:`forceTorqueThrForceMapping`, converts the force command into thruster commands.
+module, for example :ref:`thrustMapping`, converts the force command into thruster commands.
 
 The Delta-V and force inputs and outputs are single precision. The time parameters are double-precision seconds,
 and the module converts them to integer nanoseconds.

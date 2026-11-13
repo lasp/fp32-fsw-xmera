@@ -1,8 +1,8 @@
-#ifndef TEST_FORCE_TORQUE_THR_FORCE_MAPPING_H
-#define TEST_FORCE_TORQUE_THR_FORCE_MAPPING_H
+#ifndef TEST_THRUST_MAPPING_H
+#define TEST_THRUST_MAPPING_H
 
-#include "forceTorqueThrForceMappingAlgorithm.h"
 #include "msgPayloadDef/definitions.h"
+#include "thrustMappingAlgorithm.h"
 
 #include <gtest/gtest.h>
 #include <Eigen/Core>
@@ -36,10 +36,10 @@ inline bool anyAxisSelected(const std::array<bool, 6>& axes) {
 
 // Build a configured algorithm from a thruster array, CoM, and axis selection. The mapping is computed
 // in the constructor and throws if a selected axis is uncontrollable.
-inline ForceTorqueThrForceMappingAlgorithm makeMappingAlgorithm(const ThrusterArrayConfiguration& config,
-                                                                const Eigen::Vector3f& CoM,
-                                                                const std::array<bool, 6>& axes) {
-    return ForceTorqueThrForceMappingAlgorithm{ForceTorqueThrForceMappingConfig::create(config, CoM, axes)};
+inline ThrustMappingAlgorithm makeMappingAlgorithm(const ThrusterArrayConfiguration& config,
+                                                   const Eigen::Vector3f& CoM,
+                                                   const std::array<bool, 6>& axes) {
+    return ThrustMappingAlgorithm{ThrustMappingConfig::create(config, CoM, axes)};
 }
 
 // Combined atol + rtol tolerance for fp32 comparisons.
@@ -64,7 +64,7 @@ inline Eigen::Matrix<float, 6, kMaxThrusterCount> buildDG(const ThrusterArrayCon
     return DG;
 }
 
-// The largest axis selection ForceTorqueThrForceMappingConfig::create accepts for this geometry: every
+// The largest axis selection ThrustMappingConfig::create accepts for this geometry: every
 // axis whose basis vector lies in the column space of DG. Those rows are jointly full row rank -- a
 // nonzero combination of them lies in the column space and so cannot be orthogonal to it -- which is what
 // create() requires. Property helpers select this instead of a fixed mask so a fuzzed layout of any rank
@@ -126,14 +126,14 @@ inline bool buildThrusterConfig(std::uint32_t numThrusters,
 // selection so callers can hand the same one to referenceUpdate. Returns nullopt when create() would
 // reject the input, which lets the fuzz harness drop unusable samples silently.
 struct ConfiguredMapping {
-    ForceTorqueThrForceMappingAlgorithm algorithm;
+    ThrustMappingAlgorithm algorithm;
     std::array<bool, 6> axes;
 };
 
 inline std::optional<ConfiguredMapping> configureForControllableAxes(const ThrusterArrayConfiguration& config,
                                                                      const Eigen::Vector3f& CoM) {
     const std::array<bool, 6> axes = maxControllableAxes(config, CoM);
-    if (!anyAxisSelected(axes) || !ForceTorqueThrForceMappingConfig::isValidMapping(config, CoM, axes)) {
+    if (!anyAxisSelected(axes) || !ThrustMappingConfig::isValidMapping(config, CoM, axes)) {
         return std::nullopt;
     }
     return ConfiguredMapping{.algorithm = makeMappingAlgorithm(config, CoM, axes), .axes = axes};
@@ -261,7 +261,7 @@ inline void runRegressionCase(std::uint32_t numThrusters,
     if (!configured.has_value()) {
         return;
     }
-    const ForceTorqueThrForceMappingAlgorithm& alg = configured->algorithm;
+    const ThrustMappingAlgorithm& alg = configured->algorithm;
 
     const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
 
@@ -316,7 +316,7 @@ inline void propertyNonNegativeForces(std::uint32_t numThrusters,
     if (!configured.has_value()) {
         return;
     }
-    const ForceTorqueThrForceMappingAlgorithm& alg = configured->algorithm;
+    const ThrustMappingAlgorithm& alg = configured->algorithm;
 
     const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
 
@@ -335,8 +335,7 @@ inline void propertyMinimumIsZeroForBalancedLayout(const Eigen::Vector3f& CoM,
     if (!buildThrusterConfig(numThrusters, rcsPositions1(), rcsDirections1(), config)) {
         return;
     }
-    const ForceTorqueThrForceMappingAlgorithm alg =
-        makeMappingAlgorithm(config, CoM, {true, true, true, false, true, true});
+    const ThrustMappingAlgorithm alg = makeMappingAlgorithm(config, CoM, {true, true, true, false, true, true});
 
     const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
 
@@ -363,7 +362,7 @@ inline void propertyPaddingIsZero(std::uint32_t numThrusters,
     if (!configured.has_value()) {
         return;
     }
-    const ForceTorqueThrForceMappingAlgorithm& alg = configured->algorithm;
+    const ThrustMappingAlgorithm& alg = configured->algorithm;
 
     const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
 
@@ -412,7 +411,7 @@ inline void propertyScaleInvariance(std::uint32_t numThrusters,
     if (!configured.has_value()) {
         return;
     }
-    const ForceTorqueThrForceMappingAlgorithm& alg = configured->algorithm;
+    const ThrustMappingAlgorithm& alg = configured->algorithm;
 
     const Eigen::Vector<float, kMaxThrusterCount> baseOut = alg.update(cmdTorque, cmdForce);
     const Eigen::Vector<float, kMaxThrusterCount> scaledOut = alg.update(scale * cmdTorque, scale * cmdForce);
@@ -440,7 +439,7 @@ inline void propertyStateless(std::uint32_t numThrusters,
     if (!configured.has_value()) {
         return;
     }
-    const ForceTorqueThrForceMappingAlgorithm& alg = configured->algorithm;
+    const ThrustMappingAlgorithm& alg = configured->algorithm;
 
     const Eigen::Vector<float, kMaxThrusterCount> first = alg.update(cmdTorque, cmdForce);
     for (int step = 0; step < 5; ++step) {
@@ -467,7 +466,7 @@ inline void propertyFiniteOutput(std::uint32_t numThrusters,
     if (!configured.has_value()) {
         return;
     }
-    const ForceTorqueThrForceMappingAlgorithm& alg = configured->algorithm;
+    const ThrustMappingAlgorithm& alg = configured->algorithm;
 
     const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
     for (int i = 0; i < kMaxThrusterCount; ++i) {
@@ -491,7 +490,7 @@ inline void propertyAchievesCommandForBalancedLayout(const Eigen::Vector3f& CoM,
 
     // Layout 1's directions all lie in the body y-z plane, so force_x is uncontrollable and is left
     // out of the selection; every other axis is selected.
-    ForceTorqueThrForceMappingAlgorithm alg = makeMappingAlgorithm(config, CoM, {true, true, true, false, true, true});
+    ThrustMappingAlgorithm alg = makeMappingAlgorithm(config, CoM, {true, true, true, false, true, true});
 
     const Eigen::Matrix<float, 6, kMaxThrusterCount> DG = buildDG(config, CoM);
 
@@ -533,7 +532,7 @@ inline void propertyOutputMagnitudeBounded(std::uint32_t numThrusters,
     if (!configured.has_value()) {
         return;
     }
-    const ForceTorqueThrForceMappingAlgorithm& alg = configured->algorithm;
+    const ThrustMappingAlgorithm& alg = configured->algorithm;
 
     const Eigen::Vector<float, kMaxThrusterCount> out = alg.update(cmdTorque, cmdForce);
 
@@ -600,4 +599,4 @@ inline std::vector<Eigen::Vector3f> rcsDirections2() {
             {0.0F, 1.0F, 0.0F}};
 }
 
-#endif  // TEST_FORCE_TORQUE_THR_FORCE_MAPPING_H
+#endif  // TEST_THRUST_MAPPING_H
