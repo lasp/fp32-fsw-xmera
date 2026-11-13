@@ -62,7 +62,7 @@ void RegionsOfInterestPruneAlgorithm_setConfig(RegionsOfInterestPruneAlgorithmHa
  * @param rowIntensities  Pointer to the per-row intensity sums (length numRows).
  * @param colIntensities  Pointer to the per-column intensity sums (length numCols).
  * @param binGrid  Pointer to the bin grid of the same image; candidates touching no lit tile are dropped.
- * @return The candidates sorted by scaledIntensity descending, ties broken by distance to the reference point.
+ * @return The candidates sorted by distance to the reference point ascending, ties broken by scaledIntensity.
  */
 RoiCandidates_c RegionsOfInterestPruneAlgorithm_update(const RegionsOfInterestPruneAlgorithmHandle* self,
                                                        const uint16_t* rowSums,

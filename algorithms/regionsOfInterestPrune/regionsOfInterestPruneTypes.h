@@ -33,8 +33,8 @@ typedef struct {
 /**
  * @brief Plain-old-data mirror of the C++ RoiCandidates.
  *  - numCandidates carries the number of valid entries in candidates
- *  - candidates[i] for i < numCandidates is sorted by scaledIntensity descending, ties broken by distance
- *    to the reference point; trailing slots are zero
+ *  - candidates[i] for i < numCandidates is sorted by distance to the reference point ascending, ties broken
+ *    by scaledIntensity descending; trailing slots are zero
  */
 typedef struct {
     uint32_t numCandidates;

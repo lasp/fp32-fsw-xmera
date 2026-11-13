@@ -14,8 +14,8 @@ void RegionsOfInterestPruneAlgorithm::setConfig(const RegionsOfInterestPruneConf
 
 /*! Update method for the regions-of-interest pruning algorithm.  Orchestrates
  *  the pipeline steps and returns a fully populated RoiCandidates.
- @return RoiCandidates  Candidates sorted by scaledIntensity (descending), ties broken by distance from the box
-                        center to the reference point (ascending).
+ @return RoiCandidates  Candidates sorted by distance from the box center to the reference point (ascending), ties
+                        broken by scaledIntensity (descending).
  @param rowSums   Pointer to the per-row above-threshold pixel sums.
  @param numRows   Number of rows in the sum array.
  @param colSums   Pointer to the per-column above-threshold pixel sums.
@@ -58,7 +58,7 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
     // Step 4: scale each box's intensity by area^alpha.
     scaleIntensityByArea(litCandidates, this->cfg.getAlphaAreaPruneScaling());
 
-    // Step 5: sort by scaledIntensity, ties broken by distance to the reference point.
+    // Step 5: sort by distance to the reference point, ties broken by scaledIntensity.
     rankCandidates(litCandidates, referenceRow, referenceCol);
     return litCandidates;
 }
@@ -240,9 +240,9 @@ void RegionsOfInterestPruneAlgorithm::scaleIntensityByArea(RoiCandidates& candid
     }
 }
 
-/*! Sorts candidates in place by scaledIntensity (descending); ties are broken by squared distance from the
- *  candidate's box center to the reference point (ascending — closer wins). Afterwards candidates[0] has the
- *  highest scaledIntensity; the adapter publishes the first MAX_NUMBER_REGIONS.
+/*! Sorts candidates in place by squared distance from the candidate's box center to the reference point
+ *  (ascending — closer wins); ties are broken by scaledIntensity (descending — brighter wins). Afterwards
+ *  candidates[0] is the box closest to the reference point; the adapter publishes the first MAX_NUMBER_REGIONS.
  @param candidates    Candidate list with scaledIntensity set; sorted in place.
  @param referenceRow  [px] Reference point row coordinate (y0).
  @param referenceCol  [px] Reference point column coordinate (x0).
@@ -255,11 +255,12 @@ void RegionsOfInterestPruneAlgorithm::rankCandidates(RoiCandidates& candidates,
     std::ranges::sort(candidates.candidates.begin(),
                       std::next(candidates.candidates.begin(), candidates.numCandidates),
                       [referenceRow, referenceCol](const RoiCandidateEntry& a, const RoiCandidateEntry& b) {
-                          if (a.scaledIntensity != b.scaledIntensity) {
-                              return a.scaledIntensity > b.scaledIntensity;
+                          const float distanceA = squaredDistanceToReference(a, referenceRow, referenceCol);
+                          const float distanceB = squaredDistanceToReference(b, referenceRow, referenceCol);
+                          if (distanceA != distanceB) {
+                              return distanceA < distanceB;
                           }
-                          return squaredDistanceToReference(a, referenceRow, referenceCol) <
-                                 squaredDistanceToReference(b, referenceRow, referenceCol);
+                          return a.scaledIntensity > b.scaledIntensity;
                       });
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)

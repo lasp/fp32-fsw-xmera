@@ -54,7 +54,7 @@ struct RoiBinGrid {
 /*! @brief Fixed-capacity candidate list: candidates[0..numCandidates) are valid.
  *
  *  Used through the whole pipeline (built, filtered, scaled, then ranked in place). update() returns it
- *  ranked: sorted by scaledIntensity descending, ties broken by distance to the reference point ascending.
+ *  ranked: sorted by distance to the reference point ascending, ties broken by scaledIntensity descending.
  */
 struct RoiCandidates {
     uint32_t numCandidates{};                                        //!< [-] Number of valid entries
@@ -63,12 +63,13 @@ struct RoiCandidates {
 
 /*! @brief Validated configuration for the regions-of-interest pruning algorithm.
  *
- *  The reference point used for span selection and the distance tie-break is the absolute pixel
+ *  The reference point used for span selection and candidate ranking is the absolute pixel
  *  position (x0, y0): x0 is the column, y0 the row, in the same coordinates as the published
  *  cornerX/cornerY. Defaults to the full-image center (DEFAULT_X0, DEFAULT_Y0).
  *
- *  alphaAreaPruneScaling is the area exponent in scaledIntensity = intensity / area^alpha: 0 ranks by
- *  intensity alone, a positive value favors smaller boxes, a negative value larger ones.
+ *  alphaAreaPruneScaling is the area exponent in scaledIntensity = intensity / area^alpha, the tie-break
+ *  between boxes equally close to the reference point: 0 uses intensity alone, a positive value favors
+ *  smaller boxes, a negative value larger ones.
  *
  *  An instance can only exist if x0 is in [0, MAX_IMAGE_COLS], y0 is in [0, MAX_IMAGE_ROWS] and
  *  alphaAreaPruneScaling is in [MIN_ALPHA_AREA_PRUNE_SCALING, MAX_ALPHA_AREA_PRUNE_SCALING].
@@ -118,11 +119,12 @@ class RegionsOfInterestPruneConfig final {
  *  Accepts raw row/col sum arrays and returns a
  *  RoiCandidates.  Pipeline stages:
  *    1. Single pass over rowSums / colSums: find contiguous non-zero spans, accumulate per-span
- *       sums, and keep the ROW_SPANS_MAX / COL_SPANS_MAX spans whose midpoints are closest to the
- *       reference row / col.
- *    2. Cross-product of the kept spans → bounding boxes with count = min(R[k], C[l]).
- *    3. Sort by count descending (ties broken by distance to the reference point, ascending, then by
- *       window area, ascending), return top ROI_CANDIDATES_MAX entries.
+ *       intensities, and keep the ROW_SPANS_MAX / COL_SPANS_MAX spans whose
+ *       midpoints are closest to the reference row / col.
+ *    2. Cross-product of the kept spans → bounding boxes with intensity = min(row, col span intensity).
+ *    3. Drop boxes that overlap no lit bin-grid tile.
+ *    4. scaledIntensity = intensity / area^alpha.
+ *    5. Sort by distance to the reference point ascending, ties by scaledIntensity descending.
  */
 class RegionsOfInterestPruneAlgorithm final {
    public:
@@ -175,7 +177,7 @@ class RegionsOfInterestPruneAlgorithm final {
     // Step 4: set each candidate's scaledIntensity = intensity / area^alpha.
     static void scaleIntensityByArea(RoiCandidates& candidates, float alphaAreaPruneScaling);
 
-    // Step 5: sort candidates in place by scaledIntensity descending (ties broken by distance to the reference point).
+    // Step 5: sort candidates in place by distance to the reference point ascending (ties broken by scaledIntensity).
     static void rankCandidates(RoiCandidates& candidates, float referenceRow, float referenceCol);
 };
 
