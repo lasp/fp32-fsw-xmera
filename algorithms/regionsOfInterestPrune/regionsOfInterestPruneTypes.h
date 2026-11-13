@@ -10,7 +10,7 @@ extern "C" {
 /* Maximum number of candidates retained/published at the C boundary. Must match
    ROI_CANDIDATES_MAX in regionsOfInterestPruneAlgorithm.h (enforced by a static_assert in the
    C shim). */
-#define REGIONS_OF_INTEREST_PRUNE_ROI_CANDIDATES_MAX 16
+#define REGIONS_OF_INTEREST_PRUNE_ROI_CANDIDATES_MAX 4
 
 /**
  * @brief Plain-old-data mirror of the C++ RoiCandidateEntry.

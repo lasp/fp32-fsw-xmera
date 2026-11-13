@@ -10,7 +10,7 @@
 
 %include <std_array.i>
 struct RoiCandidateEntry;
-%template(RoiCandidateEntryArray) std::array<RoiCandidateEntry, 16>;  // must match ROI_CANDIDATES_MAX
+%template(RoiCandidateEntryArray) std::array<RoiCandidateEntry, 4>;  // must match ROI_CANDIDATES_MAX
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 // NOTE: no %exception mapping exists for fsw::invalid_argument (it derives from the freestanding

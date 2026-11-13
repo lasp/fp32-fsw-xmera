@@ -47,7 +47,7 @@ Algorithm Layer
 
 This section describes ``RegionsOfInterestPruneAlgorithm``'s pure math it never sees a message
 payload, a ``float``/``int`` cast for publication, or the adapter's ``MAX_NUMBER_REGIONS`` cap. Its
-job ends at producing up to ``ROI_CANDIDATES_MAX`` (16) ranked candidates in corner-coordinate form
+job ends at producing up to ``ROI_CANDIDATES_MAX`` (4) ranked candidates in corner-coordinate form
 (top-left ``row``/``col`` plus ``height``/``width``).
 
 **Step 1: span detection, accumulation and top-K selection (single pass)**
@@ -66,8 +66,8 @@ complex image, so only the strongest ``maxRowSpans`` row spans and ``maxColSpans
 (ranked by sum) are kept. This happens during the same scan: each finished span is insertion-sorted
 into a small fixed-size buffer that always holds the best spans seen so far, so every span is
 considered without storing them all. On a tie in sum at the cutoff, the earlier span is kept. Both
-limits are capped at ``ROW_SPANS_MAX`` = ``COL_SPANS_MAX`` = 4, so there are at most
-``ROI_CANDIDATES_MAX`` (16) candidates and memory use does not depend on image size.
+limits are capped at ``ROW_SPANS_MAX`` = ``COL_SPANS_MAX`` = 2, so there are at most
+``ROI_CANDIDATES_MAX`` (4) candidates and memory use does not depend on image size.
 
 This is safe because the best rank-1 candidate is always formed by the row span with the highest sum
 and the column span with the highest sum. Since both are always included in the reduced sets, the
@@ -97,7 +97,7 @@ All candidates from Step 2 are ranked by three keys, in order:
 #. Window area (``height × width``), (ascending) on a ``count`` and distance tie, the smaller box
    ranks first.
 
-If the number of candidates exceeds ``ROI_CANDIDATES_MAX`` (16), the tail is dropped. The final list
+If the number of candidates exceeds ``ROI_CANDIDATES_MAX`` (4), the tail is dropped. The final list
 is packed into an ``RoiCandidates`` struct with ``candidates[0]`` as rank-1.
 
 
@@ -116,10 +116,10 @@ Adapter Layer
   into the message in corner-coordinate form (``cornerX = col``, ``cornerY = row``, plus ``width``
   and ``height``).
 
-**Truncation to the message's capacity.** The algorithm may return up to ``ROI_CANDIDATES_MAX`` (16)
+**Truncation to the message's capacity.** The algorithm may return up to ``ROI_CANDIDATES_MAX`` (4)
 candidates, but ``RegionsIdentified​MsgF32Payload`` only has room for ``MAX_NUMBER_REGIONS`` (3). The
 adapter publishes ``min(candidates.numCandidates, MAX_NUMBER_REGIONS)`` i.e. only the top 3 of the
-algorithm's up-to-16 ranked candidates ever reach the published message; the rest are computed
+algorithm's up-to-4 ranked candidates ever reach the published message; the rest are computed
 internally (as part of Step 1's pre-filter safeguard) but never published.
 
 
@@ -213,7 +213,7 @@ Assumptions and Limitations
 
 * ``count`` is an upper-bound estimate derived from 1-D row/column projections, never an exact 2-D
   pixel count see Step 2.
-* At most ``ROW_SPANS_MAX`` (4) row spans and ``COL_SPANS_MAX`` (4) col spans are retained per
-  update, so at most ``ROI_CANDIDATES_MAX`` (16) candidates are ever formed.
-* Only the top ``MAX_NUMBER_REGIONS`` (3) of the algorithm's up-to-16 ranked candidates are ever
+* At most ``ROW_SPANS_MAX`` (2) row spans and ``COL_SPANS_MAX`` (2) col spans are retained per
+  update, so at most ``ROI_CANDIDATES_MAX`` (4) candidates are ever formed.
+* Only the top ``MAX_NUMBER_REGIONS`` (3) of the algorithm's up-to-4 ranked candidates are ever
   published see "Truncation to the message's capacity" above.

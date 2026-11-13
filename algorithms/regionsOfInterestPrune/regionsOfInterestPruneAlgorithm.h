@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <span>
 
-static constexpr uint32_t ROW_SPANS_MAX = 4;  //!< Number of row spans kept (closest to the reference row)
-static constexpr uint32_t COL_SPANS_MAX = 4;  //!< Number of col spans kept (closest to the reference col)
+static constexpr uint32_t ROW_SPANS_MAX = 2;  //!< Number of row spans kept (closest to the reference row)
+static constexpr uint32_t COL_SPANS_MAX = 2;  //!< Number of col spans kept (closest to the reference col)
 
 //!< Capacity of RoiCandidates: the full row-span x col-span cross-product, so no candidate is ever dropped for
 //!< lack of room. The adapter publishes the first MAX_NUMBER_REGIONS.
