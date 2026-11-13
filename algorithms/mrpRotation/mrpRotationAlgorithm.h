@@ -29,7 +29,7 @@ class MrpRotationConfig final {
    public:
     static MrpRotationConfig create(const Eigen::Vector3f& sigma_RcR0,
                                     const Eigen::Vector3f& sigma_RpRc,
-                                    const Eigen::Vector3f& omega_RRp_R,
+                                    const Eigen::Vector3f& omega_RRp_Rp,
                                     float controlPeriod) {
         if (!isValidSigma_RcR0(sigma_RcR0)) {
             FSW_THROW_INVALID_ARGUMENT("mrpRotation: sigma_RcR0 must be finite");
@@ -37,36 +37,36 @@ class MrpRotationConfig final {
         if (!isValidSigma_RpRc(sigma_RpRc)) {
             FSW_THROW_INVALID_ARGUMENT("mrpRotation: sigma_RpRc must be finite");
         }
-        if (!isValidOmega_RRp_R(omega_RRp_R)) {
-            FSW_THROW_INVALID_ARGUMENT("mrpRotation: omega_RRp_R must be finite");
+        if (!isValidOmega_RRp_Rp(omega_RRp_Rp)) {
+            FSW_THROW_INVALID_ARGUMENT("mrpRotation: omega_RRp_Rp must be finite");
         }
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("mrpRotation: controlPeriod must be > 0");
         }
-        return {mrpSwitch(sigma_RcR0), mrpSwitch(sigma_RpRc), omega_RRp_R, controlPeriod};
+        return {mrpSwitch(sigma_RcR0), mrpSwitch(sigma_RpRc), omega_RRp_Rp, controlPeriod};
     }
 
     static bool isValidSigma_RcR0(const Eigen::Vector3f& sigma) { return sigma.allFinite(); }
     static bool isValidSigma_RpRc(const Eigen::Vector3f& sigma) { return sigma.allFinite(); }
-    static bool isValidOmega_RRp_R(const Eigen::Vector3f& omega) { return omega.allFinite(); }
+    static bool isValidOmega_RRp_Rp(const Eigen::Vector3f& omega) { return omega.allFinite(); }
     static bool isValidControlPeriod(float period) { return fsw::is_finite(period) && period > 0.0F; }
 
     const Eigen::Vector3f& getSigma_RcR0() const { return this->sigma_RcR0; }
     const Eigen::Vector3f& getSigma_RpRc() const { return this->sigma_RpRc; }
-    const Eigen::Vector3f& getOmega_RRp_R() const { return this->omega_RRp_R; }
+    const Eigen::Vector3f& getOmega_RRp_Rp() const { return this->omega_RRp_Rp; }
     float getControlPeriod() const { return this->controlPeriod; }
 
    private:
     MrpRotationConfig(const Eigen::Vector3f& sigma_RcR0,
                       const Eigen::Vector3f& sigma_RpRc,
-                      const Eigen::Vector3f& omega_RRp_R,
+                      const Eigen::Vector3f& omega_RRp_Rp,
                       float controlPeriod)
-        : sigma_RcR0(sigma_RcR0), sigma_RpRc(sigma_RpRc), omega_RRp_R(omega_RRp_R), controlPeriod(controlPeriod) {}
+        : sigma_RcR0(sigma_RcR0), sigma_RpRc(sigma_RpRc), omega_RRp_Rp(omega_RRp_Rp), controlPeriod(controlPeriod) {}
 
-    Eigen::Vector3f sigma_RcR0;   //!< [-] fixed body correction: corrected frame Rc wrt input reference R0
-    Eigen::Vector3f sigma_RpRc;   //!< [-] commanded pointing offset: frame Rp wrt Rc, in body axes
-    Eigen::Vector3f omega_RRp_R;  //!< [rad/s] constant rotation rate of R wrt Rp, in output (body) axes
-    float controlPeriod;          //!< [s] forward-Euler integration step
+    Eigen::Vector3f sigma_RcR0;    //!< [-] fixed body correction: corrected frame Rc wrt input reference R0
+    Eigen::Vector3f sigma_RpRc;    //!< [-] commanded pointing offset: frame Rp wrt Rc, in body axes
+    Eigen::Vector3f omega_RRp_Rp;  //!< [rad/s] constant rotation rate of R wrt Rp, in Rp axes
+    float controlPeriod;           //!< [s] forward-Euler integration step
 };
 
 /*! @brief MRP Rotation algorithm class. */

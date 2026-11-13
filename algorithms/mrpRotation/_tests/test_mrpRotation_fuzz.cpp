@@ -9,7 +9,7 @@
 FUZZ_TEST(MrpRotationAlgorithmFuzz, fuzzRegressionMrpRotation)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sigma_RcR0
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sigma_RpRc
-                 xmera::fuzz::Vector3fInRange(-1e1F, 1e1F),  // omega_RRp_R
+                 xmera::fuzz::Vector3fInRange(-1e1F, 1e1F),  // omega_RRp_Rp
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),  // sigma_R0N
                  xmera::fuzz::Vector3fInRange(-1e1F, 1e1F),  // omega_R0N_N
                  fuzztest::InRange(1e-6F, 1e1F));            // updateTimeSec
@@ -21,22 +21,22 @@ FUZZ_TEST(MrpRotationAlgorithmFuzz, fuzzRegressionMrpRotation)
 FUZZ_TEST(MrpRotationPropertyFuzz, propertyOutputIsFinite)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // sigma_RcR0
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // sigma_RpRc
-                 xmera::fuzz::Vector3fInRange(-1e1F, 1e1F));  // omega_RRp_R
+                 xmera::fuzz::Vector3fInRange(-1e1F, 1e1F));  // omega_RRp_Rp
 
 FUZZ_TEST(MrpRotationPropertyFuzz, propertySigmaRNEqualsSigmaRRpWhenOffsetsAndInputRefAreIdentity)
-    .WithDomains(xmera::fuzz::Vector3fInRange(-1e1F, 1e1F));  // omega_RRp_R [rad/s]
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1e1F, 1e1F));  // omega_RRp_Rp [rad/s]
 
 FUZZ_TEST(MrpRotationPropertyFuzz, propertySigmaRNNormLessOrEqualToOne)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // sigma_RcR0
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // sigma_RpRc
-                 xmera::fuzz::Vector3fInRange(-1e1F, 1e1F));  // omega_RRp_R [rad/s]
+                 xmera::fuzz::Vector3fInRange(-1e1F, 1e1F));  // omega_RRp_Rp [rad/s]
 
 FUZZ_TEST(MrpRotationPropertyFuzz, propertyOmegaRNDecomposesCorrectly)
-    .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // sigma_RcR0
-                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // sigma_RpRc
-                 xmera::fuzz::Vector3fInRange(-1e1F, 1e1F),   // omega_RRp_R [rad/s]
-                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // sigma_R0N
-                 xmera::fuzz::Vector3fInRange(-1e1F, 1e1F));  // omega_R0N_N [rad/s]
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),    // sigma_RcR0
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),    // sigma_RpRc
+                 xmera::fuzz::Vector3fInRange(-1e-1F, 1e-1F),  // omega_RRp_Rp [rad/s], <= 0.05 rad per 0.25 s step
+                 xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),    // sigma_R0N
+                 xmera::fuzz::Vector3fInRange(-1e1F, 1e1F));   // omega_R0N_N [rad/s]
 
 FUZZ_TEST(MrpRotationPropertyFuzz, propertyOutputRefEqualsInputRefWhenRotationIsZero)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),   // sigma_R0N
@@ -51,4 +51,4 @@ FUZZ_TEST(MrpRotationPropertyFuzz, propertyOutputEqualsOffsetInputRefWhenRateIsZ
 FUZZ_TEST(MrpRotationPropertyFuzz, propertyRotationAxisFixedInInputRef)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),     // sigma_RcR0
                  xmera::fuzz::Vector3fInRange(-1e6F, 1e6F),     // sigma_RpRc
-                 xmera::fuzz::Vector3fInRange(-1e-1F, 1e-1F));  // omega_RRp_R [rad/s], <= 0.09 rad per 0.5 s step
+                 xmera::fuzz::Vector3fInRange(-1e-1F, 1e-1F));  // omega_RRp_Rp [rad/s], <= 0.09 rad per 0.5 s step

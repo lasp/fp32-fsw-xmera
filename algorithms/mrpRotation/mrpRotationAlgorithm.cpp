@@ -29,7 +29,7 @@ void MrpRotationAlgorithm::reInitialize() { this->sigma_RRp.setZero(); }
  @return MrpRotationOutput Output reference R: sigma_RN, omega_RN_N, domega_RN_N.
  */
 MrpRotationOutput MrpRotationAlgorithm::update(const MrpRotationAttRefInputs& attRef) {
-    const Eigen::Vector3f& omega_RRp_R = this->cfg.getOmega_RRp_R();
+    const Eigen::Vector3f omega_RRp_R = mrpToDcm(this->sigma_RRp) * this->cfg.getOmega_RRp_Rp();
     const Eigen::Vector3f sigmaDot_RRp = dmrp(this->sigma_RRp, omega_RRp_R);
     this->sigma_RRp = mrpSwitch(Eigen::Vector3f(this->sigma_RRp + (sigmaDot_RRp * this->cfg.getControlPeriod())));
 
