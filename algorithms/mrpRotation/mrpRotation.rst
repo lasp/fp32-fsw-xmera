@@ -12,7 +12,8 @@ three rotations to the input reference, in this sequence:
    frame.
 2. A pointing offset :math:`\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_c}`. It tilts the corrected frame about body axes,
    for example 10 deg off the target. The operator can change it at runtime.
-3. A constant-rate rotation :math:`{}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p}`. Its rate is constant in :math:`\mathcal R_p` axes.
+3. A constant-rate rotation :math:`{}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} = \Omega\,{}^{\mathcal R_p}\hat{\mathbf e}` about the spin axis
+   :math:`\hat{\mathbf e}` at the spin rate :math:`\Omega`. The spin axis is constant in :math:`\mathcal R_p` axes.
    The module integrates this rotation from identity with the MRP kinematic differential equation.
 
 The output message contains the attitude :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{N}}`, the inertial angular velocity
@@ -36,7 +37,7 @@ The module is split into two layers:
   messaging-payload includes. Its ``update()`` consumes one Eigen-typed input bundle -- ``MrpRotationAttRefInputs``
   (mirrors ``AttRefMsgF32Payload``) -- and returns its own POD ``MrpRotationOutput`` (shape of the output
   ``AttRefMsgF32Payload``). Both structs are declared at the top of ``mrpRotationAlgorithm.h``. ``update()`` must not
-  throw. The configured ``sigma_RcR0``, ``sigma_RpRc``, ``omega_RRp_Rp``, and ``controlPeriod`` fully set the output
+  throw. The configured ``sigma_RcR0``, ``sigma_RpRc``, ``spinAxis_Rp``, ``spinRate``, and ``controlPeriod`` fully set the output
   reference frame.
 
 A pure-C shim (``mrpRotationAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant components via
@@ -88,12 +89,19 @@ The adapter consumes the following messages and exposes the configuration as pub
       - zero
       - Components must be finite (``allFinite``). Pointing offset: the frame :math:`\mathcal R_p` relative to
         :math:`\mathcal R_c`, in body axes. An MRP with norm greater than 1 is stored as its shadow set
-    * - omega_RRp_Rp
+    * - spinAxis_Rp
       - Eigen::Vector3f
+      - [-]
+      - zero (invalid)
+      - Must be finite with norm within 1e-3 of 1. Spin axis :math:`\hat{\mathbf e}` of :math:`\mathcal R` relative to
+        :math:`\mathcal R_p`, in :math:`\mathcal R_p` components. The configuration stores the normalized axis.
+        Set it also when ``spinRate`` is zero
+    * - spinRate
+      - float
       - [rad/s]
-      - zero
-      - Components must be finite (``allFinite``). Constant rotation rate of :math:`\mathcal R` relative to
-        :math:`\mathcal R_p`, in :math:`\mathcal R_p` components
+      - 0.0
+      - Must be finite. Spin rate :math:`\Omega` of :math:`\mathcal R` relative to :math:`\mathcal R_p` about
+        ``spinAxis_Rp``. A negative value turns in the opposite direction
     * - controlPeriod
       - float
       - [s]
@@ -113,7 +121,8 @@ inputs and constructs the algorithm. ``updateState()`` throws ``XmeraLifecycleEx
     module.modelTag = "mrpRotation"
     module.sigma_RcR0 = rbk.C2MRP(RcR0)         # fixed body correction; row i of RcR0 = R0 axis i in body axes
     module.sigma_RpRc = [0.0437, 0.0, 0.0]      # 10 deg pointing offset about body x
-    module.omega_RRp_Rp = [0.001745, 0.0, 0.0]  # ~0.1 deg/s roll about the Rp x axis
+    module.spinAxis_Rp = [1.0, 0.0, 0.0]        # spin about the Rp x axis
+    module.spinRate = 0.001745                  # [rad/s] ~0.1 deg/s
     module.controlPeriod = 0.5                  # [s] forward-Euler integration step; required (> 0)
 
     module.attRefInMsg.subscribeTo(att_ref_msg)
@@ -152,6 +161,7 @@ kinematic differential equation uses the rate in :math:`\mathcal R` components:
 
 .. math::
    \begin{align}
+       {}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} &= \Omega\,{}^{\mathcal R_p}\hat{\mathbf e} \\
        {}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} &= [RR_p(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p})]\,{}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} \\
        \dot{\mathbf\sigma}_{\mathcal{R}/\mathcal{R}_p} &= \frac{1}{4} [B(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p})]\,
        {}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} \\
@@ -204,11 +214,11 @@ Cone Around a Target
 
 A boresight can turn on a cone around the target. Set the body correction so that the boresight
 :math:`\hat{\mathbf b}` points at the target. Set the pointing offset to the cone half-angle :math:`\alpha`. Set the
-rate along the target line in :math:`\mathcal R_p` components:
+spin axis along the target line in :math:`\mathcal R_p` components and set the spin rate :math:`\Omega`:
 
-.. math:: {}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} = \omega\,[R_pR_c]\,\hat{\mathbf b}
+.. math:: {}^{\mathcal R_p}\hat{\mathbf e} = [R_pR_c]\,\hat{\mathbf b}
 
-The boresight then stays at :math:`\alpha` from the target and turns around it once every :math:`2\pi/\omega`. The
+The boresight then stays at :math:`\alpha` from the target and turns around it once every :math:`2\pi/|\Omega|`. The
 spacecraft turns as a rigid body, thus it also turns 360 deg about the target line in each cycle.
 
 Module Assumptions and Limitations
@@ -220,16 +230,17 @@ Module Assumptions and Limitations
 - A change of the pointing offset through ``reconfigure()`` applies as a step at the next update. The output rate and
   acceleration do not include a rate for this step.
 - The module uses forward Euler integration. The integration error of the rotation angle increases with
-  :math:`\Delta t` and :math:`\|\mathbf\omega_{\mathcal{R}/\mathcal{R}_p}\|`. Above approximately 0.2 rad per step,
+  :math:`\Delta t` and :math:`|\Omega|`. Above approximately 0.2 rad per step,
   float32 rounding errors off the rotation axis increase quickly. Keep
-  :math:`\|\mathbf\omega_{\mathcal{R}/\mathcal{R}_p}\|\,\Delta t` well below 0.2 rad.
+  :math:`|\Omega|\,\Delta t` well below 0.2 rad.
 - All math uses single-precision (float32). Compared to the double-precision Xmera implementation, regression
   tolerances are relaxed to roughly :math:`10^{-5}`.
 
 Test Description
 ----------------
 Regression tests run the algorithm for several steps and compare the output with an independent reference
-implementation. Setup tests examine the ``MrpRotationConfig`` validators and the shadow-set storage of the offsets.
+implementation. Setup tests examine the ``MrpRotationConfig`` validators, the shadow-set storage of the offsets, and
+the normalized storage of the spin axis.
 Property tests examine:
 
 - The output is finite.

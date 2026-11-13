@@ -15,13 +15,14 @@ void MrpRotation::reset(const uint64_t callTime) {
         throw std::invalid_argument("mrpRotation.attRefInMsg wasn't connected.");
     }
 
-    auto config =
-        MrpRotationConfig::create(this->sigma_RcR0, this->sigma_RpRc, this->omega_RRp_Rp, this->controlPeriod);
+    auto config = MrpRotationConfig::create(
+        this->sigma_RcR0, this->sigma_RpRc, this->spinAxis_Rp, this->spinRate, this->controlPeriod);
     this->algorithm = std::make_unique<MrpRotationAlgorithm>(config);
 }
 
 MrpRotationConfig MrpRotation::toConfig() const {
-    return MrpRotationConfig::create(this->sigma_RcR0, this->sigma_RpRc, this->omega_RRp_Rp, this->controlPeriod);
+    return MrpRotationConfig::create(
+        this->sigma_RcR0, this->sigma_RpRc, this->spinAxis_Rp, this->spinRate, this->controlPeriod);
 }
 
 void MrpRotation::reconfigure() const {
