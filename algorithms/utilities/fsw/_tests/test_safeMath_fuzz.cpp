@@ -60,6 +60,62 @@ FUZZ_TEST(SafeMathFloatFuzz, fuzzAcosInverseF).WithDomains(fuzztest::InRange(0.1
 void fuzzAtanInverseF(float x) { EXPECT_NEAR(safeAtanf(safeTanf(x)), x, kFloatTol); }
 FUZZ_TEST(SafeMathFloatFuzz, fuzzAtanInverseF).WithDomains(fuzztest::InRange(-1.5f, 1.5f));
 
+// For |x| >= 8.25F, tanh(x) rounds to 1 − ε or above, which safeAtanHf clamps to
+// 1 − ε, so atanh(tanh(x)) saturates at ±atanh(1 − ε) ≈ ±8.3178.
+// (Measured: saturation starts at |x| = 8.2062.)
+void fuzzAtanHTanHSaturatesF(float x) {
+    const float sat = std::atanh(1.0F - FLT_EPSILON);
+    EXPECT_EQ(safeAtanHf(safeTanHf(x)), sat) << "x=" << x;
+    EXPECT_EQ(safeAtanHf(safeTanHf(-x)), -sat) << "x=" << -x;
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzAtanHTanHSaturatesF).WithDomains(fuzztest::InRange(8.25F, FLT_MAX));
+
+// For |y| >= 1 − ε, safeAtanHf clamps y to 1 − ε, and tanh brings it back
+// to exactly ±(1 − ε).
+void fuzzTanHAtanHClampsF(float y) {
+    EXPECT_EQ(safeTanHf(safeAtanHf(y)), 1.0F - FLT_EPSILON) << "y=" << y;
+    EXPECT_EQ(safeTanHf(safeAtanHf(-y)), -(1.0F - FLT_EPSILON)) << "y=" << -y;
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzTanHAtanHClampsF).WithDomains(fuzztest::InRange(1.0F - FLT_EPSILON, FLT_MAX));
+
+// For |y| >= 1/ε, atan(y) is so close to π/2 that tan saturates at ±1/ε.
+// (Measured: saturation starts at |y| = 7.4e6.)
+void fuzzTanAtanSaturatesF(float y) {
+    EXPECT_EQ(safeTanf(safeAtanf(y)), 1.0F / FLT_EPSILON) << "y=" << y;
+    EXPECT_EQ(safeTanf(safeAtanf(-y)), -1.0F / FLT_EPSILON) << "y=" << -y;
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzTanAtanSaturatesF).WithDomains(fuzztest::InRange(1.0F / FLT_EPSILON, FLT_MAX));
+
+// For |y| >= 1, safeAsinf clamps to ±π/2 and sin brings it back to exactly ±1.
+void fuzzSinAsinClampsF(float y) {
+    EXPECT_EQ(safeSinf(safeAsinf(y)), 1.0F) << "y=" << y;
+    EXPECT_EQ(safeSinf(safeAsinf(-y)), -1.0F) << "y=" << -y;
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzSinAsinClampsF).WithDomains(fuzztest::InRange(1.0F, FLT_MAX));
+
+// For y >= 1, safeAcosf clamps to 0 and cos gives exactly 1; for y <= −1
+// it clamps to π and cos gives exactly −1.
+void fuzzCosAcosClampsF(float y) {
+    EXPECT_EQ(safeCosf(safeAcosf(y)), 1.0F) << "y=" << y;
+    EXPECT_EQ(safeCosf(safeAcosf(-y)), -1.0F) << "y=" << -y;
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzCosAcosClampsF).WithDomains(fuzztest::InRange(1.0F, FLT_MAX));
+
+// Every round trip stays finite for every float, including NaN, ±Inf and inputs
+// past each function's clamp or saturation point.
+void fuzzRoundTripsAlwaysFiniteF(float x) {
+    EXPECT_TRUE(std::isfinite(safeAtanHf(safeTanHf(x)))) << "atanh(tanh(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeTanHf(safeAtanHf(x)))) << "tanh(atanh(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeAtanf(safeTanf(x)))) << "atan(tan(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeTanf(safeAtanf(x)))) << "tan(atan(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeAsinf(safeSinf(x)))) << "asin(sin(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeSinf(safeAsinf(x)))) << "sin(asin(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeAcosf(safeCosf(x)))) << "acos(cos(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeCosf(safeAcosf(x)))) << "cos(acos(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeSqrtf(x) * safeSqrtf(x))) << "sqrt(x)^2, x=" << x;
+}
+FUZZ_TEST(SafeMathFloatFuzz, fuzzRoundTripsAlwaysFiniteF).WithDomains(fuzztest::Arbitrary<float>());
+
 // For nonnegative inputs, dividing x by its square root must recover
 // the square root within the permitted relative tolerance.
 void fuzzSqrtSquaredF(float x) {
@@ -403,6 +459,62 @@ FUZZ_TEST(SafeMathDoubleFuzz, fuzzAcosInverseD).WithDomains(fuzztest::InRange(1e
 // atan(tan(x)) recovers x within the tolerance.
 void fuzzAtanInverseD(double x) { EXPECT_NEAR(safeAtan(safeTan(x)), x, kDoubleTol); }
 FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtanInverseD).WithDomains(fuzztest::InRange(-1.5, 1.5));
+
+// For |x| >= 18.5, tanh(x) rounds to 1 − ε or above, which safeAtanH clamps to
+// 1 − ε, so atanh(tanh(x)) saturates at ±atanh(1 − ε) ≈ ±18.3684.
+// (Measured: saturation starts at |x| = 18.2568.)
+void fuzzAtanHTanHSaturatesD(double x) {
+    const double sat = std::atanh(1.0 - DBL_EPSILON);
+    EXPECT_EQ(safeAtanH(safeTanH(x)), sat) << "x=" << x;
+    EXPECT_EQ(safeAtanH(safeTanH(-x)), -sat) << "x=" << -x;
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzAtanHTanHSaturatesD).WithDomains(fuzztest::InRange(18.5, DBL_MAX));
+
+// For |y| >= 1 − ε, safeAtanH clamps y to 1 − ε, and tanh brings it back
+// to exactly ±(1 − ε).
+void fuzzTanHAtanHClampsD(double y) {
+    EXPECT_EQ(safeTanH(safeAtanH(y)), 1.0 - DBL_EPSILON) << "y=" << y;
+    EXPECT_EQ(safeTanH(safeAtanH(-y)), -(1.0 - DBL_EPSILON)) << "y=" << -y;
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzTanHAtanHClampsD).WithDomains(fuzztest::InRange(1.0 - DBL_EPSILON, DBL_MAX));
+
+// For |y| >= 1e16, atan(y) is so close to π/2 that tan saturates at ±1/ε.
+// (Measured: saturation starts at |y| = 5.8e15; 1/ε = 4.5e15 is not enough in double.)
+void fuzzTanAtanSaturatesD(double y) {
+    EXPECT_EQ(safeTan(safeAtan(y)), 1.0 / DBL_EPSILON) << "y=" << y;
+    EXPECT_EQ(safeTan(safeAtan(-y)), -1.0 / DBL_EPSILON) << "y=" << -y;
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzTanAtanSaturatesD).WithDomains(fuzztest::InRange(1e16, DBL_MAX));
+
+// For |y| >= 1, safeAsin clamps to ±π/2 and sin brings it back to exactly ±1.
+void fuzzSinAsinClampsD(double y) {
+    EXPECT_EQ(safeSin(safeAsin(y)), 1.0) << "y=" << y;
+    EXPECT_EQ(safeSin(safeAsin(-y)), -1.0) << "y=" << -y;
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzSinAsinClampsD).WithDomains(fuzztest::InRange(1.0, DBL_MAX));
+
+// For y >= 1, safeAcos clamps to 0 and cos gives exactly 1; for y <= −1
+// it clamps to π and cos gives exactly −1.
+void fuzzCosAcosClampsD(double y) {
+    EXPECT_EQ(safeCos(safeAcos(y)), 1.0) << "y=" << y;
+    EXPECT_EQ(safeCos(safeAcos(-y)), -1.0) << "y=" << -y;
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzCosAcosClampsD).WithDomains(fuzztest::InRange(1.0, DBL_MAX));
+
+// Every round trip stays finite for every double, including NaN, ±Inf and inputs
+// past each function's clamp or saturation point.
+void fuzzRoundTripsAlwaysFiniteD(double x) {
+    EXPECT_TRUE(std::isfinite(safeAtanH(safeTanH(x)))) << "atanh(tanh(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeTanH(safeAtanH(x)))) << "tanh(atanh(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeAtan(safeTan(x)))) << "atan(tan(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeTan(safeAtan(x)))) << "tan(atan(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeAsin(safeSin(x)))) << "asin(sin(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeSin(safeAsin(x)))) << "sin(asin(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeAcos(safeCos(x)))) << "acos(cos(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeCos(safeAcos(x)))) << "cos(acos(x)), x=" << x;
+    EXPECT_TRUE(std::isfinite(safeSqrt(x) * safeSqrt(x))) << "sqrt(x)^2, x=" << x;
+}
+FUZZ_TEST(SafeMathDoubleFuzz, fuzzRoundTripsAlwaysFiniteD).WithDomains(fuzztest::Arbitrary<double>());
 
 // Positive inputs must produce a positive finite square root.
 // Dividing the input by its square root must recover that result
