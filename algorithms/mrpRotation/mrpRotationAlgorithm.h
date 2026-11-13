@@ -5,6 +5,7 @@
 #include "utilities/fsw/freestandingIsFinite.hpp"
 #include "utilities/fsw/rigidBodyKinematics.hpp"
 
+#include <math.h>
 #include <Eigen/Core>
 
 /*! @brief Algorithm-native input bundle that mirrors AttRefMsgF32Payload. The adapter converts the
@@ -27,9 +28,11 @@ struct MrpRotationOutput {
 
 class MrpRotationConfig final {
    public:
+    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
     static MrpRotationConfig create(const Eigen::Vector3f& sigma_RcR0,
                                     const Eigen::Vector3f& sigma_RpRc,
-                                    const Eigen::Vector3f& omega_RRp_Rp,
+                                    const Eigen::Vector3f& spinAxis_Rp,
+                                    float spinRate,
                                     float controlPeriod) {
         if (!isValidSigma_RcR0(sigma_RcR0)) {
             FSW_THROW_INVALID_ARGUMENT("mrpRotation: sigma_RcR0 must be finite");
@@ -37,36 +40,52 @@ class MrpRotationConfig final {
         if (!isValidSigma_RpRc(sigma_RpRc)) {
             FSW_THROW_INVALID_ARGUMENT("mrpRotation: sigma_RpRc must be finite");
         }
-        if (!isValidOmega_RRp_Rp(omega_RRp_Rp)) {
-            FSW_THROW_INVALID_ARGUMENT("mrpRotation: omega_RRp_Rp must be finite");
+        if (!isValidSpinAxis_Rp(spinAxis_Rp)) {
+            FSW_THROW_INVALID_ARGUMENT("mrpRotation: spinAxis_Rp must be finite with norm within 1e-3 of 1.0");
+        }
+        if (!isValidSpinRate(spinRate)) {
+            FSW_THROW_INVALID_ARGUMENT("mrpRotation: spinRate must be finite");
         }
         if (!isValidControlPeriod(controlPeriod)) {
             FSW_THROW_INVALID_ARGUMENT("mrpRotation: controlPeriod must be > 0");
         }
-        return {mrpSwitch(sigma_RcR0), mrpSwitch(sigma_RpRc), omega_RRp_Rp, controlPeriod};
+        return {mrpSwitch(sigma_RcR0), mrpSwitch(sigma_RpRc), spinAxis_Rp.stableNormalized(), spinRate, controlPeriod};
     }
 
     static bool isValidSigma_RcR0(const Eigen::Vector3f& sigma) { return sigma.allFinite(); }
     static bool isValidSigma_RpRc(const Eigen::Vector3f& sigma) { return sigma.allFinite(); }
-    static bool isValidOmega_RRp_Rp(const Eigen::Vector3f& omega) { return omega.allFinite(); }
+    static bool isValidSpinAxis_Rp(const Eigen::Vector3f& spinAxis_Rp) {
+        constexpr float kUnitNormTol = 1e-3F;
+        return spinAxis_Rp.allFinite() && fabsf(spinAxis_Rp.stableNorm() - 1.0F) <= kUnitNormTol;
+    }
+    static bool isValidSpinRate(float spinRate) { return fsw::is_finite(spinRate); }
     static bool isValidControlPeriod(float period) { return fsw::is_finite(period) && period > 0.0F; }
 
     const Eigen::Vector3f& getSigma_RcR0() const { return this->sigma_RcR0; }
     const Eigen::Vector3f& getSigma_RpRc() const { return this->sigma_RpRc; }
-    const Eigen::Vector3f& getOmega_RRp_Rp() const { return this->omega_RRp_Rp; }
+    const Eigen::Vector3f& getSpinAxis_Rp() const { return this->spinAxis_Rp; }
+    float getSpinRate() const { return this->spinRate; }
     float getControlPeriod() const { return this->controlPeriod; }
 
    private:
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     MrpRotationConfig(const Eigen::Vector3f& sigma_RcR0,
                       const Eigen::Vector3f& sigma_RpRc,
-                      const Eigen::Vector3f& omega_RRp_Rp,
+                      const Eigen::Vector3f& spinAxis_Rp,
+                      float spinRate,
                       float controlPeriod)
-        : sigma_RcR0(sigma_RcR0), sigma_RpRc(sigma_RpRc), omega_RRp_Rp(omega_RRp_Rp), controlPeriod(controlPeriod) {}
+        : sigma_RcR0(sigma_RcR0),
+          sigma_RpRc(sigma_RpRc),
+          spinAxis_Rp(spinAxis_Rp),
+          spinRate(spinRate),
+          controlPeriod(controlPeriod) {}
+    // NOLINTEND(bugprone-easily-swappable-parameters)
 
-    Eigen::Vector3f sigma_RcR0;    //!< [-] fixed body correction: corrected frame Rc wrt input reference R0
-    Eigen::Vector3f sigma_RpRc;    //!< [-] commanded pointing offset: frame Rp wrt Rc, in body axes
-    Eigen::Vector3f omega_RRp_Rp;  //!< [rad/s] constant rotation rate of R wrt Rp, in Rp axes
-    float controlPeriod;           //!< [s] forward-Euler integration step
+    Eigen::Vector3f sigma_RcR0;   //!< [-] fixed body correction: corrected frame Rc wrt input reference R0
+    Eigen::Vector3f sigma_RpRc;   //!< [-] commanded pointing offset: frame Rp wrt Rc, in body axes
+    Eigen::Vector3f spinAxis_Rp;  //!< [-] unit spin axis of R wrt Rp, in Rp axes
+    float spinRate;               //!< [rad/s] signed spin rate of R wrt Rp about spinAxis_Rp
+    float controlPeriod;          //!< [s] forward-Euler integration step
 };
 
 /*! @brief MRP Rotation algorithm class. */

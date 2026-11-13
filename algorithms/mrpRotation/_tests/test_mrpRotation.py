@@ -15,7 +15,7 @@ from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
 
 
-def compute_truth(sigma_RcR0, segments, omega_RRp_Rp, ref_state_in_data, dt):
+def compute_truth(sigma_RcR0, segments, spin_axis_Rp, spin_rate, ref_state_in_data, dt):
     """Each tick advances sigma_RRp by the configured controlPeriod (dt) and emits the output frame
     [RN] = [RRp][RpRc][RcR0][R0N]. The algorithm integrates BEFORE computing the output. The rate is
     given in Rp axes.
@@ -28,7 +28,7 @@ def compute_truth(sigma_RcR0, segments, omega_RRp_Rp, ref_state_in_data, dt):
     RcR0 = rbk.MRP2C(np.array(sigma_RcR0))
     omega_R0N_N = np.array(ref_state_in_data.omega_RN_N)
     domega_R0N_N = np.array(ref_state_in_data.domega_RN_N)
-    omega_RRp_Rp = np.array(omega_RRp_Rp)
+    omega_RRp_Rp = spin_rate * np.array(spin_axis_Rp) / np.linalg.norm(spin_axis_Rp)
 
     truth_sigma = []
     truth_omega_RN_N = []
@@ -81,8 +81,10 @@ def test_mrp_rotation(show_plots, second_phase):
     module.sigma_RcR0 = sigma_RcR0
     sigma_RpRc_1 = np.array([0.0, 0.0, 0.05])
     module.sigma_RpRc = sigma_RpRc_1
-    omega_RRp_Rp = np.array([0.1, 0.0, 0.0]) * mc.D2R
-    module.omega_RRp_Rp = omega_RRp_Rp
+    spin_axis_Rp = np.array([1.0, 0.0, 0.0])
+    module.spinAxis_Rp = spin_axis_Rp
+    spin_rate = 0.1 * mc.D2R
+    module.spinRate = spin_rate
     module.controlPeriod = update_time
 
     ref_state_in_data = messaging.AttRefMsgF32Payload()
@@ -119,7 +121,7 @@ def test_mrp_rotation(show_plots, second_phase):
         unit_test_sim.ExecuteSimulation()
 
     sigma_RN_true, omega_RN_true, dOmega_RN_true = compute_truth(
-        sigma_RcR0, segments, omega_RRp_Rp, ref_state_in_data, update_time
+        sigma_RcR0, segments, spin_axis_Rp, spin_rate, ref_state_in_data, update_time
     )
 
     accuracy = 1e-6
