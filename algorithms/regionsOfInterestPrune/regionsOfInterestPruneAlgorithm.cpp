@@ -45,7 +45,10 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
         std::span<const uint16_t>(colSums, numCols), std::span<const uint32_t>(colIntensities, numCols), referenceCol);
 
     // Step 2: form bounding boxes from the cross-product of the kept spans.
-    const RoiCandidates candidates = buildCandidates(rowSpans, colSpans);
+    const RoiCandidates allCandidates = buildCandidates(rowSpans, colSpans);
+
+    // Step 2b: with 2 row x 2 col spans, drop the ghost boxes of the span pairing the projections reject.
+    const RoiCandidates candidates = removeGhostPairs(allCandidates, rowSpans, colSpans);
 
     // Step 3: keep only boxes that overlap at least one lit tile, setting each box's litPixelCount to the lit
     // pixels of the tiles it covers. A grid that does not cover this image cannot confirm any box, so it
@@ -65,6 +68,20 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
 namespace {
+/*! Relative mismatch |a - b| / max(a, b) in [0, 1]; 0 when both are zero.
+ @return Relative mismatch of a and b.
+ @param a  First non-negative value.
+ @param b  Second non-negative value.
+*/
+float relativeMismatch(uint64_t a, uint64_t b) {
+    const uint64_t larger = std::max(a, b);
+    if (larger == 0U) {
+        return 0.0F;
+    }
+    const uint64_t difference = (a > b) ? (a - b) : (b - a);
+    return static_cast<float>(difference) / static_cast<float>(larger);
+}
+
 /*! Squared Euclidean distance from a candidate box's center to the reference point;
  *  only the ordering matters here, so the sqrt is skipped.
  @return Squared distance from the candidate's box center to (referenceRow, referenceCol).
@@ -109,15 +126,18 @@ RegionsOfInterestPruneAlgorithm::ClosestSpans<Capacity> RegionsOfInterestPruneAl
         }
 
         const uint32_t spanStart = pos;
+        uint64_t pixels = 0;
         uint64_t intensity = 0;  // 64-bit: a span of many rows can exceed uint32_t
         while (pos < n && counts[pos] != 0) {
+            pixels += counts[pos];
             intensity += intensities[pos];
             ++pos;
         }
         const uint32_t length = pos - spanStart;
         const float midpoint = static_cast<float>(spanStart) + (static_cast<float>(length) / 2.0F);
         const float distance = fabsf(midpoint - reference);
-        const SpanEntry span{.start = spanStart, .length = length, .intensity = intensity, .distance = distance};
+        const SpanEntry span{
+            .start = spanStart, .length = length, .pixels = pixels, .intensity = intensity, .distance = distance};
 
         // Append if there is room, otherwise overwrite the farthest kept span if this one is closer.
         uint32_t slot = 0;
@@ -161,6 +181,57 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::buildCandidates(const RowClosestS
         }
     }
     return candidates;
+}
+
+/*! Removes ghost boxes when the kept spans form a 2 x 2 cross-product.
+ *
+ *  Two objects A and B whose rows and columns do not overlap give 2 row spans and 2 col spans, and the
+ *  cross-product forms 4 boxes: the 2 real ones plus 2 "ghosts" that pair A's rows with B's columns and vice
+ *  versa. The real boxes are one of the two ways to pair the spans one-to-one: the diagonal pairing
+ *  {(row0, col0), (row1, col1)} or the anti-diagonal pairing {(row0, col1), (row1, col0)}.
+ *
+ *  A real box's row span and col span project the same object, so their above-threshold pixel counts agree, and
+ *  so do their intensity sums; a ghost box pairs two different objects. Each pairing is scored by the summed
+ *  relative mismatch of its two boxes (pixel counts + intensities), and the worse pairing's two boxes are dropped
+ *  only when the better score is strictly below GHOST_PAIRING_MARGIN times the worse one. If the projections are
+ *  ambiguous (e.g. two objects with the same pixel count and intensity) all 4 boxes are kept. With any other
+ *  span layout (1 x 1, 1 x 2, 2 x 1) no ghost can form and the candidates are returned unchanged.
+ @return Candidates with the ghost boxes removed, in their original order.
+ @param candidates  Candidates from buildCandidates (Step 2), index = rowSpanIndex * colSpans.count + colSpanIndex.
+ @param rowSpans    Closest row spans (Step 1).
+ @param colSpans    Closest col spans (Step 1).
+*/
+RoiCandidates RegionsOfInterestPruneAlgorithm::removeGhostPairs(const RoiCandidates& candidates,
+                                                                const RowClosestSpans& rowSpans,
+                                                                const ColClosestSpans& colSpans) {
+    if (rowSpans.count != 2U || colSpans.count != 2U) {
+        return candidates;
+    }
+    const auto pairMismatch = [](const SpanEntry& row, const SpanEntry& col) {
+        return relativeMismatch(row.pixels, col.pixels) + relativeMismatch(row.intensity, col.intensity);
+    };
+    const SpanEntry& row0 = rowSpans.data[0];
+    const SpanEntry& row1 = rowSpans.data[1];
+    const SpanEntry& col0 = colSpans.data[0];
+    const SpanEntry& col1 = colSpans.data[1];
+    const float diagonal = pairMismatch(row0, col0) + pairMismatch(row1, col1);      // boxes 0 and 3
+    const float antiDiagonal = pairMismatch(row0, col1) + pairMismatch(row1, col0);  // boxes 1 and 2
+
+    bool keepDiagonal = false;
+    if (diagonal < GHOST_PAIRING_MARGIN * antiDiagonal) {
+        keepDiagonal = true;
+    } else if (!(antiDiagonal < GHOST_PAIRING_MARGIN * diagonal)) {
+        return candidates;  // ambiguous: keep all four
+    }
+
+    RoiCandidates kept;
+    for (uint32_t i = 0; i < candidates.numCandidates; ++i) {
+        const bool isDiagonalBox = (i == 0U) || (i == 3U);
+        if (isDiagonalBox == keepDiagonal) {
+            kept.candidates[kept.numCandidates++] = candidates.candidates[i];
+        }
+    }
+    return kept;
 }
 
 /*! Checks that the bin grid covers the image the candidates were built from: a non-zero tile size,

@@ -14,6 +14,10 @@ static constexpr uint32_t COL_SPANS_MAX = 2;  //!< Number of col spans kept (clo
 //!< lack of room. The adapter publishes the first MAX_NUMBER_REGIONS.
 static constexpr uint32_t ROI_CANDIDATES_MAX = ROW_SPANS_MAX * COL_SPANS_MAX;
 
+//!< [-] Ghost-box removal (Step 2b) drops the worse span pairing only when the better pairing's mismatch is at most
+//!< this fraction of the worse one; otherwise the projections are ambiguous and all boxes are kept.
+static constexpr float GHOST_PAIRING_MARGIN = 0.5F;
+
 static constexpr uint32_t MAX_IMAGE_ROWS = 3000;  //!< [px] Full camera image height
 static constexpr uint32_t MAX_IMAGE_COLS = 4096;  //!< [px] Full camera image width
 
@@ -119,9 +123,11 @@ class RegionsOfInterestPruneConfig final {
  *  Accepts raw row/col sum arrays and returns a
  *  RoiCandidates.  Pipeline stages:
  *    1. Single pass over rowSums / colSums: find contiguous non-zero spans, accumulate per-span
- *       intensities, and keep the ROW_SPANS_MAX / COL_SPANS_MAX spans whose
+ *       pixel counts and intensities, and keep the ROW_SPANS_MAX / COL_SPANS_MAX spans whose
  *       midpoints are closest to the reference row / col.
  *    2. Cross-product of the kept spans → bounding boxes with intensity = min(row, col span intensity).
+ *    2b. With 2 row and 2 col spans, drop the two ghost boxes of the span pairing whose pixel counts
+ *       and intensities disagree (see removeGhostPairs).
  *    3. Drop boxes that overlap no lit bin-grid tile.
  *    4. scaledIntensity = intensity / area^alpha.
  *    5. Sort by distance to the reference point ascending, ties by scaledIntensity descending.
@@ -147,6 +153,7 @@ class RegionsOfInterestPruneAlgorithm final {
     struct SpanEntry {
         uint32_t start{};      //!< [px] First index of the span
         uint32_t length{};     //!< [px] Number of entries in the span
+        uint64_t pixels{};     //!< [-] Accumulated above-threshold pixel count over the span
         uint64_t intensity{};  //!< [-] Accumulated intensity over the span
         float distance{};      //!< [px] |span midpoint - reference coordinate|
     };
@@ -168,6 +175,11 @@ class RegionsOfInterestPruneAlgorithm final {
 
     // Step 2: cross-product of closest row/col spans → bounding-box candidates.
     static RoiCandidates buildCandidates(const RowClosestSpans& rowSpans, const ColClosestSpans& colSpans);
+
+    // Step 2b: with 2 row x 2 col spans, drop the ghost boxes of the span pairing that the projections reject.
+    static RoiCandidates removeGhostPairs(const RoiCandidates& candidates,
+                                          const RowClosestSpans& rowSpans,
+                                          const ColClosestSpans& colSpans);
 
     // Step 3: drop candidates that overlap no lit tile of the bin grid; set litPixelCount from the covered tiles.
     static RoiCandidates filterByLitTiles(const RoiCandidates& candidates, const RoiBinGrid& binGrid);
