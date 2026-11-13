@@ -30,7 +30,7 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(const MrpFeedbackInputGuidance& a
 
     Eigen::Vector3f z{Eigen::Vector3f::Zero()};
     if (params.Ki > 0.0F) {
-        this->int_sigma += params.K * params.controlPeriod * sigma_BR;
+        this->int_sigma += params.Kp * params.controlPeriod * sigma_BR;
 
         // Anti-windup clamp on the integral state.
         for (Eigen::Index i = 0; i < 3; ++i) {
@@ -63,12 +63,12 @@ MrpFeedbackOutput MrpFeedbackAlgorithm::update(const MrpFeedbackInputGuidance& a
         momentumContribution = omega_BN_B.cross(H_B);
     }
 
-    const Eigen::Vector3f Lc = params.K * sigma_BR + params.P * omega_BR_B + params.P * params.Ki * z -
+    const Eigen::Vector3f Lc = params.Kp * sigma_BR + params.Kd * omega_BR_B + params.Kd * params.Ki * z -
                                momentumContribution + ISCPntB_B * (omega_BN_B.cross(omega_RN_B) - domega_RN_B) +
                                this->cfg.getKnownTorquePntB_B();
 
     MrpFeedbackOutput out{};
     out.controlTorque = -Lc;
-    out.integralFeedbackTorque = -(params.P * params.Ki * z);
+    out.integralFeedbackTorque = -(params.Kd * params.Ki * z);
     return out;
 }

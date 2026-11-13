@@ -70,7 +70,7 @@ Eigen::Vector3f MomentumManagementAlgorithm::update(const Eigen::Vector<float, k
         this->priorHsDumpable_B = hsDumpable_B;
 
         /*! - the requested torque opposes the dumpable momentum difference and its accumulation */
-        Lr_B = -params.K * hsDumpable_B - params.Ki * this->hsInt_B;
+        Lr_B = -params.Kp * hsDumpable_B - params.Ki * this->hsInt_B;
     } else {
         /*! - below the threshold the dump is over: request no torque and clear the integrator, so the next
          dump starts from zero instead of carrying an impulse deficit that no longer applies */

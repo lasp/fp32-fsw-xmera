@@ -9,7 +9,7 @@ TEST(SunSearchPointTest, RegressionTest) {
     regressionTestSunSearchPoint({1.0F, 1.0F, 0.0F},     // sunVec
                                  {0.01F, 0.50F, -0.2F},  // omega_BN_B
                                  0.0F,                   // sunAxisSpinRate
-                                 {0.0F, 0.0F, 1.0F},     // sHatBdyCmd
+                                 {0.0F, 0.0F, 1.0F},     // sunPointAxis_B
                                  {0.0F, 0.0F, 0.0F}      // omega_RN_B_cfg
     );
 }
@@ -19,7 +19,7 @@ TEST(SunSearchPointTest, RegressionTest) {
 // ---------------------------------------------------------------------------
 
 TEST(SunSearchPointTest, SetupTest) {
-    // The validated config exposes each pointing parameter; sHatBdyCmd is stored normalized.
+    // The validated config exposes each pointing parameter; sunPointAxis_B is stored normalized.
     const auto cfg = makeSearchConfig(
         defaultRotations(), Eigen::Vector3f{0.6F, 0.8F, 0.0F}, 1.5F, Eigen::Vector3f{0.1F, -0.2F, 0.3F}, 7);
 
@@ -32,13 +32,13 @@ TEST(SunSearchPointTest, SetupTest) {
         EXPECT_FLOAT_EQ(retrieved_omega(i), expectedOmega(i));
     }
 
-    Eigen::Vector3f retrieved_sHat = cfg.getSHatBdyCmd();
+    Eigen::Vector3f retrieved_sHat = cfg.getSunPointAxis_B();
     EXPECT_NEAR(retrieved_sHat.stableNorm(), 1.0F, 1e-6F);
     EXPECT_NEAR(retrieved_sHat(0), 0.6F, 1e-6F);
     EXPECT_NEAR(retrieved_sHat(1), 0.8F, 1e-6F);
     EXPECT_NEAR(retrieved_sHat(2), 0.0F, 1e-6F);
 
-    // create() rejects a non-unit sHatBdyCmd.
+    // create() rejects a non-unit sunPointAxis_B.
     EXPECT_THROW((void)makeSearchConfig(defaultRotations(), Eigen::Vector3f::Zero()), fsw::invalid_argument);
     EXPECT_THROW((void)makeSearchConfig(defaultRotations(), Eigen::Vector3f{2.0F, 0.0F, 0.0F}), fsw::invalid_argument);
 }
@@ -66,11 +66,11 @@ TEST(SunSearchPointTest, SigmaBrZeroWhenSunNotVisible) {
     EXPECT_FLOAT_EQ(output.sigma_BR.stableNorm(), 0.0F);
 }
 
-// sigma_BR is zero when sun direction is aligned with sHatBdyCmd.
+// sigma_BR is zero when sun direction is aligned with sunPointAxis_B.
 TEST(SunSearchPointTest, SigmaBrZeroWhenAligned) {
     SunSearchPointAlgorithm alg{defaultSearchConfig()};
 
-    // Sun direction exactly along sHatBdyCmd
+    // Sun direction exactly along sunPointAxis_B
     Eigen::Vector3f sunVec{0.0F, 0.0F, 5.0F};
 
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
@@ -78,7 +78,7 @@ TEST(SunSearchPointTest, SigmaBrZeroWhenAligned) {
     EXPECT_NEAR(output.sigma_BR.stableNorm(), 0.0F, 1e-6F);
 }
 
-// In the normal case, sigma_BR direction is orthogonal to both sunVec and sHatBdyCmd.
+// In the normal case, sigma_BR direction is orthogonal to both sunVec and sunPointAxis_B.
 TEST(SunSearchPointTest, SigmaBrOrthogonalToBothVectors) {
     const auto cfg = defaultSearchConfig();
     SunSearchPointAlgorithm alg{cfg};
@@ -88,7 +88,7 @@ TEST(SunSearchPointTest, SigmaBrOrthogonalToBothVectors) {
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
     auto output = pointUpdate(alg, sunVec, omega_BN_B);
 
-    Eigen::Vector3f sHat = cfg.getSHatBdyCmd();
+    Eigen::Vector3f sHat = cfg.getSunPointAxis_B();
     Eigen::Vector3f sigmaDir = output.sigma_BR.stableNormalized();
 
     EXPECT_NEAR(sigmaDir.dot(sunVec.stableNormalized()), 0.0F, 1e-5F);
@@ -115,7 +115,7 @@ TEST(SunSearchPointTest, OmegaRnParallelToSunVec) {
 // Edge-case tests
 // ---------------------------------------------------------------------------
 
-// Sun exactly at 180° from sHatBdyCmd uses the unitOrthogonal() fallback axis.
+// Sun exactly at 180° from sunPointAxis_B uses the unitOrthogonal() fallback axis.
 TEST(SunSearchPointTest, SunOpposite180) {
     const auto cfg = defaultSearchConfig();
     SunSearchPointAlgorithm alg{cfg};
@@ -129,14 +129,14 @@ TEST(SunSearchPointTest, SunOpposite180) {
     EXPECT_LE(output.sigma_BR.stableNorm(), 1.0F + 1e-6F);
 
     // Verify against reference
-    Eigen::Vector3f sHat = cfg.getSHatBdyCmd();
+    Eigen::Vector3f sHat = cfg.getSunPointAxis_B();
     auto reference = referenceUpdate(sunVec, omega_BN_B, 0.0F, sHat, Eigen::Vector3f::Zero());
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(output.sigma_BR(i), reference.sigma_BR(i), 1e-5F);
     }
 }
 
-// Sun exactly aligned with sHatBdyCmd gives zero attitude error.
+// Sun exactly aligned with sunPointAxis_B gives zero attitude error.
 TEST(SunSearchPointTest, SunExactlyAligned) {
     SunSearchPointAlgorithm alg{defaultSearchConfig()};
 
@@ -168,7 +168,7 @@ TEST(SunSearchPointTest, SmallNonZeroSunVectorIsVisible) {
     EXPECT_FLOAT_EQ(outputZero.omega_RN_B(0), 0.5F);
 }
 
-// sHatBdyCmd along x-axis with sun at 180° opposition: produces a finite, non-zero sigma_BR.
+// sunPointAxis_B along x-axis with sun at 180° opposition: produces a finite, non-zero sigma_BR.
 TEST(SunSearchPointTest, SHatAlongXAxis180Opposition) {
     SunSearchPointAlgorithm alg{makeSearchConfig(defaultRotations(), Eigen::Vector3f{1.0F, 0.0F, 0.0F})};
 
@@ -347,7 +347,7 @@ TEST(SunSearchPointTest, StaysSearchingBelowThreshold) {
 
 TEST(SunSearchPointTest, ForcedTransitionAfterAllRotations) {
     const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
-    // sHatBdyCmd {0,0,1}, spin rate 0 -> pointing omega_RN_B = 0
+    // sunPointAxis_B {0,0,1}, spin rate 0 -> pointing omega_RN_B = 0
     const auto cfg = makeSearchConfig(rotations);
     SunSearchPointAlgorithm alg{cfg};
 
@@ -358,7 +358,7 @@ TEST(SunSearchPointTest, ForcedTransitionAfterAllRotations) {
     const SunSearchPointOutput out = advanceTo(alg, fsw::secondsToNanos(40.0).value(), sun, omega_BN_B, 0);
 
     // Pointing output (matches the reference), NOT the held last-rotation rate (0.4 about b1).
-    const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
+    const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSunPointAxis_B(), Eigen::Vector3f::Zero());
     EXPECT_GT(out.sigma_BR.stableNorm(), 0.0F);
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(out.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
@@ -375,14 +375,14 @@ TEST(SunSearchPointTest, TransitionsToPointAtThreshold) {
     // The threshold can trigger the transition during any rotation after the first; use a fresh
     // instance per sub-case because POINT is terminal.
     for (double tSec : {15.0, 25.0, 35.0}) {
-        // sHatBdyCmd {0,0,1}, threshold 4
+        // sunPointAxis_B {0,0,1}, threshold 4
         const auto cfg = makeSearchConfig(rotations);
         SunSearchPointAlgorithm alg{cfg};
 
         // Observations at the threshold (4) past rotation 1: transition to POINT (rule is >=).
         const SunSearchPointOutput out = advanceTo(alg, fsw::secondsToNanos(tSec).value(), sun, omega_BN_B, 4);
 
-        const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
+        const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSunPointAxis_B(), Eigen::Vector3f::Zero());
         EXPECT_GT(out.sigma_BR.stableNorm(), 0.0F);
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(out.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
@@ -394,7 +394,7 @@ TEST(SunSearchPointTest, TransitionsToPointAtThreshold) {
 
 TEST(SunSearchPointTest, PointIsTerminalNoReturnToSearch) {
     const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
-    // sHatBdyCmd {0,0,1}, threshold 4
+    // sunPointAxis_B {0,0,1}, threshold 4
     const auto cfg = makeSearchConfig(rotations);
     SunSearchPointAlgorithm alg{cfg};
 
@@ -408,7 +408,7 @@ TEST(SunSearchPointTest, PointIsTerminalNoReturnToSearch) {
     // Later, still inside the nominal sequence, observations drop to 0: must stay POINT.
     const SunSearchPointOutput out = observeAt(alg, nextElapsed, fsw::secondsToNanos(18.0).value(), sun, omega_BN_B, 0);
 
-    const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
+    const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSunPointAxis_B(), Eigen::Vector3f::Zero());
     EXPECT_GT(out.sigma_BR.stableNorm(), 0.0F);  // pointing, not a search rate
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(out.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
@@ -418,7 +418,7 @@ TEST(SunSearchPointTest, PointIsTerminalNoReturnToSearch) {
 
 TEST(SunSearchPointTest, PointResumesPointingWhenSunReturns) {
     const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
-    // sHatBdyCmd {0,0,1}, spin rate 0, zero-sun fallback rate {0,0,0.1}, threshold 4
+    // sunPointAxis_B {0,0,1}, spin rate 0, zero-sun fallback rate {0,0,0.1}, threshold 4
     const auto cfg =
         makeSearchConfig(rotations, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0.0F, Eigen::Vector3f{0.0F, 0.0F, 0.1F});
     SunSearchPointAlgorithm alg{cfg};
@@ -442,7 +442,7 @@ TEST(SunSearchPointTest, PointResumesPointingWhenSunReturns) {
     const SunSearchPointOutput pointing2 =
         observeAt(alg, nextElapsed, fsw::secondsToNanos(17.0).value(), sun, omega_BN_B, 0);
     EXPECT_GT(pointing2.sigma_BR.stableNorm(), 0.0F);
-    const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSHatBdyCmd(), Eigen::Vector3f::Zero());
+    const auto reference = referenceUpdate(sun, omega_BN_B, 0.0F, cfg.getSunPointAxis_B(), Eigen::Vector3f::Zero());
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(pointing2.sigma_BR[i], reference.sigma_BR[i], 1e-5F);
     }
@@ -450,7 +450,7 @@ TEST(SunSearchPointTest, PointResumesPointingWhenSunReturns) {
 
 TEST(SunSearchPointTest, ForcedTransitionWithoutSunUsesFallbackRate) {
     const auto rotations = buildRotations({10.0F, 10.0F, 10.0F, 10.0F}, {0.1F, 0.2F, 0.3F, 0.4F}, {0, 1, 2, 0});
-    // sHatBdyCmd {0,0,1}, spin rate 0, configured fallback tumble {0,0,0.1}, threshold 4
+    // sunPointAxis_B {0,0,1}, spin rate 0, configured fallback tumble {0,0,0.1}, threshold 4
     SunSearchPointAlgorithm alg{
         makeSearchConfig(rotations, Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0.0F, Eigen::Vector3f{0.0F, 0.0F, 0.1F})};
 
@@ -483,7 +483,7 @@ SunSearchPointConfig deadbandConfig(float deadbandAngle) {
                             deadbandAngle);
 }
 
-// Sun direction rotated by angle about b2 away from sHatBdyCmd = b3.
+// Sun direction rotated by angle about b2 away from sunPointAxis_B = b3.
 Eigen::Vector3f sunAtAngle(float angle) { return Eigen::Vector3f{std::sin(angle), 0.0F, std::cos(angle)}; }
 
 float sigmaAngle(const Eigen::Vector3f& sigma) { return 4.0F * std::atan(sigma.stableNorm()); }

@@ -13,9 +13,9 @@ solution. The desired control torque can be mapped onto particular orthogonal co
 solution for the overall attitude control torque.
 
 The module also provides an optional reaction-wheel null-space term that drives the wheel speeds toward a
-desired set without producing any net body torque. This is enabled by a non-zero ``omegaGain`` together with the
-optional RW speed messages; with the default zero gain (or no speed message linked) the module reduces to the pure
-control-torque mapping.
+desired set without producing any net body torque. A non-zero ``Kp`` enables this term. The desired speeds are the
+``rwDesiredSpeeds`` parameter, and the current speeds come from the optional ``rwSpeedsInMsg``. With the default zero
+gain, or with no speed message linked and zero desired speeds, the module reduces to the pure control-torque mapping.
 
 The module follows the standard three-layer pattern: the pure ``RwMotorTorqueAlgorithm`` (Eigen-typed, no messaging),
 the ``RwMotorTorque`` Xmera adapter (owns message I/O and payload conversion), and a C-linkage shim
@@ -53,9 +53,6 @@ provides information on what this message is used for.
     * - rwSpeedsInMsg
       - :ref:`RWSpeedMsgPayload`
       - (optional) current RW speeds, used by the null-space term
-    * - rwDesiredSpeedsInMsg
-      - :ref:`RWSpeedMsgPayload`
-      - (optional) desired RW speeds for the null-space term (defaults to zero)
 
 Module Parameters
 -------------------------------
@@ -78,12 +75,18 @@ The following table lists all the module parameters than can be set. The paramet
       - ``[True, True, True]``
       - which body axes (x, y, z) to control; at least one must be ``True``
       - N/A
-    * - omegaGain
+    * - Kp
       - float
       - [-]
       - :math:`0`
       - RW null-space feedback gain; ``0`` disables the null-space term
       - :math:`\ge 0`
+    * - rwDesiredSpeeds
+      - float[RW_EFF_CNT]
+      - [r/s]
+      - all :math:`0`
+      - desired RW speeds for the null-space term, one entry per wheel slot
+      - finite
 
 Model Assumptions and Limitations
 ---------------------------------
@@ -101,7 +104,7 @@ This code makes the following assumptions:
   is rejected) and normalized before use.
 - The null-space term requires more than three *available* reaction wheels spanning 3-D for a non-trivial
   null space. With three (or fewer) available spanning wheels the null space is empty, :math:`[\tau]` is zero, and
-  the null-space term has no effect. A zero ``omegaGain`` (the default) likewise disables the null-space term. The
+  the null-space term has no effect. A zero ``Kp`` (the default) likewise disables the null-space term. The
   available-wheel geometry :math:`[G_{s}]` must also be well conditioned (condition number below 100); a near-coplanar
   array of more than three wheels is rejected when the configuration is created.
 
@@ -255,9 +258,9 @@ in the RW null space and exerts no net torque on the spacecraft, leaving the att
 Let :math:`\Omega_{i}` be the RW spin speeds and :math:`\Omega_{i,d}` the desired speeds, with tracking error
 :math:`\Delta\Omega_i = \Omega_i - \Omega_{i,d}`. The desired null-space torque array is
 
-.. math:: \mathbf d = -K \, \Delta\bm\Omega
+.. math:: \mathbf d = -K_p \, \Delta\bm\Omega
 
-with feedback gain :math:`K = \texttt{omegaGain} \ge 0`. Mapping it through :math:`[\tau]` and adding it to the
+with feedback gain :math:`K_p = \texttt{Kp} \ge 0`. Mapping it through :math:`[\tau]` and adding it to the
 control solution :math:`\mathbf u_{s,\text{cont}}` gives the module output
 
 .. math:: \mathbf u_{s} = \mathbf u_{s,\text{cont}} + [\tau] \, \mathbf d
@@ -267,8 +270,9 @@ the null-space term never commands torque to a wheel the control mapping exclude
 than three wheels are available and span 3-D; with three (or fewer) available wheels :math:`[\tau]` is zero and the
 null-space term vanishes. When more than three wheels are available their geometry must be well conditioned (condition
 number below 100); a near-coplanar array is rejected when the configuration is created rather than producing an
-unreliable null-space. The current and desired RW speeds are read each update from the optional ``rwSpeedsInMsg`` and
-``rwDesiredSpeedsInMsg`` (unlinked speeds default to zero).
+unreliable null-space. The current RW speeds are read each update from the optional ``rwSpeedsInMsg`` (an unlinked
+message gives zero speeds). The desired RW speeds are the ``rwDesiredSpeeds`` parameter, which is part of the validated
+configuration and changes only at ``reset()`` or ``reconfigure()``.
 
 This availability handling is a deliberate departure from the legacy ``rwNullSpace`` module, which had no concept
 of RW availability and built :math:`[\tau]` from all configured wheels. For configurations with all wheels
@@ -286,6 +290,6 @@ The code performs the following functions:
   observes the availability of the RWs and maps the torques to only
   available reaction wheels.
 
-- **Adds an optional RW null-space torque**: When ``omegaGain`` is
+- **Adds an optional RW null-space torque**: When ``Kp`` is
   non-zero, the module superimposes a null-space torque that drives the RW
   speeds toward their desired values without producing any net body torque.

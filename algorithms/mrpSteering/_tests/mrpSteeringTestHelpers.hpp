@@ -103,7 +103,7 @@ inline ReferenceOutput referenceUpdate(const MrpSteeringControlParameters& param
     }
 
     /*! - evaluate required attitude control torque Lc */
-    const Eigen::Vector3f Lc = params.P * omega_BBast_B + params.Ki * z - omega_BastN_B.cross(H_B) -
+    const Eigen::Vector3f Lc = params.Kd * omega_BBast_B + params.Ki * z - omega_BastN_B.cross(H_B) -
                                ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) +
                                knownTorquePntB_B;
 
@@ -124,7 +124,7 @@ inline MrpSteeringControlParameters makeValidControlParameters() {
         .K3 = 1.0F,
         .omegaMax = 1.0F,
         .ignoreOuterLoopFeedforward = false,
-        .P = 1.0F,
+        .Kd = 1.0F,
         .Ki = 1.0F,
         .integralLimit = 1.0F,
         .controlPeriod = 0.1F,
@@ -141,7 +141,7 @@ inline void testMrpSteeringSetup() {
     // --- Negative feedback gains or integral limit ---
     for (float MrpSteeringControlParameters::* gain : {&MrpSteeringControlParameters::K1,
                                                        &MrpSteeringControlParameters::K3,
-                                                       &MrpSteeringControlParameters::P,
+                                                       &MrpSteeringControlParameters::Kd,
                                                        &MrpSteeringControlParameters::Ki,
                                                        &MrpSteeringControlParameters::integralLimit}) {
         MrpSteeringControlParameters params = makeValidControlParameters();
@@ -181,7 +181,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
                             float K3,
                             float omegaMax,
                             bool ignoreFF,
-                            float P,
+                            float Kd,
                             float Ki,
                             float integralLimit,
                             const Eigen::Vector3f& knownTorquePntB_B,
@@ -235,7 +235,7 @@ inline void testMrpSteering(const Eigen::Vector3f& sigma,
         .K3 = K3,
         .omegaMax = omegaMax,
         .ignoreOuterLoopFeedforward = ignoreFF,
-        .P = P,
+        .Kd = Kd,
         .Ki = Ki,
         .integralLimit = integralLimit,
         .controlPeriod = dt,

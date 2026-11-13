@@ -37,8 +37,8 @@ def test_mrpPD(show_plots):
     # Create the mrpPD module
     mrp_pd = mrpPDF32.MrpPD()
     mrp_pd.modelTag = "mrpPD"
-    mrp_pd.P = 150.0
-    mrp_pd.K = 0.15
+    mrp_pd.Kd = 150.0
+    mrp_pd.Kp = 0.15
     unit_test_sim.AddModelToTask(task_name, mrp_pd)
 
     # Create the mrpPD module attitude guidance input message
@@ -81,13 +81,13 @@ def compute_true_torque(mrp_pd, guidance_cmd_data, ISCPntB_B):
     # Compute hub inertial angular velocity in B-frame components
     omega_BR_B = np.array(guidance_cmd_data.omega_BR_B)
 
-    K = mrp_pd.K
-    P = mrp_pd.P
+    Kp = mrp_pd.Kp
+    Kd = mrp_pd.Kd
     sigma_BR = np.array(guidance_cmd_data.sigma_BR)
     domega_RN_B = np.array(guidance_cmd_data.domega_RN_B)
 
     # Compute required attitude control torque
-    Lr = - K * sigma_BR - P * omega_BR_B + ISCPntB_B @ domega_RN_B  # [Nm]
+    Lr = - Kp * sigma_BR - Kd * omega_BR_B + ISCPntB_B @ domega_RN_B  # [Nm]
 
     return Lr
 

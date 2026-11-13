@@ -79,7 +79,7 @@ The following table lists all the module parameters than can be set. The paramet
       - false
       - Indicates if feedforward term should be included
       - N/A
-    * - P
+    * - Kd
       - float
       - [N m s]
       - 0
@@ -119,7 +119,7 @@ when the immutable configuration is built at ``reset()`` (an invalid value throw
 
 Module Assumptions and Limitations
 ----------------------------------
-This control assumes the spacecraft is rigid and that the control gains of the attitude control (P, Ki) are chosen such
+This control assumes the spacecraft is rigid and that the control gains of the attitude control (Kd, Ki) are chosen such
 that the decay time is much faster than that of the body rate computation (K1, K3).
 
 Module Architecture
@@ -143,7 +143,7 @@ The gains, ``omegaMax`` and ``controlPeriod`` must be set, and the required inpu
     module.K1 = K1
     module.K3 = K3
     module.omegaMax = omega_max
-    module.P = P
+    module.Kd = Kd
     module.Ki = Ki
     module.integralLimit = integral_limit
     module.knownTorquePntB_B = known_torque

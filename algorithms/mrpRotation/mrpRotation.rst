@@ -4,15 +4,22 @@
 
 Executive Summary
 -----------------
-This module produces a dynamic reference frame attitude state by superimposing a constant-rate rotation on top of an
-input reference frame. The initial orientation relative to the input reference :math:`\mathcal R_0` is specified
-through an MRP set :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}`, and the :math:`\mathcal R`-frame angular velocity vector
-:math:`{}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0}` is held constant in :math:`\mathcal R`-frame components. The module
-integrates :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}` forward each cycle using the MRP kinematic differential equation, then
-composes the result with the input reference to produce the output attitude :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{N}}`, the inertial
-angular velocity :math:`{}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{N}}`, and the inertial angular acceleration
-:math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{\mathcal{R}/\mathcal{N}}`. This is a single-precision (float32) port of the original
-double-precision Xmera implementation.
+This module makes a reference frame :math:`\mathcal R` from an input reference frame :math:`\mathcal R_0`. It applies
+three rotations to the input reference, in this sequence:
+
+1. A fixed body correction :math:`\mathbf\sigma_{\mathcal{R}_c/\mathcal{R}_0}`. It sets which body axes align with the
+   input reference axes. For example, it can put the body :math:`-\hat{\mathbf b}_2` axis on the central body of a Hill
+   frame.
+2. A pointing offset :math:`\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_c}`. It tilts the corrected frame about body axes,
+   for example 10 deg off the target. The operator can change it at runtime.
+3. A constant-rate rotation :math:`{}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} = \Omega\,{}^{\mathcal R_p}\hat{\mathbf e}` about the spin axis
+   :math:`\hat{\mathbf e}` at the spin rate :math:`\Omega`. The spin axis is constant in :math:`\mathcal R_p` axes.
+   The module integrates this rotation from identity with the MRP kinematic differential equation.
+
+The output message contains the attitude :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{N}}`, the inertial angular velocity
+:math:`{}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{N}}`, and the inertial angular acceleration
+:math:`{}^{\mathcal N}{\dot{\mathbf\omega}}_{\mathcal{R}/\mathcal{N}}` of :math:`\mathcal R`. All math uses single
+precision (float32).
 
 Module Architecture
 -------------------
@@ -30,8 +37,8 @@ The module is split into two layers:
   messaging-payload includes. Its ``update()`` consumes one Eigen-typed input bundle -- ``MrpRotationAttRefInputs``
   (mirrors ``AttRefMsgF32Payload``) -- and returns its own POD ``MrpRotationOutput`` (shape of the output
   ``AttRefMsgF32Payload``). Both structs are declared at the top of ``mrpRotationAlgorithm.h``. ``update()`` must not
-  throw. The rotating reference frame is fully determined by the configured ``sigma_RR0``, ``omega_RR0_R``, and
-  ``controlPeriod``; the algorithm has no runtime command-latching path.
+  throw. The configured ``sigma_RcR0``, ``sigma_RpRc``, ``spinAxis_Rp``, ``spinRate``, and ``controlPeriod`` fully set the output
+  reference frame.
 
 A pure-C shim (``mrpRotationAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant components via
 ``extern "C"`` bindings. The shim's ``_update`` takes a ``MrpRotationAttRefInputs_c`` POD mirror (declared in
@@ -69,18 +76,32 @@ The adapter consumes the following messages and exposes the configuration as pub
       - Units
       - Default
       - Bounds
-    * - sigma_RR0
+    * - sigma_RcR0
       - Eigen::Vector3f
       - [-]
       - zero
-      - Components must be finite (``allFinite``). A seed with norm greater than 1 is mapped to its shadow-set
-        representative (norm :math:`\le 1`) when the configuration is created, so the stored initial attitude is always a
-        well-conditioned MRP; the integrated MRP is likewise kept bounded via ``mrpSwitch`` on every ``update()``
-    * - omega_RR0_R
+      - Components must be finite (``allFinite``). Fixed body correction: the corrected frame :math:`\mathcal R_c`
+        relative to the input reference :math:`\mathcal R_0`. Row :math:`i` of :math:`[R_cR_0]` is the input reference
+        axis :math:`i` in body components. An MRP with norm greater than 1 is stored as its shadow set
+    * - sigma_RpRc
       - Eigen::Vector3f
-      - [rad/s]
+      - [-]
       - zero
-      - Components must be finite (``allFinite``)
+      - Components must be finite (``allFinite``). Pointing offset: the frame :math:`\mathcal R_p` relative to
+        :math:`\mathcal R_c`, in body axes. An MRP with norm greater than 1 is stored as its shadow set
+    * - spinAxis_Rp
+      - Eigen::Vector3f
+      - [-]
+      - zero (invalid)
+      - Must be finite with norm within 1e-3 of 1. Spin axis :math:`\hat{\mathbf e}` of :math:`\mathcal R` relative to
+        :math:`\mathcal R_p`, in :math:`\mathcal R_p` components. The configuration stores the normalized axis.
+        Set it also when ``spinRate`` is zero
+    * - spinRate
+      - float
+      - [rad/s]
+      - 0.0
+      - Must be finite. Spin rate :math:`\Omega` of :math:`\mathcal R` relative to :math:`\mathcal R_p` about
+        ``spinAxis_Rp``. A negative value turns in the opposite direction
     * - controlPeriod
       - float
       - [s]
@@ -98,14 +119,22 @@ inputs and constructs the algorithm. ``updateState()`` throws ``XmeraLifecycleEx
 
     module = mrpRotationF32.MrpRotation()
     module.modelTag = "mrpRotation"
-    module.sigma_RR0 = [0.3, 0.5, 0.0]
-    module.omega_RR0_R = [0.001745, 0.0, 0.0]   # ~0.1 deg/s about x in R-frame
+    module.sigma_RcR0 = rbk.C2MRP(RcR0)         # fixed body correction; row i of RcR0 = R0 axis i in body axes
+    module.sigma_RpRc = [0.0437, 0.0, 0.0]      # 10 deg pointing offset about body x
+    module.spinAxis_Rp = [1.0, 0.0, 0.0]        # spin about the Rp x axis
+    module.spinRate = 0.001745                  # [rad/s] ~0.1 deg/s
     module.controlPeriod = 0.5                  # [s] forward-Euler integration step; required (> 0)
 
     module.attRefInMsg.subscribeTo(att_ref_msg)
 
     sim.AddModelToTask(task_name, module)
     sim.InitializeSimulation()  # invokes reset(); validators run, algorithm is constructed
+
+To change the pointing offset at runtime, set the property and call ``reconfigure()``. The new offset applies at the
+next update. The integrated rotation continues from its current value::
+
+    module.sigma_RpRc = [0.0, 0.0, 0.0437]
+    module.reconfigure()
 
 Algorithm Layer
 ---------------
@@ -120,50 +149,77 @@ matrix (DCM)
 
 .. math:: [R_0 N] = [R_0 N(\mathbf\sigma_{\mathcal{R}_0/\mathcal{N}})]
 
-The output reference frame :math:`\mathcal R` is constructed so that
+The output reference frame :math:`\mathcal R` comes from three rotations of :math:`\mathcal R_0`:
+
+.. math:: [RN] = [RR_p(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p}(t))]\,[R_pR_c]\,[R_cR_0]\,[R_0 N]
+
+The body correction :math:`[R_cR_0]` and the pointing offset :math:`[R_pR_c]` are constant. The algorithm calculates
+their product :math:`[R_pR_0] = [R_pR_c][R_cR_0]` when it receives a configuration.
+
+The rotation :math:`[RR_p]` starts at identity. Its rate is constant in :math:`\mathcal R_p` components. The MRP
+kinematic differential equation uses the rate in :math:`\mathcal R` components:
 
 .. math::
    \begin{align}
-       \dot{\mathbf\sigma}_{\mathcal{R}/\mathcal{R}_0} &= \frac{1}{4} [B(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0})]\,{}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0}
-       & \label{eq:mRot1} \\
-       \frac{{}^{\mathcal R}{\textrm{d}}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0}}{\textrm{d}t} &= \mathbf 0 & \label{eq:mRot2}
+       {}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} &= \Omega\,{}^{\mathcal R_p}\hat{\mathbf e} \\
+       {}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} &= [RR_p(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p})]\,{}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} \\
+       \dot{\mathbf\sigma}_{\mathcal{R}/\mathcal{R}_p} &= \frac{1}{4} [B(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p})]\,
+       {}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} \\
+       \frac{{}^{\mathcal R_p}{\textrm{d}}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p}}{\textrm{d}t} &= \mathbf 0
    \end{align}
 
-The MRP set :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}` is propagated each cycle using forward Euler integration with the integration
-step :math:`\Delta t` taken directly from the configured ``controlPeriod``:
+Each update propagates the MRP set with one forward Euler step. The step :math:`\Delta t` is the configured
+``controlPeriod``:
 
 .. math::
-   \mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}(t_{k+1}) = \texttt{mrpSwitch}\!\left(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}(t_k) + \Delta t \cdot
-   \dot{\mathbf\sigma}_{\mathcal{R}/\mathcal{R}_0},\ 1\right)
+   \mathbf\sigma_{\mathcal{R}/\mathcal{R}_p}(t_{k+1}) = \texttt{mrpSwitch}\!\left(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p}(t_k)
+   + \Delta t \cdot \dot{\mathbf\sigma}_{\mathcal{R}/\mathcal{R}_p},\ 1\right)
 
-``mrpSwitch`` maps the MRP to the shadow set when the result has norm greater than one, ensuring the representation
-stays bounded. Every ``update()`` advances the MRP by ``controlPeriod``; the caller is responsible for setting
-``controlPeriod`` to match the rate at which ``update()`` is invoked (typically the simulation task rate).
+``mrpSwitch`` changes the MRP to its shadow set when its norm is greater than one.
 
-The current DCM of the :math:`\mathcal R`-frame is
+The rotation starts at identity and its axis is constant in :math:`\mathcal R_p`, so the integrated MRP stays on that
+axis. The integration error changes only the rotation angle, not the axis. The axis of a rotation has the same
+components in :math:`\mathcal R` and :math:`\mathcal R_p`. Thus a rate along the :math:`\mathcal R_p` axis
+:math:`\hat{\mathbf r}_{p,1}` also rolls the body about :math:`\hat{\mathbf b}_1`, also when a pointing offset is
+present.
 
-.. math:: [RN] = [RR_0(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_0}(t))]\,[R_0 N]
-
-The output MRP set is read from this DCM:
+The output MRP set comes from the DCM:
 
 .. math:: \mathbf\sigma_{\mathcal{R}/\mathcal{N}} = \texttt{dcmToMrp}([RN])
 
-The angular velocity is mapped to inertial-frame components and combined with the input rate:
+The frame :math:`\mathcal R_p` is fixed in :math:`\mathcal R_0`, thus
+:math:`\mathbf\omega_{\mathcal{R}/\mathcal{R}_0} = \mathbf\omega_{\mathcal{R}/\mathcal{R}_p}`. The algorithm changes the
+rate to inertial components and adds the input rate:
 
 .. math::
    \begin{align}
-       {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0} &= [RN]^{T}\,{}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0} \\
-       {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{N}} &= {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0} +
+       {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} &= [RN]^{T}\,{}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} \\
+       {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{N}} &= {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} +
        {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}_0/\mathcal{N}}
    \end{align}
 
-The inertial angular acceleration of the output frame is found via the transport theorem, noting that
-:math:`\frac{{}^{\mathcal R}{\textrm{d}}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0}}{\textrm{d}t} = \mathbf 0` and using
-:math:`\mathbf\omega_{\mathcal{R}/\mathcal{N}} \times {\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0} = \mathbf\omega_{\mathcal{R}_0/\mathcal{N}} \times {\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0}`:
+The transport theorem gives the inertial angular acceleration. It uses
+:math:`\frac{{}^{\mathcal R}{\textrm{d}}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p}}{\textrm{d}t} = \mathbf 0`, which is
+true because the rate is constant in :math:`\mathcal R_p` and :math:`\mathbf\omega_{\mathcal{R}/\mathcal{R}_p} \times
+\mathbf\omega_{\mathcal{R}/\mathcal{R}_p} = \mathbf 0`, and
+:math:`\mathbf\omega_{\mathcal{R}/\mathcal{N}} \times {\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} =
+\mathbf\omega_{\mathcal{R}_0/\mathcal{N}} \times {\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p}`:
 
 .. math::
    {}^{\mathcal N}{\dot{\mathbf\omega}}_{\mathcal{R}/\mathcal{N}} = {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}_0/\mathcal{N}} \times
-   {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_0} + {}^{\mathcal N}{\dot{\mathbf\omega}}_{\mathcal{R}_0/\mathcal{N}}
+   {}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} + {}^{\mathcal N}{\dot{\mathbf\omega}}_{\mathcal{R}_0/\mathcal{N}}
+
+Cone Around a Target
+^^^^^^^^^^^^^^^^^^^^
+
+A boresight can turn on a cone around the target. Set the body correction so that the boresight
+:math:`\hat{\mathbf b}` points at the target. Set the pointing offset to the cone half-angle :math:`\alpha`. Set the
+spin axis along the target line in :math:`\mathcal R_p` components and set the spin rate :math:`\Omega`:
+
+.. math:: {}^{\mathcal R_p}\hat{\mathbf e} = [R_pR_c]\,\hat{\mathbf b}
+
+The boresight then stays at :math:`\alpha` from the target and turns around it once every :math:`2\pi/|\Omega|`. The
+spacecraft turns as a rigid body, thus it also turns 360 deg about the target line in each cycle.
 
 Module Assumptions and Limitations
 ----------------------------------
@@ -171,17 +227,26 @@ Module Assumptions and Limitations
 - Every ``update()`` advances the MRP by the configured ``controlPeriod``; there is no first-update "warm-up" tick.
   The caller must set ``controlPeriod`` to match the rate at which the adapter is being driven (e.g. the simulation
   task rate), otherwise the integrated reference frame will drift relative to true wall-clock time.
-- The configured ``sigma_RR0`` and ``omega_RR0_R`` are the sole source of the rotating-reference seed values; the
-  module does not consume a runtime command stream. To re-target the rotation at runtime, update the public
-  properties and call ``reset()`` again.
-- Forward Euler integration is used; for large :math:`\Delta t` and large :math:`\mathbf\omega_{\mathcal{R}/\mathcal{R}_0}`, integration
-  drift will accumulate. The expected use case is small steps (<= 1 s) and modest rotation rates.
+- A change of the pointing offset through ``reconfigure()`` applies as a step at the next update. The output rate and
+  acceleration do not include a rate for this step.
+- The module uses forward Euler integration. The integration error of the rotation angle increases with
+  :math:`\Delta t` and :math:`|\Omega|`. Above approximately 0.2 rad per step,
+  float32 rounding errors off the rotation axis increase quickly. Keep
+  :math:`|\Omega|\,\Delta t` well below 0.2 rad.
 - All math uses single-precision (float32). Compared to the double-precision Xmera implementation, regression
   tolerances are relaxed to roughly :math:`10^{-5}`.
 
 Test Description
 ----------------
-The module is verified through regression tests that drive the algorithm through several integration steps and compare
-against an independently coded reference implementation, setup tests for the ``MrpRotationConfig`` validators, property
-tests for finiteness of the integrated output, and edge-case tests covering zero angular velocity and the
-reInitialize re-seeding and setConfig state-preservation contract. Fuzz tests randomize the configuration and inputs over reasonable ranges.
+Regression tests run the algorithm for several steps and compare the output with an independent reference
+implementation. Setup tests examine the ``MrpRotationConfig`` validators, the shadow-set storage of the offsets, and
+the normalized storage of the spin axis.
+Property tests examine:
+
+- The output is finite.
+- With zero rate, the output is the input reference with the two offsets applied.
+- The rotation axis stays fixed in the input reference for 2000 steps.
+- The output rate obeys the transport theorem.
+
+Edge-case tests examine ``reInitialize()``, a new pointing offset through ``setConfig()``, the shadow-set switch, and a
+10 deg cone around a target. Fuzz tests use random configurations and inputs in realistic ranges.

@@ -22,10 +22,7 @@ class DvAccumulation final : public SysModel {
 
     // Phase 1: Public config properties — set before reset()
     float controlPeriod = 0.0F;  //!< [s] control period (FSW time step). Set it to more than 0 before reset()
-    //! [m/s^2] accelerometer bias that the measured body-frame acceleration contains. The algorithm
-    //! subtracts it from each sample. The default value is zero. If the value is zero, the algorithm
-    //! makes no correction. The adapter gives the bias to the algorithm on each updateState(). Thus an
-    //! edit takes effect on the next call, and reconfigure() is not necessary.
+    //! [m/s^2] accelerometer bias that the measured body-frame acceleration contains (finite)
     Eigen::Vector3f accelBias_B = Eigen::Vector3f::Zero();
 
     Message<NavTransMsgF32Payload> dvAccumulationOutMsg;  //!< accumulated DV output message

@@ -39,14 +39,15 @@ inline Eigen::Vector3f referenceUpdate(ReferenceState& s,
 /*! @brief Uses the algorithm on a sequence of acceleration samples at a constant control period.
  *         It compares each step to the reference. */
 inline void testDvAccumulation(float controlPeriod, const std::vector<Eigen::Vector3f>& accels) {
-    DvAccumulationAlgorithm alg{DvAccumulationConfig::create(controlPeriod)};
+    DvAccumulationAlgorithm alg{
+        DvAccumulationConfig::create(controlPeriod, /* accelBias_B = */ Eigen::Vector3f::Zero())};
 
     ReferenceState ref{};
     referenceReInitialize(ref);
 
     for (const Eigen::Vector3f& accel_B : accels) {
         Eigen::Vector3f algOut = Eigen::Vector3f::Zero();
-        EXPECT_NO_THROW(algOut = alg.update(accel_B, Eigen::Vector3f::Zero()));
+        EXPECT_NO_THROW(algOut = alg.update(accel_B));
         const Eigen::Vector3f refOut = referenceUpdate(ref, controlPeriod, accel_B, Eigen::Vector3f::Zero());
 
         for (int i = 0; i < 3; ++i) {
@@ -57,7 +58,7 @@ inline void testDvAccumulation(float controlPeriod, const std::vector<Eigen::Vec
 }
 
 /*! @brief testDvAccumulation for a fuzz test. It ignores a control period that the validator
- *         rejects, it subtracts a generated bias, and it uses a larger tolerance. */
+ *         rejects, it configures a generated bias, and it uses a larger tolerance. */
 inline void testDvAccumulationFuzz(float controlPeriod,
                                    const std::vector<Eigen::Vector3f>& accels,
                                    const Eigen::Vector3f& accelBias_B) {
@@ -65,13 +66,13 @@ inline void testDvAccumulationFuzz(float controlPeriod,
         return;  // the fuzz domain can give a rejected control period. Construction throws on one
     }
 
-    DvAccumulationAlgorithm alg{DvAccumulationConfig::create(controlPeriod)};
+    DvAccumulationAlgorithm alg{DvAccumulationConfig::create(controlPeriod, accelBias_B)};
     ReferenceState ref{};
     referenceReInitialize(ref);
 
     for (const Eigen::Vector3f& accel_B : accels) {
         Eigen::Vector3f algOut = Eigen::Vector3f::Zero();
-        EXPECT_NO_THROW(algOut = alg.update(accel_B, accelBias_B));
+        EXPECT_NO_THROW(algOut = alg.update(accel_B));
         const Eigen::Vector3f refOut = referenceUpdate(ref, controlPeriod, accel_B, accelBias_B);
 
         for (int i = 0; i < 3; ++i) {
@@ -84,7 +85,8 @@ inline void testDvAccumulationFuzz(float controlPeriod,
 /*! @brief Construction test: a valid configuration constructs and does not throw. */
 inline void testDvAccumulationSetup() {
     EXPECT_NO_THROW({
-        const DvAccumulationAlgorithm alg{DvAccumulationConfig::create(0.2F)};
+        const DvAccumulationAlgorithm alg{
+            DvAccumulationConfig::create(/* controlPeriod = */ 0.2F, /* accelBias_B = */ Eigen::Vector3f::Zero())};
         (void)alg;
     });
 }

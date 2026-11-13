@@ -85,15 +85,15 @@ void VectorDutyCycle::updateState(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void VectorDutyCycle::updateForce(const uint64_t callTime) {
-    const CmdForceBodyMsgF32Payload cmdForceIn = this->cmdForceInMsg();
-    const Eigen::Vector3f cmdForce_B = cArrayToEigenVector3<float>(cmdForceIn.forceRequestBody);
+    const CmdForceBodyMsgF32Payload requestedForceIn = this->cmdForceInMsg();
+    const Eigen::Vector3f requestedForce_B = cArrayToEigenVector3<float>(requestedForceIn.forceRequestBody);
 
-    const Eigen::Vector3f gatedForce_B = this->algorithm->update(cmdForce_B);
+    const Eigen::Vector3f gatedForce_B = this->algorithm->update(requestedForce_B);
 
-    CmdForceBodyMsgF32Payload cmdForceOut{};
-    eigenVectorToCArray(gatedForce_B, cmdForceOut.forceRequestBody);
+    CmdForceBodyMsgF32Payload requestedForceOut{};
+    eigenVectorToCArray(gatedForce_B, requestedForceOut.forceRequestBody);
 
-    this->cmdForceOutMsg.write(cmdForceOut, this->moduleID, callTime);
+    this->cmdForceOutMsg.write(requestedForceOut, this->moduleID, callTime);
 }
 
 /*! Applies the duty cycle to the commanded torque and writes the torque output message.
@@ -101,13 +101,13 @@ void VectorDutyCycle::updateForce(const uint64_t callTime) {
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void VectorDutyCycle::updateTorque(const uint64_t callTime) {
-    const CmdTorqueBodyMsgF32Payload cmdTorqueIn = this->cmdTorqueInMsg();
-    const Eigen::Vector3f cmdTorque_B = cArrayToEigenVector3<float>(cmdTorqueIn.torqueRequestBody);
+    const CmdTorqueBodyMsgF32Payload requestedTorqueIn = this->cmdTorqueInMsg();
+    const Eigen::Vector3f requestedTorque_B = cArrayToEigenVector3<float>(requestedTorqueIn.torqueRequestBody);
 
-    const Eigen::Vector3f gatedTorque_B = this->algorithm->update(cmdTorque_B);
+    const Eigen::Vector3f gatedTorque_B = this->algorithm->update(requestedTorque_B);
 
-    CmdTorqueBodyMsgF32Payload cmdTorqueOut{};
-    eigenVectorToCArray(gatedTorque_B, cmdTorqueOut.torqueRequestBody);
+    CmdTorqueBodyMsgF32Payload requestedTorqueOut{};
+    eigenVectorToCArray(gatedTorque_B, requestedTorqueOut.torqueRequestBody);
 
-    this->cmdTorqueOutMsg.write(cmdTorqueOut, this->moduleID, callTime);
+    this->cmdTorqueOutMsg.write(requestedTorqueOut, this->moduleID, callTime);
 }

@@ -15,46 +15,47 @@ class DvGuidanceConfig final {
     /// Cross-product norm floor (~0.06 deg from (anti)parallel); below this the burn frame is degenerate.
     static constexpr float kMinCross = 1e-3F;
 
-    // cmdDv_N and rHatPref_N share the Eigen::Vector3f type but have distinct roles; construction is
+    // requestedDv_N and rHatPref_N share the Eigen::Vector3f type but have distinct roles; construction is
     // funneled through the named create() factory, which makes the argument roles explicit at every call site.
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
 
-    /// @param cmdDv_N    [m/s] Commanded delta-V vector, inertial frame; defines the burn frame's 3rd axis
-    /// @param rHatPref_N [-] Preferred unit direction of the burn frame's 2nd axis, inertial frame; only its
-    ///                   component perpendicular to cmdDv_N is used
-    static DvGuidanceConfig create(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N) {
-        if (!isValidCmdDv(cmdDv_N)) {
-            FSW_THROW_INVALID_ARGUMENT("dvGuidance: cmdDv_N must be finite and nonzero.");
+    /// @param requestedDv_N [m/s] Requested delta-V vector, inertial frame; defines the burn frame's 3rd axis
+    /// @param rHatPref_N    [-] Preferred unit direction of the burn frame's 2nd axis, inertial frame; only its
+    ///                      component perpendicular to requestedDv_N is used
+    static DvGuidanceConfig create(const Eigen::Vector3f& requestedDv_N, const Eigen::Vector3f& rHatPref_N) {
+        if (!isValidRequestedDv(requestedDv_N)) {
+            FSW_THROW_INVALID_ARGUMENT("dvGuidance: requestedDv_N must be finite and nonzero.");
         }
-        if (!isValidRHatPref(cmdDv_N, rHatPref_N)) {
+        if (!isValidRHatPref(requestedDv_N, rHatPref_N)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "dvGuidance: rHatPref_N must be finite, within 1e-3 of unit length, and not parallel to cmdDv_N.");
+                "dvGuidance: rHatPref_N must be finite, within 1e-3 of unit length, and not parallel to "
+                "requestedDv_N.");
         }
-        return {cmdDv_N, rHatPref_N.stableNormalized()};
+        return {requestedDv_N, rHatPref_N.stableNormalized()};
     }
-    static bool isValidCmdDv(const Eigen::Vector3f& cmdDv_N) {
-        return cmdDv_N.allFinite() && cmdDv_N.stableNorm() >= kMinNorm;
+    static bool isValidRequestedDv(const Eigen::Vector3f& requestedDv_N) {
+        return requestedDv_N.allFinite() && requestedDv_N.stableNorm() >= kMinNorm;
     }
-    static bool isValidRHatPref(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N) {
+    static bool isValidRHatPref(const Eigen::Vector3f& requestedDv_N, const Eigen::Vector3f& rHatPref_N) {
         constexpr float kNormTolerance = 1e-3F;
         return rHatPref_N.allFinite() && fabsf(rHatPref_N.stableNorm() - 1.0F) < kNormTolerance &&
-               rHatPref_N.stableNormalized().cross(cmdDv_N.stableNormalized()).stableNorm() >= kMinCross;
+               rHatPref_N.stableNormalized().cross(requestedDv_N.stableNormalized()).stableNorm() >= kMinCross;
     }
 
-    const Eigen::Vector3f& getCmdDv() const { return cmdDv_N; }
+    const Eigen::Vector3f& getRequestedDv() const { return requestedDv_N; }
     const Eigen::Vector3f& getRHatPref() const { return rHatPref_N; }
 
    private:
-    DvGuidanceConfig(const Eigen::Vector3f& cmdDv_N, const Eigen::Vector3f& rHatPref_N)
-        : cmdDv_N(cmdDv_N), rHatPref_N(rHatPref_N) {}
+    DvGuidanceConfig(const Eigen::Vector3f& requestedDv_N, const Eigen::Vector3f& rHatPref_N)
+        : requestedDv_N(requestedDv_N), rHatPref_N(rHatPref_N) {}
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
-    Eigen::Vector3f cmdDv_N{Eigen::Vector3f::Zero()};     ///< [m/s] commanded delta-V, inertial frame
+    Eigen::Vector3f requestedDv_N{Eigen::Vector3f::Zero()};  ///< [m/s] requested delta-V, inertial frame
     Eigen::Vector3f rHatPref_N{Eigen::Vector3f::Zero()};  ///< [-] preferred 2nd-axis direction, inertial frame (unit)
 };
 
 /// Computes the inertially fixed delta-V burn-frame attitude reference from the configured
-/// commanded delta-V and preferred 2nd-axis direction. All math is single-precision (FP32).
+/// requested delta-V and preferred 2nd-axis direction. All math is single-precision (FP32).
 class DvGuidanceAlgorithm final {
    public:
     /// Constructs the algorithm from a validated configuration.

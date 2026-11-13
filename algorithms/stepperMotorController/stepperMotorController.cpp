@@ -16,7 +16,7 @@ void StepperMotorController::reset(const uint64_t callTime) {
     }
 
     const StepperMotorControllerConfig config =
-        StepperMotorControllerConfig::create(this->stepAngle,
+        StepperMotorControllerConfig::create(this->stepsPerRevolution,
                                              StepperMotorAngleRange{this->minAngle, this->maxAngle},
                                              this->settleCountMax,
                                              this->minStepCommand);
@@ -24,7 +24,7 @@ void StepperMotorController::reset(const uint64_t callTime) {
 }
 
 StepperMotorControllerConfig StepperMotorController::toConfig() const {
-    return StepperMotorControllerConfig::create(this->stepAngle,
+    return StepperMotorControllerConfig::create(this->stepsPerRevolution,
                                                 StepperMotorAngleRange{this->minAngle, this->maxAngle},
                                                 this->settleCountMax,
                                                 this->minStepCommand);

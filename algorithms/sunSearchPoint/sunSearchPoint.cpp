@@ -29,7 +29,7 @@ void SunSearchPoint::reset(uint64_t callTime) {
 */
 SunSearchPointConfig SunSearchPoint::toConfig() const {
     return SunSearchPointConfig::create(this->rotations,
-                                        this->sHatBdyCmd,
+                                        this->sunPointAxis_B,
                                         this->sunAxisSpinRate,
                                         this->omega_RN_B,
                                         this->observationThreshold,

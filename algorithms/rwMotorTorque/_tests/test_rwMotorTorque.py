@@ -21,9 +21,9 @@ from xmera.architecture import messaging
 @pytest.mark.parametrize("num_wheels", sorted({2, 4, messaging.RW_EFF_CNT}))
 @pytest.mark.parametrize("num_input_cmd_torques", [1, 2])
 @pytest.mark.parametrize("rw_avail_msg",["NO", "ON", "OFF", "MIXED"])
-@pytest.mark.parametrize("omega_gain", [0.0, 0.5])
+@pytest.mark.parametrize("kp", [0.0, 0.5])
 
-def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd_torques, rw_avail_msg, omega_gain):
+def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd_torques, rw_avail_msg, kp):
     # @TODO With the current implementation of throwing an exception when zero control axes are specified, Python quits
     #  and causes all unit tests to fail. Until a different way of handling exceptions or errors is implemented, the
     #  test with 0 control axes is skipped.
@@ -58,7 +58,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
 
     # Select which body axes (x, y, z) to control; the reference uses control_axes_B (the equivalent matrix).
     module.desiredControlAxes_B = [num_control_axes >= 1, num_control_axes >= 2, num_control_axes >= 3]
-    module.omegaGain = omega_gain  # RW null-space feedback gain (0 disables the null-space term)
+    module.Kp = kp  # RW null-space feedback gain (0 disables the null-space term)
 
     # Add test module to runtime call list
     unit_test_sim.AddModelToTask(unit_task_name, module)
@@ -108,9 +108,10 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     rw_config_params.numRW = RW_EFF_CNT
     rw_config_in_msg = messaging.RWArrayConfigMsgF32().write(rw_config_params)
 
-    # Current RW speeds driving the null-space term; desired speeds default to zero (unlinked).
+    # Current RW speeds from the speed message and desired RW speeds from the configuration drive the null-space term.
     rw_speeds = [10.0 * (i + 1) for i in range(RW_EFF_CNT)]
-    desired_omega = [0.0] * RW_EFF_CNT
+    desired_omega = [4.0 * (i + 1) for i in range(RW_EFF_CNT)]
+    module.rwDesiredSpeeds = desired_omega
     input_speed_msg = messaging.RWSpeedMsgF32Payload()
     input_speed_msg.wheelSpeeds = rw_speeds
     rw_speed_in_msg = messaging.RWSpeedMsgF32().write(input_speed_msg)
@@ -156,7 +157,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
     # Add the null-space term (built from the available wheels, matching the algorithm).
     u_s = u_s + compute_null_space_torque(
         np.array(rw_config_params.GsMatrix_B).reshape((3, RW_EFF_CNT), order='F'),
-        RW_EFF_CNT, rw_speeds, desired_omega, omega_gain, avail)
+        RW_EFF_CNT, rw_speeds, desired_omega, kp, avail)
 
     true_motor_torque = [u_s] * 2
 
@@ -182,7 +183,7 @@ def test_rw_motor_torque(show_plots, num_control_axes, num_wheels, num_input_cmd
 
     # The control mapping must reproduce the requested body torque. Skip with null-space on, whose fp32
     # body-torque leak the truth comparison above already bounds.
-    if omega_gain == 0.0 and num_wheels >= num_control_axes > 0:
+    if kp == 0.0 and num_wheels >= num_control_axes > 0:
         if (len(avail) - np.sum(avail)) > num_control_axes:
             np.testing.assert_allclose(received_torque[:num_control_axes], requested_torque[:num_control_axes],
                                        rtol=accuracy,
@@ -238,7 +239,7 @@ def compute_true_torque(C, Gs_B, Lr, avail_msg):
     return -u_s
 
 
-def compute_null_space_torque(Gs_B, num_wheels, rw_speeds, desired_omega, omega_gain, avail_msg):
+def compute_null_space_torque(Gs_B, num_wheels, rw_speeds, desired_omega, kp, avail_msg):
     """Mirror the algorithm's null-space term over the available wheels."""
     rw_eff_cnt = Gs_B.shape[1]
     u_null = np.zeros(rw_eff_cnt)
@@ -259,7 +260,7 @@ def compute_null_space_torque(Gs_B, num_wheels, rw_speeds, desired_omega, omega_
         if singular_values[2] > singular_values[0] * 1e-6:
             tau = np.identity(rw_eff_cnt) - Gs.T @ np.linalg.inv(GsGsT) @ Gs
             d = np.zeros(rw_eff_cnt)
-            d[:num_wheels] = -omega_gain * (np.array(rw_speeds) - np.array(desired_omega))
+            d[:num_wheels] = -kp * (np.array(rw_speeds) - np.array(desired_omega))
             u_null = tau @ d
             # Zero the null-space torque for unavailable or absent wheels.
             for i in range(rw_eff_cnt):
@@ -275,5 +276,5 @@ if __name__ == "__main__":
                          messaging.RW_EFF_CNT,  # numWheels
                          2,  # numInputCmdTorques
                          "NO",  # RWAvailMsg ("NO", "ON", "OFF")
-                         0.5  # omegaGain
+                         0.5  # Kp
                          )

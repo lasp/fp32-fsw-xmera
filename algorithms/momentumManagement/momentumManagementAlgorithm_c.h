@@ -47,7 +47,7 @@ uint32_t MomentumManagementAlgorithm_getMaxNumRw(void);
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param hsMin         [Nms]  minimum momentum difference for dumping; must be finite and non-negative.
- * @param K             [1/s]  proportional gain on the momentum difference; must be finite and non-negative.
+ * @param Kp            [1/s]  proportional gain on the momentum difference; must be finite and non-negative.
  * @param Ki            [1/s2] integral gain on the accumulated momentum difference; must be finite and non-negative.
  * @param integralLimit [Nms2] anti-windup clamp on each integral component; must be finite and non-negative,
  *                             and positive when Ki > 0.
@@ -66,7 +66,7 @@ uint32_t MomentumManagementAlgorithm_getMaxNumRw(void);
  *         throwing create/setConfig from an invalid configuration.
  */
 bool MomentumManagementAlgorithm_validateConfig(float hsMin,
-                                                float K,
+                                                float Kp,
                                                 float Ki,
                                                 float integralLimit,
                                                 float controlPeriod,
@@ -79,7 +79,7 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
 /**
  * @brief Construct a new MomentumManagementAlgorithm instance from the supplied configuration.
  * @param hsMin         [Nms]  minimum momentum difference for dumping; must be finite and non-negative.
- * @param K             [1/s]  proportional gain on the momentum difference; must be finite and non-negative.
+ * @param Kp            [1/s]  proportional gain on the momentum difference; must be finite and non-negative.
  * @param Ki            [1/s2] integral gain on the accumulated momentum difference; must be finite and non-negative.
  * @param integralLimit [Nms2] anti-windup clamp on each integral component; must be finite and non-negative,
  *                             and positive when Ki > 0.
@@ -99,7 +99,7 @@ bool MomentumManagementAlgorithm_validateConfig(float hsMin,
  */
 MomentumManagementAlgorithmHandle* MomentumManagementAlgorithm_create(
     float hsMin,
-    float K,
+    float Kp,
     float Ki,
     float integralLimit,
     float controlPeriod,
@@ -119,7 +119,7 @@ void MomentumManagementAlgorithm_destroy(MomentumManagementAlgorithmHandle* self
  * @brief Replace the algorithm's configuration at runtime without disturbing its runtime state.
  * @param self          Pointer to the instance.
  * @param hsMin         [Nms]  minimum momentum difference for dumping; must be finite and non-negative.
- * @param K             [1/s]  proportional gain on the momentum difference; must be finite and non-negative.
+ * @param Kp            [1/s]  proportional gain on the momentum difference; must be finite and non-negative.
  * @param Ki            [1/s2] integral gain on the accumulated momentum difference; must be finite and non-negative.
  * @param integralLimit [Nms2] anti-windup clamp on each integral component; must be finite and non-negative,
  *                             and positive when Ki > 0.
@@ -138,7 +138,7 @@ void MomentumManagementAlgorithm_destroy(MomentumManagementAlgorithmHandle* self
  */
 void MomentumManagementAlgorithm_setConfig(MomentumManagementAlgorithmHandle* self,
                                            float hsMin,
-                                           float K,
+                                           float Kp,
                                            float Ki,
                                            float integralLimit,
                                            float controlPeriod,

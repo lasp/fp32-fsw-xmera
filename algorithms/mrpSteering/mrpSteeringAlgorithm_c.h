@@ -51,7 +51,7 @@ uint32_t MrpSteeringAlgorithm_getMaxNumRw(void);
  * @param K3                         [rad/s] cubic gain in the steering saturation function; must be >= 0.
  * @param omegaMax                   [rad/s] maximum rate command of the steering law; must be > 0.
  * @param ignoreOuterLoopFeedforward [-]     whether the outer-loop feedforward term is excluded.
- * @param P                          [N*m*s] rate error feedback gain; must be >= 0.
+ * @param Kd                         [N*m*s] rate error feedback gain; must be >= 0.
  * @param Ki                         [N*m]   integral feedback gain on the rate error; must be >= 0.
  * @param integralLimit              [N*m]   integral limit that avoids wind-up; must be >= 0.
  * @param controlPeriod              [s]     time between two update calls; must be > 0.
@@ -65,7 +65,7 @@ bool MrpSteeringAlgorithm_validateConfig(float K1,
                                          float K3,
                                          float omegaMax,
                                          bool ignoreOuterLoopFeedforward,
-                                         float P,
+                                         float Kd,
                                          float Ki,
                                          float integralLimit,
                                          float controlPeriod,
@@ -81,7 +81,7 @@ bool MrpSteeringAlgorithm_validateConfig(float K1,
  * @param K3                         [rad/s] cubic gain in the steering saturation function; must be >= 0.
  * @param omegaMax                   [rad/s] maximum rate command of the steering law; must be > 0.
  * @param ignoreOuterLoopFeedforward [-]     whether the outer-loop feedforward term is excluded.
- * @param P                          [N*m*s] rate error feedback gain; must be >= 0.
+ * @param Kd                         [N*m*s] rate error feedback gain; must be >= 0.
  * @param Ki                         [N*m]   integral feedback gain on the rate error; must be >= 0.
  * @param integralLimit              [N*m]   integral limit that avoids wind-up; must be >= 0.
  * @param controlPeriod              [s]     time between two update calls; must be > 0.
@@ -97,7 +97,7 @@ MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(float K1,
                                                         float K3,
                                                         float omegaMax,
                                                         bool ignoreOuterLoopFeedforward,
-                                                        float P,
+                                                        float Kd,
                                                         float Ki,
                                                         float integralLimit,
                                                         float controlPeriod,
@@ -120,7 +120,7 @@ void MrpSteeringAlgorithm_destroy(MrpSteeringAlgorithmHandle* self);
  * @param K3                         [rad/s] cubic gain in the steering saturation function; must be >= 0.
  * @param omegaMax                   [rad/s] maximum rate command of the steering law; must be > 0.
  * @param ignoreOuterLoopFeedforward [-]     whether the outer-loop feedforward term is excluded.
- * @param P                          [N*m*s] rate error feedback gain; must be >= 0.
+ * @param Kd                         [N*m*s] rate error feedback gain; must be >= 0.
  * @param Ki                         [N*m]   integral feedback gain on the rate error; must be >= 0.
  * @param integralLimit              [N*m]   integral limit that avoids wind-up; must be >= 0.
  * @param controlPeriod              [s]     time between two update calls; must be > 0.
@@ -136,7 +136,7 @@ void MrpSteeringAlgorithm_setConfig(MrpSteeringAlgorithmHandle* self,
                                     float K3,
                                     float omegaMax,
                                     bool ignoreOuterLoopFeedforward,
-                                    float P,
+                                    float Kd,
                                     float Ki,
                                     float integralLimit,
                                     float controlPeriod,

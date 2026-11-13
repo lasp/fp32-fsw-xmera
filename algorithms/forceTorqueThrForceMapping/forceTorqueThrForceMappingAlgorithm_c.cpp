@@ -96,11 +96,11 @@ void ForceTorqueThrForceMappingAlgorithm_setConfig(ForceTorqueThrForceMappingAlg
 }
 
 ThrForceArray_c ForceTorqueThrForceMappingAlgorithm_update(const ForceTorqueThrForceMappingAlgorithmHandle* self,
-                                                           const Vector3f_c* cmdTorque_B,
-                                                           const Vector3f_c* cmdForce_B) {
+                                                           const Vector3f_c* requestedTorque_B,
+                                                           const Vector3f_c* requestedForce_B) {
     const Eigen::Vector<float, kMaxThrusterCount> out =
         fsw::fromHandle<const ::ForceTorqueThrForceMappingAlgorithm>(self)->update(
-            cArrayToEigenVector3<float>(cmdTorque_B->data), cArrayToEigenVector3<float>(cmdForce_B->data));
+            cArrayToEigenVector3<float>(requestedTorque_B->data), cArrayToEigenVector3<float>(requestedForce_B->data));
 
     ThrForceArray_c result{};
     eigenVectorToCArray(out, result.thrForce);

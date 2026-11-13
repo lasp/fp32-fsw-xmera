@@ -25,8 +25,8 @@ class MrpPD : public SysModel {
 
     void reconfigure();
 
-    float K{};  //!< [rad/s] proportional gain applied to MRP errors
-    float P{};  //!< [N*m*s] rate-error feedback (derivative) gain
+    float Kp{};  //!< [rad/s] proportional gain applied to MRP errors
+    float Kd{};  //!< [N*m*s] rate-error feedback (derivative) gain
 
     ReadFunctor<AttGuidMsgF32Payload> guidInMsg;             //!< Attitude guidance input message
     ReadFunctor<VehicleConfigMsgF32Payload> vehConfigInMsg;  //!< Vehicle configuration input message

@@ -14,37 +14,36 @@
  */
 class MrpPDConfig final {
    public:
-    static MrpPDConfig create(float proportionalGainK, float derivativeGainP, const Eigen::Matrix3f& ISCPntB_B) {
-        if (!isValidProportionalGainK(proportionalGainK)) {
-            FSW_THROW_INVALID_ARGUMENT("mrpPD: proportional gain K must not be negative");
+    static MrpPDConfig create(float Kp, float Kd, const Eigen::Matrix3f& ISCPntB_B) {
+        if (!isValidKp(Kp)) {
+            FSW_THROW_INVALID_ARGUMENT("mrpPD: proportional gain Kp must not be negative");
         }
-        if (!isValidDerivativeGainP(derivativeGainP)) {
-            FSW_THROW_INVALID_ARGUMENT("mrpPD: derivative gain P must not be negative");
+        if (!isValidKd(Kd)) {
+            FSW_THROW_INVALID_ARGUMENT("mrpPD: derivative gain Kd must not be negative");
         }
         if (!isValidInertia(ISCPntB_B)) {
             FSW_THROW_INVALID_ARGUMENT("mrpPD: ISCPntB_B must be a valid spacecraft inertia matrix");
         }
-        return {proportionalGainK, derivativeGainP, ISCPntB_B};
+        return {Kp, Kd, ISCPntB_B};
     }
 
-    static bool isValidProportionalGainK(float proportionalGainK) { return proportionalGainK >= 0.0F; }
-    static bool isValidDerivativeGainP(float derivativeGainP) { return derivativeGainP >= 0.0F; }
+    static bool isValidKp(float Kp) { return Kp >= 0.0F; }
+    static bool isValidKd(float Kd) { return Kd >= 0.0F; }
     static bool isValidInertia(const Eigen::Matrix3f& ISCPntB_B) { return inertiaIsValid(ISCPntB_B); }
 
-    float getProportionalGainK() const { return proportionalGainK; }
-    float getDerivativeGainP() const { return derivativeGainP; }
+    float getKp() const { return Kp; }
+    float getKd() const { return Kd; }
     const Eigen::Matrix3f& getInertia() const { return ISCPntB_B; }
 
    private:
     // The two gains share a type but have distinct roles; construction is funneled through the named create()
     // factory, which makes the argument roles explicit at every call site.
     // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-    MrpPDConfig(float proportionalGainK, float derivativeGainP, const Eigen::Matrix3f& ISCPntB_B)
-        : proportionalGainK(proportionalGainK), derivativeGainP(derivativeGainP), ISCPntB_B(ISCPntB_B) {}
+    MrpPDConfig(float Kp, float Kd, const Eigen::Matrix3f& ISCPntB_B) : Kp(Kp), Kd(Kd), ISCPntB_B(ISCPntB_B) {}
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
-    float proportionalGainK;
-    float derivativeGainP;
+    float Kp;
+    float Kd;
     Eigen::Matrix3f ISCPntB_B;
 };
 

@@ -16,9 +16,9 @@ struct StepperMotorAngleRange {
 /*!
  * @brief Validated configuration for the stepper motor controller algorithm.
  *
- * An instance can only exist with a step angle in [2*pi/kMaxStepsPerRev, 2*pi]; an angle range whose bounds are in
- * [-2*pi, 2*pi] with minAngle strictly less than maxAngle; and a strictly positive minimum step command. The steps
- * per revolution and the full-circle flag are derived from the step angle and range when the configuration is built.
+ * An instance can only exist with a steps-per-revolution count in [1, kMaxStepsPerRev]; an angle range whose bounds
+ * are in [-2*pi, 2*pi] with minAngle strictly less than maxAngle; and a strictly positive minimum step command. The
+ * step angle and the full-circle flag are derived from the steps per revolution and the range by the algorithm.
  * Construct via StepperMotorControllerConfig::create(...).
  */
 class StepperMotorControllerConfig final {
@@ -29,12 +29,12 @@ class StepperMotorControllerConfig final {
     static constexpr uint32_t kMaxStepsPerRev = 100000U;
     static constexpr float kMinStepAngle = 2.0F * std::numbers::pi_v<float> / static_cast<float>(kMaxStepsPerRev);
 
-    static StepperMotorControllerConfig create(float stepAngle,
+    static StepperMotorControllerConfig create(uint32_t stepsPerRevolution,
                                                const StepperMotorAngleRange& angleRange,
                                                uint32_t settleCountMax,
                                                uint32_t minStepCommand) {
-        if (!isValidStepAngle(stepAngle)) {
-            FSW_THROW_INVALID_ARGUMENT("stepperMotorController: stepAngle must be in [2*pi/kMaxStepsPerRev, 2*pi].");
+        if (!isValidStepsPerRevolution(stepsPerRevolution)) {
+            FSW_THROW_INVALID_ARGUMENT("stepperMotorController: stepsPerRevolution must be in [1, kMaxStepsPerRev].");
         }
         if (!isValidAngleRange(angleRange)) {
             FSW_THROW_INVALID_ARGUMENT(
@@ -44,12 +44,11 @@ class StepperMotorControllerConfig final {
         if (!isValidMinStepCommand(minStepCommand)) {
             FSW_THROW_INVALID_ARGUMENT("stepperMotorController: minStepCommand must be greater than zero.");
         }
-        return {stepAngle, angleRange, settleCountMax, minStepCommand};
+        return {stepsPerRevolution, angleRange, settleCountMax, minStepCommand};
     }
 
-    static bool isValidStepAngle(float stepAngle) {
-        constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
-        return stepAngle >= kMinStepAngle && stepAngle <= twoPi;
+    static bool isValidStepsPerRevolution(uint32_t stepsPerRevolution) {
+        return stepsPerRevolution >= 1U && stepsPerRevolution <= kMaxStepsPerRev;
     }
 
     static bool isValidAngleRange(const StepperMotorAngleRange& angleRange) {
@@ -61,25 +60,25 @@ class StepperMotorControllerConfig final {
     static bool isValidMinStepCommand(uint32_t minStepCommand) { return minStepCommand > 0U; }
     // No isValidSettleCountMax -- any uint32_t tick count is valid.
 
-    float getStepAngle() const { return this->stepAngle; }
+    uint32_t getStepsPerRevolution() const { return this->stepsPerRevolution; }
     const StepperMotorAngleRange& getAngleRange() const { return this->angleRange; }
     uint32_t getSettleCountMax() const { return this->settleCountMax; }
     uint32_t getMinStepCommand() const { return this->minStepCommand; }
 
    private:
-    // NOLINTBEGIN(bugprone-easily-swappable-parameters): settleCountMax (ticks) and minStepCommand (steps) are
-    // distinct documented quantities stored verbatim by the factory.
-    StepperMotorControllerConfig(float stepAngle,
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters): stepsPerRevolution (steps), settleCountMax (ticks) and
+    // minStepCommand (steps) are distinct documented quantities stored verbatim by the factory.
+    StepperMotorControllerConfig(uint32_t stepsPerRevolution,
                                  const StepperMotorAngleRange& angleRange,
                                  uint32_t settleCountMax,
                                  uint32_t minStepCommand)
-        : stepAngle(stepAngle),
+        : stepsPerRevolution(stepsPerRevolution),
           angleRange(angleRange),
           settleCountMax(settleCountMax),
           minStepCommand(minStepCommand) {}
     // NOLINTEND(bugprone-easily-swappable-parameters)
 
-    float stepAngle;                    //!< [rad/step] angle per motor step
+    uint32_t stepsPerRevolution;        //!< [steps] motor steps per full revolution
     StepperMotorAngleRange angleRange;  //!< [rad] motor travel range
     uint32_t settleCountMax;            //!< [ticks] settling duration after stop
     uint32_t minStepCommand;            //!< [steps] minimum step delta magnitude that triggers a command (> 0)
@@ -88,7 +87,8 @@ class StepperMotorControllerConfig final {
 /*! @brief Stepper Motor Controller Algorithm
  *
  * State-machine-based controller that commands a stepper motor to a desired position.
- * Operates in integer step counts internally; reference angles are converted using stepAngle.
+ * Operates in integer step counts internally; reference angles are converted using the step angle
+ * 2*pi / stepsPerRevolution.
  * The current motor position is an input to update(); position tracking lives in the caller.
  *
  * The motor's travel range is bounded by [minAngle, maxAngle]. Reference angles outside this
@@ -110,7 +110,7 @@ class StepperMotorControllerAlgorithm final {
     int angleToSteps(float angle) const;
 
    private:
-    //! Recompute the cached values derived from the configuration (steps per revolution, full-circle flag).
+    //! Recompute the cached values derived from the configuration (step angle, full-circle flag).
     void cacheDerivedValues();
     int wrapDelta(int delta) const;
     int stepDelta(int delta) const;
@@ -118,14 +118,14 @@ class StepperMotorControllerAlgorithm final {
     StepperMotorControllerConfig cfg;  //!< [-] validated configuration
 
     // Cached values derived from the configuration (recomputed on construction and setConfig).
-    int stepsPerRev{};    //!< [steps] derived round(2*pi / stepAngle), used for wrap math
+    float stepAngle{};    //!< [rad/step] derived 2*pi / stepsPerRevolution, used for angle-to-step conversion
     bool isFullCircle{};  //!< derived: range within eps of 2*pi; enables shortest-path wrap-around
 
     // State
     StepperMotorState state{StepperMotorState::IDLE};
-    int commandedPosition{};  //!< [steps] Target of the current move command
-    int desiredPosition{};    //!< [steps] Desired position from reference angle
-    uint32_t settleCount{};   //!< [ticks] Counter for settling phase
+    int targetPosition{};    //!< [steps] Target of the current move command
+    int desiredPosition{};   //!< [steps] Desired position from reference angle
+    uint32_t settleCount{};  //!< [ticks] Counter for settling phase
 };
 
 #endif

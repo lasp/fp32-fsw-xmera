@@ -35,7 +35,7 @@ struct MrpSteeringControlParameters {
     float K3{};                         //!< [rad/s] cubic gain applied to MRP error in steering saturation function
     float omegaMax{};                   //!< [rad/s] maximum rate command of steering control
     bool ignoreOuterLoopFeedforward{};  //!< [-] whether the outer-loop feedforward term is excluded
-    float P{};                          //!< [N*m*s] rate error feedback gain
+    float Kd{};                         //!< [N*m*s] rate error feedback gain
     float Ki{};                         //!< [N*m] integral feedback gain on the rate error
     float integralLimit{};              //!< [N*m] integral limit to avoid wind-up
     float controlPeriod{};              //!< [s] time between two algorithm update calls
@@ -44,7 +44,7 @@ struct MrpSteeringControlParameters {
 /*!
  * @brief Validated configuration for the MRP steering control algorithm.
  *
- * An instance can only exist with finite, non-negative control gains (K1, K3, P, Ki, integralLimit), a finite
+ * An instance can only exist with finite, non-negative control gains (K1, K3, Kd, Ki, integralLimit), a finite
  * and positive maximum rate and control period, a finite known external torque, a valid spacecraft inertia
  * matrix, and a reaction-wheel configuration whose wheel count does not exceed the compile-time maximum with
  * finite spin-axis and wheel-inertia entries. Construct via MrpSteeringConfig::create(...).
@@ -57,7 +57,7 @@ class MrpSteeringConfig final {
                                     const std::optional<InputRwData>& rwConfiguration = std::nullopt) {
         if (!isValidControlParameters(controlParameters)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "mrpSteering: control gains K1, K3, P, Ki, integralLimit must be finite and non-negative, and "
+                "mrpSteering: control gains K1, K3, Kd, Ki, integralLimit must be finite and non-negative, and "
                 "omegaMax and controlPeriod must be finite and positive.");
         }
         if (!isValidKnownTorque(knownTorquePntB_B)) {
@@ -86,7 +86,7 @@ class MrpSteeringConfig final {
     static bool isValidControlParameters(const MrpSteeringControlParameters& controlParameters) {
         const bool gainsValid = fsw::is_finite(controlParameters.K1) && controlParameters.K1 >= 0.0F &&
                                 fsw::is_finite(controlParameters.K3) && controlParameters.K3 >= 0.0F &&
-                                fsw::is_finite(controlParameters.P) && controlParameters.P >= 0.0F &&
+                                fsw::is_finite(controlParameters.Kd) && controlParameters.Kd >= 0.0F &&
                                 fsw::is_finite(controlParameters.Ki) && controlParameters.Ki >= 0.0F &&
                                 fsw::is_finite(controlParameters.integralLimit) &&
                                 controlParameters.integralLimit >= 0.0F;

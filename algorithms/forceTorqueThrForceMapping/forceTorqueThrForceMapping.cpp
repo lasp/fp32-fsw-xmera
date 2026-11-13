@@ -86,22 +86,23 @@ void ForceTorqueThrForceMapping::updateState(const uint64_t callTime) {
         throw XmeraLifecycleException("ForceTorqueThrForceMapping reset() has not been called.");
     }
 
-    Eigen::Vector3f cmdTorque{Eigen::Vector3f::Zero()};
-    Eigen::Vector3f cmdForce{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f requestedTorque_B{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f requestedForce_B{Eigen::Vector3f::Zero()};
 
     /* Check if torque message is linked and read, zero out if not*/
     if (this->cmdTorqueInMsg.isLinked()) {
-        CmdTorqueBodyMsgF32Payload cmdTorqueIn = this->cmdTorqueInMsg();
-        cmdTorque = cArrayToEigenVector(cmdTorqueIn.torqueRequestBody);
+        CmdTorqueBodyMsgF32Payload requestedTorqueIn = this->cmdTorqueInMsg();
+        requestedTorque_B = cArrayToEigenVector(requestedTorqueIn.torqueRequestBody);
     }
 
     /* Check if force message is linked and read, zero out if not*/
     if (this->cmdForceInMsg.isLinked()) {
-        CmdForceBodyMsgF32Payload cmdForceIn = this->cmdForceInMsg();
-        cmdForce = cArrayToEigenVector(cmdForceIn.forceRequestBody);
+        CmdForceBodyMsgF32Payload requestedForceIn = this->cmdForceInMsg();
+        requestedForce_B = cArrayToEigenVector(requestedForceIn.forceRequestBody);
     }
 
-    const Eigen::Vector<float, kMaxThrusterCount> thrForce = this->algorithm->update(cmdTorque, cmdForce);
+    const Eigen::Vector<float, kMaxThrusterCount> thrForce =
+        this->algorithm->update(requestedTorque_B, requestedForce_B);
 
     THRArrayCmdForceMsgF32Payload thrForceCmdOut{};
     eigenVectorToCArray(thrForce, thrForceCmdOut.thrForce);

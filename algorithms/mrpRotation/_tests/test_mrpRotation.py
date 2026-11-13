@@ -15,59 +15,50 @@ from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
 
 
-def compute_truth(sigma_RR0_init, omega_RR0_R, ref_state_in_data, dt, num_steps_pre_reset, num_steps_post_reset):
-    """Each tick advances sigma_RR0 by the configured controlPeriod (dt) and emits the output frame.
-    The algorithm integrates BEFORE computing the output, so tick k uses sigma_RR0(k+1) = sigma_RR0(k) + dt * sigmaDot.
+def compute_truth(sigma_RcR0, segments, spin_axis_Rp, spin_rate, ref_state_in_data, dt):
+    """Each tick advances sigma_RRp by the configured controlPeriod (dt) and emits the output frame
+    [RN] = [RRp][RpRc][RcR0][R0N]. The algorithm integrates BEFORE computing the output. The rate is
+    given in Rp axes.
+
+    ``segments`` is a list of (sigma_RpRc, num_steps, restart) tuples. ``restart`` is True when reset()
+    rebuilt the algorithm before the segment (sigma_RRp restarts at identity); reconfigure() keeps sigma_RRp.
     """
     sigma_R0N = np.array(ref_state_in_data.sigma_RN)
     R0N = rbk.MRP2C(sigma_R0N)
+    RcR0 = rbk.MRP2C(np.array(sigma_RcR0))
     omega_R0N_N = np.array(ref_state_in_data.omega_RN_N)
     domega_R0N_N = np.array(ref_state_in_data.domega_RN_N)
-    omega_RR0_R = np.array(omega_RR0_R)
+    omega_RRp_Rp = spin_rate * np.array(spin_axis_Rp) / np.linalg.norm(spin_axis_Rp)
 
     truth_sigma = []
     truth_omega_RN_N = []
     truth_domega_RN_N = []
 
-    def integrate_and_emit(sigma_RR0):
-        # Forward-Euler MRP integration with mrpSwitch (shadow set when |sigma| > 1).
-        B = rbk.BmatMRP(sigma_RR0)
-        sigma_RR0_new = sigma_RR0 + dt * 0.25 * np.dot(B, omega_RR0_R)
-        n_sq = float(np.dot(sigma_RR0_new, sigma_RR0_new))
-        if n_sq > 1.0:
-            sigma_RR0_new = -sigma_RR0_new / n_sq
-        # Output uses the post-integration sigma_RR0.
-        RR0 = rbk.MRP2C(sigma_RR0_new)
-        RN = np.dot(RR0, R0N)
-        sigma_RN = rbk.C2MRP(RN)
-        omega_RR0_N = np.dot(RN.T, omega_RR0_R)
-        omega_RN_N = omega_RR0_N + omega_R0N_N
-        domega_RR0_N = np.cross(omega_R0N_N, omega_RR0_N)
-        domega_RN_N = domega_RR0_N + domega_R0N_N
-        return sigma_RR0_new, sigma_RN, omega_RN_N, domega_RN_N
-
-    sigma_RR0 = np.array(sigma_RR0_init, dtype=float)
-    for _ in range(num_steps_pre_reset):
-        sigma_RR0, sigma_RN, omega_RN_N, domega_RN_N = integrate_and_emit(sigma_RR0)
-        truth_sigma.append(sigma_RN.tolist())
-        truth_omega_RN_N.append(omega_RN_N.tolist())
-        truth_domega_RN_N.append(domega_RN_N.tolist())
-
-    # reset() reconstructs the algorithm, re-seeding its runtime sigma_RR0 from the configured initial
-    # values, so the post-reset integration restarts from sigma_RR0_init.
-    if num_steps_post_reset > 0:
-        sigma_RR0 = np.array(sigma_RR0_init, dtype=float)
-        for _ in range(num_steps_post_reset):
-            sigma_RR0, sigma_RN, omega_RN_N, domega_RN_N = integrate_and_emit(sigma_RR0)
-            truth_sigma.append(sigma_RN.tolist())
-            truth_omega_RN_N.append(omega_RN_N.tolist())
-            truth_domega_RN_N.append(domega_RN_N.tolist())
+    sigma_RRp = np.zeros(3)
+    for sigma_RpRc, num_steps, restart in segments:
+        if restart:
+            sigma_RRp = np.zeros(3)
+        RpRc = rbk.MRP2C(np.array(sigma_RpRc))
+        for _ in range(num_steps):
+            # Forward-Euler MRP integration with mrpSwitch (shadow set when |sigma| > 1).
+            B = rbk.BmatMRP(sigma_RRp)
+            omega_RRp_R = rbk.MRP2C(sigma_RRp) @ omega_RRp_Rp
+            sigma_RRp = sigma_RRp + dt * 0.25 * np.dot(B, omega_RRp_R)
+            n_sq = float(np.dot(sigma_RRp, sigma_RRp))
+            if n_sq > 1.0:
+                sigma_RRp = -sigma_RRp / n_sq
+            RpN = RpRc @ RcR0 @ R0N
+            RN = rbk.MRP2C(sigma_RRp) @ RpN
+            omega_RRp_N = RpN.T @ omega_RRp_Rp
+            truth_sigma.append(rbk.C2MRP(RN).tolist())
+            truth_omega_RN_N.append((omega_RRp_N + omega_R0N_N).tolist())
+            truth_domega_RN_N.append((np.cross(omega_R0N_N, omega_RRp_N) + domega_R0N_N).tolist())
 
     return truth_sigma, truth_omega_RN_N, truth_domega_RN_N
 
 
-@pytest.mark.parametrize("test_reset", [False, True])
-def test_mrp_rotation(show_plots, test_reset):
+@pytest.mark.parametrize("second_phase", ["none", "reset", "reconfigure"])
+def test_mrp_rotation(show_plots, second_phase):
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
     unit_test_sim = SimulationBaseClass.SimBaseClass()
@@ -86,10 +77,14 @@ def test_mrp_rotation(show_plots, test_reset):
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
-    sigma_RR0 = np.array([0.3, .5, 0.0])
-    module.sigma_RR0 = sigma_RR0
-    omega_RR0_R = np.array([0.1, 0.0, 0.0]) * mc.D2R
-    module.omega_RR0_R = omega_RR0_R
+    sigma_RcR0 = np.array([0.3, .5, 0.0])
+    module.sigma_RcR0 = sigma_RcR0
+    sigma_RpRc_1 = np.array([0.0, 0.0, 0.05])
+    module.sigma_RpRc = sigma_RpRc_1
+    spin_axis_Rp = np.array([1.0, 0.0, 0.0])
+    module.spinAxis_Rp = spin_axis_Rp
+    spin_rate = 0.1 * mc.D2R
+    module.spinRate = spin_rate
     module.controlPeriod = update_time
 
     ref_state_in_data = messaging.AttRefMsgF32Payload()
@@ -109,18 +104,24 @@ def test_mrp_rotation(show_plots, test_reset):
     unit_test_sim.ConfigureStopTime(mc.sec2nano(total_test_sim_time))
     unit_test_sim.ExecuteSimulation()
 
-    if test_reset:
-        module.reset(1)
+    # Tick count: tasks at rate update_time fire at t=0, dt, 2*dt, ..., total_test_sim_time → that's
+    # (total_test_sim_time / update_time) + 1 ticks. The second phase adds 1.0s → 1.0/update_time more.
+    segments = [(sigma_RpRc_1, int(round(total_test_sim_time / update_time)) + 1, True)]
+
+    if second_phase != "none":
+        if second_phase == "reset":
+            module.reset(1)
+            segments.append((sigma_RpRc_1, int(round(1.0 / update_time)), True))
+        else:
+            sigma_RpRc_2 = np.array([0.04, -0.02, 0.0])
+            module.sigma_RpRc = sigma_RpRc_2
+            module.reconfigure()
+            segments.append((sigma_RpRc_2, int(round(1.0 / update_time)), False))
         unit_test_sim.ConfigureStopTime(mc.sec2nano(total_test_sim_time + 1.0))
         unit_test_sim.ExecuteSimulation()
 
-    # Tick count: tasks at rate update_time fire at t=0, dt, 2*dt, ..., total_test_sim_time → that's
-    # (total_test_sim_time / update_time) + 1 ticks. Reset adds 1.0s of additional sim → 1.0/update_time more.
-    num_steps_pre_reset = int(round(total_test_sim_time / update_time)) + 1
-    num_steps_post_reset = int(round(1.0 / update_time)) if test_reset else 0
-
     sigma_RN_true, omega_RN_true, dOmega_RN_true = compute_truth(
-        sigma_RR0, omega_RR0_R, ref_state_in_data, update_time, num_steps_pre_reset, num_steps_post_reset
+        sigma_RcR0, segments, spin_axis_Rp, spin_rate, ref_state_in_data, update_time
     )
 
     accuracy = 1e-6
@@ -131,4 +132,4 @@ def test_mrp_rotation(show_plots, test_reset):
 
 
 if __name__ == "__main__":
-    test_mrp_rotation(False, True)
+    test_mrp_rotation(False, "reconfigure")

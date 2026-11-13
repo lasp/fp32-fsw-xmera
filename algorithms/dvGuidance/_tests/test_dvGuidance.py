@@ -21,9 +21,9 @@ def test_dv_guidance():
     module.modelTag = "dvGuidance"
     sim.AddModelToTask(task_name, module)
 
-    cmd_dv_N = np.array([5.0, 5.0, 5.0])
+    requested_dv_N = np.array([5.0, 5.0, 5.0])
     r_hat_pref_N = np.array([1.0, 0.0, 0.0])
-    module.cmdDv_N = cmd_dv_N
+    module.requestedDv_N = requested_dv_N
     module.rHatPref_N = r_hat_pref_N
 
     data_log = module.attRefOutMsg.recorder()
@@ -39,7 +39,7 @@ def test_dv_guidance():
 
     # Expected burn frame R: 3rd axis along the delta-V command, 1st axis perpendicular to rHatPref_N and
     # the delta-V command, 2nd axis completes the right-handed triad.
-    r3_N = cmd_dv_N / np.linalg.norm(cmd_dv_N)
+    r3_N = requested_dv_N / np.linalg.norm(requested_dv_N)
     r1_N = np.cross(r_hat_pref_N, r3_N)
     r1_N = r1_N / np.linalg.norm(r1_N)
     r2_N = np.cross(r3_N, r1_N)

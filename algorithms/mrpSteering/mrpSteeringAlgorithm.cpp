@@ -108,7 +108,7 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
     }
 
     /*! - evaluate required attitude control torque Lc */
-    const Eigen::Vector3f Lc = params.P * omega_BBast_B + params.Ki * this->z - omega_BastN_B.cross(H_B) -
+    const Eigen::Vector3f Lc = params.Kd * omega_BBast_B + params.Ki * this->z - omega_BastN_B.cross(H_B) -
                                ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) +
                                this->cfg.getKnownTorquePntB_B();
 
