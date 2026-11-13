@@ -14,8 +14,8 @@ void RegionsOfInterestPruneAlgorithm::setConfig(const RegionsOfInterestPruneConf
 
 /*! Update method for the regions-of-interest pruning algorithm.  Orchestrates
  *  the pipeline steps and returns a fully populated RoiCandidates.
- @return RoiCandidates  Candidates sorted by distance from the box center to the reference point (ascending), ties
-                        broken by scaledIntensity (descending).
+ @return RoiCandidates  At most ROI_CANDIDATES_OUT_MAX candidates, sorted by distance from the box center to the
+                        reference point (ascending), ties broken by scaledIntensity (descending).
  @param rowSums   Pointer to the per-row above-threshold pixel sums.
  @param numRows   Number of rows in the sum array.
  @param colSums   Pointer to the per-column above-threshold pixel sums.
@@ -63,6 +63,12 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
 
     // Step 5: sort by distance to the reference point, ties broken by scaledIntensity.
     rankCandidates(litCandidates, referenceRow, referenceCol);
+
+    // Step 6: keep only the top ROI_CANDIDATES_OUT_MAX ranked candidates; clear the slots that are cut.
+    for (uint32_t i = ROI_CANDIDATES_OUT_MAX; i < litCandidates.numCandidates; ++i) {
+        litCandidates.candidates[i] = RoiCandidateEntry{};
+    }
+    litCandidates.numCandidates = std::min(litCandidates.numCandidates, ROI_CANDIDATES_OUT_MAX);
     return litCandidates;
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)

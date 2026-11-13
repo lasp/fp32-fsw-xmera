@@ -14,6 +14,10 @@ static constexpr uint32_t COL_SPANS_MAX = 2;  //!< Number of col spans kept (clo
 //!< lack of room. The adapter publishes the first MAX_NUMBER_REGIONS.
 static constexpr uint32_t ROI_CANDIDATES_MAX = ROW_SPANS_MAX * COL_SPANS_MAX;
 
+//!< Number of ranked candidates update() returns: the list is cut to the first ROI_CANDIDATES_OUT_MAX after ranking.
+static constexpr uint32_t ROI_CANDIDATES_OUT_MAX = 2;
+static_assert(ROI_CANDIDATES_OUT_MAX <= ROI_CANDIDATES_MAX, "cannot return more candidates than are formed");
+
 //!< [-] Ghost-box removal (Step 2b) drops the worse span pairing only when the better pairing's mismatch is at most
 //!< this fraction of the worse one; otherwise the projections are ambiguous and all boxes are kept.
 static constexpr float GHOST_PAIRING_MARGIN = 0.5F;
@@ -131,6 +135,7 @@ class RegionsOfInterestPruneConfig final {
  *    3. Drop boxes that overlap no lit bin-grid tile.
  *    4. scaledIntensity = intensity / area^alpha.
  *    5. Sort by distance to the reference point ascending, ties by scaledIntensity descending.
+ *    6. Return the first ROI_CANDIDATES_OUT_MAX.
  */
 class RegionsOfInterestPruneAlgorithm final {
    public:
