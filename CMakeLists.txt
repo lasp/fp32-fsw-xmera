@@ -131,7 +131,7 @@ set(algorithms
     "flybyFilter"
     "flybyPoint"
     "forceTorqueThrForceMapping"
-    "gimbalAnglesToMotorAngles"
+    "gimbalAnglesToMotorAnglesTable"
     "gimbalToMotorAnglesSpline"
     "hillPoint"
     "inertial3D"

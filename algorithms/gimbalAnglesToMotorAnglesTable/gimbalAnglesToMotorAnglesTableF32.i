@@ -1,6 +1,6 @@
-%module gimbalAnglesToMotorAnglesF32
+%module gimbalAnglesToMotorAnglesTableF32
 %{
-    #include "gimbalAnglesToMotorAngles.h"
+    #include "gimbalAnglesToMotorAnglesTable.h"
 %}
 
 %include <std_string.i>
@@ -9,7 +9,7 @@
 %include <swig_eigen.i>
 %include <sys_model.i>
 
-%include "gimbalAnglesToMotorAnglesTypes.h"
+%include "gimbalAnglesToMotorAnglesTableTypes.h"
 
 %template(GimbalMotorAngleTable) std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS>;
 %template(GimbalMotorTableRowLayout) std::array<int, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>;
@@ -19,13 +19,13 @@
 // which accept (and return) any Python sequence.
 %naturalvar GimbalToMotorAngleTableLayout::rowStartStrideIndices;
 %naturalvar GimbalToMotorAngleTableLayout::rowStartColIndices;
-%naturalvar GimbalAnglesToMotorAngles::gimbalToMotor1AngleData;
-%naturalvar GimbalAnglesToMotorAngles::gimbalToMotor2AngleData;
-%naturalvar GimbalAnglesToMotorAngles::rowStartStrideIndices;
-%naturalvar GimbalAnglesToMotorAngles::rowStartColIndices;
+%naturalvar GimbalAnglesToMotorAnglesTable::gimbalToMotor1AngleData;
+%naturalvar GimbalAnglesToMotorAnglesTable::gimbalToMotor2AngleData;
+%naturalvar GimbalAnglesToMotorAnglesTable::rowStartStrideIndices;
+%naturalvar GimbalAnglesToMotorAnglesTable::rowStartColIndices;
 
-%include "gimbalAnglesToMotorAnglesAlgorithm.h"
-%include "gimbalAnglesToMotorAngles.h"
+%include "gimbalAnglesToMotorAnglesTableAlgorithm.h"
+%include "gimbalAnglesToMotorAnglesTable.h"
 
 %include "msgPayloadDef/MotorAngleRefMsgF32Payload.h"
 %include "msgPayloadDef/TwoAxisGimbalMsgF32Payload.h"

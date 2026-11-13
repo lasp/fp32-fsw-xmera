@@ -1,5 +1,5 @@
-#include "../gimbalAnglesToMotorAnglesAlgorithm.h"
-#include "gimbalAnglesToMotorAnglesTestHelpers.hpp"
+#include "../gimbalAnglesToMotorAnglesTableAlgorithm.h"
+#include "gimbalAnglesToMotorAnglesTableTestHelpers.hpp"
 
 #include <gtest/gtest.h>
 
@@ -7,7 +7,7 @@
 // Regression test
 // ---------------------------------------------------------------------------
 
-TEST(GimbalAnglesToMotorAnglesTest, RegressionTest) {
+TEST(GimbalAnglesToMotorAnglesTableTest, RegressionTest) {
     const float gimbalAngle1 = 1.7F * degToRad;
     const float gimbalAngle2 = -2.1F * degToRad;
     const Eigen::Vector3f tableCoeffs1{0.5F, 0.5F, 0.5F};
@@ -16,7 +16,7 @@ TEST(GimbalAnglesToMotorAnglesTest, RegressionTest) {
     const int tiltRowIdxOffset = 54;
     const float tableStepAngle = 0.5F * degToRad;
 
-    testGimbalAnglesToMotorAnglesRegression(
+    testGimbalAnglesToMotorAnglesTableRegression(
         gimbalAngle1, gimbalAngle2, tableCoeffs1, tableCoeffs2, tipColIdxOffset, tiltRowIdxOffset, tableStepAngle);
 }
 
@@ -24,7 +24,7 @@ TEST(GimbalAnglesToMotorAnglesTest, RegressionTest) {
 // Setup tests (setter validation + round-trip)
 // ---------------------------------------------------------------------------
 
-TEST(GimbalAnglesToMotorAnglesTest, SetupTest) {
+TEST(GimbalAnglesToMotorAnglesTableTest, SetupTest) {
     constexpr float twoPi = 2.0F * std::numbers::pi_v<float>;
     const StepperMotorAngleRange fullRange{0.0F, twoPi};
     // Create valid lookup table
@@ -53,7 +53,7 @@ TEST(GimbalAnglesToMotorAnglesTest, SetupTest) {
                                                          validTableStepAngle};
 
     // Valid config should not throw
-    EXPECT_NO_THROW(GimbalAnglesToMotorAnglesConfig::create(
+    EXPECT_NO_THROW(GimbalAnglesToMotorAnglesTableConfig::create(
         fullRange, gimbalToMotorAngleTable, gimbalToMotorAngleTable, validTableLayout));
 
     // ---------------------------------------------------------------------------
@@ -62,24 +62,24 @@ TEST(GimbalAnglesToMotorAnglesTest, SetupTest) {
 
     // Invalid min/max motor angles should throw
     EXPECT_THROW(
-        GimbalAnglesToMotorAnglesConfig::create(
+        GimbalAnglesToMotorAnglesTableConfig::create(
             StepperMotorAngleRange{-0.1F, 1.0F}, gimbalToMotorAngleTable, gimbalToMotorAngleTable, validTableLayout),
         fsw::invalid_argument);
     EXPECT_THROW(
-        GimbalAnglesToMotorAnglesConfig::create(
+        GimbalAnglesToMotorAnglesTableConfig::create(
             StepperMotorAngleRange{-twoPi, 1.0F}, gimbalToMotorAngleTable, gimbalToMotorAngleTable, validTableLayout),
         fsw::invalid_argument);
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(StepperMotorAngleRange{0.0F, twoPi + 0.1F},
-                                                         gimbalToMotorAngleTable,
-                                                         gimbalToMotorAngleTable,
-                                                         validTableLayout),
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(StepperMotorAngleRange{0.0F, twoPi + 0.1F},
+                                                              gimbalToMotorAngleTable,
+                                                              gimbalToMotorAngleTable,
+                                                              validTableLayout),
                  fsw::invalid_argument);
     EXPECT_THROW(
-        GimbalAnglesToMotorAnglesConfig::create(
+        GimbalAnglesToMotorAnglesTableConfig::create(
             StepperMotorAngleRange{1.0F, 0.5F}, gimbalToMotorAngleTable, gimbalToMotorAngleTable, validTableLayout),
         fsw::invalid_argument);
     EXPECT_THROW(
-        GimbalAnglesToMotorAnglesConfig::create(
+        GimbalAnglesToMotorAnglesTableConfig::create(
             StepperMotorAngleRange{1.0F, 1.0F}, gimbalToMotorAngleTable, gimbalToMotorAngleTable, validTableLayout),
         fsw::invalid_argument);
 
@@ -90,98 +90,100 @@ TEST(GimbalAnglesToMotorAnglesTest, SetupTest) {
     // Nonfinite table entries should throw
     GimbalToMotorAngleTable nonFiniteGimbalToMotorAngleTable = gimbalToMotorAngleTable;
     nonFiniteGimbalToMotorAngleTable.back() = std::numeric_limits<float>::infinity();
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(
                      fullRange, gimbalToMotorAngleTable, nonFiniteGimbalToMotorAngleTable, validTableLayout),
                  fsw::invalid_argument);
 
     // Tables with values outside of motor actuation limits should throw
     GimbalToMotorAngleTable aboveMotorRangeGimbalToMotorAngleTable = gimbalToMotorAngleTable;
     aboveMotorRangeGimbalToMotorAngleTable.back() = twoPi + 0.1F;
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(
                      fullRange, gimbalToMotorAngleTable, aboveMotorRangeGimbalToMotorAngleTable, validTableLayout),
                  fsw::invalid_argument);
     GimbalToMotorAngleTable belowMotorRangeGimbalToMotorAngleTable = gimbalToMotorAngleTable;
     belowMotorRangeGimbalToMotorAngleTable.back() = -0.1F;
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(
                      fullRange, gimbalToMotorAngleTable, belowMotorRangeGimbalToMotorAngleTable, validTableLayout),
                  fsw::invalid_argument);
 
     // Invalid values for tipColIdxOffset and tiltRowIdxOffset should throw
     // (Cannot exceed number of table rows/cols)
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(fullRange,
-                                                         gimbalToMotorAngleTable,
-                                                         gimbalToMotorAngleTable,
-                                                         GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
-                                                                                       validRowStartColIndices,
-                                                                                       kNumTableCols,
-                                                                                       validTiltRowIdxOffset,
-                                                                                       validTableStepAngle}),
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(fullRange,
+                                                              gimbalToMotorAngleTable,
+                                                              gimbalToMotorAngleTable,
+                                                              GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
+                                                                                            validRowStartColIndices,
+                                                                                            kNumTableCols,
+                                                                                            validTiltRowIdxOffset,
+                                                                                            validTableStepAngle}),
                  fsw::invalid_argument);
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(fullRange,
-                                                         gimbalToMotorAngleTable,
-                                                         gimbalToMotorAngleTable,
-                                                         GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
-                                                                                       validRowStartColIndices,
-                                                                                       validTipColIdxOffset,
-                                                                                       kNumTableRows,
-                                                                                       validTableStepAngle}),
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(fullRange,
+                                                              gimbalToMotorAngleTable,
+                                                              gimbalToMotorAngleTable,
+                                                              GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
+                                                                                            validRowStartColIndices,
+                                                                                            validTipColIdxOffset,
+                                                                                            kNumTableRows,
+                                                                                            validTableStepAngle}),
                  fsw::invalid_argument);
 
     // Tables with gimbal angle range greater than +- 90 degrees should throw
     GimbalToMotorAngleTableLayout badGimbalTipRangeTableLayout = validTableLayout;
     badGimbalTipRangeTableLayout.tableStepAngle = 2.0F * degToRad;
     badGimbalTipRangeTableLayout.tipColIdxOffset = 50;
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(
                      fullRange, gimbalToMotorAngleTable, gimbalToMotorAngleTable, badGimbalTipRangeTableLayout),
                  fsw::invalid_argument);
     GimbalToMotorAngleTableLayout badGimbalTiltRangeTableLayout = validTableLayout;
     badGimbalTiltRangeTableLayout.tableStepAngle = 2.0F * degToRad;
     badGimbalTipRangeTableLayout.tiltRowIdxOffset = 20;
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(
                      fullRange, gimbalToMotorAngleTable, gimbalToMotorAngleTable, badGimbalTiltRangeTableLayout),
                  fsw::invalid_argument);
     badGimbalTipRangeTableLayout.tiltRowIdxOffset = 50;
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(
                      fullRange, gimbalToMotorAngleTable, gimbalToMotorAngleTable, badGimbalTiltRangeTableLayout),
                  fsw::invalid_argument);
 
     // rowStartStrideIndices with negative values should throw
     GimbalToMotorAngleTableRowLayout negativeRowStartStrideIndices = validRowStartStrideIndices;
     negativeRowStartStrideIndices[0] = -3;
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(fullRange,
-                                                         gimbalToMotorAngleTable,
-                                                         gimbalToMotorAngleTable,
-                                                         GimbalToMotorAngleTableLayout{negativeRowStartStrideIndices,
-                                                                                       validRowStartColIndices,
-                                                                                       validTipColIdxOffset,
-                                                                                       validTiltRowIdxOffset,
-                                                                                       validTableStepAngle}),
-                 fsw::invalid_argument);
+    EXPECT_THROW(
+        GimbalAnglesToMotorAnglesTableConfig::create(fullRange,
+                                                     gimbalToMotorAngleTable,
+                                                     gimbalToMotorAngleTable,
+                                                     GimbalToMotorAngleTableLayout{negativeRowStartStrideIndices,
+                                                                                   validRowStartColIndices,
+                                                                                   validTipColIdxOffset,
+                                                                                   validTiltRowIdxOffset,
+                                                                                   validTableStepAngle}),
+        fsw::invalid_argument);
 
     // rowStartStrideIndices not in ascending order should throw
     GimbalToMotorAngleTableRowLayout descendingRowStartStrideIndices = validRowStartStrideIndices;
     descendingRowStartStrideIndices[5] = descendingRowStartStrideIndices[1];
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(fullRange,
-                                                         gimbalToMotorAngleTable,
-                                                         gimbalToMotorAngleTable,
-                                                         GimbalToMotorAngleTableLayout{descendingRowStartStrideIndices,
-                                                                                       validRowStartColIndices,
-                                                                                       validTipColIdxOffset,
-                                                                                       validTiltRowIdxOffset,
-                                                                                       validTableStepAngle}),
-                 fsw::invalid_argument);
+    EXPECT_THROW(
+        GimbalAnglesToMotorAnglesTableConfig::create(fullRange,
+                                                     gimbalToMotorAngleTable,
+                                                     gimbalToMotorAngleTable,
+                                                     GimbalToMotorAngleTableLayout{descendingRowStartStrideIndices,
+                                                                                   validRowStartColIndices,
+                                                                                   validTipColIdxOffset,
+                                                                                   validTiltRowIdxOffset,
+                                                                                   validTableStepAngle}),
+        fsw::invalid_argument);
 
     // rowStartColIndices with negative values should throw
     GimbalToMotorAngleTableRowLayout negativeRowStartColIndices = validRowStartColIndices;
     negativeRowStartColIndices.back() = -2;
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(fullRange,
-                                                         gimbalToMotorAngleTable,
-                                                         gimbalToMotorAngleTable,
-                                                         GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
-                                                                                       negativeRowStartColIndices,
-                                                                                       validTipColIdxOffset,
-                                                                                       validTiltRowIdxOffset,
-                                                                                       validTableStepAngle}),
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(fullRange,
+                                                              gimbalToMotorAngleTable,
+                                                              gimbalToMotorAngleTable,
+                                                              GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
+                                                                                            negativeRowStartColIndices,
+                                                                                            validTipColIdxOffset,
+                                                                                            validTiltRowIdxOffset,
+                                                                                            validTableStepAngle}),
                  fsw::invalid_argument);
 
     // rowStartColIndices values greater than fixed number of table columns should throw
@@ -189,59 +191,59 @@ TEST(GimbalAnglesToMotorAnglesTest, SetupTest) {
     outOfTableBoundsRowStartColIndices[outOfTableBoundsRowStartColIndices.size() - 2] = kNumTableCols;
     outOfTableBoundsRowStartColIndices.back() = kNumTableCols + 1;
     EXPECT_THROW(
-        GimbalAnglesToMotorAnglesConfig::create(fullRange,
-                                                gimbalToMotorAngleTable,
-                                                gimbalToMotorAngleTable,
-                                                GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
-                                                                              outOfTableBoundsRowStartColIndices,
-                                                                              validTipColIdxOffset,
-                                                                              validTiltRowIdxOffset,
-                                                                              validTableStepAngle}),
+        GimbalAnglesToMotorAnglesTableConfig::create(fullRange,
+                                                     gimbalToMotorAngleTable,
+                                                     gimbalToMotorAngleTable,
+                                                     GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
+                                                                                   outOfTableBoundsRowStartColIndices,
+                                                                                   validTipColIdxOffset,
+                                                                                   validTiltRowIdxOffset,
+                                                                                   validTableStepAngle}),
         fsw::invalid_argument);
 
     // Invalid tableStepAngle should throw (Cannot be <= 0, must be finite)
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(fullRange,
-                                                         gimbalToMotorAngleTable,
-                                                         gimbalToMotorAngleTable,
-                                                         GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
-                                                                                       validRowStartColIndices,
-                                                                                       validTipColIdxOffset,
-                                                                                       validTiltRowIdxOffset,
-                                                                                       0.0F}),
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(fullRange,
+                                                              gimbalToMotorAngleTable,
+                                                              gimbalToMotorAngleTable,
+                                                              GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
+                                                                                            validRowStartColIndices,
+                                                                                            validTipColIdxOffset,
+                                                                                            validTiltRowIdxOffset,
+                                                                                            0.0F}),
                  fsw::invalid_argument);
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(fullRange,
-                                                         gimbalToMotorAngleTable,
-                                                         gimbalToMotorAngleTable,
-                                                         GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
-                                                                                       validRowStartColIndices,
-                                                                                       validTipColIdxOffset,
-                                                                                       validTiltRowIdxOffset,
-                                                                                       -1.0F}),
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(fullRange,
+                                                              gimbalToMotorAngleTable,
+                                                              gimbalToMotorAngleTable,
+                                                              GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
+                                                                                            validRowStartColIndices,
+                                                                                            validTipColIdxOffset,
+                                                                                            validTiltRowIdxOffset,
+                                                                                            -1.0F}),
                  fsw::invalid_argument);
-    EXPECT_THROW(
-        GimbalAnglesToMotorAnglesConfig::create(fullRange,
-                                                gimbalToMotorAngleTable,
-                                                gimbalToMotorAngleTable,
-                                                GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
-                                                                              validRowStartColIndices,
-                                                                              validTipColIdxOffset,
-                                                                              validTiltRowIdxOffset,
-                                                                              std::numeric_limits<float>::infinity()}),
-        fsw::invalid_argument);
-    EXPECT_THROW(GimbalAnglesToMotorAnglesConfig::create(fullRange,
-                                                         gimbalToMotorAngleTable,
-                                                         gimbalToMotorAngleTable,
-                                                         GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
-                                                                                       validRowStartColIndices,
-                                                                                       validTipColIdxOffset,
-                                                                                       validTiltRowIdxOffset,
-                                                                                       std::nanf("")}),
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(
+                     fullRange,
+                     gimbalToMotorAngleTable,
+                     gimbalToMotorAngleTable,
+                     GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
+                                                   validRowStartColIndices,
+                                                   validTipColIdxOffset,
+                                                   validTiltRowIdxOffset,
+                                                   std::numeric_limits<float>::infinity()}),
+                 fsw::invalid_argument);
+    EXPECT_THROW(GimbalAnglesToMotorAnglesTableConfig::create(fullRange,
+                                                              gimbalToMotorAngleTable,
+                                                              gimbalToMotorAngleTable,
+                                                              GimbalToMotorAngleTableLayout{validRowStartStrideIndices,
+                                                                                            validRowStartColIndices,
+                                                                                            validTipColIdxOffset,
+                                                                                            validTiltRowIdxOffset,
+                                                                                            std::nanf("")}),
                  fsw::invalid_argument);
 
     // -----------------
     // Config round-trip
     // -----------------
-    auto config = GimbalAnglesToMotorAnglesConfig::create(
+    auto config = GimbalAnglesToMotorAnglesTableConfig::create(
         fullRange, gimbalToMotorAngleTable, gimbalToMotorAngleTable, validTableLayout);
     EXPECT_EQ(config.getAngleRange().minAngle, fullRange.minAngle);
     EXPECT_EQ(config.getAngleRange().maxAngle, fullRange.maxAngle);
@@ -259,7 +261,7 @@ TEST(GimbalAnglesToMotorAnglesTest, SetupTest) {
 // ---------------------------------------------------------------------------
 
 // All output components are finite for valid inputs.
-TEST(GimbalAnglesToMotorAnglesTest, OutputIsFinite) {
+TEST(GimbalAnglesToMotorAnglesTableTest, OutputIsFinite) {
     const float gimbalAngle1 = 1.7F * degToRad;
     const float gimbalAngle2 = -2.1F * degToRad;
     const Eigen::Vector3f tableCoeffs1{0.5F, 0.5F, 0.5F};
@@ -273,7 +275,7 @@ TEST(GimbalAnglesToMotorAnglesTest, OutputIsFinite) {
 }
 
 // Motor angles should be bounded for any inputs
-TEST(GimbalAnglesToMotorAnglesTest, MotorAnglesBounded) {
+TEST(GimbalAnglesToMotorAnglesTableTest, MotorAnglesBounded) {
     const float gimbalAngle1 = 1.7F * degToRad;
     const float gimbalAngle2 = -2.1F * degToRad;
     const Eigen::Vector3f tableCoeffs1{0.5F, 0.5F, 0.5F};
@@ -291,24 +293,24 @@ TEST(GimbalAnglesToMotorAnglesTest, MotorAnglesBounded) {
 // ---------------------------------------------------------------------------
 
 // Invalid interpolation on the first update call returns the default motor angles
-TEST(GimbalAnglesToMotorAnglesTest, InvalidFirstCallReturnsDefaultAngles) {
+TEST(GimbalAnglesToMotorAnglesTableTest, InvalidFirstCallReturnsDefaultAngles) {
     const float invalidGimbalAngle1 = 30.0F * degToRad;
     const float invalidGimbalAngle2 = 0.0F;
 
-    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
-    const GimbalAnglesToMotorAnglesOutput result = alg.update(invalidGimbalAngle1, invalidGimbalAngle2);
+    GimbalAnglesToMotorAnglesTableAlgorithm alg(makeConfig());
+    const GimbalAnglesToMotorAnglesTableOutput result = alg.update(invalidGimbalAngle1, invalidGimbalAngle2);
 
     EXPECT_NEAR(result.motorAngle1, kReferenceDefaultMotorAngle, 1e-6F);
     EXPECT_NEAR(result.motorAngle2, kReferenceDefaultMotorAngle, 1e-6F);
 }
 
 // Invalid interpolation returns the motor angles determined by the previous update call
-TEST(GimbalAnglesToMotorAnglesTest, InvalidReturnsPreviousAngles) {
+TEST(GimbalAnglesToMotorAnglesTableTest, InvalidReturnsPreviousAngles) {
     const float validGimbalAngle1 = 1.7F * degToRad;
     const float validGimbalAngle2 = -2.1F * degToRad;
 
-    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
-    const GimbalAnglesToMotorAnglesOutput validResult = alg.update(validGimbalAngle1, validGimbalAngle2);
+    GimbalAnglesToMotorAnglesTableAlgorithm alg(makeConfig());
+    const GimbalAnglesToMotorAnglesTableOutput validResult = alg.update(validGimbalAngle1, validGimbalAngle2);
 
     // The valid update call must not return the default motor angles
     ASSERT_GT(std::abs(validResult.motorAngle1 - kReferenceDefaultMotorAngle), 1e-6F);
@@ -317,8 +319,8 @@ TEST(GimbalAnglesToMotorAnglesTest, InvalidReturnsPreviousAngles) {
     const float invalidGimbalAngle1 = 30.0F * degToRad;
     const float invalidGimbalAngle2 = 0.0F;
 
-    const GimbalAnglesToMotorAnglesOutput firstResult = alg.update(invalidGimbalAngle1, invalidGimbalAngle2);
-    const GimbalAnglesToMotorAnglesOutput secondResult = alg.update(invalidGimbalAngle1, invalidGimbalAngle2);
+    const GimbalAnglesToMotorAnglesTableOutput firstResult = alg.update(invalidGimbalAngle1, invalidGimbalAngle2);
+    const GimbalAnglesToMotorAnglesTableOutput secondResult = alg.update(invalidGimbalAngle1, invalidGimbalAngle2);
 
     EXPECT_NEAR(firstResult.motorAngle1, validResult.motorAngle1, 1e-6F);
     EXPECT_NEAR(firstResult.motorAngle2, validResult.motorAngle2, 1e-6F);
@@ -329,19 +331,19 @@ TEST(GimbalAnglesToMotorAnglesTest, InvalidReturnsPreviousAngles) {
 // A gimbal angle on a table grid line is interpolated like its neighbours. The bounds come from
 // floorf/ceilf of angle / step, and for some grid angles that quotient rounds below the integer,
 // so the upper bound equals the angle. The point must still count as inside the cell.
-TEST(GimbalAnglesToMotorAnglesTest, GridLineAngleMatchesNeighbouringAngles) {
+TEST(GimbalAnglesToMotorAnglesTableTest, GridLineAngleMatchesNeighbouringAngles) {
     const float tableStepAngle = 0.5F * degToRad;
     const float gimbalAngle2 = 0.25F * degToRad;
 
     for (int k = -30; k <= 30; ++k) {
         const float gimbalAngle1 = tableStepAngle * static_cast<float>(k);
         const auto updateFresh = [&](float angle1) {
-            GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
+            GimbalAnglesToMotorAnglesTableAlgorithm alg(makeConfig());
             return alg.update(angle1, gimbalAngle2);
         };
-        const GimbalAnglesToMotorAnglesOutput below = updateFresh(std::nextafter(gimbalAngle1, -1.0F));
-        const GimbalAnglesToMotorAnglesOutput onLine = updateFresh(gimbalAngle1);
-        const GimbalAnglesToMotorAnglesOutput above = updateFresh(std::nextafter(gimbalAngle1, 1.0F));
+        const GimbalAnglesToMotorAnglesTableOutput below = updateFresh(std::nextafter(gimbalAngle1, -1.0F));
+        const GimbalAnglesToMotorAnglesTableOutput onLine = updateFresh(gimbalAngle1);
+        const GimbalAnglesToMotorAnglesTableOutput above = updateFresh(std::nextafter(gimbalAngle1, 1.0F));
 
         EXPECT_NEAR(onLine.motorAngle1, below.motorAngle1, 1e-5F) << "k = " << k;
         EXPECT_NEAR(onLine.motorAngle2, below.motorAngle2, 1e-5F) << "k = " << k;
@@ -352,36 +354,36 @@ TEST(GimbalAnglesToMotorAnglesTest, GridLineAngleMatchesNeighbouringAngles) {
 
 // A cell on the table edge, where the lower-left corner is in the table but the lower-upper corner
 // is not, cannot be interpolated and returns the motor angles of the previous update call
-TEST(GimbalAnglesToMotorAnglesTest, TableEdgeCellReturnsPreviousAngles) {
+TEST(GimbalAnglesToMotorAnglesTableTest, TableEdgeCellReturnsPreviousAngles) {
     const float validGimbalAngle1 = 1.7F * degToRad;
     const float validGimbalAngle2 = -2.1F * degToRad;
 
-    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
-    const GimbalAnglesToMotorAnglesOutput validResult = alg.update(validGimbalAngle1, validGimbalAngle2);
+    GimbalAnglesToMotorAnglesTableAlgorithm alg(makeConfig());
+    const GimbalAnglesToMotorAnglesTableOutput validResult = alg.update(validGimbalAngle1, validGimbalAngle2);
     ASSERT_GT(std::abs(validResult.motorAngle1 - kReferenceDefaultMotorAngle), 1e-6F);
 
     const float edgeGimbalAngle1 = -17.75F * degToRad;
     const float edgeGimbalAngle2 = 1.25F * degToRad;
 
-    const GimbalAnglesToMotorAnglesOutput result = alg.update(edgeGimbalAngle1, edgeGimbalAngle2);
+    const GimbalAnglesToMotorAnglesTableOutput result = alg.update(edgeGimbalAngle1, edgeGimbalAngle2);
 
     EXPECT_NEAR(result.motorAngle1, validResult.motorAngle1, 1e-6F);
     EXPECT_NEAR(result.motorAngle2, validResult.motorAngle2, 1e-6F);
 }
 
 // Calling reInitialize() sets the motor angles in previousValidOutput back to the default motor angles
-TEST(GimbalAnglesToMotorAnglesTest, ReInitializeReturnsDefaultAngles) {
+TEST(GimbalAnglesToMotorAnglesTableTest, ReInitializeReturnsDefaultAngles) {
     const float validGimbalAngle1 = 1.7F * degToRad;
     const float validGimbalAngle2 = -2.1F * degToRad;
 
-    GimbalAnglesToMotorAnglesAlgorithm alg(makeConfig());
+    GimbalAnglesToMotorAnglesTableAlgorithm alg(makeConfig());
     alg.update(validGimbalAngle1, validGimbalAngle2);
     alg.reInitialize();
 
     const float invalidGimbalAngle1 = 30.0F * degToRad;
     const float invalidGimbalAngle2 = 0.0F;
 
-    const GimbalAnglesToMotorAnglesOutput result = alg.update(invalidGimbalAngle1, invalidGimbalAngle2);
+    const GimbalAnglesToMotorAnglesTableOutput result = alg.update(invalidGimbalAngle1, invalidGimbalAngle2);
 
     EXPECT_NEAR(result.motorAngle1, kReferenceDefaultMotorAngle, 1e-6F);
     EXPECT_NEAR(result.motorAngle2, kReferenceDefaultMotorAngle, 1e-6F);

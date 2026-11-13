@@ -1,6 +1,6 @@
 .. raw:: latex
 
-    {\LARGE \textbf{gimbalAnglesToMotorAngles}}
+    {\LARGE \textbf{gimbalAnglesToMotorAnglesTable}}
 
 Executive Summary
 -----------------
@@ -22,15 +22,15 @@ Module Architecture
 
 The module is split into two layers:
 
-- The **adapter** (``gimbalAnglesToMotorAngles.h``/``.cpp``) is the SysModel-derived class that handles message
-  I/O, validates configuration, builds an immutable ``GimbalAnglesToMotorAnglesConfig`` from public properties, and
+- The **adapter** (``gimbalAnglesToMotorAnglesTable.h``/``.cpp``) is the SysModel-derived class that handles message
+  I/O, validates configuration, builds an immutable ``GimbalAnglesToMotorAnglesTableConfig`` from public properties, and
   constructs the algorithm via two-phase initialization.
-- The **algorithm** (``gimbalAnglesToMotorAnglesAlgorithm.h``/``.cpp``) is a pure C++23 class with no framework
+- The **algorithm** (``gimbalAnglesToMotorAnglesTableAlgorithm.h``/``.cpp``) is a pure C++23 class with no framework
   dependencies. It takes the requested gimbal angles as input, computes the corresponding stepper motor angles,
   and returns a payload struct as output. It must not throw from ``update()``.
 
-A pure-C shim (``gimbalAnglesToMotorAnglesAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant
-components via ``extern "C"`` bindings.
+A pure-C shim (``gimbalAnglesToMotorAnglesTableAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by
+Ada/Adamant components via ``extern "C"`` bindings.
 
 Adapter Layer
 -------------
@@ -219,10 +219,10 @@ Test Description
 ----------------
 
 The module is verified through regression tests that compare the algorithm results against an independent reference
-implementation. Setup tests are used for the ``GimbalAnglesToMotorAnglesConfig`` validators and round-trip tests are
-used to check the set configuration variables are correctly returned. Fuzz tests are added for the regression and
+implementation. Setup tests are used for the ``GimbalAnglesToMotorAnglesTableConfig`` validators and round-trip tests
+are used to check the set configuration variables are correctly returned. Fuzz tests are added for the regression and
 property tests, where the configuration and inputs are randomized over reasonable ranges. The fuzz tests generate
 independent lookup tables and associated table layout data. A second test file
-``test_gimbalAnglesToMotorAnglesImportTables`` is added which imports the lookup table data and associated table
+``test_gimbalAnglesToMotorAnglesTableImportTables`` is added which imports the lookup table data and associated table
 layout data from CSV files. Hand-pulled data from the CSV files is used to perform the reference interpolation and the
 results are compared with the algorithm results.

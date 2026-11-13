@@ -1,7 +1,7 @@
-#ifndef TEST_GIMBALANGLESTOMOTORANGLES_H
-#define TEST_GIMBALANGLESTOMOTORANGLES_H
+#ifndef TEST_GIMBALANGLESTOMOTORANGLESTABLE_H
+#define TEST_GIMBALANGLESTOMOTORANGLESTABLE_H
 
-#include "gimbalAnglesToMotorAnglesAlgorithm.h"
+#include "gimbalAnglesToMotorAnglesTableAlgorithm.h"
 #include "utilities/fsw/_tests/utilitiesHelpers.hpp"
 #include "utilities/fsw/bilinearInterpolation.h"
 #include "utilities/fsw/safeMath.h"
@@ -44,7 +44,7 @@ std::array<ElementType, numElements> readCsv(const std::string& fileName) {
 }
 
 // This method returns an algorithm configuration for tests which import the table data csv files.
-inline GimbalAnglesToMotorAnglesConfig makeConfig() {
+inline GimbalAnglesToMotorAnglesTableConfig makeConfig() {
     // Read the csv files into storage arrays
     GimbalToMotorAngleTable gimbalToMotor1AngleTable =
         readCsv<float, NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS>("gimbalToMotor1Angles.csv");
@@ -71,7 +71,7 @@ inline GimbalAnglesToMotorAnglesConfig makeConfig() {
     constexpr float minAngle = 0.0F;                              // [rad]
     constexpr float maxAngle = 2.0F * std::numbers::pi_v<float>;  // [rad]
 
-    return GimbalAnglesToMotorAnglesConfig::create(
+    return GimbalAnglesToMotorAnglesTableConfig::create(
         StepperMotorAngleRange{minAngle, maxAngle}, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout);
 }
 
@@ -166,7 +166,7 @@ inline MotorAngles referencePullAngles(float gimbalAngle1,
 }
 
 // Reference implementation of the gimbal angles to motor angles algorithm
-inline GimbalAnglesToMotorAnglesOutput referenceGimbalAnglesToMotorAngles(
+inline GimbalAnglesToMotorAnglesTableOutput referenceGimbalAnglesToMotorAnglesTable(
     const float gimbalAngle1,
     const float gimbalAngle2,
     const float minAngle,
@@ -179,8 +179,8 @@ inline GimbalAnglesToMotorAnglesOutput referenceGimbalAnglesToMotorAngles(
     const int tiltRowIdxOffset,
     const float tableStepAngle) {
     /*! Set default output */
-    GimbalAnglesToMotorAnglesOutput output{.motorAngle1 = kReferenceDefaultMotorAngle,
-                                           .motorAngle2 = kReferenceDefaultMotorAngle};
+    GimbalAnglesToMotorAnglesTableOutput output{.motorAngle1 = kReferenceDefaultMotorAngle,
+                                                .motorAngle2 = kReferenceDefaultMotorAngle};
 
     // Determine the bounding gimbal angles
     const float gimbalAngle1LBound = tableStepAngle * floorf(gimbalAngle1 / tableStepAngle);
@@ -268,13 +268,13 @@ inline GimbalAnglesToMotorAnglesOutput referenceGimbalAnglesToMotorAngles(
 // Regression test helper function
 // ---------------------------------------------------------------------------
 
-inline void testGimbalAnglesToMotorAnglesRegression(const float gimbalAngle1,
-                                                    const float gimbalAngle2,
-                                                    const Eigen::Vector3f& tableCoeffs1,
-                                                    const Eigen::Vector3f& tableCoeffs2,
-                                                    const int tipColIdxOffset,
-                                                    const int tiltRowIdxOffset,
-                                                    const float tableStepAngle) {
+inline void testGimbalAnglesToMotorAnglesTableRegression(const float gimbalAngle1,
+                                                         const float gimbalAngle2,
+                                                         const Eigen::Vector3f& tableCoeffs1,
+                                                         const Eigen::Vector3f& tableCoeffs2,
+                                                         const int tipColIdxOffset,
+                                                         const int tiltRowIdxOffset,
+                                                         const float tableStepAngle) {
     // Place the block of table data so that it holds the column corresponding to a zero tip angle
     const int maxRowLength = kTestRowLength + 1;
     int rowStartCol = tipColIdxOffset - kTestRowLength / 2;
@@ -308,21 +308,22 @@ inline void testGimbalAnglesToMotorAnglesRegression(const float gimbalAngle1,
     constexpr float minAngle = 0.0F;
     constexpr float maxAngle = 2.0F * std::numbers::pi_v<float>;
 
-    auto config = GimbalAnglesToMotorAnglesConfig::create(
+    auto config = GimbalAnglesToMotorAnglesTableConfig::create(
         StepperMotorAngleRange{minAngle, maxAngle}, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout);
-    GimbalAnglesToMotorAnglesAlgorithm alg(config);
-    const GimbalAnglesToMotorAnglesOutput result = alg.update(gimbalAngle1, gimbalAngle2);
-    const GimbalAnglesToMotorAnglesOutput expected = referenceGimbalAnglesToMotorAngles(gimbalAngle1,
-                                                                                        gimbalAngle2,
-                                                                                        minAngle,
-                                                                                        maxAngle,
-                                                                                        gimbalToMotor1AngleTable,
-                                                                                        gimbalToMotor2AngleTable,
-                                                                                        rowStartStrideIndices,
-                                                                                        rowStartColIndices,
-                                                                                        tableLayout.tipColIdxOffset,
-                                                                                        tableLayout.tiltRowIdxOffset,
-                                                                                        tableLayout.tableStepAngle);
+    GimbalAnglesToMotorAnglesTableAlgorithm alg(config);
+    const GimbalAnglesToMotorAnglesTableOutput result = alg.update(gimbalAngle1, gimbalAngle2);
+    const GimbalAnglesToMotorAnglesTableOutput expected =
+        referenceGimbalAnglesToMotorAnglesTable(gimbalAngle1,
+                                                gimbalAngle2,
+                                                minAngle,
+                                                maxAngle,
+                                                gimbalToMotor1AngleTable,
+                                                gimbalToMotor2AngleTable,
+                                                rowStartStrideIndices,
+                                                rowStartColIndices,
+                                                tableLayout.tipColIdxOffset,
+                                                tableLayout.tiltRowIdxOffset,
+                                                tableLayout.tableStepAngle);
 
     constexpr float tol = 1e-5F;
     EXPECT_NEAR(result.motorAngle1, expected.motorAngle1, tol);
@@ -374,10 +375,10 @@ inline void propertyOutputIsFinite(const float gimbalAngle1,
     constexpr float minAngle = 0.0F;
     constexpr float maxAngle = 2.0F * std::numbers::pi_v<float>;
 
-    auto config = GimbalAnglesToMotorAnglesConfig::create(
+    auto config = GimbalAnglesToMotorAnglesTableConfig::create(
         StepperMotorAngleRange{minAngle, maxAngle}, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout);
-    GimbalAnglesToMotorAnglesAlgorithm alg(config);
-    const GimbalAnglesToMotorAnglesOutput result = alg.update(gimbalAngle1, gimbalAngle2);
+    GimbalAnglesToMotorAnglesTableAlgorithm alg(config);
+    const GimbalAnglesToMotorAnglesTableOutput result = alg.update(gimbalAngle1, gimbalAngle2);
 
     EXPECT_TRUE(std::isfinite(result.motorAngle1));
     EXPECT_TRUE(std::isfinite(result.motorAngle2));
@@ -424,10 +425,10 @@ inline void propertyMotorAnglesBounded(const float gimbalAngle1,
     constexpr float minAngle = 0.0F;
     constexpr float maxAngle = 2.0F * std::numbers::pi_v<float>;
 
-    auto config = GimbalAnglesToMotorAnglesConfig::create(
+    auto config = GimbalAnglesToMotorAnglesTableConfig::create(
         StepperMotorAngleRange{minAngle, maxAngle}, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout);
-    GimbalAnglesToMotorAnglesAlgorithm alg(config);
-    const GimbalAnglesToMotorAnglesOutput result = alg.update(gimbalAngle1, gimbalAngle2);
+    GimbalAnglesToMotorAnglesTableAlgorithm alg(config);
+    const GimbalAnglesToMotorAnglesTableOutput result = alg.update(gimbalAngle1, gimbalAngle2);
 
     // Check motor angles do not exceed the set motor bounds
     EXPECT_GE(result.motorAngle1, minAngle - 1e-6F);
@@ -507,4 +508,4 @@ inline void propertyMotorAnglesBounded(const float gimbalAngle1,
     }
 }
 
-#endif  // TEST_GIMBALANGLESTOMOTORANGLES_H
+#endif  // TEST_GIMBALANGLESTOMOTORANGLESTABLE_H

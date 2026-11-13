@@ -1,9 +1,10 @@
-#include "gimbalAnglesToMotorAnglesAlgorithm.h"
+#include "gimbalAnglesToMotorAnglesTableAlgorithm.h"
 
 #include "utilities/fsw/bilinearInterpolation.h"
 #include <math.h>
 
-GimbalAnglesToMotorAnglesAlgorithm::GimbalAnglesToMotorAnglesAlgorithm(const GimbalAnglesToMotorAnglesConfig& config)
+GimbalAnglesToMotorAnglesTableAlgorithm::GimbalAnglesToMotorAnglesTableAlgorithm(
+    const GimbalAnglesToMotorAnglesTableConfig& config)
     : cfg(config) {
     setConfig(config);
     reInitialize();
@@ -12,27 +13,28 @@ GimbalAnglesToMotorAnglesAlgorithm::GimbalAnglesToMotorAnglesAlgorithm(const Gim
 /*! Replaces the algorithm's configuration for runtime reconfiguration.
  @param config Validated configuration
 */
-void GimbalAnglesToMotorAnglesAlgorithm::setConfig(const GimbalAnglesToMotorAnglesConfig& config) {
+void GimbalAnglesToMotorAnglesTableAlgorithm::setConfig(const GimbalAnglesToMotorAnglesTableConfig& config) {
     this->cfg = config;
 }
 
 /*! Resets the stored motor angles to the default angles corresponding to the gimbal (0,0) home position.
  @return void
 */
-void GimbalAnglesToMotorAnglesAlgorithm::reInitialize() {
-    this->previousValidOutput = GimbalAnglesToMotorAnglesOutput{};
+void GimbalAnglesToMotorAnglesTableAlgorithm::reInitialize() {
+    this->previousValidOutput = GimbalAnglesToMotorAnglesTableOutput{};
 }
 
 /*! This method determines the stepper motor angles corresponding to the incoming gimbal tip and tilt angles.
- @return GimbalAnglesToMotorAnglesOutput
+ @return GimbalAnglesToMotorAnglesTableOutput
  @param gimbalAngle1 [rad]
  @param gimbalAngle2 [rad]
 */
-GimbalAnglesToMotorAnglesOutput GimbalAnglesToMotorAnglesAlgorithm::update(float gimbalAngle1, float gimbalAngle2) {
+GimbalAnglesToMotorAnglesTableOutput GimbalAnglesToMotorAnglesTableAlgorithm::update(float gimbalAngle1,
+                                                                                     float gimbalAngle2) {
     // Set the default motor angles.
     // On first call, the default motor angles are the angles corresponding to the gimbal (0,0) home position.
     // For all other calls, the default motor angles are the previously valid motor angles.
-    GimbalAnglesToMotorAnglesOutput output{this->previousValidOutput};
+    GimbalAnglesToMotorAnglesTableOutput output{this->previousValidOutput};
 
     // Determine the bounding gimbal angles
     const float gimbalAngle1LBound =
@@ -91,7 +93,7 @@ GimbalAnglesToMotorAnglesOutput GimbalAnglesToMotorAnglesAlgorithm::update(float
  @param gimbalAngle1 [rad] Gimbal tip angle
  @param gimbalAngle2 [rad] Gimbal tilt angle
 */
-MotorAngles GimbalAnglesToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, float gimbalAngle2) const {
+MotorAngles GimbalAnglesToMotorAnglesTableAlgorithm::pullAngles(float gimbalAngle1, float gimbalAngle2) const {
     // Shift the gimbal angles because the diamond is positioned at the center of the data table
     gimbalAngle1 +=
         static_cast<float>(this->cfg.getTableLayout().tipColIdxOffset) * this->cfg.getTableLayout().tableStepAngle;
@@ -123,7 +125,7 @@ MotorAngles GimbalAnglesToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, f
  @param rowIdx [-]
  @param colIdx [-]
 */
-std::optional<int> GimbalAnglesToMotorAnglesAlgorithm::getArrayIndex(const int rowIdx, const int colIdx) const {
+std::optional<int> GimbalAnglesToMotorAnglesTableAlgorithm::getArrayIndex(const int rowIdx, const int colIdx) const {
     // Invalid if either rowIdx or colIdx exceeds the table bounds
     if (colIdx < 0 || colIdx >= kNumTableCols || rowIdx < 0 || rowIdx >= kNumTableRows) {
         return std::nullopt;

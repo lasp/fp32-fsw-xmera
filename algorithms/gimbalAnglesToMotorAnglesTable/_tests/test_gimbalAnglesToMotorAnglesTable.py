@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from xmera.architecture import messaging
-from xmera.fp32 import gimbalAnglesToMotorAnglesF32
+from xmera.fp32 import gimbalAnglesToMotorAnglesTableF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
@@ -47,8 +47,8 @@ def test_no_interpolation_outside_boundary_returns_home(gimbal_angle_1_ref, gimb
      row_start_stride_indices_data_array,
      row_start_col_indices_data_array) = load_interpolation_tables()
 
-    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesF32.GimbalAnglesToMotorAngles()
-    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAngles"
+    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesTableF32.GimbalAnglesToMotorAnglesTable()
+    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAnglesTable"
     gimbal_to_motor_angles.minAngle = 0.0
     gimbal_to_motor_angles.maxAngle = 2 * math.pi
     gimbal_to_motor_angles.gimbalToMotor1AngleData = gimbal_to_motor_1_angle_data_array
@@ -60,7 +60,7 @@ def test_no_interpolation_outside_boundary_returns_home(gimbal_angle_1_ref, gimb
     gimbal_to_motor_angles.tableStepAngle = 0.5 * macros.D2R
     unit_test_sim.AddModelToTask(unit_task_name, gimbal_to_motor_angles)
 
-    # Create gimbalAnglesToMotorAngles gimbal reference input message
+    # Create gimbalAnglesToMotorAnglesTable gimbal reference input message
     gimbal_reference_message_data = messaging.TwoAxisGimbalMsgF32Payload()
     gimbal_reference_message_data.theta1 = gimbal_angle_1_ref
     gimbal_reference_message_data.theta2 = gimbal_angle_2_ref
@@ -103,8 +103,8 @@ def test_linear_interpolation_outside_boundary_returns_home(gimbal_angle_1_ref, 
      row_start_stride_indices_data_array,
      row_start_col_indices_data_array) = load_interpolation_tables()
 
-    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesF32.GimbalAnglesToMotorAngles()
-    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAngles"
+    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesTableF32.GimbalAnglesToMotorAnglesTable()
+    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAnglesTable"
     gimbal_to_motor_angles.minAngle = 0.0
     gimbal_to_motor_angles.maxAngle = 2 * math.pi
     gimbal_to_motor_angles.gimbalToMotor1AngleData = gimbal_to_motor_1_angle_data_array
@@ -116,7 +116,7 @@ def test_linear_interpolation_outside_boundary_returns_home(gimbal_angle_1_ref, 
     gimbal_to_motor_angles.tableStepAngle = 0.5 * macros.D2R
     unit_test_sim.AddModelToTask(unit_task_name, gimbal_to_motor_angles)
 
-    # Create gimbalAnglesToMotorAngles gimbal reference input message
+    # Create gimbalAnglesToMotorAnglesTable gimbal reference input message
     gimbal_reference_message_data = messaging.TwoAxisGimbalMsgF32Payload()
     gimbal_reference_message_data.theta1 = gimbal_angle_1_ref
     gimbal_reference_message_data.theta2 = gimbal_angle_2_ref
@@ -159,8 +159,8 @@ def test_bilinear_interpolation_outside_boundary_returns_home(gimbal_angle_1_ref
      row_start_stride_indices_data_array,
      row_start_col_indices_data_array) = load_interpolation_tables()
 
-    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesF32.GimbalAnglesToMotorAngles()
-    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAngles"
+    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesTableF32.GimbalAnglesToMotorAnglesTable()
+    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAnglesTable"
     gimbal_to_motor_angles.minAngle = 0.0
     gimbal_to_motor_angles.maxAngle = 2 * math.pi
     gimbal_to_motor_angles.gimbalToMotor1AngleData = gimbal_to_motor_1_angle_data_array
@@ -172,7 +172,7 @@ def test_bilinear_interpolation_outside_boundary_returns_home(gimbal_angle_1_ref
     gimbal_to_motor_angles.tableStepAngle = 0.5 * macros.D2R
     unit_test_sim.AddModelToTask(unit_task_name, gimbal_to_motor_angles)
 
-    # Create gimbalAnglesToMotorAngles gimbal reference input message
+    # Create gimbalAnglesToMotorAnglesTable gimbal reference input message
     gimbal_reference_message_data = messaging.TwoAxisGimbalMsgF32Payload()
     gimbal_reference_message_data.theta1 = gimbal_angle_1_ref
     gimbal_reference_message_data.theta2 = gimbal_angle_2_ref
@@ -215,8 +215,8 @@ def test_linear_interpolation_along_boundary_returns_home(gimbal_angle_1_ref, gi
      row_start_stride_indices_data_array,
      row_start_col_indices_data_array) = load_interpolation_tables()
 
-    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesF32.GimbalAnglesToMotorAngles()
-    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAngles"
+    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesTableF32.GimbalAnglesToMotorAnglesTable()
+    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAnglesTable"
     gimbal_to_motor_angles.minAngle = 0.0
     gimbal_to_motor_angles.maxAngle = 2 * math.pi
     gimbal_to_motor_angles.gimbalToMotor1AngleData = gimbal_to_motor_1_angle_data_array
@@ -228,7 +228,7 @@ def test_linear_interpolation_along_boundary_returns_home(gimbal_angle_1_ref, gi
     gimbal_to_motor_angles.tableStepAngle = 0.5 * macros.D2R
     unit_test_sim.AddModelToTask(unit_task_name, gimbal_to_motor_angles)
 
-    # Create gimbalAnglesToMotorAngles gimbal reference input message
+    # Create gimbalAnglesToMotorAnglesTable gimbal reference input message
     gimbal_reference_message_data = messaging.TwoAxisGimbalMsgF32Payload()
     gimbal_reference_message_data.theta1 = gimbal_angle_1_ref
     gimbal_reference_message_data.theta2 = gimbal_angle_2_ref
@@ -271,8 +271,8 @@ def test_bilinear_interpolation_along_boundary_returns_home(gimbal_angle_1_ref, 
      row_start_stride_indices_data_array,
      row_start_col_indices_data_array) = load_interpolation_tables()
 
-    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesF32.GimbalAnglesToMotorAngles()
-    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAngles"
+    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesTableF32.GimbalAnglesToMotorAnglesTable()
+    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAnglesTable"
     gimbal_to_motor_angles.minAngle = 0.0
     gimbal_to_motor_angles.maxAngle = 2 * math.pi
     gimbal_to_motor_angles.gimbalToMotor1AngleData = gimbal_to_motor_1_angle_data_array
@@ -284,7 +284,7 @@ def test_bilinear_interpolation_along_boundary_returns_home(gimbal_angle_1_ref, 
     gimbal_to_motor_angles.tableStepAngle = 0.5 * macros.D2R
     unit_test_sim.AddModelToTask(unit_task_name, gimbal_to_motor_angles)
 
-    # Create gimbalAnglesToMotorAngles gimbal reference input message
+    # Create gimbalAnglesToMotorAnglesTable gimbal reference input message
     gimbal_reference_message_data = messaging.TwoAxisGimbalMsgF32Payload()
     gimbal_reference_message_data.theta1 = gimbal_angle_1_ref
     gimbal_reference_message_data.theta2 = gimbal_angle_2_ref
@@ -327,8 +327,8 @@ def test_no_interpolation_inside_boundary_returns_exact(gimbal_angle_1_ref, gimb
      row_start_stride_indices_data_array,
      row_start_col_indices_data_array) = load_interpolation_tables()
 
-    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesF32.GimbalAnglesToMotorAngles()
-    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAngles"
+    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesTableF32.GimbalAnglesToMotorAnglesTable()
+    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAnglesTable"
     gimbal_to_motor_angles.minAngle = 0.0
     gimbal_to_motor_angles.maxAngle = 2 * math.pi
     gimbal_to_motor_angles.gimbalToMotor1AngleData = gimbal_to_motor_1_angle_data_array
@@ -340,7 +340,7 @@ def test_no_interpolation_inside_boundary_returns_exact(gimbal_angle_1_ref, gimb
     gimbal_to_motor_angles.tableStepAngle = 0.5 * macros.D2R
     unit_test_sim.AddModelToTask(unit_task_name, gimbal_to_motor_angles)
 
-    # Create gimbalAnglesToMotorAngles gimbal reference input message
+    # Create gimbalAnglesToMotorAnglesTable gimbal reference input message
     gimbal_reference_message_data = messaging.TwoAxisGimbalMsgF32Payload()
     gimbal_reference_message_data.theta1 = gimbal_angle_1_ref
     gimbal_reference_message_data.theta2 = gimbal_angle_2_ref
@@ -387,8 +387,8 @@ def test_linear_interpolation_inside_boundary_along_tip_returns_exact(gimbal_ang
      row_start_stride_indices_data_array,
      row_start_col_indices_data_array) = load_interpolation_tables()
 
-    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesF32.GimbalAnglesToMotorAngles()
-    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAngles"
+    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesTableF32.GimbalAnglesToMotorAnglesTable()
+    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAnglesTable"
     gimbal_to_motor_angles.minAngle = 0.0
     gimbal_to_motor_angles.maxAngle = 2 * math.pi
     gimbal_to_motor_angles.gimbalToMotor1AngleData = gimbal_to_motor_1_angle_data_array
@@ -400,7 +400,7 @@ def test_linear_interpolation_inside_boundary_along_tip_returns_exact(gimbal_ang
     gimbal_to_motor_angles.tableStepAngle = 0.5 * macros.D2R
     unit_test_sim.AddModelToTask(unit_task_name, gimbal_to_motor_angles)
 
-    # Create gimbalAnglesToMotorAngles gimbal reference input message
+    # Create gimbalAnglesToMotorAnglesTable gimbal reference input message
     gimbal_reference_message_data = messaging.TwoAxisGimbalMsgF32Payload()
     gimbal_reference_message_data.theta1 = gimbal_angle_1_ref
     gimbal_reference_message_data.theta2 = gimbal_angle_2_ref
@@ -465,8 +465,8 @@ def test_linear_interpolation_inside_boundary_along_tilt_returns_exact(gimbal_an
      row_start_stride_indices_data_array,
      row_start_col_indices_data_array) = load_interpolation_tables()
 
-    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesF32.GimbalAnglesToMotorAngles()
-    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAngles"
+    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesTableF32.GimbalAnglesToMotorAnglesTable()
+    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAnglesTable"
     gimbal_to_motor_angles.minAngle = 0.0
     gimbal_to_motor_angles.maxAngle = 2 * math.pi
     gimbal_to_motor_angles.gimbalToMotor1AngleData = gimbal_to_motor_1_angle_data_array
@@ -478,7 +478,7 @@ def test_linear_interpolation_inside_boundary_along_tilt_returns_exact(gimbal_an
     gimbal_to_motor_angles.tableStepAngle = 0.5 * macros.D2R
     unit_test_sim.AddModelToTask(unit_task_name, gimbal_to_motor_angles)
 
-    # Create gimbalAnglesToMotorAngles gimbal reference input message
+    # Create gimbalAnglesToMotorAnglesTable gimbal reference input message
     gimbal_reference_message_data = messaging.TwoAxisGimbalMsgF32Payload()
     gimbal_reference_message_data.theta1 = gimbal_angle_1_ref
     gimbal_reference_message_data.theta2 = gimbal_angle_2_ref
@@ -543,8 +543,8 @@ def test_bilinear_interpolation_inside_boundary_returns_exact(gimbal_angle_1_ref
      row_start_stride_indices_data_array,
      row_start_col_indices_data_array) = load_interpolation_tables()
 
-    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesF32.GimbalAnglesToMotorAngles()
-    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAngles"
+    gimbal_to_motor_angles = gimbalAnglesToMotorAnglesTableF32.GimbalAnglesToMotorAnglesTable()
+    gimbal_to_motor_angles.modelTag = "gimbalAnglesToMotorAnglesTable"
     gimbal_to_motor_angles.minAngle = 0.0
     gimbal_to_motor_angles.maxAngle = 2 * math.pi
     gimbal_to_motor_angles.gimbalToMotor1AngleData = gimbal_to_motor_1_angle_data_array
@@ -556,7 +556,7 @@ def test_bilinear_interpolation_inside_boundary_returns_exact(gimbal_angle_1_ref
     gimbal_to_motor_angles.tableStepAngle = 0.5 * macros.D2R
     unit_test_sim.AddModelToTask(unit_task_name, gimbal_to_motor_angles)
 
-    # Create gimbalAnglesToMotorAngles gimbal reference input message
+    # Create gimbalAnglesToMotorAnglesTable gimbal reference input message
     gimbal_reference_message_data = messaging.TwoAxisGimbalMsgF32Payload()
     gimbal_reference_message_data.theta1 = gimbal_angle_1_ref
     gimbal_reference_message_data.theta2 = gimbal_angle_2_ref

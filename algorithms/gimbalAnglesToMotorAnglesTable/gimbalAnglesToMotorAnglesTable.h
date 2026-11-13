@@ -1,5 +1,5 @@
-#ifndef _GIMBALANGLESTOMOTORANGLES_
-#define _GIMBALANGLESTOMOTORANGLES_
+#ifndef _GIMBALANGLESTOMOTORANGLESTABLE_
+#define _GIMBALANGLESTOMOTORANGLESTABLE_
 
 #include <array>
 #include <memory>
@@ -7,19 +7,19 @@
 
 #include "architecture/_GeneralModuleFiles/sys_model.h"
 #include "architecture/messaging/messaging.h"
-#include "gimbalAnglesToMotorAnglesAlgorithm.h"
+#include "gimbalAnglesToMotorAnglesTableAlgorithm.h"
 #include "msgPayloadDef/MotorAngleRefMsgF32Payload.h"
 #include "msgPayloadDef/TwoAxisGimbalMsgF32Payload.h"
 
 /*! @brief Gimbal Angles-To-Motor Angles adapter. Reads the requested gimbal tip and tilt angle
-message, delegates the angle computation to GimbalAnglesToMotorAnglesAlgorithm, and writes the
+message, delegates the angle computation to GimbalAnglesToMotorAnglesTableAlgorithm, and writes the
 corresponding stepper motor angles to the output messages. */
-class GimbalAnglesToMotorAngles final : public SysModel {
+class GimbalAnglesToMotorAnglesTable final : public SysModel {
    public:
-    GimbalAnglesToMotorAngles() = default;                //!< Constructor
-    ~GimbalAnglesToMotorAngles() override = default;      //!< Destructor
-    void reset(uint64_t currentSimNanos) override;        //!< Reset member function
-    void updateState(uint64_t currentSimNanos) override;  //!< Update member function
+    GimbalAnglesToMotorAnglesTable() = default;            //!< Constructor
+    ~GimbalAnglesToMotorAnglesTable() override = default;  //!< Destructor
+    void reset(uint64_t currentSimNanos) override;         //!< Reset member function
+    void updateState(uint64_t currentSimNanos) override;   //!< Update member function
     void reconfigure() const;
     void reInitialize();
 
@@ -45,8 +45,8 @@ class GimbalAnglesToMotorAngles final : public SysModel {
 
    private:
     double previousWrittenTime{-1.0};  //!< [s] Time the previous input message was written
-    std::unique_ptr<GimbalAnglesToMotorAnglesAlgorithm> algorithm = nullptr;
-    GimbalAnglesToMotorAnglesConfig toConfig() const;
+    std::unique_ptr<GimbalAnglesToMotorAnglesTableAlgorithm> algorithm = nullptr;
+    GimbalAnglesToMotorAnglesTableConfig toConfig() const;
 };
 
-#endif /* GIMBALANGLESTOMOTORANGLES */
+#endif /* GIMBALANGLESTOMOTORANGLESTABLE */

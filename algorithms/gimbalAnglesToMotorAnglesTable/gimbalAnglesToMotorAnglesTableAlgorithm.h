@@ -1,5 +1,5 @@
-#ifndef F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_ALGORITHM_H
-#define F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_ALGORITHM_H
+#ifndef F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_TABLE_ALGORITHM_H
+#define F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_TABLE_ALGORITHM_H
 
 #include <math.h>
 #include <stdlib.h>
@@ -7,7 +7,7 @@
 #include <numbers>
 #include <optional>
 
-#include "gimbalAnglesToMotorAnglesTypes.h"
+#include "gimbalAnglesToMotorAnglesTableTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
 
@@ -17,7 +17,7 @@ static constexpr int kNumTableRows = NUM_GIMBAL_TO_MOTOR_TABLE_ROWS;
 static constexpr int kNumArrayElements = NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS;
 
 /*! @brief Structure containing the algorithm output. */
-struct GimbalAnglesToMotorAnglesOutput {
+struct GimbalAnglesToMotorAnglesTableOutput {
     float motorAngle1{kDefaultMotorAngle};  //!< [rad] Motor 1 angle
     float motorAngle2{kDefaultMotorAngle};  //!< [rad] Motor 2 angle
 };
@@ -52,22 +52,23 @@ struct GimbalToMotorAngleTableLayout {
 
 /*! @brief Validated configuration for the gimbal angles to motor angles algorithm.
  * Holds the motor travel range, lookup table data for each motor, and table layout information. */
-class GimbalAnglesToMotorAnglesConfig final {
+class GimbalAnglesToMotorAnglesTableConfig final {
    public:
-    static GimbalAnglesToMotorAnglesConfig create(const StepperMotorAngleRange& angleRange,
-                                                  const GimbalToMotorAngleTable& gimbalToMotor1AngleData,
-                                                  const GimbalToMotorAngleTable& gimbalToMotor2AngleData,
-                                                  const GimbalToMotorAngleTableLayout tableLayout) {
+    static GimbalAnglesToMotorAnglesTableConfig create(const StepperMotorAngleRange& angleRange,
+                                                       const GimbalToMotorAngleTable& gimbalToMotor1AngleData,
+                                                       const GimbalToMotorAngleTable& gimbalToMotor2AngleData,
+                                                       const GimbalToMotorAngleTableLayout tableLayout) {
         if (!isValidAngleRange(angleRange)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "gimbalAnglesToMotorAngles: minAngle and maxAngle must be in [0, 2*pi] with minAngle strictly less "
+                "gimbalAnglesToMotorAnglesTable: minAngle and maxAngle must be in [0, 2*pi] with minAngle strictly "
+                "less "
                 "than maxAngle.");
         }
         if (!isValidTable(angleRange, gimbalToMotor1AngleData, tableLayout)) {
-            FSW_THROW_INVALID_ARGUMENT("gimbalAnglesToMotorAngles: gimbalToMotor1AngleData data is not valid");
+            FSW_THROW_INVALID_ARGUMENT("gimbalAnglesToMotorAnglesTable: gimbalToMotor1AngleData data is not valid");
         }
         if (!isValidTable(angleRange, gimbalToMotor2AngleData, tableLayout)) {
-            FSW_THROW_INVALID_ARGUMENT("gimbalAnglesToMotorAngles: gimbalToMotor2AngleData data is not valid");
+            FSW_THROW_INVALID_ARGUMENT("gimbalAnglesToMotorAnglesTable: gimbalToMotor2AngleData data is not valid");
         }
 
         return {angleRange, gimbalToMotor1AngleData, gimbalToMotor2AngleData, tableLayout};
@@ -135,10 +136,10 @@ class GimbalAnglesToMotorAnglesConfig final {
     const GimbalToMotorAngleTableLayout& getTableLayout() const { return this->tableLayout; }
 
    private:
-    GimbalAnglesToMotorAnglesConfig(const StepperMotorAngleRange& angleRange,
-                                    const GimbalToMotorAngleTable& gimbalToMotor1AngleData,
-                                    const GimbalToMotorAngleTable& gimbalToMotor2AngleData,
-                                    const GimbalToMotorAngleTableLayout tableLayout)
+    GimbalAnglesToMotorAnglesTableConfig(const StepperMotorAngleRange& angleRange,
+                                         const GimbalToMotorAngleTable& gimbalToMotor1AngleData,
+                                         const GimbalToMotorAngleTable& gimbalToMotor2AngleData,
+                                         const GimbalToMotorAngleTableLayout tableLayout)
         : angleRange(angleRange),
           gimbalToMotor1AngleData(gimbalToMotor1AngleData),
           gimbalToMotor2AngleData(gimbalToMotor2AngleData),
@@ -152,18 +153,18 @@ class GimbalAnglesToMotorAnglesConfig final {
 
 /*! @brief Pure algorithm: determines the stepper motor angles corresponding to the incoming
  * gimbal tip and tilt angles. */
-class GimbalAnglesToMotorAnglesAlgorithm final {
+class GimbalAnglesToMotorAnglesTableAlgorithm final {
    public:
-    explicit GimbalAnglesToMotorAnglesAlgorithm(const GimbalAnglesToMotorAnglesConfig& config);
-    void setConfig(const GimbalAnglesToMotorAnglesConfig& config);
+    explicit GimbalAnglesToMotorAnglesTableAlgorithm(const GimbalAnglesToMotorAnglesTableConfig& config);
+    void setConfig(const GimbalAnglesToMotorAnglesTableConfig& config);
     void reInitialize();
-    GimbalAnglesToMotorAnglesOutput update(float gimbalAngle1, float gimbalAngle2);
+    GimbalAnglesToMotorAnglesTableOutput update(float gimbalAngle1, float gimbalAngle2);
 
    private:
     MotorAngles pullAngles(float gimbalAngle1, float gimbalAngle2) const;
     std::optional<int> getArrayIndex(const int rowIdx, const int colIdx) const;
-    GimbalAnglesToMotorAnglesOutput previousValidOutput{};  //!< [rad] Last valid algorithm output
-    GimbalAnglesToMotorAnglesConfig cfg;
+    GimbalAnglesToMotorAnglesTableOutput previousValidOutput{};  //!< [rad] Last valid algorithm output
+    GimbalAnglesToMotorAnglesTableConfig cfg;
 };
 
-#endif /* F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_ALGORITHM_H */
+#endif /* F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_TABLE_ALGORITHM_H */
