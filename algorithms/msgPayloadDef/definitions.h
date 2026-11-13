@@ -26,6 +26,11 @@ inline constexpr std::uint32_t kMimuCount = 3U;
 // FP32 algorithm specific constants
 inline constexpr std::uint32_t kMaxMeasurementNumber = 5U;
 inline constexpr std::uint32_t kMaxMeasurementVector = 5U;
+// [steps] Largest motor steps per revolution. stepperMotorController caps its steps per revolution here so the fp32
+// round trip in angleToSteps stays within the half-step round() margin: the error grows as O(N^2 eps), about
+// 0.19 steps at 100000. Stepper motor algorithms that take steps per revolution use the same cap, so every
+// configuration they accept gives a step angle that stepperMotorController also accepts.
+inline constexpr std::uint32_t kMaxStepsPerRev = 100000U;
 
 #endif  // __cplusplus
 

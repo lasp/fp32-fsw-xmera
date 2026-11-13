@@ -5,36 +5,18 @@
 extern "C" {
 #endif
 
-#define NUM_GIMBAL_TO_MOTOR_TABLE_ROWS 109
-#define NUM_GIMBAL_TO_MOTOR_TABLE_COLS 74
-#define NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS 4086
+/* Polynomial degree of the B-spline. The evaluation in the algorithm is cubic only. */
+#define SPLINE_DEGREE 3U
+/* Number of uniform spline intervals per axis on [-1, 1]. */
+#define NUM_SPLINE_INTERVALS 6U
+/* A uniform B-spline with N intervals has N + SPLINE_DEGREE control coefficients per axis. */
+#define NUM_SPLINE_COEFFS_PER_AXIS (NUM_SPLINE_INTERVALS + SPLINE_DEGREE)
+#define NUM_SPLINE_COEFFS (NUM_SPLINE_COEFFS_PER_AXIS * NUM_SPLINE_COEFFS_PER_AXIS)
 
-/*! @brief POD representation of gimbal-to-motor interpolation table data. */
-typedef struct GimbalToMotorAngleTableData_c {
-    float data[NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS]; /*!< [rad] motor angle entries */
-} GimbalToMotorAngleTableData_c;
-
-/*! @brief POD representation of gimbal-to-motor interpolation table row indices. */
-typedef struct GimbalToMotorAngleTableRowIndexData_c {
-    int data[NUM_GIMBAL_TO_MOTOR_TABLE_ROWS]; /*!< [-] list of table row indices */
-} GimbalToMotorAngleTableRowIndexData_c;
-
-/*! @brief POD mirror of the C++ GimbalToMotorAngleTableLayout (table row layout information). */
-typedef struct GimbalToMotorAngleTableLayout_c {
-    GimbalToMotorAngleTableRowIndexData_c
-        rowStartStrideIndices; /*!< [-] Stride indices for the starting location of the table rows */
-    GimbalToMotorAngleTableRowIndexData_c
-        rowStartColIndices; /*!< [-] Column indices for the starting location of the table rows */
-    int tipColIdxOffset;
-    int tiltRowIdxOffset;
-    float tableStepAngle; /*!< [rad] Interpolation table motor discretization step */
-} GimbalToMotorAngleTableLayout_c;
-
-/*! @brief POD mirror of the C++ StepperMotorAngleRange (motor angular travel range [rad]). */
-typedef struct {
-    float minAngle; /*!< [rad] Lower bound of the motor travel range */
-    float maxAngle; /*!< [rad] Upper bound of the motor travel range */
-} MotorAngleRange_c;
+/*! @brief POD representation of the spline control coefficients of one motor surface. */
+typedef struct SplineCoefficients_c {
+    float data[NUM_SPLINE_COEFFS]; /*!< [steps] Coefficient c[i][j] at index i * NUM_SPLINE_COEFFS_PER_AXIS + j */
+} SplineCoefficients_c;
 
 /*! @brief Plain-old-data mirror of the C++ GimbalAnglesToMotorAnglesOutput. */
 typedef struct {

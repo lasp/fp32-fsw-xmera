@@ -11,18 +11,13 @@
 
 %include "gimbalAnglesToMotorAnglesTypes.h"
 
-%template(GimbalMotorAngleTable) std::array<float, NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS>;
-%template(GimbalMotorTableRowLayout) std::array<int, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS>;
+%template(GimbalToMotorSplineCoefficients) std::array<float, NUM_SPLINE_COEFFS>;
 
-// The table members are public, so by default SWIG wraps them with pointer typemaps that only accept an
+// The coefficient members are public, so by default SWIG wraps them with pointer typemaps that only accept an
 // already wrapped array object. %naturalvar switches them to the value typemaps supplied by std_array.i,
 // which accept (and return) any Python sequence.
-%naturalvar GimbalToMotorAngleTableLayout::rowStartStrideIndices;
-%naturalvar GimbalToMotorAngleTableLayout::rowStartColIndices;
-%naturalvar GimbalAnglesToMotorAngles::gimbalToMotor1AngleData;
-%naturalvar GimbalAnglesToMotorAngles::gimbalToMotor2AngleData;
-%naturalvar GimbalAnglesToMotorAngles::rowStartStrideIndices;
-%naturalvar GimbalAnglesToMotorAngles::rowStartColIndices;
+%naturalvar GimbalAnglesToMotorAngles::motor1SplineCoefficients;
+%naturalvar GimbalAnglesToMotorAngles::motor2SplineCoefficients;
 
 %include "gimbalAnglesToMotorAnglesAlgorithm.h"
 %include "gimbalAnglesToMotorAngles.h"

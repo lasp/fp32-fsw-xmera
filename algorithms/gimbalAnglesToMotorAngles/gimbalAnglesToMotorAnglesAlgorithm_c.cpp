@@ -3,57 +3,44 @@
 #include "utilities/fsw/opaqueHandle.h"
 
 namespace {
-/*! Convert a C-shared table POD into the algorithm's std::array table type. */
-GimbalToMotorAngleTable toStdTable(const GimbalToMotorAngleTableData_c* src) {
-    GimbalToMotorAngleTable out{};
+/*! Convert a C-shared coefficient POD into the algorithm's std::array coefficient type. */
+SplineCoefficients toCoefficients(const SplineCoefficients_c* src) {
+    SplineCoefficients out{};
     for (std::size_t index = 0; index < out.size(); ++index) {
-        out[index] = src->data[index];
+        out.at(index) = src->data[index];
     }
     return out;
-}
-
-/*! Convert a C-shared table row index POD into the algorithm's std::array row index type. */
-std::array<int, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS> toStdRowIndices(const GimbalToMotorAngleTableRowIndexData_c* src) {
-    std::array<int, NUM_GIMBAL_TO_MOTOR_TABLE_ROWS> out{};
-    for (std::size_t index = 0; index < out.size(); ++index) {
-        out[index] = src->data[index];
-    }
-    return out;
-}
-
-/*! Convert a C-shared table layout POD into the algorithm's table layout type. */
-GimbalToMotorAngleTableLayout toStdTableLayout(const GimbalToMotorAngleTableLayout_c* src) {
-    return GimbalToMotorAngleTableLayout{toStdRowIndices(&src->rowStartStrideIndices),
-                                         toStdRowIndices(&src->rowStartColIndices),
-                                         src->tipColIdxOffset,
-                                         src->tiltRowIdxOffset,
-                                         src->tableStepAngle};
 }
 
 /*! Build the validated C++ configuration from the flattened C parameters. */
-GimbalAnglesToMotorAnglesConfig makeConfig(const MotorAngleRange_c* angleRange,
-                                           const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
-                                           const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
-                                           const GimbalToMotorAngleTableLayout_c* tableLayout) {
-    return GimbalAnglesToMotorAnglesConfig::create(StepperMotorAngleRange{angleRange->minAngle, angleRange->maxAngle},
-                                                   toStdTable(gimbalToMotor1AngleTable),
-                                                   toStdTable(gimbalToMotor2AngleTable),
-                                                   toStdTableLayout(tableLayout));
+GimbalAnglesToMotorAnglesConfig makeConfig(const uint32_t stepsPerRevolution,
+                                           const float halfDiagonalTip,
+                                           const float halfDiagonalTilt,
+                                           const float thetaMax,
+                                           const SplineCoefficients_c* motor1Coefficients,
+                                           const SplineCoefficients_c* motor2Coefficients) {
+    return GimbalAnglesToMotorAnglesConfig::create(
+        stepsPerRevolution,
+        GimbalRhombusDomain{
+            .halfDiagonalTip = halfDiagonalTip, .halfDiagonalTilt = halfDiagonalTilt, .thetaMax = thetaMax},
+        toCoefficients(motor1Coefficients),
+        toCoefficients(motor2Coefficients));
 }
 }  // namespace
 
-uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumTableRows(void) { return NUM_GIMBAL_TO_MOTOR_TABLE_ROWS; }
+uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumSplineIntervals(void) { return NUM_SPLINE_INTERVALS; }
 
-uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumTableCols(void) { return NUM_GIMBAL_TO_MOTOR_TABLE_COLS; }
+uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumSplineCoeffs(void) { return NUM_SPLINE_COEFFS; }
 
-uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumTableElements(void) { return NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS; }
-
-bool GimbalAnglesToMotorAnglesAlgorithm_validateConfig(const MotorAngleRange_c* angleRange,
-                                                       const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
-                                                       const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
-                                                       const GimbalToMotorAngleTableLayout_c* tableLayout) {
+bool GimbalAnglesToMotorAnglesAlgorithm_validateConfig(const uint32_t stepsPerRevolution,
+                                                       const float halfDiagonalTip,
+                                                       const float halfDiagonalTilt,
+                                                       const float thetaMax,
+                                                       const SplineCoefficients_c* motor1Coefficients,
+                                                       const SplineCoefficients_c* motor2Coefficients) {
     try {
-        (void)makeConfig(angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout);
+        (void)makeConfig(
+            stepsPerRevolution, halfDiagonalTip, halfDiagonalTilt, thetaMax, motor1Coefficients, motor2Coefficients);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
@@ -61,12 +48,14 @@ bool GimbalAnglesToMotorAnglesAlgorithm_validateConfig(const MotorAngleRange_c* 
 }
 
 GimbalAnglesToMotorAnglesAlgorithmHandle* GimbalAnglesToMotorAnglesAlgorithm_create(
-    const MotorAngleRange_c* angleRange,
-    const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
-    const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
-    const GimbalToMotorAngleTableLayout_c* tableLayout) {
-    return fsw::createHandle<::GimbalAnglesToMotorAnglesAlgorithm, GimbalAnglesToMotorAnglesAlgorithmHandle>(
-        makeConfig(angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout));
+    const uint32_t stepsPerRevolution,
+    const float halfDiagonalTip,
+    const float halfDiagonalTilt,
+    const float thetaMax,
+    const SplineCoefficients_c* motor1Coefficients,
+    const SplineCoefficients_c* motor2Coefficients) {
+    return fsw::createHandle<::GimbalAnglesToMotorAnglesAlgorithm, GimbalAnglesToMotorAnglesAlgorithmHandle>(makeConfig(
+        stepsPerRevolution, halfDiagonalTip, halfDiagonalTilt, thetaMax, motor1Coefficients, motor2Coefficients));
 }
 
 void GimbalAnglesToMotorAnglesAlgorithm_destroy(GimbalAnglesToMotorAnglesAlgorithmHandle* self) {
@@ -74,12 +63,14 @@ void GimbalAnglesToMotorAnglesAlgorithm_destroy(GimbalAnglesToMotorAnglesAlgorit
 }
 
 void GimbalAnglesToMotorAnglesAlgorithm_setConfig(GimbalAnglesToMotorAnglesAlgorithmHandle* self,
-                                                  const MotorAngleRange_c* angleRange,
-                                                  const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
-                                                  const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
-                                                  const GimbalToMotorAngleTableLayout_c* tableLayout) {
-    fsw::fromHandle<::GimbalAnglesToMotorAnglesAlgorithm>(self)->setConfig(
-        makeConfig(angleRange, gimbalToMotor1AngleTable, gimbalToMotor2AngleTable, tableLayout));
+                                                  const uint32_t stepsPerRevolution,
+                                                  const float halfDiagonalTip,
+                                                  const float halfDiagonalTilt,
+                                                  const float thetaMax,
+                                                  const SplineCoefficients_c* motor1Coefficients,
+                                                  const SplineCoefficients_c* motor2Coefficients) {
+    fsw::fromHandle<::GimbalAnglesToMotorAnglesAlgorithm>(self)->setConfig(makeConfig(
+        stepsPerRevolution, halfDiagonalTip, halfDiagonalTilt, thetaMax, motor1Coefficients, motor2Coefficients));
 }
 
 void GimbalAnglesToMotorAnglesAlgorithm_reInitialize(GimbalAnglesToMotorAnglesAlgorithmHandle* self) {

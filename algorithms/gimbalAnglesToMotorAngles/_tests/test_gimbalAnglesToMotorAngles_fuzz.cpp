@@ -1,54 +1,50 @@
 #include "gimbalAnglesToMotorAnglesTestHelpers.hpp"
-#include "utilities/testUtilities/eigenFuzzDomains.hpp"
 #include <fuzztest/fuzztest.h>
 
-// ---------------------------------------------------------------------------
-// Regression fuzz
-// ---------------------------------------------------------------------------
-FUZZ_TEST(GimbalAnglesToMotorAnglesAlgorithmFuzz, testGimbalAnglesToMotorAnglesRegression)
-    .WithDomains(fuzztest::InRange(-90.0F * std::numbers::pi_v<float> / 180.0F,
-                                   90.0F * std::numbers::pi_v<float> / 180.0F),  // gimbalAngle1 [rad]
-                 fuzztest::InRange(-90.0F * std::numbers::pi_v<float> / 180.0F,
-                                   90.0F * std::numbers::pi_v<float> / 180.0F),  // gimbalAngle2 [rad]
-                 xmera::fuzz::Vector3fInRange(0.0F, 1.0F),                       // tableCoeffs1
-                 xmera::fuzz::Vector3fInRange(0.0F, 1.0F),                       // tableCoeffs2
-                 fuzztest::InRange(-(NUM_GIMBAL_TO_MOTOR_TABLE_COLS - 1),
-                                   NUM_GIMBAL_TO_MOTOR_TABLE_COLS - 1),  // tipColIdxOffset
-                 fuzztest::InRange(-(NUM_GIMBAL_TO_MOTOR_TABLE_ROWS - 1),
-                                   NUM_GIMBAL_TO_MOTOR_TABLE_ROWS - 1),  // tiltRowIdxOffset
-                 // Step angles above about 1.5 degrees are rejected by the +- 90 degree gimbal travel check
-                 fuzztest::InRange(0.25F * std::numbers::pi_v<float> / 180.0F,
-                                   1.5F * std::numbers::pi_v<float> / 180.0F));  // tableStepAngle
+namespace {
+
+// [steps] Largest coefficient magnitude that the configuration accepts
+constexpr auto kMaxCoefficient = static_cast<float>(kMaxStepsPerRev);
+// [rad] Upper end of the directions of the requests in the circle
+constexpr float kFullTurn = 2.0F * std::numbers::pi_v<float>;
+
+}  // namespace
 
 // ---------------------------------------------------------------------------
 // Property fuzz
 // ---------------------------------------------------------------------------
-FUZZ_TEST(GimbalAnglesToMotorAnglesAlgorithmFuzz, propertyOutputIsFinite)
-    .WithDomains(fuzztest::InRange(-90.0F * std::numbers::pi_v<float> / 180.0F,
-                                   90.0F * std::numbers::pi_v<float> / 180.0F),  // gimbalAngle1 [rad]
-                 fuzztest::InRange(-90.0F * std::numbers::pi_v<float> / 180.0F,
-                                   90.0F * std::numbers::pi_v<float> / 180.0F),  // gimbalAngle2 [rad]
-                 xmera::fuzz::Vector3fInRange(0.0F, 1.0F),                       // tableCoeffs1
-                 xmera::fuzz::Vector3fInRange(0.0F, 1.0F),                       // tableCoeffs2
-                 fuzztest::InRange(-(NUM_GIMBAL_TO_MOTOR_TABLE_COLS - 1),
-                                   NUM_GIMBAL_TO_MOTOR_TABLE_COLS - 1),  // tipColIdxOffset
-                 fuzztest::InRange(-(NUM_GIMBAL_TO_MOTOR_TABLE_ROWS - 1),
-                                   NUM_GIMBAL_TO_MOTOR_TABLE_ROWS - 1),  // tiltRowIdxOffset
-                 // Step angles above about 1.5 degrees are rejected by the +- 90 degree gimbal travel check
-                 fuzztest::InRange(0.25F * std::numbers::pi_v<float> / 180.0F,
-                                   1.5F * std::numbers::pi_v<float> / 180.0F));  // tableStepAngle
 
-FUZZ_TEST(GimbalAnglesToMotorAnglesAlgorithmFuzz, propertyMotorAnglesBounded)
-    .WithDomains(fuzztest::InRange(-90.0F * std::numbers::pi_v<float> / 180.0F,
-                                   90.0F * std::numbers::pi_v<float> / 180.0F),  // gimbalAngle1 [rad]
-                 fuzztest::InRange(-90.0F * std::numbers::pi_v<float> / 180.0F,
-                                   90.0F * std::numbers::pi_v<float> / 180.0F),  // gimbalAngle2 [rad]
-                 xmera::fuzz::Vector3fInRange(0.0F, 1.0F),                       // tableCoeffs1
-                 xmera::fuzz::Vector3fInRange(0.0F, 1.0F),                       // tableCoeffs2
-                 fuzztest::InRange(-(NUM_GIMBAL_TO_MOTOR_TABLE_COLS - 1),
-                                   NUM_GIMBAL_TO_MOTOR_TABLE_COLS - 1),  // tipColIdxOffset
-                 fuzztest::InRange(-(NUM_GIMBAL_TO_MOTOR_TABLE_ROWS - 1),
-                                   NUM_GIMBAL_TO_MOTOR_TABLE_ROWS - 1),  // tiltRowIdxOffset
-                 // Step angles above about 1.5 degrees are rejected by the +- 90 degree gimbal travel check
-                 fuzztest::InRange(0.25F * std::numbers::pi_v<float> / 180.0F,
-                                   1.5F * std::numbers::pi_v<float> / 180.0F));  // tableStepAngle
+// Any float input, including NaN, infinities, and huge values, gives a finite output: either the initial output of
+// the algorithm or motor steps inside the coefficient convex hull of each motor
+FUZZ_TEST(GimbalAnglesToMotorAnglesAlgorithmFuzz, propertyOutputIsFiniteForAnyInput)
+    .WithDomains(fuzztest::Arbitrary<float>(),   // gimbalAngle1 [rad]
+                 fuzztest::Arbitrary<float>());  // gimbalAngle2 [rad]
+
+// A request outside the rhombus returns the previous valid output. The valid request is in the circle of radius
+// thetaMax.
+FUZZ_TEST(GimbalAnglesToMotorAnglesAlgorithmFuzz, propertyOutsideDomainHoldsPreviousOutput)
+    .WithDomains(fuzztest::InRange(0.0F, 1.0F),       // validRadiusFraction [-]
+                 fuzztest::InRange(0.0F, kFullTurn),  // validDirection [rad]
+                 fuzztest::InRange(-50.0F, 50.0F),    // outsideU [-]
+                 fuzztest::InRange(-50.0F, 50.0F));   // outsideV [-]
+
+// The linear test coefficients reproduce the surfaces kLinearSurfaceScale * u and kLinearSurfaceScale * v at any
+// point of [-1, 1] x [-1, 1], edges included
+FUZZ_TEST(GimbalAnglesToMotorAnglesAlgorithmFuzz, propertyReproducesLinearSurface)
+    .WithDomains(fuzztest::InRange(-1.0F, 1.0F),   // u [-]
+                 fuzztest::InRange(-1.0F, 1.0F));  // v [-]
+
+// Nearby points give nearby values of the rough test surfaces; the change is bounded by the slope bound of each surface
+FUZZ_TEST(GimbalAnglesToMotorAnglesAlgorithmFuzz, propertySurfaceIsLipschitz)
+    .WithDomains(fuzztest::InRange(-1.0F, 1.0F),     // u [-]
+                 fuzztest::InRange(-1.0F, 1.0F),     // v [-]
+                 fuzztest::InRange(-0.01F, 0.01F),   // du [-]
+                 fuzztest::InRange(-0.01F, 0.01F));  // dv [-]
+
+// Any coefficients give surface values inside their convex hull at any point of [-1, 1] x [-1, 1]. The coefficients
+// cover the whole range that the configuration accepts.
+FUZZ_TEST(GimbalAnglesToMotorAnglesAlgorithmFuzz, propertySurfaceWithinCoefficientBounds)
+    .WithDomains(fuzztest::ArrayOf<NUM_SPLINE_COEFFS>(fuzztest::InRange(-kMaxCoefficient,
+                                                                        kMaxCoefficient)),  // coefficients [steps]
+                 fuzztest::InRange(-1.0F, 1.0F),                                            // u [-]
+                 fuzztest::InRange(-1.0F, 1.0F));                                           // v [-]

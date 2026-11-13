@@ -16,57 +16,57 @@ extern "C" {
 typedef struct GimbalAnglesToMotorAnglesAlgorithmHandle GimbalAnglesToMotorAnglesAlgorithmHandle;
 
 /**
- * @brief Get the NUM_GIMBAL_TO_MOTOR_TABLE_ROWS constant for Ada validation.
- * @return The number of interpolation table rows handled at the C boundary.
+ * @brief Get the NUM_SPLINE_INTERVALS constant for Ada validation.
+ * @return The number of uniform spline intervals per axis.
  */
-uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumTableRows(void);
+uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumSplineIntervals(void);
 
 /**
- * @brief Get the NUM_GIMBAL_TO_MOTOR_TABLE_COLS constant for Ada validation.
- * @return The number of interpolation table columns handled at the C boundary.
+ * @brief Get the NUM_SPLINE_COEFFS constant for Ada validation.
+ * @return The number of spline control coefficients of one motor surface handled at the C boundary.
  */
-uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumTableCols(void);
-
-/**
- * @brief Get the NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS constant for Ada validation.
- * @return The number of interpolation table entries handled at the C boundary.
- */
-uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumTableElements(void);
+uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumSplineCoeffs(void);
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param angleRange               [rad] motor angular travel range; both bounds must lie in [0, 2*pi] with
- *                                       minAngle strictly less than maxAngle.
- * @param gimbalToMotor1AngleTable [rad] gimbal-to-motor 1 angle interpolation table; every entry must be
- *                                       finite and within the motor travel range.
- * @param gimbalToMotor2AngleTable [rad] gimbal-to-motor 2 angle interpolation table; same constraints as
- *                                       the motor 1 table.
- * @param tableLayout              [-]   table row layout; |tipColIdxOffset| and |tiltRowIdxOffset| must stay
- *                                       below the table column/row counts, rowStartStrideIndices must be
- *                                       non-negative and strictly increasing, rowStartColIndices must lie in
- *                                       [0, column count), and tableStepAngle must be finite and > 0.
+ * @param stepsPerRevolution [steps] number of motor steps per 2*pi rad; must be in [1, kMaxStepsPerRev].
+ * @param halfDiagonalTip    [rad] half of the rhombus diagonal along the gimbal tip axis; must be in (0, pi/2].
+ * @param halfDiagonalTilt   [rad] half of the rhombus diagonal along the gimbal tilt axis; must be in (0, pi/2].
+ * @param thetaMax           [rad] maximum requested thrust cone angle; must be greater than zero and not greater
+ *                                 than the radius of the largest circle in the rhombus.
+ * @param motor1Coefficients [steps] motor 1 spline control coefficients; every entry must be in
+ *                                 [-kMaxStepsPerRev, kMaxStepsPerRev].
+ * @param motor2Coefficients [steps] motor 2 spline control coefficients; every entry must be in
+ *                                 [-kMaxStepsPerRev, kMaxStepsPerRev].
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool GimbalAnglesToMotorAnglesAlgorithm_validateConfig(const MotorAngleRange_c* angleRange,
-                                                       const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
-                                                       const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
-                                                       const GimbalToMotorAngleTableLayout_c* tableLayout);
+bool GimbalAnglesToMotorAnglesAlgorithm_validateConfig(uint32_t stepsPerRevolution,
+                                                       float halfDiagonalTip,
+                                                       float halfDiagonalTilt,
+                                                       float thetaMax,
+                                                       const SplineCoefficients_c* motor1Coefficients,
+                                                       const SplineCoefficients_c* motor2Coefficients);
 
 /**
- * @brief Construct a new GimbalAnglesToMotorAnglesAlgorithm instance from the supplied configuration.
- * @param angleRange               [rad] Motor angular travel range (min/max).
- * @param gimbalToMotor1AngleTable [rad] Gimbal-to-motor 1 angle interpolation table.
- * @param gimbalToMotor2AngleTable [rad] Gimbal-to-motor 2 angle interpolation table.
- * @param tableLayout              [-]   Table row layout information.
+ * @brief Construct a new GimbalAnglesToMotorAnglesAlgorithm instance from the supplied configuration. Before the
+ *        first valid request, the motor angle output is the motor angles at zero gimbal angles.
+ * @param stepsPerRevolution [steps] Number of motor steps per 2*pi rad.
+ * @param halfDiagonalTip    [rad] Half of the rhombus diagonal along the gimbal tip axis.
+ * @param halfDiagonalTilt   [rad] Half of the rhombus diagonal along the gimbal tilt axis.
+ * @param thetaMax           [rad] Maximum requested thrust cone angle.
+ * @param motor1Coefficients [steps] Motor 1 spline control coefficients.
+ * @param motor2Coefficients [steps] Motor 2 spline control coefficients.
  * @return Pointer to a new GimbalAnglesToMotorAnglesAlgorithm (must be destroyed).
  * Validate the configuration with validateConfig first; invalid input throws.
  */
 GimbalAnglesToMotorAnglesAlgorithmHandle* GimbalAnglesToMotorAnglesAlgorithm_create(
-    const MotorAngleRange_c* angleRange,
-    const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
-    const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
-    const GimbalToMotorAngleTableLayout_c* tableLayout);
+    uint32_t stepsPerRevolution,
+    float halfDiagonalTip,
+    float halfDiagonalTilt,
+    float thetaMax,
+    const SplineCoefficients_c* motor1Coefficients,
+    const SplineCoefficients_c* motor2Coefficients);
 
 /**
  * @brief Destroy a previously created GimbalAnglesToMotorAnglesAlgorithm.
@@ -75,22 +75,28 @@ GimbalAnglesToMotorAnglesAlgorithmHandle* GimbalAnglesToMotorAnglesAlgorithm_cre
 void GimbalAnglesToMotorAnglesAlgorithm_destroy(GimbalAnglesToMotorAnglesAlgorithmHandle* self);
 
 /**
- * @brief Replace the algorithm's configuration at runtime. The cached previous valid output is preserved.
- * @param self                     Pointer to the instance.
- * @param angleRange               [rad] Motor angular travel range (min/max).
- * @param gimbalToMotor1AngleTable [rad] Gimbal-to-motor 1 angle interpolation table.
- * @param gimbalToMotor2AngleTable [rad] Gimbal-to-motor 2 angle interpolation table.
- * @param tableLayout              [-]   Table row layout information.
+ * @brief Replace the algorithm's configuration at runtime. The cached previous valid output is preserved. If there
+ *        is none, the motor angles of the new configuration at zero gimbal angles are used at once.
+ * @param self               Pointer to the instance.
+ * @param stepsPerRevolution [steps] Number of motor steps per 2*pi rad.
+ * @param halfDiagonalTip    [rad] Half of the rhombus diagonal along the gimbal tip axis.
+ * @param halfDiagonalTilt   [rad] Half of the rhombus diagonal along the gimbal tilt axis.
+ * @param thetaMax           [rad] Maximum requested thrust cone angle.
+ * @param motor1Coefficients [steps] Motor 1 spline control coefficients.
+ * @param motor2Coefficients [steps] Motor 2 spline control coefficients.
  * Validate the configuration with validateConfig first; invalid input throws.
  */
 void GimbalAnglesToMotorAnglesAlgorithm_setConfig(GimbalAnglesToMotorAnglesAlgorithmHandle* self,
-                                                  const MotorAngleRange_c* angleRange,
-                                                  const GimbalToMotorAngleTableData_c* gimbalToMotor1AngleTable,
-                                                  const GimbalToMotorAngleTableData_c* gimbalToMotor2AngleTable,
-                                                  const GimbalToMotorAngleTableLayout_c* tableLayout);
+                                                  uint32_t stepsPerRevolution,
+                                                  float halfDiagonalTip,
+                                                  float halfDiagonalTilt,
+                                                  float thetaMax,
+                                                  const SplineCoefficients_c* motor1Coefficients,
+                                                  const SplineCoefficients_c* motor2Coefficients);
 
 /**
- * @brief Reset the cached previous valid output back to the default motor angles.
+ * @brief Clear the cached previous valid output, so the motor angles of the current configuration at zero gimbal
+ *        angles are used until the next valid request.
  * @param self Pointer to the instance.
  */
 void GimbalAnglesToMotorAnglesAlgorithm_reInitialize(GimbalAnglesToMotorAnglesAlgorithmHandle* self);
@@ -98,9 +104,10 @@ void GimbalAnglesToMotorAnglesAlgorithm_reInitialize(GimbalAnglesToMotorAnglesAl
 /**
  * @brief Determine the motor angles for the commanded gimbal tip and tilt angles.
  * @param self         Pointer to the instance.
- * @param gimbalAngle1 [rad] Commanded gimbal tip angle 1.
- * @param gimbalAngle2 [rad] Commanded gimbal tilt angle 2.
- * @return GimbalAnglesToMotorAnglesOutput_c  Motor angles.
+ * @param gimbalAngle1 [rad] Commanded gimbal tip angle.
+ * @param gimbalAngle2 [rad] Commanded gimbal tilt angle.
+ * @return GimbalAnglesToMotorAnglesOutput_c  Motor angles. Requests that are not finite or are outside the
+ *         rhombus return the previous valid motor angles.
  */
 GimbalAnglesToMotorAnglesOutput_c GimbalAnglesToMotorAnglesAlgorithm_update(
     GimbalAnglesToMotorAnglesAlgorithmHandle* self,

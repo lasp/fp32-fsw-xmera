@@ -1,7 +1,63 @@
 #include "gimbalAnglesToMotorAnglesAlgorithm.h"
 
-#include "utilities/fsw/bilinearInterpolation.h"
 #include <math.h>
+
+namespace gimbal_angles_to_motor_angles_detail {
+
+std::array<float, 4> cubicBSplineWeights(const float t) {
+    const float t2 = t * t;
+    const float t3 = t2 * t;
+    const float oneMinusT = 1.0F - t;
+    return {oneMinusT * oneMinusT * oneMinusT / 6.0F,
+            (3.0F * t3 - 6.0F * t2 + 4.0F) / 6.0F,
+            (-3.0F * t3 + 3.0F * t2 + 3.0F * t + 1.0F) / 6.0F,
+            t3 / 6.0F};
+}
+
+SplineIntervalLocation splineInterval(const float x) {
+    constexpr float h = 2.0F / static_cast<float>(kNumSplineIntervals);
+    const float scaled = (x + 1.0F) / h;
+
+    // Clamp interval at both ends. x = 1 must belong to the last interval. The clamp is done in float, before the
+    // conversion, because converting a negative float to an unsigned integer is undefined behavior.
+    const auto interval =
+        static_cast<uint32_t>(std::clamp(floorf(scaled), 0.0F, static_cast<float>(kNumSplineIntervals - 1)));
+    return {.interval = interval, .t = scaled - static_cast<float>(interval)};
+}
+
+float evaluateSurface(const SplineCoefficients& coefficients, const float u, const float v) {
+    const auto [intervalU, tu] = splineInterval(u);
+    const auto [intervalV, tv] = splineInterval(v);
+    const std::array<float, 4> weightsU = cubicBSplineWeights(tu);
+    const std::array<float, 4> weightsV = cubicBSplineWeights(tv);
+
+    float value = 0.0F;
+    for (uint32_t p = 0; p < 4; ++p) {
+        const uint32_t rowStart = ((intervalU + p) * kNumSplineCoeffsPerAxis) + intervalV;
+        float rowValue = 0.0F;
+        for (uint32_t q = 0; q < 4; ++q) {
+            rowValue += weightsV.at(q) * coefficients.at(rowStart + q);
+        }
+        value += weightsU.at(p) * rowValue;
+    }
+    return value;
+}
+
+}  // namespace gimbal_angles_to_motor_angles_detail
+
+/*! This method evaluates the motor 1 and motor 2 step surfaces and converts the motor steps to motor angles.
+ @return GimbalAnglesToMotorAnglesOutput
+ @param u [-] First normalized rhombus coordinate in [-1, 1]
+ @param v [-] Second normalized rhombus coordinate in [-1, 1]
+*/
+GimbalAnglesToMotorAnglesOutput GimbalAnglesToMotorAnglesAlgorithm::motorAngles(float u, float v) const {
+    return {
+        .motorAngle1 = gimbal_angles_to_motor_angles_detail::evaluateSurface(this->cfg.getMotor1Coefficients(), u, v) *
+                       this->stepAngle,
+        .motorAngle2 = gimbal_angles_to_motor_angles_detail::evaluateSurface(this->cfg.getMotor2Coefficients(), u, v) *
+                       this->stepAngle,
+    };
+}
 
 GimbalAnglesToMotorAnglesAlgorithm::GimbalAnglesToMotorAnglesAlgorithm(const GimbalAnglesToMotorAnglesConfig& config)
     : cfg(config) {
@@ -9,146 +65,52 @@ GimbalAnglesToMotorAnglesAlgorithm::GimbalAnglesToMotorAnglesAlgorithm(const Gim
     reInitialize();
 }
 
-/*! Replaces the algorithm's configuration for runtime reconfiguration.
+/*! Replaces the algorithm's configuration for runtime reconfiguration. The previous valid output is kept. If there is
+ no previous valid output, the motor angles of the new configuration at zero gimbal angles are used at once.
  @param config Validated configuration
 */
 void GimbalAnglesToMotorAnglesAlgorithm::setConfig(const GimbalAnglesToMotorAnglesConfig& config) {
     this->cfg = config;
+    this->stepAngle = 2.0F * std::numbers::pi_v<float> / static_cast<float>(this->cfg.getStepsPerRevolution());
+    this->zeroGimbalMotorAngles = this->motorAngles(0.0F, 0.0F);
 }
 
-/*! Resets the stored motor angles to the default angles corresponding to the gimbal (0,0) home position.
+/*! Clears the previous valid output, so the motor angles of the current configuration at zero gimbal angles are used
+ until the next valid request.
  @return void
 */
-void GimbalAnglesToMotorAnglesAlgorithm::reInitialize() {
-    this->previousValidOutput = GimbalAnglesToMotorAnglesOutput{};
-}
+void GimbalAnglesToMotorAnglesAlgorithm::reInitialize() { this->previousValidOutput.reset(); }
 
 /*! This method determines the stepper motor angles corresponding to the incoming gimbal tip and tilt angles.
+ The spline surface of each motor gives motor steps, which are converted to motor angles with the step angle
+ 2*pi / stepsPerRevolution.
+ Requests that are not finite or are outside the addressable rhombus return the previous valid motor angles. If
+ there is no previous valid output, they return the motor angles of the current configuration at zero gimbal angles.
  @return GimbalAnglesToMotorAnglesOutput
- @param gimbalAngle1 [rad]
- @param gimbalAngle2 [rad]
-*/
-GimbalAnglesToMotorAnglesOutput GimbalAnglesToMotorAnglesAlgorithm::update(float gimbalAngle1, float gimbalAngle2) {
-    // Set the default motor angles.
-    // On first call, the default motor angles are the angles corresponding to the gimbal (0,0) home position.
-    // For all other calls, the default motor angles are the previously valid motor angles.
-    GimbalAnglesToMotorAnglesOutput output{this->previousValidOutput};
-
-    // Determine the bounding gimbal angles
-    const float gimbalAngle1LBound =
-        this->cfg.getTableLayout().tableStepAngle * floorf(gimbalAngle1 / this->cfg.getTableLayout().tableStepAngle);
-    const float gimbalAngle1UBound =
-        this->cfg.getTableLayout().tableStepAngle * ceilf(gimbalAngle1 / this->cfg.getTableLayout().tableStepAngle);
-    const float gimbalAngle2LBound =
-        this->cfg.getTableLayout().tableStepAngle * floorf(gimbalAngle2 / this->cfg.getTableLayout().tableStepAngle);
-    const float gimbalAngle2UBound =
-        this->cfg.getTableLayout().tableStepAngle * ceilf(gimbalAngle2 / this->cfg.getTableLayout().tableStepAngle);
-
-    // Determine the bounding motor angles
-    const MotorAngles motorLLBounds = this->pullAngles(gimbalAngle1LBound, gimbalAngle2LBound);
-    const MotorAngles motorLUBounds = this->pullAngles(gimbalAngle1LBound, gimbalAngle2UBound);
-    const MotorAngles motorULBounds = this->pullAngles(gimbalAngle1UBound, gimbalAngle2LBound);
-    const MotorAngles motorUUBounds = this->pullAngles(gimbalAngle1UBound, gimbalAngle2UBound);
-
-    // Interpolate the motor angles if all bounding angles are valid
-    if (motorLLBounds.isValidInterpolation && motorLUBounds.isValidInterpolation &&
-        motorULBounds.isValidInterpolation && motorUUBounds.isValidInterpolation) {
-        const std::optional<float> motor1Angle = bilinearInterpolation(gimbalAngle1LBound,
-                                                                       gimbalAngle1UBound,
-                                                                       gimbalAngle2LBound,
-                                                                       gimbalAngle2UBound,
-                                                                       motorLLBounds.angle1,
-                                                                       motorLUBounds.angle1,
-                                                                       motorULBounds.angle1,
-                                                                       motorUUBounds.angle1,
-                                                                       gimbalAngle1,
-                                                                       gimbalAngle2);
-        const std::optional<float> motor2Angle = bilinearInterpolation(gimbalAngle1LBound,
-                                                                       gimbalAngle1UBound,
-                                                                       gimbalAngle2LBound,
-                                                                       gimbalAngle2UBound,
-                                                                       motorLLBounds.angle2,
-                                                                       motorLUBounds.angle2,
-                                                                       motorULBounds.angle2,
-                                                                       motorUUBounds.angle2,
-                                                                       gimbalAngle1,
-                                                                       gimbalAngle2);
-
-        if (motor1Angle.has_value() && motor2Angle.has_value()) {
-            output.motorAngle1 = *motor1Angle;
-            output.motorAngle2 = *motor2Angle;
-
-            // Store the valid motor angles for the next update call
-            this->previousValidOutput = output;
-        }
-    }
-
-    return output;
-}
-
-/*! This method pulls the motor angles from the provided interpolation tables.
- @return MotorAngles
  @param gimbalAngle1 [rad] Gimbal tip angle
  @param gimbalAngle2 [rad] Gimbal tilt angle
 */
-MotorAngles GimbalAnglesToMotorAnglesAlgorithm::pullAngles(float gimbalAngle1, float gimbalAngle2) const {
-    // Shift the gimbal angles because the diamond is positioned at the center of the data table
-    gimbalAngle1 +=
-        static_cast<float>(this->cfg.getTableLayout().tipColIdxOffset) * this->cfg.getTableLayout().tableStepAngle;
-    gimbalAngle2 +=
-        static_cast<float>(this->cfg.getTableLayout().tiltRowIdxOffset) * this->cfg.getTableLayout().tableStepAngle;
+GimbalAnglesToMotorAnglesOutput GimbalAnglesToMotorAnglesAlgorithm::update(float gimbalAngle1, float gimbalAngle2) {
+    // Map the gimbal angles to the normalized rhombus coordinates
+    const GimbalRhombusDomain& domain = this->cfg.getDomain();
+    const float x = gimbalAngle1 / domain.halfDiagonalTip;
+    const float y = gimbalAngle2 / domain.halfDiagonalTilt;
+    const float u = x + y;
+    const float v = x - y;
 
-    // Determine row and column table indices for the gimbal angles
-    const auto colIdx = static_cast<int>(roundf(gimbalAngle1 / this->cfg.getTableLayout().tableStepAngle));
-    const auto rowIdx = static_cast<int>(roundf(gimbalAngle2 / this->cfg.getTableLayout().tableStepAngle));
-
-    // Default returned motor angles
-    MotorAngles motorAngles{.angle1 = kDefaultMotorAngle, .angle2 = kDefaultMotorAngle};
-
-    // Use the table indices to determine the single index required to pull data from the data table storage arrays
-    const std::optional<int> arrayIndex = this->getArrayIndex(rowIdx, colIdx);
-    if (arrayIndex.has_value()) {
-        const float motor1Angle = this->cfg.getGimbalToMotor1AngleData()[*arrayIndex];
-        const float motor2Angle = this->cfg.getGimbalToMotor2AngleData()[*arrayIndex];
-        motorAngles.angle1 = motor1Angle;
-        motorAngles.angle2 = motor2Angle;
-        motorAngles.isValidInterpolation = true;
-    }
-
-    return motorAngles;
-}
-
-/*! This method determines the index required to extract the queried angle from the interpolation data table arrays
- @return std::optional<int>
- @param rowIdx [-]
- @param colIdx [-]
-*/
-std::optional<int> GimbalAnglesToMotorAnglesAlgorithm::getArrayIndex(const int rowIdx, const int colIdx) const {
-    // Invalid if either rowIdx or colIdx exceeds the table bounds
-    if (colIdx < 0 || colIdx >= kNumTableCols || rowIdx < 0 || rowIdx >= kNumTableRows) {
-        return std::nullopt;
-    }
-
-    // Determine the length of the row corresponding the queried value
-    int rowLength{};
-    if (rowIdx != NUM_GIMBAL_TO_MOTOR_TABLE_ROWS - 1) {
-        rowLength = this->cfg.getTableLayout().rowStartStrideIndices[rowIdx + 1] -
-                    this->cfg.getTableLayout().rowStartStrideIndices[rowIdx];
+    // Reject requests outside the addressable rhombus
+    GimbalAnglesToMotorAnglesOutput output{};
+    if (fabsf(u) <= 1.0F && fabsf(v) <= 1.0F) {
+        // Store the valid motor angles for the next update call
+        output = this->motorAngles(u, v);
+        this->previousValidOutput = output;
+    } else if (this->previousValidOutput.has_value()) {
+        output = *this->previousValidOutput;
     } else {
-        rowLength = NUM_GIMBAL_TO_MOTOR_TABLE_ELEMENTS - this->cfg.getTableLayout().rowStartStrideIndices[rowIdx];
+        // Before the first valid request, use the motor angles at zero gimbal angles. They are not stored as the
+        // previous valid output, so a later setConfig() takes effect at once.
+        output = this->zeroGimbalMotorAngles;
     }
 
-    // Determine the offset index of the queried value from the start of the row
-    const int offsetIndex = colIdx - this->cfg.getTableLayout().rowStartColIndices[rowIdx];
-
-    // Invalid if the offset index is greater than or equal to the row length
-    if (offsetIndex >= rowLength || offsetIndex < 0) {
-        return std::nullopt;
-    }
-
-    // Determine the index of the queried value in the data table arrays
-    const int rowStartTableIndex = this->cfg.getTableLayout().rowStartStrideIndices[rowIdx];
-    const int arrayIndex = rowStartTableIndex + offsetIndex;
-
-    return arrayIndex;
+    return output;
 }

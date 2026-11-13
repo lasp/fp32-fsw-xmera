@@ -268,7 +268,7 @@ difference.
 
 **Assumption.** One cone of half-angle :math:`\theta_\text{max}` gives the travel of the mechanism. A gimbal
 with a different limit on each axis, or with a limit that changes with the other angle, needs a different
-description. :ref:`gimbalAnglesToMotorAngles` applies the limits of the motors themselves.
+description. :ref:`gimbalAnglesToMotorAngles` rejects a request outside the rhombus of its spline fit.
 
 **Assumption.** Each component of the input direction is a finite number. The module does not examine the input
 for a NaN or an infinity. The module that sends ``thrustDirectionInMsg`` must give a finite direction. If a
