@@ -10,7 +10,7 @@
 TEST(MrpRotationTest, RegressionStaticFrame) {
     regressionTestMrpRotation(/* sigma_RcR0 = */ Eigen::Vector3f{0.3F, 0.5F, 0.0F},
                               /* sigma_RpRc = */ Eigen::Vector3f{0.05F, 0.0F, -0.02F},
-                              /* omega_RRp_R = */ Eigen::Vector3f{0.0017453F, 0.0F, 0.0F},
+                              /* omega_RRp_Rp = */ Eigen::Vector3f{0.0017453F, 0.0F, 0.0F},
                               /* sigma_R0N = */ Eigen::Vector3f{0.1F, 0.2F, 0.3F},
                               /* omega_R0N_N = */ Eigen::Vector3f::Zero(),
                               /* domega_R0N_N = */ Eigen::Vector3f::Zero(),
@@ -21,7 +21,7 @@ TEST(MrpRotationTest, RegressionStaticFrame) {
 TEST(MrpRotationTest, RegressionSpinningInputFrame) {
     regressionTestMrpRotation(/* sigma_RcR0 = */ Eigen::Vector3f{0.0F, 0.0F, 0.0F},
                               /* sigma_RpRc = */ Eigen::Vector3f{0.0F, 0.1F, 0.0F},
-                              /* omega_RRp_R = */ Eigen::Vector3f{0.01F, -0.005F, 0.002F},
+                              /* omega_RRp_Rp = */ Eigen::Vector3f{0.01F, -0.005F, 0.002F},
                               /* sigma_R0N = */ Eigen::Vector3f{0.05F, 0.05F, 0.0F},
                               /* omega_R0N_N = */ Eigen::Vector3f{0.1F, 0.0F, 0.0F},
                               /* domega_R0N_N = */ Eigen::Vector3f::Zero(),
@@ -62,21 +62,21 @@ TEST(MrpRotationConfigTest, RejectsNonPositiveControlPeriod) {
 TEST(MrpRotationConfigTest, AcceptsFiniteInputs) {
     EXPECT_NO_THROW(MrpRotationConfig::create(/* sigma_RcR0 = */ Eigen::Vector3f{0.1F, 0.2F, 0.3F},
                                               /* sigma_RpRc = */ Eigen::Vector3f{-0.1F, 0.0F, 0.05F},
-                                              /* omega_RRp_R = */ Eigen::Vector3f{0.01F, 0.0F, -0.02F},
+                                              /* omega_RRp_Rp = */ Eigen::Vector3f{0.01F, 0.0F, -0.02F},
                                               /* controlPeriod = */ 0.5F));
 }
 
 TEST(MrpRotationConfigTest, GettersRoundTrip) {
     const Eigen::Vector3f sigma_RcR0{0.1F, 0.2F, 0.3F};
     const Eigen::Vector3f sigma_RpRc{-0.1F, 0.0F, 0.05F};
-    const Eigen::Vector3f omega_RRp_R{0.01F, 0.02F, 0.03F};
+    const Eigen::Vector3f omega_RRp_Rp{0.01F, 0.02F, 0.03F};
     constexpr float controlPeriod = 0.25F;
-    const auto cfg = MrpRotationConfig::create(sigma_RcR0, sigma_RpRc, omega_RRp_R, controlPeriod);
+    const auto cfg = MrpRotationConfig::create(sigma_RcR0, sigma_RpRc, omega_RRp_Rp, controlPeriod);
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_FLOAT_EQ(cfg.getSigma_RcR0()(i), sigma_RcR0(i));
         EXPECT_FLOAT_EQ(cfg.getSigma_RpRc()(i), sigma_RpRc(i));
-        EXPECT_FLOAT_EQ(cfg.getOmega_RRp_R()(i), omega_RRp_R(i));
+        EXPECT_FLOAT_EQ(cfg.getOmega_RRp_Rp()(i), omega_RRp_Rp(i));
     }
     EXPECT_FLOAT_EQ(cfg.getControlPeriod(), controlPeriod);
 }
@@ -121,9 +121,9 @@ TEST(MrpRotationConfigTest, IsValidValidatorsHonorContracts) {
     EXPECT_TRUE(MrpRotationConfig::isValidSigma_RpRc(Eigen::Vector3f{-1.5F, 2.0F, 0.5F}));
     EXPECT_FALSE(MrpRotationConfig::isValidSigma_RpRc(Eigen::Vector3f{0.0F, std::nanf(""), 0.0F}));
 
-    EXPECT_TRUE(MrpRotationConfig::isValidOmega_RRp_R(Eigen::Vector3f::Zero()));
+    EXPECT_TRUE(MrpRotationConfig::isValidOmega_RRp_Rp(Eigen::Vector3f::Zero()));
     EXPECT_FALSE(
-        MrpRotationConfig::isValidOmega_RRp_R(Eigen::Vector3f{0.0F, std::numeric_limits<float>::infinity(), 0.0F}));
+        MrpRotationConfig::isValidOmega_RRp_Rp(Eigen::Vector3f{0.0F, std::numeric_limits<float>::infinity(), 0.0F}));
 
     EXPECT_TRUE(MrpRotationConfig::isValidControlPeriod(0.5F));
     EXPECT_TRUE(MrpRotationConfig::isValidControlPeriod(1e-6F));
@@ -140,30 +140,30 @@ TEST(MrpRotationConfigTest, IsValidValidatorsHonorContracts) {
 TEST(MrpRotationTest, OutputIsFiniteSmallInputs) {
     propertyOutputIsFinite(/* sigma_RcR0 = */ {0.1F, -0.2F, 0.3F},
                            /* sigma_RpRc = */ {0.0F, 0.05F, 0.0F},
-                           /* omega_RRp_R = */ {0.01F, 0.0F, 0.0F});
+                           /* omega_RRp_Rp = */ {0.01F, 0.0F, 0.0F});
 }
 
 TEST(MrpRotationTest, OutputIsFiniteLargeOmega) {
     propertyOutputIsFinite(/* sigma_RcR0 = */ {0.0F, 0.0F, 0.0F},
                            /* sigma_RpRc = */ {0.0F, 0.0F, 0.0F},
-                           /* omega_RRp_R = */ {5.0F, -3.0F, 2.0F});
+                           /* omega_RRp_Rp = */ {5.0F, -3.0F, 2.0F});
 }
 
 TEST(MrpRotationTest, SigmaRNEqualsSigmaRRpWhenOffsetsAndInputRefAreIdentity) {
-    propertySigmaRNEqualsSigmaRRpWhenOffsetsAndInputRefAreIdentity(/* omega_RRp_R = */ {0.05F, -0.02F, 0.01F});
+    propertySigmaRNEqualsSigmaRRpWhenOffsetsAndInputRefAreIdentity(/* omega_RRp_Rp = */ {0.05F, -0.02F, 0.01F});
 }
 
 TEST(MrpRotationTest, SigmaRNNormLessOrEqualToOne) {
     // The rate is large enough that the 100-step run crosses the |sigma| = 1 shadow-switch boundary several times.
     propertySigmaRNNormLessOrEqualToOne(/* sigma_RcR0 = */ {0.5F, 0.0F, 0.0F},
                                         /* sigma_RpRc = */ {0.0F, 0.1F, 0.0F},
-                                        /* omega_RRp_R = */ {0.3F, 0.1F, -0.2F});
+                                        /* omega_RRp_Rp = */ {0.3F, 0.1F, -0.2F});
 }
 
 TEST(MrpRotationTest, OmegaRNDecomposesCorrectly) {
     propertyOmegaRNDecomposesCorrectly(/* sigma_RcR0 = */ {0.1F, 0.2F, -0.1F},
                                        /* sigma_RpRc = */ {0.0F, -0.05F, 0.02F},
-                                       /* omega_RRp_R = */ {0.05F, -0.03F, 0.02F},
+                                       /* omega_RRp_Rp = */ {0.05F, -0.03F, 0.02F},
                                        /* sigma_R0N = */ {0.05F, 0.1F, 0.0F},
                                        /* omega_R0N_N = */ {0.02F, 0.0F, -0.01F});
 }
@@ -183,7 +183,7 @@ TEST(MrpRotationTest, OutputEqualsOffsetInputRefWhenRateIsZero) {
 TEST(MrpRotationTest, RotationAxisFixedInInputRef) {
     propertyRotationAxisFixedInInputRef(/* sigma_RcR0 = */ {0.3F, -0.4F, 0.2F},
                                         /* sigma_RpRc = */ {0.0437F, 0.0F, 0.0F},
-                                        /* omega_RRp_R = */ {0.05F, 0.0F, 0.0F});
+                                        /* omega_RRp_Rp = */ {0.05F, 0.0F, 0.0F});
 }
 
 // ---------------------------------------------------------------------------
@@ -194,7 +194,7 @@ TEST(MrpRotationTest, RotationAxisFixedInInputRef) {
 TEST(MrpRotationTest, ZeroRateHoldsAttitude) {
     const auto cfg = MrpRotationConfig::create(/* sigma_RcR0 = */ Eigen::Vector3f{0.2F, 0.3F, 0.4F},
                                                /* sigma_RpRc = */ Eigen::Vector3f{0.0F, -0.1F, 0.0F},
-                                               /* omega_RRp_R = */ Eigen::Vector3f::Zero(),
+                                               /* omega_RRp_Rp = */ Eigen::Vector3f::Zero(),
                                                /* controlPeriod = */ 1.0F);
     MrpRotationAlgorithm alg{cfg};
 
@@ -215,7 +215,7 @@ TEST(MrpRotationTest, ZeroRateHoldsAttitude) {
 TEST(MrpRotationTest, ReInitializeRestartsRotationForRepeatability) {
     const auto cfg = MrpRotationConfig::create(/* sigma_RcR0 = */ Eigen::Vector3f{0.1F, -0.2F, 0.3F},
                                                /* sigma_RpRc = */ Eigen::Vector3f{0.0F, 0.0F, 0.05F},
-                                               /* omega_RRp_R = */ Eigen::Vector3f{0.01F, 0.0F, 0.0F},
+                                               /* omega_RRp_Rp = */ Eigen::Vector3f{0.01F, 0.0F, 0.0F},
                                                /* controlPeriod = */ 0.5F);
     MrpRotationAlgorithm alg{cfg};
 
@@ -244,11 +244,11 @@ TEST(MrpRotationTest, ReInitializeRestartsRotationForRepeatability) {
 TEST(MrpRotationTest, ReInitializeAfterSetConfigMatchesFreshAlgorithm) {
     const auto cfgA = MrpRotationConfig::create(/* sigma_RcR0 = */ Eigen::Vector3f{0.1F, 0.0F, 0.0F},
                                                 /* sigma_RpRc = */ Eigen::Vector3f{0.0F, 0.0F, 0.0F},
-                                                /* omega_RRp_R = */ Eigen::Vector3f{0.05F, 0.0F, 0.0F},
+                                                /* omega_RRp_Rp = */ Eigen::Vector3f{0.05F, 0.0F, 0.0F},
                                                 /* controlPeriod = */ 0.5F);
     const auto cfgB = MrpRotationConfig::create(/* sigma_RcR0 = */ Eigen::Vector3f{0.0F, 0.5F, 0.0F},
                                                 /* sigma_RpRc = */ Eigen::Vector3f{0.0F, 0.0F, 0.1F},
-                                                /* omega_RRp_R = */ Eigen::Vector3f{0.0F, 0.2F, 0.0F},
+                                                /* omega_RRp_Rp = */ Eigen::Vector3f{0.0F, 0.2F, 0.0F},
                                                 /* controlPeriod = */ 0.25F);
 
     MrpRotationAlgorithm alg{cfgA};
@@ -276,12 +276,12 @@ TEST(MrpRotationTest, ReInitializeAfterSetConfigMatchesFreshAlgorithm) {
 // ran with offset 2 from the start.
 TEST(MrpRotationTest, SetConfigAppliesNewOffsetAndKeepsRotationPhase) {
     const Eigen::Vector3f sigma_RcR0{0.2F, -0.1F, 0.3F};
-    const Eigen::Vector3f omega_RRp_R{0.02F, 0.0F, 0.01F};
+    const Eigen::Vector3f omega_RRp_Rp{0.02F, 0.0F, 0.01F};
     constexpr float kControlPeriod = 0.5F;
     const auto cfg1 = MrpRotationConfig::create(
-        sigma_RcR0, /* sigma_RpRc = */ Eigen::Vector3f{0.0F, 0.0F, 0.0F}, omega_RRp_R, kControlPeriod);
+        sigma_RcR0, /* sigma_RpRc = */ Eigen::Vector3f{0.0F, 0.0F, 0.0F}, omega_RRp_Rp, kControlPeriod);
     const auto cfg2 = MrpRotationConfig::create(
-        sigma_RcR0, /* sigma_RpRc = */ Eigen::Vector3f{0.0437F, 0.0F, 0.0F}, omega_RRp_R, kControlPeriod);
+        sigma_RcR0, /* sigma_RpRc = */ Eigen::Vector3f{0.0437F, 0.0F, 0.0F}, omega_RRp_Rp, kControlPeriod);
 
     MrpRotationAlgorithm switched{cfg1};
     MrpRotationAlgorithm reference{cfg2};
@@ -312,7 +312,7 @@ TEST(MrpRotationTest, SetConfigAppliesNewOffsetAndKeepsRotationPhase) {
 }
 
 // The body correction puts body -y on the target (input reference x-axis), the pointing offset tilts the
-// boresight 10 deg about body x, and the rate points along the target line in body axes. The boresight then
+// boresight 10 deg about body x, and the rate points along the target line in Rp axes. The boresight then
 // sweeps a cone around the target: constant 10 deg from it, reaching 20 deg from its start after half a turn.
 TEST(MrpRotationTest, ConeAroundTargetKeepsConstantHalfAngle) {
     constexpr float halfAngle = 10.0F * std::numbers::pi_v<float> / 180.0F;
@@ -325,9 +325,9 @@ TEST(MrpRotationTest, ConeAroundTargetKeepsConstantHalfAngle) {
     const Eigen::Vector3f sigma_RcR0 = dcmToMrp(dcm_RcR0);
     const Eigen::Vector3f sigma_RpRc = std::tan(halfAngle / 4.0F) * Eigen::Vector3f::UnitX();
     const Eigen::Vector3f boresight_B = -Eigen::Vector3f::UnitY();
-    const Eigen::Vector3f omega_RRp_R = rate * (mrpToDcm(sigma_RpRc) * boresight_B);
+    const Eigen::Vector3f omega_RRp_Rp = rate * (mrpToDcm(sigma_RpRc) * boresight_B);
 
-    const auto cfg = MrpRotationConfig::create(sigma_RcR0, sigma_RpRc, omega_RRp_R, kControlPeriod);
+    const auto cfg = MrpRotationConfig::create(sigma_RcR0, sigma_RpRc, omega_RRp_Rp, kControlPeriod);
     MrpRotationAlgorithm alg{cfg};
 
     const Eigen::Vector3f target_R0 = Eigen::Vector3f::UnitX();
@@ -350,15 +350,15 @@ TEST(MrpRotationTest, ConeAroundTargetKeepsConstantHalfAngle) {
 // Direct test of the mrpSwitch path: one forward-Euler step from identity gives sigma_RRp = dt/4 * omega,
 // which for this rate exceeds norm 1. The algorithm must land on the shadow-set representative.
 TEST(MrpRotationTest, MrpShadowSwitchActivates) {
-    const Eigen::Vector3f omega_RRp_R{5.0F, 0.0F, 0.0F};
+    const Eigen::Vector3f omega_RRp_Rp{5.0F, 0.0F, 0.0F};
     constexpr float kControlPeriod = 1.0F;
 
-    const Eigen::Vector3f preSwitchSigma = kControlPeriod * 0.25F * omega_RRp_R;
+    const Eigen::Vector3f preSwitchSigma = kControlPeriod * 0.25F * omega_RRp_Rp;
     ASSERT_GT(preSwitchSigma.stableNorm(), 1.0F) << "Test setup: forward-Euler step must cross norm-1 boundary";
     const Eigen::Vector3f expectedShadow = -preSwitchSigma / preSwitchSigma.squaredNorm();
 
     const auto cfg =
-        MrpRotationConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), omega_RRp_R, kControlPeriod);
+        MrpRotationConfig::create(Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero(), omega_RRp_Rp, kControlPeriod);
     MrpRotationAlgorithm alg{cfg};
 
     // Identity offsets and input reference make sigma_RN equal to the internal (post-switch) sigma_RRp.

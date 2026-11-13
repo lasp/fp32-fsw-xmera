@@ -12,7 +12,7 @@ three rotations to the input reference, in this sequence:
    frame.
 2. A pointing offset :math:`\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_c}`. It tilts the corrected frame about body axes,
    for example 10 deg off the target. The operator can change it at runtime.
-3. A constant-rate rotation :math:`{}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p}` about output (body) axes.
+3. A constant-rate rotation :math:`{}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p}`. Its rate is constant in :math:`\mathcal R_p` axes.
    The module integrates this rotation from identity with the MRP kinematic differential equation.
 
 The output message contains the attitude :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{N}}`, the inertial angular velocity
@@ -36,7 +36,7 @@ The module is split into two layers:
   messaging-payload includes. Its ``update()`` consumes one Eigen-typed input bundle -- ``MrpRotationAttRefInputs``
   (mirrors ``AttRefMsgF32Payload``) -- and returns its own POD ``MrpRotationOutput`` (shape of the output
   ``AttRefMsgF32Payload``). Both structs are declared at the top of ``mrpRotationAlgorithm.h``. ``update()`` must not
-  throw. The configured ``sigma_RcR0``, ``sigma_RpRc``, ``omega_RRp_R``, and ``controlPeriod`` fully set the output
+  throw. The configured ``sigma_RcR0``, ``sigma_RpRc``, ``omega_RRp_Rp``, and ``controlPeriod`` fully set the output
   reference frame.
 
 A pure-C shim (``mrpRotationAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant components via
@@ -88,12 +88,12 @@ The adapter consumes the following messages and exposes the configuration as pub
       - zero
       - Components must be finite (``allFinite``). Pointing offset: the frame :math:`\mathcal R_p` relative to
         :math:`\mathcal R_c`, in body axes. An MRP with norm greater than 1 is stored as its shadow set
-    * - omega_RRp_R
+    * - omega_RRp_Rp
       - Eigen::Vector3f
       - [rad/s]
       - zero
       - Components must be finite (``allFinite``). Constant rotation rate of :math:`\mathcal R` relative to
-        :math:`\mathcal R_p`, in output (body) components
+        :math:`\mathcal R_p`, in :math:`\mathcal R_p` components
     * - controlPeriod
       - float
       - [s]
@@ -113,7 +113,7 @@ inputs and constructs the algorithm. ``updateState()`` throws ``XmeraLifecycleEx
     module.modelTag = "mrpRotation"
     module.sigma_RcR0 = rbk.C2MRP(RcR0)         # fixed body correction; row i of RcR0 = R0 axis i in body axes
     module.sigma_RpRc = [0.0437, 0.0, 0.0]      # 10 deg pointing offset about body x
-    module.omega_RRp_R = [0.001745, 0.0, 0.0]   # ~0.1 deg/s roll about body x
+    module.omega_RRp_Rp = [0.001745, 0.0, 0.0]  # ~0.1 deg/s roll about the Rp x axis
     module.controlPeriod = 0.5                  # [s] forward-Euler integration step; required (> 0)
 
     module.attRefInMsg.subscribeTo(att_ref_msg)
@@ -147,13 +147,15 @@ The output reference frame :math:`\mathcal R` comes from three rotations of :mat
 The body correction :math:`[R_cR_0]` and the pointing offset :math:`[R_pR_c]` are constant. The algorithm calculates
 their product :math:`[R_pR_0] = [R_pR_c][R_cR_0]` when it receives a configuration.
 
-The rotation :math:`[RR_p]` starts at identity. Its rate is constant in :math:`\mathcal R` components:
+The rotation :math:`[RR_p]` starts at identity. Its rate is constant in :math:`\mathcal R_p` components. The MRP
+kinematic differential equation uses the rate in :math:`\mathcal R` components:
 
 .. math::
    \begin{align}
+       {}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} &= [RR_p(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p})]\,{}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} \\
        \dot{\mathbf\sigma}_{\mathcal{R}/\mathcal{R}_p} &= \frac{1}{4} [B(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p})]\,
        {}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} \\
-       \frac{{}^{\mathcal R}{\textrm{d}}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p}}{\textrm{d}t} &= \mathbf 0
+       \frac{{}^{\mathcal R_p}{\textrm{d}}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p}}{\textrm{d}t} &= \mathbf 0
    \end{align}
 
 Each update propagates the MRP set with one forward Euler step. The step :math:`\Delta t` is the configured
@@ -165,10 +167,11 @@ Each update propagates the MRP set with one forward Euler step. The step :math:`
 
 ``mrpSwitch`` changes the MRP to its shadow set when its norm is greater than one.
 
-The rotation is the last of the three, so the rate acts about output (body) axes. A rate along body :math:`\hat{\mathbf
-b}_1` rolls the body about :math:`\hat{\mathbf b}_1`, also when a pointing offset is present. The rotation starts at
-identity and its axis is constant, so the integrated MRP stays on that axis. The integration error changes only the
-rotation angle, not the axis.
+The rotation starts at identity and its axis is constant in :math:`\mathcal R_p`, so the integrated MRP stays on that
+axis. The integration error changes only the rotation angle, not the axis. The axis of a rotation has the same
+components in :math:`\mathcal R` and :math:`\mathcal R_p`. Thus a rate along the :math:`\mathcal R_p` axis
+:math:`\hat{\mathbf r}_{p,1}` also rolls the body about :math:`\hat{\mathbf b}_1`, also when a pointing offset is
+present.
 
 The output MRP set comes from the DCM:
 
@@ -186,7 +189,9 @@ rate to inertial components and adds the input rate:
    \end{align}
 
 The transport theorem gives the inertial angular acceleration. It uses
-:math:`\frac{{}^{\mathcal R}{\textrm{d}}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p}}{\textrm{d}t} = \mathbf 0` and
+:math:`\frac{{}^{\mathcal R}{\textrm{d}}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p}}{\textrm{d}t} = \mathbf 0`, which is
+true because the rate is constant in :math:`\mathcal R_p` and :math:`\mathbf\omega_{\mathcal{R}/\mathcal{R}_p} \times
+\mathbf\omega_{\mathcal{R}/\mathcal{R}_p} = \mathbf 0`, and
 :math:`\mathbf\omega_{\mathcal{R}/\mathcal{N}} \times {\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} =
 \mathbf\omega_{\mathcal{R}_0/\mathcal{N}} \times {\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p}`:
 
@@ -199,9 +204,9 @@ Cone Around a Target
 
 A boresight can turn on a cone around the target. Set the body correction so that the boresight
 :math:`\hat{\mathbf b}` points at the target. Set the pointing offset to the cone half-angle :math:`\alpha`. Set the
-rate along the target line in body components:
+rate along the target line in :math:`\mathcal R_p` components:
 
-.. math:: {}^{\mathcal R}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} = \omega\,[R_pR_c]\,\hat{\mathbf b}
+.. math:: {}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} = \omega\,[R_pR_c]\,\hat{\mathbf b}
 
 The boresight then stays at :math:`\alpha` from the target and turns around it once every :math:`2\pi/\omega`. The
 spacecraft turns as a rigid body, thus it also turns 360 deg about the target line in each cycle.
