@@ -1,5 +1,5 @@
-#ifndef F32XMERA_GIMBAL_TO_MOTOR_ANGLES_SPLINE_ALGORITHM_H
-#define F32XMERA_GIMBAL_TO_MOTOR_ANGLES_SPLINE_ALGORITHM_H
+#ifndef F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_ALGORITHM_H
+#define F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_ALGORITHM_H
 
 #include <math.h>
 #include <algorithm>
@@ -8,7 +8,7 @@
 #include <numbers>
 #include <optional>
 
-#include "gimbalToMotorAnglesSplineTypes.h"
+#include "gimbalAnglesToMotorAnglesTypes.h"
 #include "msgPayloadDef/definitions.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 #include "utilities/fsw/freestandingIsFinite.hpp"
@@ -17,7 +17,7 @@ static constexpr uint32_t kNumSplineIntervals = NUM_SPLINE_INTERVALS;
 static constexpr uint32_t kNumSplineCoeffsPerAxis = NUM_SPLINE_COEFFS_PER_AXIS;
 
 /*! @brief Structure containing the algorithm output. */
-struct GimbalToMotorAnglesSplineOutput {
+struct GimbalAnglesToMotorAnglesOutput {
     float motorAngle1{};  //!< [rad] Motor 1 angle
     float motorAngle2{};  //!< [rad] Motor 2 angle
 };
@@ -38,7 +38,7 @@ static_assert(SPLINE_DEGREE == 3, "evaluateSurface implements cubic B-splines on
 
 /*! @brief Spline evaluation of the algorithm. These functions are internal to the algorithm, and are declared here so
  * that the tests can check the spline directly, without the gimbal angle conversion and the step angle. */
-namespace gimbal_to_motor_angles_spline_detail {
+namespace gimbal_angles_to_motor_angles_detail {
 
 /*! @brief Spline interval that holds a normalized coordinate, and the local coordinate in it. */
 struct SplineIntervalLocation {
@@ -67,34 +67,34 @@ SplineIntervalLocation splineInterval(float x);
 */
 float evaluateSurface(const SplineCoefficients& coefficients, float u, float v);
 
-}  // namespace gimbal_to_motor_angles_spline_detail
+}  // namespace gimbal_angles_to_motor_angles_detail
 
 /*! @brief Validated configuration for the gimbal to motor angles spline algorithm.
  * Holds the motor steps per revolution, the addressable gimbal rhombus, and the control coefficients of the motor 1
  * and motor 2 step surfaces. */
-class GimbalToMotorAnglesSplineConfig final {
+class GimbalAnglesToMotorAnglesConfig final {
    public:
-    static GimbalToMotorAnglesSplineConfig create(uint32_t stepsPerRevolution,
+    static GimbalAnglesToMotorAnglesConfig create(uint32_t stepsPerRevolution,
                                                   const GimbalRhombusDomain& domain,
                                                   const SplineCoefficients& motor1Coefficients,
                                                   const SplineCoefficients& motor2Coefficients) {
         if (!isValidStepsPerRevolution(stepsPerRevolution)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "gimbalToMotorAnglesSpline: stepsPerRevolution must be in [1, kMaxStepsPerRev].");
+                "gimbalAnglesToMotorAngles: stepsPerRevolution must be in [1, kMaxStepsPerRev].");
         }
         if (!isValidDomain(domain)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "gimbalToMotorAnglesSpline: the half-diagonals must be in (0, pi/2], and thetaMax must be greater "
+                "gimbalAnglesToMotorAngles: the half-diagonals must be in (0, pi/2], and thetaMax must be greater "
                 "than zero and fit inside the rhombus.");
         }
         if (!isValidCoefficients(motor1Coefficients)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "gimbalToMotorAnglesSpline: all motor 1 spline coefficients must be in [-kMaxStepsPerRev, "
+                "gimbalAnglesToMotorAngles: all motor 1 spline coefficients must be in [-kMaxStepsPerRev, "
                 "kMaxStepsPerRev].");
         }
         if (!isValidCoefficients(motor2Coefficients)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "gimbalToMotorAnglesSpline: all motor 2 spline coefficients must be in [-kMaxStepsPerRev, "
+                "gimbalAnglesToMotorAngles: all motor 2 spline coefficients must be in [-kMaxStepsPerRev, "
                 "kMaxStepsPerRev].");
         }
 
@@ -151,7 +151,7 @@ class GimbalToMotorAnglesSplineConfig final {
     const SplineCoefficients& getMotor2Coefficients() const { return this->motor2Coefficients; }
 
    private:
-    GimbalToMotorAnglesSplineConfig(uint32_t stepsPerRevolution,
+    GimbalAnglesToMotorAnglesConfig(uint32_t stepsPerRevolution,
                                     const GimbalRhombusDomain& domain,
                                     const SplineCoefficients& motor1Coefficients,
                                     const SplineCoefficients& motor2Coefficients)
@@ -169,22 +169,22 @@ class GimbalToMotorAnglesSplineConfig final {
 /*! @brief Pure algorithm: determines the stepper motor angles corresponding to the incoming gimbal tip and tilt
  * angles by evaluating one uniform bicubic B-spline surface for each motor. Motor 1 is S1(u, v) and motor 2 is
  * S2(u, v). */
-class GimbalToMotorAnglesSplineAlgorithm final {
+class GimbalAnglesToMotorAnglesAlgorithm final {
    public:
-    explicit GimbalToMotorAnglesSplineAlgorithm(const GimbalToMotorAnglesSplineConfig& config);
-    void setConfig(const GimbalToMotorAnglesSplineConfig& config);
+    explicit GimbalAnglesToMotorAnglesAlgorithm(const GimbalAnglesToMotorAnglesConfig& config);
+    void setConfig(const GimbalAnglesToMotorAnglesConfig& config);
     void reInitialize();
-    GimbalToMotorAnglesSplineOutput update(float gimbalAngle1, float gimbalAngle2);
+    GimbalAnglesToMotorAnglesOutput update(float gimbalAngle1, float gimbalAngle2);
 
    private:
-    GimbalToMotorAnglesSplineOutput motorAngles(float u, float v) const;
+    GimbalAnglesToMotorAnglesOutput motorAngles(float u, float v) const;
 
-    GimbalToMotorAnglesSplineConfig cfg;
+    GimbalAnglesToMotorAnglesConfig cfg;
     // Config-derived
     float stepAngle{};                                      //!< [rad/step] Motor step angle, 2*pi / stepsPerRevolution
-    GimbalToMotorAnglesSplineOutput zeroGimbalMotorAngles;  //!< [rad] Motor angles at zero gimbal angles
+    GimbalAnglesToMotorAnglesOutput zeroGimbalMotorAngles;  //!< [rad] Motor angles at zero gimbal angles
     // Internal states
-    std::optional<GimbalToMotorAnglesSplineOutput> previousValidOutput;  //!< [rad] Last valid algorithm output
+    std::optional<GimbalAnglesToMotorAnglesOutput> previousValidOutput;  //!< [rad] Last valid algorithm output
 };
 
-#endif /* F32XMERA_GIMBAL_TO_MOTOR_ANGLES_SPLINE_ALGORITHM_H */
+#endif /* F32XMERA_GIMBAL_ANGLES_TO_MOTOR_ANGLES_ALGORITHM_H */

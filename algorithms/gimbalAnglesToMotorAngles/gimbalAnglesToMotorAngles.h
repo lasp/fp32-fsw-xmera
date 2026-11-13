@@ -1,21 +1,21 @@
-#ifndef _GIMBALTOMOTORANGLESSPLINE_
-#define _GIMBALTOMOTORANGLESSPLINE_
+#ifndef _GIMBALANGLESTOMOTORANGLES_
+#define _GIMBALANGLESTOMOTORANGLES_
 
 #include <memory>
 
 #include "architecture/_GeneralModuleFiles/sys_model.h"
 #include "architecture/messaging/messaging.h"
-#include "gimbalToMotorAnglesSplineAlgorithm.h"
+#include "gimbalAnglesToMotorAnglesAlgorithm.h"
 #include "msgPayloadDef/MotorAngleRefMsgF32Payload.h"
 #include "msgPayloadDef/TwoAxisGimbalMsgF32Payload.h"
 
 /*! @brief Gimbal-to-motor angles spline adapter. Reads the requested gimbal tip and tilt angle message, delegates
-the angle computation to GimbalToMotorAnglesSplineAlgorithm, and writes the corresponding stepper motor angles to the
+the angle computation to GimbalAnglesToMotorAnglesAlgorithm, and writes the corresponding stepper motor angles to the
 output messages. */
-class GimbalToMotorAnglesSpline final : public SysModel {
+class GimbalAnglesToMotorAngles final : public SysModel {
    public:
-    GimbalToMotorAnglesSpline() = default;                //!< Constructor
-    ~GimbalToMotorAnglesSpline() override = default;      //!< Destructor
+    GimbalAnglesToMotorAngles() = default;                //!< Constructor
+    ~GimbalAnglesToMotorAngles() override = default;      //!< Destructor
     void reset(uint64_t currentSimNanos) override;        //!< Reset member function
     void updateState(uint64_t currentSimNanos) override;  //!< Update member function
     void reconfigure() const;
@@ -37,8 +37,8 @@ class GimbalToMotorAnglesSpline final : public SysModel {
    private:
     uint64_t prevInMsgTime = 0; /*!< [ns] Write time of the previous input message*/
     bool hasPrevInMsg = false;  /*!< True after the first input message is read*/
-    std::unique_ptr<GimbalToMotorAnglesSplineAlgorithm> algorithm = nullptr;
-    GimbalToMotorAnglesSplineConfig toConfig() const;
+    std::unique_ptr<GimbalAnglesToMotorAnglesAlgorithm> algorithm = nullptr;
+    GimbalAnglesToMotorAnglesConfig toConfig() const;
 };
 
-#endif /* _GIMBALTOMOTORANGLESSPLINE_ */
+#endif /* _GIMBALANGLESTOMOTORANGLES_ */

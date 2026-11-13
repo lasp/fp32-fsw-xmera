@@ -1,7 +1,7 @@
-#ifndef TEST_GIMBALTOMOTORANGLESSPLINE_H
-#define TEST_GIMBALTOMOTORANGLESSPLINE_H
+#ifndef TEST_GIMBALANGLESTOMOTORANGLES_H
+#define TEST_GIMBALANGLESTOMOTORANGLES_H
 
-#include "gimbalToMotorAnglesSplineAlgorithm.h"
+#include "gimbalAnglesToMotorAnglesAlgorithm.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <array>
@@ -28,7 +28,7 @@ struct MotorSteps {
  @param output [rad] Algorithm output
  @param stepsPerRevolution [steps] Motor steps per revolution of the configuration
 */
-inline MotorSteps motorSteps(const GimbalToMotorAnglesSplineOutput& output,
+inline MotorSteps motorSteps(const GimbalAnglesToMotorAnglesOutput& output,
                              const uint32_t stepsPerRevolution = kTestStepsPerRevolution) {
     const float stepAngle = 2.0F * std::numbers::pi_v<float> / static_cast<float>(stepsPerRevolution);  // [rad/step]
     return {.motor1 = output.motorAngle1 / stepAngle, .motor2 = output.motorAngle2 / stepAngle};
@@ -129,10 +129,10 @@ inline GimbalRhombusDomain linearTestDomain() {
 /*! This method returns a configuration with known outputs: motor 1 = kLinearSurfaceScale * v steps and motor 2 =
  kLinearSurfaceScale * u steps inside the rhombus. The two motors have different surfaces, so a swap of the motors or
  of u and v is caught.
- @return GimbalToMotorAnglesSplineConfig
+ @return GimbalAnglesToMotorAnglesConfig
 */
-inline GimbalToMotorAnglesSplineConfig makeLinearConfig() {
-    return GimbalToMotorAnglesSplineConfig::create(kTestStepsPerRevolution,
+inline GimbalAnglesToMotorAnglesConfig makeLinearConfig() {
+    return GimbalAnglesToMotorAnglesConfig::create(kTestStepsPerRevolution,
                                                    linearTestDomain(),
                                                    linearSurfaceCoefficients(SurfaceAxis::V),
                                                    linearSurfaceCoefficients(SurfaceAxis::U));
@@ -197,10 +197,10 @@ inline GimbalRhombusDomain roughTestDomain() {
 /*! This method returns the rough test configuration: made-up coefficients with a different seed for each motor, in
  the rough test rhombus. The tests use it where the linear configuration is too smooth, and in place of a fitted
  configuration. The Python tests check the fitted configuration.
- @return GimbalToMotorAnglesSplineConfig
+ @return GimbalAnglesToMotorAnglesConfig
 */
-inline GimbalToMotorAnglesSplineConfig makeRoughConfig() {
-    return GimbalToMotorAnglesSplineConfig::create(
+inline GimbalAnglesToMotorAnglesConfig makeRoughConfig() {
+    return GimbalAnglesToMotorAnglesConfig::create(
         kTestStepsPerRevolution, roughTestDomain(), roughSurfaceCoefficients(1U), roughSurfaceCoefficients(2U));
 }
 
@@ -324,10 +324,10 @@ inline std::array<double, 2> referenceUv(const GimbalRhombusDomain& domain, cons
 // ---------------------------------------------------------------------------
 
 /*! This method returns the rough test configuration. It is made once.
- @return const GimbalToMotorAnglesSplineConfig&
+ @return const GimbalAnglesToMotorAnglesConfig&
 */
-inline const GimbalToMotorAnglesSplineConfig& roughConfig() {
-    static const GimbalToMotorAnglesSplineConfig config = makeRoughConfig();
+inline const GimbalAnglesToMotorAnglesConfig& roughConfig() {
+    static const GimbalAnglesToMotorAnglesConfig config = makeRoughConfig();
     return config;
 }
 
@@ -352,7 +352,7 @@ inline void expectWithinCoefficientBounds(const float steps,
  @param motor1Coefficients [steps] Motor 1 spline control coefficients
  @param motor2Coefficients [steps] Motor 2 spline control coefficients
 */
-inline void expectWithinCoefficientBounds(const GimbalToMotorAnglesSplineOutput& output,
+inline void expectWithinCoefficientBounds(const GimbalAnglesToMotorAnglesOutput& output,
                                           const uint32_t stepsPerRevolution,
                                           const SplineCoefficients& motor1Coefficients,
                                           const SplineCoefficients& motor2Coefficients) {
@@ -373,9 +373,9 @@ inline void expectWithinCoefficientBounds(const GimbalToMotorAnglesSplineOutput&
 */
 inline void propertyOutputIsFiniteForAnyInput(const float gimbalAngle1, const float gimbalAngle2) {
     constexpr float nan = std::numeric_limits<float>::quiet_NaN();
-    GimbalToMotorAnglesSplineAlgorithm fresh(roughConfig());
+    GimbalAnglesToMotorAnglesAlgorithm fresh(roughConfig());
     const auto initial = fresh.update(nan, nan);
-    GimbalToMotorAnglesSplineAlgorithm alg(roughConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(roughConfig());
     const auto output = alg.update(gimbalAngle1, gimbalAngle2);
 
     EXPECT_TRUE(std::isfinite(output.motorAngle1)) << "tip " << gimbalAngle1 << " tilt " << gimbalAngle2;
@@ -405,7 +405,7 @@ inline void propertyOutsideDomainHoldsPreviousOutput(const float validRadiusFrac
         return;
     }
     const GimbalRhombusDomain& domain = roughConfig().getDomain();
-    GimbalToMotorAnglesSplineAlgorithm alg(roughConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(roughConfig());
     const auto valid = gimbalAnglesInCircle(domain, validRadiusFraction, validDirection);
     const auto validOutput = alg.update(valid.at(0), valid.at(1));
     const auto outside = gimbalAnglesFromUv(domain, outsideU, outsideV);
@@ -424,11 +424,11 @@ inline void propertyOutsideDomainHoldsPreviousOutput(const float validRadiusFrac
 inline void propertyReproducesLinearSurface(const float u, const float v) {
     static const SplineCoefficients alongU = linearSurfaceCoefficients(SurfaceAxis::U);
     static const SplineCoefficients alongV = linearSurfaceCoefficients(SurfaceAxis::V);
-    EXPECT_NEAR(gimbal_to_motor_angles_spline_detail::evaluateSurface(alongU, u, v),
+    EXPECT_NEAR(gimbal_angles_to_motor_angles_detail::evaluateSurface(alongU, u, v),
                 kLinearSurfaceScale * u,
                 kLinearSurfaceEvaluationTolerance)
         << "u " << u << " v " << v;
-    EXPECT_NEAR(gimbal_to_motor_angles_spline_detail::evaluateSurface(alongV, u, v),
+    EXPECT_NEAR(gimbal_angles_to_motor_angles_detail::evaluateSurface(alongV, u, v),
                 kLinearSurfaceScale * v,
                 kLinearSurfaceEvaluationTolerance)
         << "u " << u << " v " << v;
@@ -448,8 +448,8 @@ inline void propertySurfaceIsLipschitz(const float u, const float v, const float
     const float v2 = std::clamp(v + dv, -1.0F, 1.0F);
     for (const SplineCoefficients* coefficients :
          {&roughConfig().getMotor1Coefficients(), &roughConfig().getMotor2Coefficients()}) {
-        const float first = gimbal_to_motor_angles_spline_detail::evaluateSurface(*coefficients, u, v);
-        const float second = gimbal_to_motor_angles_spline_detail::evaluateSurface(*coefficients, u2, v2);
+        const float first = gimbal_angles_to_motor_angles_detail::evaluateSurface(*coefficients, u, v);
+        const float second = gimbal_angles_to_motor_angles_detail::evaluateSurface(*coefficients, u2, v2);
         const float tolerance = (surfaceSlopeBound(*coefficients) * (std::fabs(u2 - u) + std::fabs(v2 - v))) +
                                 (2.0F * surfaceValueTolerance(*coefficients));
         EXPECT_NEAR(first, second, tolerance) << "u " << u << " v " << v << " u2 " << u2 << " v2 " << v2;
@@ -465,9 +465,9 @@ inline void propertySurfaceIsLipschitz(const float u, const float v, const float
 inline void propertySurfaceWithinCoefficientBounds(const SplineCoefficients& coefficients,
                                                    const float u,
                                                    const float v) {
-    expectWithinCoefficientBounds(gimbal_to_motor_angles_spline_detail::evaluateSurface(coefficients, u, v),
+    expectWithinCoefficientBounds(gimbal_angles_to_motor_angles_detail::evaluateSurface(coefficients, u, v),
                                   coefficients,
                                   surfaceValueTolerance(coefficients));
 }
 
-#endif  // TEST_GIMBALTOMOTORANGLESSPLINE_H
+#endif  // TEST_GIMBALANGLESTOMOTORANGLES_H

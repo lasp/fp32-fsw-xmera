@@ -1,5 +1,5 @@
-#include "../gimbalToMotorAnglesSplineAlgorithm.h"
-#include "gimbalToMotorAnglesSplineTestHelpers.hpp"
+#include "../gimbalAnglesToMotorAnglesAlgorithm.h"
+#include "gimbalAnglesToMotorAnglesTestHelpers.hpp"
 
 #include <gtest/gtest.h>
 #include <cmath>
@@ -7,7 +7,7 @@
 #include <numbers>
 #include <utility>
 
-namespace spline = gimbal_to_motor_angles_spline_detail;
+namespace spline = gimbal_angles_to_motor_angles_detail;
 
 // ---------------------------------------------------------------------------
 // Acceptance and hold tests
@@ -15,13 +15,13 @@ namespace spline = gimbal_to_motor_angles_spline_detail;
 
 // Requests that are not addressable hold the previous valid output. Before the first valid request, that is the
 // motor angles of the configured surfaces at zero gimbal angles.
-TEST(GimbalToMotorAnglesSplineTest, FirstCallOutsideDomainReturnsZeroGimbalMotorAngles) {
-    const GimbalToMotorAnglesSplineConfig config = makeRoughConfig();
-    GimbalToMotorAnglesSplineAlgorithm alg(config);
+TEST(GimbalAnglesToMotorAnglesTest, FirstCallOutsideDomainReturnsZeroGimbalMotorAngles) {
+    const GimbalAnglesToMotorAnglesConfig config = makeRoughConfig();
+    GimbalAnglesToMotorAnglesAlgorithm alg(config);
     const auto result = alg.update(25.0F * degToRad, 0.0F);
 
     // The same fp32 evaluation as a valid request at zero gimbal angles
-    GimbalToMotorAnglesSplineAlgorithm reference(config);
+    GimbalAnglesToMotorAnglesAlgorithm reference(config);
     const auto atZero = reference.update(0.0F, 0.0F);
     EXPECT_EQ(result.motorAngle1, atZero.motorAngle1);
     EXPECT_EQ(result.motorAngle2, atZero.motorAngle2);
@@ -35,9 +35,9 @@ TEST(GimbalToMotorAnglesSplineTest, FirstCallOutsideDomainReturnsZeroGimbalMotor
         motorSteps(result).motor2, referenceSurface(motor2Coefficients, 0.0, 0.0), stepTolerance(motor2Coefficients));
 }
 
-TEST(GimbalToMotorAnglesSplineTest, OutsideDomainHoldsPreviousValidOutput) {
+TEST(GimbalAnglesToMotorAnglesTest, OutsideDomainHoldsPreviousValidOutput) {
     const GimbalRhombusDomain domain = linearTestDomain();
-    GimbalToMotorAnglesSplineAlgorithm alg(makeLinearConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeLinearConfig());
     const auto inside = gimbalAnglesFromUv(domain, 0.25F, -0.5F);
     const auto valid = alg.update(inside.at(0), inside.at(1));
     ASSERT_NEAR(motorSteps(valid).motor1, kLinearSurfaceScale * -0.5F, kLinearSurfaceTolerance);
@@ -51,9 +51,9 @@ TEST(GimbalToMotorAnglesSplineTest, OutsideDomainHoldsPreviousValidOutput) {
     }
 }
 
-TEST(GimbalToMotorAnglesSplineTest, NonFiniteInputHoldsPreviousValidOutput) {
+TEST(GimbalAnglesToMotorAnglesTest, NonFiniteInputHoldsPreviousValidOutput) {
     const GimbalRhombusDomain domain = linearTestDomain();
-    GimbalToMotorAnglesSplineAlgorithm alg(makeLinearConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeLinearConfig());
     const auto inside = gimbalAnglesFromUv(domain, -0.4F, 0.6F);
     const auto valid = alg.update(inside.at(0), inside.at(1));
     ASSERT_NEAR(motorSteps(valid).motor1, kLinearSurfaceScale * 0.6F, kLinearSurfaceTolerance);
@@ -75,9 +75,9 @@ TEST(GimbalToMotorAnglesSplineTest, NonFiniteInputHoldsPreviousValidOutput) {
 }
 
 // Finite inputs can overflow the normalized coordinates to +inf and -inf, whose sum is NaN
-TEST(GimbalToMotorAnglesSplineTest, OverflowingFiniteInputHoldsPreviousValidOutput) {
+TEST(GimbalAnglesToMotorAnglesTest, OverflowingFiniteInputHoldsPreviousValidOutput) {
     const GimbalRhombusDomain domain = linearTestDomain();
-    GimbalToMotorAnglesSplineAlgorithm alg(makeLinearConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeLinearConfig());
     const auto inside = gimbalAnglesFromUv(domain, 0.1F, 0.2F);
     const auto valid = alg.update(inside.at(0), inside.at(1));
     ASSERT_NEAR(motorSteps(valid).motor1, kLinearSurfaceScale * 0.2F, kLinearSurfaceTolerance);
@@ -93,14 +93,14 @@ TEST(GimbalToMotorAnglesSplineTest, OverflowingFiniteInputHoldsPreviousValidOutp
 // accepted and give the motor steps of the float64 reference surfaces, for the rough and for the linear test
 // configuration. With the rough coefficients, this also checks the algorithm against the reference on every interval
 // that the circle crosses.
-TEST(GimbalToMotorAnglesSplineTest, CircleIsAddressable) {
+TEST(GimbalAnglesToMotorAnglesTest, CircleIsAddressable) {
     constexpr int numDirections = 720;
     for (const bool rough : {true, false}) {
-        const GimbalToMotorAnglesSplineConfig config = rough ? makeRoughConfig() : makeLinearConfig();
+        const GimbalAnglesToMotorAnglesConfig config = rough ? makeRoughConfig() : makeLinearConfig();
         const GimbalRhombusDomain& domain = config.getDomain();
         const SplineCoefficients& motor1Coefficients = config.getMotor1Coefficients();
         const SplineCoefficients& motor2Coefficients = config.getMotor2Coefficients();
-        GimbalToMotorAnglesSplineAlgorithm alg(config);
+        GimbalAnglesToMotorAnglesAlgorithm alg(config);
 
         for (int k = 0; k < numDirections; ++k) {
             const double direction = 2.0 * std::numbers::pi * k / numDirections;
@@ -120,15 +120,15 @@ TEST(GimbalToMotorAnglesSplineTest, CircleIsAddressable) {
 // a request with |u| or |v| 1e-3 inside the edge is accepted and gives the motor steps of the float64 reference
 // surfaces, although it is outside the circle. The request 1e-3 past the same edge is not accepted and holds the motor
 // angles of the request inside. The offsets are much larger than the fp32 rounding of u and v.
-TEST(GimbalToMotorAnglesSplineTest, RhombusEdgeIsTheAcceptanceBoundary) {
+TEST(GimbalAnglesToMotorAnglesTest, RhombusEdgeIsTheAcceptanceBoundary) {
     constexpr float inside = 1.0F - 1e-3F;
     constexpr float outside = 1.0F + 1e-3F;
     for (const bool rough : {true, false}) {
-        const GimbalToMotorAnglesSplineConfig config = rough ? makeRoughConfig() : makeLinearConfig();
+        const GimbalAnglesToMotorAnglesConfig config = rough ? makeRoughConfig() : makeLinearConfig();
         const GimbalRhombusDomain& domain = config.getDomain();
         const SplineCoefficients& motor1Coefficients = config.getMotor1Coefficients();
         const SplineCoefficients& motor2Coefficients = config.getMotor2Coefficients();
-        GimbalToMotorAnglesSplineAlgorithm alg(config);
+        GimbalAnglesToMotorAnglesAlgorithm alg(config);
 
         // Fields: u and v inside the edge, u and v past it
         for (const auto& [insideUv, outsideUv] : {
@@ -159,14 +159,14 @@ TEST(GimbalToMotorAnglesSplineTest, RhombusEdgeIsTheAcceptanceBoundary) {
 }
 
 // After reInitialize(), a request outside the rhombus gives the same output as the first request of a new algorithm
-TEST(GimbalToMotorAnglesSplineTest, ReInitializeRestoresInitialOutput) {
+TEST(GimbalAnglesToMotorAnglesTest, ReInitializeRestoresInitialOutput) {
     const GimbalRhombusDomain domain = linearTestDomain();
     const auto inside = gimbalAnglesFromUv(domain, 0.5F, 0.5F);
     const auto outside = gimbalAnglesFromUv(domain, 2.0F, 0.0F);
-    GimbalToMotorAnglesSplineAlgorithm fresh(makeLinearConfig());
+    GimbalAnglesToMotorAnglesAlgorithm fresh(makeLinearConfig());
     const auto initial = fresh.update(outside.at(0), outside.at(1));
 
-    GimbalToMotorAnglesSplineAlgorithm alg(makeLinearConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeLinearConfig());
     const auto valid = alg.update(inside.at(0), inside.at(1));
     ASSERT_NE(valid.motorAngle1, initial.motorAngle1);
     ASSERT_NE(valid.motorAngle2, initial.motorAngle2);
@@ -179,7 +179,7 @@ TEST(GimbalToMotorAnglesSplineTest, ReInitializeRestoresInitialOutput) {
 
 // Without a previous valid output, a rejected request gives the motor angles of the current configuration at zero
 // gimbal angles. That fallback is not stored as the previous valid output, so a later setConfig() takes effect at once.
-TEST(GimbalToMotorAnglesSplineTest, FallbackUsesZeroGimbalMotorAnglesOfCurrentConfig) {
+TEST(GimbalAnglesToMotorAnglesTest, FallbackUsesZeroGimbalMotorAnglesOfCurrentConfig) {
     // [steps] Offsets added to the linear surfaces, so that the new surfaces are 1000 v + 250 and 1000 u - 400. The
     // B-spline weights sum to one, so a constant added to every coefficient is added to the surface.
     constexpr float offset1 = 250.0F;
@@ -198,14 +198,14 @@ TEST(GimbalToMotorAnglesSplineTest, FallbackUsesZeroGimbalMotorAnglesOfCurrentCo
     const GimbalRhombusDomain domain = linearTestDomain();
     const auto inside = gimbalAnglesFromUv(domain, 0.5F, 0.5F);
     const auto outside = gimbalAnglesFromUv(domain, 2.0F, 0.0F);
-    GimbalToMotorAnglesSplineAlgorithm alg(makeLinearConfig());
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeLinearConfig());
 
     // The linear surfaces are zero at zero gimbal angles
     const auto beforeSetConfig = alg.update(outside.at(0), outside.at(1));
     ASSERT_NEAR(motorSteps(beforeSetConfig).motor1, 0.0F, kLinearSurfaceTolerance);
     ASSERT_NEAR(motorSteps(beforeSetConfig).motor2, 0.0F, kLinearSurfaceTolerance);
 
-    alg.setConfig(GimbalToMotorAnglesSplineConfig::create(
+    alg.setConfig(GimbalAnglesToMotorAnglesConfig::create(
         kTestStepsPerRevolution, domain, motor1Coefficients, motor2Coefficients));
 
     // No valid output yet, so the zero gimbal motor angles of the new configuration apply at once
@@ -232,8 +232,8 @@ TEST(GimbalToMotorAnglesSplineTest, FallbackUsesZeroGimbalMotorAnglesOfCurrentCo
 // Reconfiguration and setup tests (validation + round trip)
 // ---------------------------------------------------------------------------
 
-TEST(GimbalToMotorAnglesSplineTest, SetConfigReplacesSurfaceAndKeepsPreviousOutput) {
-    GimbalToMotorAnglesSplineAlgorithm alg(makeRoughConfig());
+TEST(GimbalAnglesToMotorAnglesTest, SetConfigReplacesSurfaceAndKeepsPreviousOutput) {
+    GimbalAnglesToMotorAnglesAlgorithm alg(makeRoughConfig());
     const auto previous = alg.update(3.0F * degToRad, 2.0F * degToRad);
 
     // A different constant for each motor, so that a swap of the two coefficient sets is caught
@@ -241,7 +241,7 @@ TEST(GimbalToMotorAnglesSplineTest, SetConfigReplacesSurfaceAndKeepsPreviousOutp
     SplineCoefficients motor2Constant{};
     motor1Constant.fill(1250.0F);
     motor2Constant.fill(-2500.0F);
-    alg.setConfig(GimbalToMotorAnglesSplineConfig::create(
+    alg.setConfig(GimbalAnglesToMotorAnglesConfig::create(
         kTestStepsPerRevolution, roughTestDomain(), motor1Constant, motor2Constant));
 
     // The previous valid output survives the reconfiguration
@@ -255,11 +255,11 @@ TEST(GimbalToMotorAnglesSplineTest, SetConfigReplacesSurfaceAndKeepsPreviousOutp
     EXPECT_NEAR(motorSteps(result).motor2, -2500.0F, stepTolerance(motor2Constant));
 }
 
-TEST(GimbalToMotorAnglesSplineTest, ConfigRoundTrip) {
+TEST(GimbalAnglesToMotorAnglesTest, ConfigRoundTrip) {
     const GimbalRhombusDomain domain = roughTestDomain();
     const SplineCoefficients motor1Coefficients = roughSurfaceCoefficients(1U);
     const SplineCoefficients motor2Coefficients = roughSurfaceCoefficients(2U);
-    const auto config = GimbalToMotorAnglesSplineConfig::create(
+    const auto config = GimbalAnglesToMotorAnglesConfig::create(
         kTestStepsPerRevolution, domain, motor1Coefficients, motor2Coefficients);
 
     EXPECT_EQ(config.getStepsPerRevolution(), kTestStepsPerRevolution);
@@ -270,7 +270,7 @@ TEST(GimbalToMotorAnglesSplineTest, ConfigRoundTrip) {
     EXPECT_EQ(config.getMotor2Coefficients(), motor2Coefficients);
 }
 
-TEST(GimbalToMotorAnglesSplineTest, ConfigRejectsInvalidStepsPerRevolution) {
+TEST(GimbalAnglesToMotorAnglesTest, ConfigRejectsInvalidStepsPerRevolution) {
     constexpr uint32_t maxStepsPerRevolution = kMaxStepsPerRev;
     const GimbalRhombusDomain domain = roughTestDomain();
     const SplineCoefficients motor1Coefficients = roughSurfaceCoefficients(1U);
@@ -278,31 +278,31 @@ TEST(GimbalToMotorAnglesSplineTest, ConfigRejectsInvalidStepsPerRevolution) {
 
     // The two limits are accepted
     for (const uint32_t stepsPerRevolution : {1U, kTestStepsPerRevolution, maxStepsPerRevolution}) {
-        EXPECT_TRUE(GimbalToMotorAnglesSplineConfig::isValidStepsPerRevolution(stepsPerRevolution))
+        EXPECT_TRUE(GimbalAnglesToMotorAnglesConfig::isValidStepsPerRevolution(stepsPerRevolution))
             << "steps per revolution " << stepsPerRevolution;
-        EXPECT_NO_THROW(GimbalToMotorAnglesSplineConfig::create(
+        EXPECT_NO_THROW(GimbalAnglesToMotorAnglesConfig::create(
             stepsPerRevolution, domain, motor1Coefficients, motor2Coefficients));
     }
 
     // Zero and one step past the upper limit are not
     for (const uint32_t stepsPerRevolution : {0U, maxStepsPerRevolution + 1U}) {
-        EXPECT_FALSE(GimbalToMotorAnglesSplineConfig::isValidStepsPerRevolution(stepsPerRevolution))
+        EXPECT_FALSE(GimbalAnglesToMotorAnglesConfig::isValidStepsPerRevolution(stepsPerRevolution))
             << "steps per revolution " << stepsPerRevolution;
         EXPECT_THROW(
-            GimbalToMotorAnglesSplineConfig::create(stepsPerRevolution, domain, motor1Coefficients, motor2Coefficients),
+            GimbalAnglesToMotorAnglesConfig::create(stepsPerRevolution, domain, motor1Coefficients, motor2Coefficients),
             fsw::invalid_argument)
             << "steps per revolution " << stepsPerRevolution;
     }
 }
 
-TEST(GimbalToMotorAnglesSplineTest, ConfigRejectsInvalidDomain) {
+TEST(GimbalAnglesToMotorAnglesTest, ConfigRejectsInvalidDomain) {
     constexpr float nan = std::numeric_limits<float>::quiet_NaN();
     constexpr float inf = std::numeric_limits<float>::infinity();
     constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
     const SplineCoefficients motor1Coefficients = linearSurfaceCoefficients(SurfaceAxis::V);
     const SplineCoefficients motor2Coefficients = linearSurfaceCoefficients(SurfaceAxis::U);
     const auto create = [&](const GimbalRhombusDomain& domain) {
-        return GimbalToMotorAnglesSplineConfig::create(
+        return GimbalAnglesToMotorAnglesConfig::create(
             kTestStepsPerRevolution, domain, motor1Coefficients, motor2Coefficients);
     };
     // Fields: tip half-diagonal, tilt half-diagonal, thetaMax [rad]
@@ -312,7 +312,7 @@ TEST(GimbalToMotorAnglesSplineTest, ConfigRejectsInvalidDomain) {
     // A rhombus whose thetaMax is exactly its fp32 inscribed radius
     const auto atLimit = [](float halfTip, float halfTilt) {
         GimbalRhombusDomain domain{.halfDiagonalTip = halfTip, .halfDiagonalTilt = halfTilt, .thetaMax = 0.0F};
-        domain.thetaMax = GimbalToMotorAnglesSplineConfig::inscribedRadius(domain);
+        domain.thetaMax = GimbalAnglesToMotorAnglesConfig::inscribedRadius(domain);
         return domain;
     };
 
@@ -327,7 +327,7 @@ TEST(GimbalToMotorAnglesSplineTest, ConfigRejectsInvalidDomain) {
              atLimit(0.3F, halfPi),
              domainOf(0.3F, 0.45F, smallest),
          }) {
-        EXPECT_TRUE(GimbalToMotorAnglesSplineConfig::isValidDomain(domain))
+        EXPECT_TRUE(GimbalAnglesToMotorAnglesConfig::isValidDomain(domain))
             << domain.halfDiagonalTip << " " << domain.halfDiagonalTilt << " " << domain.thetaMax;
         EXPECT_NO_THROW(create(domain));
     }
@@ -360,7 +360,7 @@ TEST(GimbalToMotorAnglesSplineTest, ConfigRejectsInvalidDomain) {
         pastInscribed(halfPi, halfPi),
     };
     for (const auto& domain : invalidDomains) {
-        EXPECT_FALSE(GimbalToMotorAnglesSplineConfig::isValidDomain(domain))
+        EXPECT_FALSE(GimbalAnglesToMotorAnglesConfig::isValidDomain(domain))
             << domain.halfDiagonalTip << " " << domain.halfDiagonalTilt << " " << domain.thetaMax;
         EXPECT_THROW(create(domain), fsw::invalid_argument);
     }
@@ -368,7 +368,7 @@ TEST(GimbalToMotorAnglesSplineTest, ConfigRejectsInvalidDomain) {
 
 // Every coefficient of each motor must be in [-kMaxStepsPerRev, kMaxStepsPerRev]. The two motors are checked
 // separately, with the other motor's coefficients valid.
-TEST(GimbalToMotorAnglesSplineTest, ConfigRejectsInvalidCoefficients) {
+TEST(GimbalAnglesToMotorAnglesTest, ConfigRejectsInvalidCoefficients) {
     constexpr float inf = std::numeric_limits<float>::infinity();
     constexpr auto maxSteps = static_cast<float>(kMaxStepsPerRev);
     const GimbalRhombusDomain domain = roughTestDomain();
@@ -385,11 +385,11 @@ TEST(GimbalToMotorAnglesSplineTest, ConfigRejectsInvalidCoefficients) {
                     motor == 1 ? withValue(roughSurfaceCoefficients(1U), index, value) : roughSurfaceCoefficients(1U);
                 const SplineCoefficients motor2Coefficients =
                     motor == 2 ? withValue(roughSurfaceCoefficients(2U), index, value) : roughSurfaceCoefficients(2U);
-                EXPECT_EQ(GimbalToMotorAnglesSplineConfig::isValidCoefficients(motor == 1 ? motor1Coefficients
+                EXPECT_EQ(GimbalAnglesToMotorAnglesConfig::isValidCoefficients(motor == 1 ? motor1Coefficients
                                                                                           : motor2Coefficients),
                           std::fabs(value) <= maxSteps)
                     << "motor " << motor << " index " << index << " value " << value;
-                return GimbalToMotorAnglesSplineConfig::create(
+                return GimbalAnglesToMotorAnglesConfig::create(
                     kTestStepsPerRevolution, domain, motor1Coefficients, motor2Coefficients);
             };
 
@@ -419,7 +419,7 @@ TEST(GimbalToMotorAnglesSplineTest, ConfigRejectsInvalidCoefficients) {
 // The four weights of an interval are not negative and sum to one. At the ends of the interval they are the values of
 // the basis functions at the knots: (1/6, 4/6, 1/6, 0) at t = 0 and (0, 1/6, 4/6, 1/6) at t = 1. Thus the weights at
 // the end of one interval are the weights at the start of the next one, moved by one coefficient.
-TEST(GimbalToMotorAnglesSplineTest, CubicWeightsArePartitionOfUnity) {
+TEST(GimbalAnglesToMotorAnglesTest, CubicWeightsArePartitionOfUnity) {
     constexpr int numSteps = 64;
     for (int k = 0; k <= numSteps; ++k) {
         const float t = static_cast<float>(k) / static_cast<float>(numSteps);
@@ -444,7 +444,7 @@ TEST(GimbalToMotorAnglesSplineTest, CubicWeightsArePartitionOfUnity) {
 // splineInterval finds the interval that holds a coordinate and the local coordinate in it, so that
 // -1 + h (interval + t) is the coordinate. The ends are clamped: x = -1 is the start of the first interval and x = 1 is
 // the end of the last one.
-TEST(GimbalToMotorAnglesSplineTest, SplineIntervalFindsLocalCoordinate) {
+TEST(GimbalAnglesToMotorAnglesTest, SplineIntervalFindsLocalCoordinate) {
     constexpr int numSteps = 600;
     for (int k = 0; k <= numSteps; ++k) {
         const float x = -1.0F + (2.0F * static_cast<float>(k) / static_cast<float>(numSteps));
@@ -466,7 +466,7 @@ TEST(GimbalToMotorAnglesSplineTest, SplineIntervalFindsLocalCoordinate) {
 // With the coefficients set to the scaled Greville abscissae, the surfaces are exactly kLinearSurfaceScale * u and
 // kLinearSurfaceScale * v, to within the fp32 evaluation error, everywhere in [-1, 1] x [-1, 1], edges included. The
 // grid step is exact in fp32, so the grid reaches both edges. The fuzz test covers the points between the grid points.
-TEST(GimbalToMotorAnglesSplineTest, PropertyReproducesLinearSurface) {
+TEST(GimbalAnglesToMotorAnglesTest, PropertyReproducesLinearSurface) {
     for (float u = -1.0F; u <= 1.0F; u += 0.0625F) {
         for (float v = -1.0F; v <= 1.0F; v += 0.0625F) {
             propertyReproducesLinearSurface(u, v);
@@ -476,7 +476,7 @@ TEST(GimbalToMotorAnglesSplineTest, PropertyReproducesLinearSurface) {
 
 // Each rough test surface lies between the smallest and largest coefficient of its surface (B-spline convex-hull
 // property), with the fp32 evaluation error, everywhere in [-1, 1] x [-1, 1]
-TEST(GimbalToMotorAnglesSplineTest, PropertySurfaceWithinCoefficientBounds) {
+TEST(GimbalAnglesToMotorAnglesTest, PropertySurfaceWithinCoefficientBounds) {
     constexpr int numSteps = 80;
     for (const SplineCoefficients& coefficients : {roughSurfaceCoefficients(1U), roughSurfaceCoefficients(2U)}) {
         for (int i = 0; i <= numSteps; ++i) {
@@ -490,7 +490,7 @@ TEST(GimbalToMotorAnglesSplineTest, PropertySurfaceWithinCoefficientBounds) {
 }
 
 // Any float input gives a finite output: the initial output or motor steps inside the coefficient convex hull
-TEST(GimbalToMotorAnglesSplineTest, PropertyOutputIsFiniteForAnyInput) {
+TEST(GimbalAnglesToMotorAnglesTest, PropertyOutputIsFiniteForAnyInput) {
     constexpr float nan = std::numeric_limits<float>::quiet_NaN();
     constexpr float inf = std::numeric_limits<float>::infinity();
     constexpr float big = std::numeric_limits<float>::max();
@@ -504,7 +504,7 @@ TEST(GimbalToMotorAnglesSplineTest, PropertyOutputIsFiniteForAnyInput) {
 
 // A request outside the rhombus returns the previous valid output. The valid requests are in the circle, one of them on
 // it.
-TEST(GimbalToMotorAnglesSplineTest, PropertyOutsideDomainHoldsPreviousOutput) {
+TEST(GimbalAnglesToMotorAnglesTest, PropertyOutsideDomainHoldsPreviousOutput) {
     for (const auto& [u, v] :
          {std::pair{1.01F, 0.0F}, std::pair{0.0F, -1.01F}, std::pair{-3.0F, 2.0F}, std::pair{50.0F, -50.0F}}) {
         propertyOutsideDomainHoldsPreviousOutput(0.6F, 1.0F, u, v);
@@ -514,7 +514,7 @@ TEST(GimbalToMotorAnglesSplineTest, PropertyOutsideDomainHoldsPreviousOutput) {
 
 // The surfaces have no jump where the evaluation moves from one spline interval to the next: the points 1e-4 before
 // and after each knot, along u and along v, meet the Lipschitz bound, across the whole square including its edges
-TEST(GimbalToMotorAnglesSplineTest, PropertySurfaceIsContinuousAcrossIntervalEdges) {
+TEST(GimbalAnglesToMotorAnglesTest, PropertySurfaceIsContinuousAcrossIntervalEdges) {
     for (int k = 1; k < NUM_SPLINE_INTERVALS; ++k) {
         const float knot = -1.0F + (kIntervalWidth * static_cast<float>(k));
         for (const float other : {-1.0F, -0.83F, -0.21F, 0.37F, 0.91F, 1.0F}) {

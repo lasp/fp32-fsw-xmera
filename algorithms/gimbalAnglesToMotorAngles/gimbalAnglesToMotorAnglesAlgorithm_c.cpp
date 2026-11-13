@@ -1,5 +1,5 @@
-#include "gimbalToMotorAnglesSplineAlgorithm_c.h"
-#include "gimbalToMotorAnglesSplineAlgorithm.h"
+#include "gimbalAnglesToMotorAnglesAlgorithm_c.h"
+#include "gimbalAnglesToMotorAnglesAlgorithm.h"
 #include "utilities/fsw/opaqueHandle.h"
 
 namespace {
@@ -13,13 +13,13 @@ SplineCoefficients toCoefficients(const SplineCoefficients_c* src) {
 }
 
 /*! Build the validated C++ configuration from the flattened C parameters. */
-GimbalToMotorAnglesSplineConfig makeConfig(const uint32_t stepsPerRevolution,
+GimbalAnglesToMotorAnglesConfig makeConfig(const uint32_t stepsPerRevolution,
                                            const float halfDiagonalTip,
                                            const float halfDiagonalTilt,
                                            const float thetaMax,
                                            const SplineCoefficients_c* motor1Coefficients,
                                            const SplineCoefficients_c* motor2Coefficients) {
-    return GimbalToMotorAnglesSplineConfig::create(
+    return GimbalAnglesToMotorAnglesConfig::create(
         stepsPerRevolution,
         GimbalRhombusDomain{
             .halfDiagonalTip = halfDiagonalTip, .halfDiagonalTilt = halfDiagonalTilt, .thetaMax = thetaMax},
@@ -28,11 +28,11 @@ GimbalToMotorAnglesSplineConfig makeConfig(const uint32_t stepsPerRevolution,
 }
 }  // namespace
 
-uint32_t GimbalToMotorAnglesSplineAlgorithm_getNumSplineIntervals(void) { return NUM_SPLINE_INTERVALS; }
+uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumSplineIntervals(void) { return NUM_SPLINE_INTERVALS; }
 
-uint32_t GimbalToMotorAnglesSplineAlgorithm_getNumSplineCoeffs(void) { return NUM_SPLINE_COEFFS; }
+uint32_t GimbalAnglesToMotorAnglesAlgorithm_getNumSplineCoeffs(void) { return NUM_SPLINE_COEFFS; }
 
-bool GimbalToMotorAnglesSplineAlgorithm_validateConfig(const uint32_t stepsPerRevolution,
+bool GimbalAnglesToMotorAnglesAlgorithm_validateConfig(const uint32_t stepsPerRevolution,
                                                        const float halfDiagonalTip,
                                                        const float halfDiagonalTilt,
                                                        const float thetaMax,
@@ -47,44 +47,44 @@ bool GimbalToMotorAnglesSplineAlgorithm_validateConfig(const uint32_t stepsPerRe
     }
 }
 
-GimbalToMotorAnglesSplineAlgorithmHandle* GimbalToMotorAnglesSplineAlgorithm_create(
+GimbalAnglesToMotorAnglesAlgorithmHandle* GimbalAnglesToMotorAnglesAlgorithm_create(
     const uint32_t stepsPerRevolution,
     const float halfDiagonalTip,
     const float halfDiagonalTilt,
     const float thetaMax,
     const SplineCoefficients_c* motor1Coefficients,
     const SplineCoefficients_c* motor2Coefficients) {
-    return fsw::createHandle<::GimbalToMotorAnglesSplineAlgorithm, GimbalToMotorAnglesSplineAlgorithmHandle>(makeConfig(
+    return fsw::createHandle<::GimbalAnglesToMotorAnglesAlgorithm, GimbalAnglesToMotorAnglesAlgorithmHandle>(makeConfig(
         stepsPerRevolution, halfDiagonalTip, halfDiagonalTilt, thetaMax, motor1Coefficients, motor2Coefficients));
 }
 
-void GimbalToMotorAnglesSplineAlgorithm_destroy(GimbalToMotorAnglesSplineAlgorithmHandle* self) {
-    fsw::deleteHandle<::GimbalToMotorAnglesSplineAlgorithm>(self);
+void GimbalAnglesToMotorAnglesAlgorithm_destroy(GimbalAnglesToMotorAnglesAlgorithmHandle* self) {
+    fsw::deleteHandle<::GimbalAnglesToMotorAnglesAlgorithm>(self);
 }
 
-void GimbalToMotorAnglesSplineAlgorithm_setConfig(GimbalToMotorAnglesSplineAlgorithmHandle* self,
+void GimbalAnglesToMotorAnglesAlgorithm_setConfig(GimbalAnglesToMotorAnglesAlgorithmHandle* self,
                                                   const uint32_t stepsPerRevolution,
                                                   const float halfDiagonalTip,
                                                   const float halfDiagonalTilt,
                                                   const float thetaMax,
                                                   const SplineCoefficients_c* motor1Coefficients,
                                                   const SplineCoefficients_c* motor2Coefficients) {
-    fsw::fromHandle<::GimbalToMotorAnglesSplineAlgorithm>(self)->setConfig(makeConfig(
+    fsw::fromHandle<::GimbalAnglesToMotorAnglesAlgorithm>(self)->setConfig(makeConfig(
         stepsPerRevolution, halfDiagonalTip, halfDiagonalTilt, thetaMax, motor1Coefficients, motor2Coefficients));
 }
 
-void GimbalToMotorAnglesSplineAlgorithm_reInitialize(GimbalToMotorAnglesSplineAlgorithmHandle* self) {
-    fsw::fromHandle<::GimbalToMotorAnglesSplineAlgorithm>(self)->reInitialize();
+void GimbalAnglesToMotorAnglesAlgorithm_reInitialize(GimbalAnglesToMotorAnglesAlgorithmHandle* self) {
+    fsw::fromHandle<::GimbalAnglesToMotorAnglesAlgorithm>(self)->reInitialize();
 }
 
-GimbalToMotorAnglesSplineOutput_c GimbalToMotorAnglesSplineAlgorithm_update(
-    GimbalToMotorAnglesSplineAlgorithmHandle* self,
+GimbalAnglesToMotorAnglesOutput_c GimbalAnglesToMotorAnglesAlgorithm_update(
+    GimbalAnglesToMotorAnglesAlgorithmHandle* self,
     const float gimbalAngle1,
     const float gimbalAngle2) {
-    const GimbalToMotorAnglesSplineOutput out =
-        fsw::fromHandle<::GimbalToMotorAnglesSplineAlgorithm>(self)->update(gimbalAngle1, gimbalAngle2);
+    const GimbalAnglesToMotorAnglesOutput out =
+        fsw::fromHandle<::GimbalAnglesToMotorAnglesAlgorithm>(self)->update(gimbalAngle1, gimbalAngle2);
 
-    GimbalToMotorAnglesSplineOutput_c result{};
+    GimbalAnglesToMotorAnglesOutput_c result{};
     result.motorAngle1 = out.motorAngle1;
     result.motorAngle2 = out.motorAngle2;
     return result;

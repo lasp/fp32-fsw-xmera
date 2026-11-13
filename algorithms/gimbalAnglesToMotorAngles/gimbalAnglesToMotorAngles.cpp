@@ -1,4 +1,4 @@
-#include "gimbalToMotorAnglesSpline.h"
+#include "gimbalAnglesToMotorAngles.h"
 
 #include <memory>
 #include <stdexcept>
@@ -10,21 +10,21 @@ configured parameters.
  @return void
  @param currentSimNanos [ns] Time the method is called
 */
-void GimbalToMotorAnglesSpline::reset(uint64_t currentSimNanos) {
+void GimbalAnglesToMotorAngles::reset(uint64_t currentSimNanos) {
     if (!this->twoAxisGimbalInMsg.isLinked()) {
-        throw std::invalid_argument("gimbalToMotorAnglesSpline.twoAxisGimbalInMsg wasn't connected.");
+        throw std::invalid_argument("gimbalAnglesToMotorAngles.twoAxisGimbalInMsg wasn't connected.");
     }
 
-    this->algorithm = std::make_unique<GimbalToMotorAnglesSplineAlgorithm>(this->toConfig());
+    this->algorithm = std::make_unique<GimbalAnglesToMotorAnglesAlgorithm>(this->toConfig());
     this->prevInMsgTime = 0U;
     this->hasPrevInMsg = false;
 }
 
 /*! This method builds a validated configuration from the public configuration properties.
- @return GimbalToMotorAnglesSplineConfig
+ @return GimbalAnglesToMotorAnglesConfig
 */
-GimbalToMotorAnglesSplineConfig GimbalToMotorAnglesSpline::toConfig() const {
-    return GimbalToMotorAnglesSplineConfig::create(this->stepsPerRevolution,
+GimbalAnglesToMotorAnglesConfig GimbalAnglesToMotorAngles::toConfig() const {
+    return GimbalAnglesToMotorAnglesConfig::create(this->stepsPerRevolution,
                                                    GimbalRhombusDomain{.halfDiagonalTip = this->halfDiagonalTip,
                                                                        .halfDiagonalTilt = this->halfDiagonalTilt,
                                                                        .thetaMax = this->thetaMax},
@@ -37,9 +37,9 @@ GimbalToMotorAnglesSplineConfig GimbalToMotorAnglesSpline::toConfig() const {
  gimbal angles are used at once.
  @return void
 */
-void GimbalToMotorAnglesSpline::reconfigure() const {
+void GimbalAnglesToMotorAngles::reconfigure() const {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("GimbalToMotorAnglesSpline reset() has not been called.");
+        throw XmeraLifecycleException("GimbalAnglesToMotorAngles reset() has not been called.");
     }
 
     this->algorithm->setConfig(this->toConfig());
@@ -49,9 +49,9 @@ void GimbalToMotorAnglesSpline::reconfigure() const {
  angles are used until the next valid request.
  @return void
 */
-void GimbalToMotorAnglesSpline::reInitialize() {
+void GimbalAnglesToMotorAngles::reInitialize() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("GimbalToMotorAnglesSpline reset() has not been called.");
+        throw XmeraLifecycleException("GimbalAnglesToMotorAngles reset() has not been called.");
     }
     this->algorithm->reInitialize();
 }
@@ -61,9 +61,9 @@ algorithm, and writes the resulting motor angles to the output messages.
  @return void
  @param currentSimNanos [ns] The current time of simulation
 */
-void GimbalToMotorAnglesSpline::updateState(uint64_t currentSimNanos) {
+void GimbalAnglesToMotorAngles::updateState(uint64_t currentSimNanos) {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("GimbalToMotorAnglesSpline reset() has not been called.");
+        throw XmeraLifecycleException("GimbalAnglesToMotorAngles reset() has not been called.");
     }
 
     // Analyze the input message time. A message written at t = 0 is new if no message has been read yet.
@@ -83,7 +83,7 @@ void GimbalToMotorAnglesSpline::updateState(uint64_t currentSimNanos) {
     const float gimbalAngle2 = twoAxisGimbalIn.theta2;  // tilt, beta
 
     // Determine motor angles corresponding to the gimbal angles
-    const GimbalToMotorAnglesSplineOutput motorAngles = this->algorithm->update(gimbalAngle1, gimbalAngle2);
+    const GimbalAnglesToMotorAnglesOutput motorAngles = this->algorithm->update(gimbalAngle1, gimbalAngle2);
 
     // Write the module output messages
     auto motor1AngleOut = MotorAngleRefMsgF32Payload();

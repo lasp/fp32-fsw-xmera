@@ -1,8 +1,8 @@
-#include "gimbalToMotorAnglesSplineAlgorithm.h"
+#include "gimbalAnglesToMotorAnglesAlgorithm.h"
 
 #include <math.h>
 
-namespace gimbal_to_motor_angles_spline_detail {
+namespace gimbal_angles_to_motor_angles_detail {
 
 std::array<float, 4> cubicBSplineWeights(const float t) {
     const float t2 = t * t;
@@ -43,23 +43,23 @@ float evaluateSurface(const SplineCoefficients& coefficients, const float u, con
     return value;
 }
 
-}  // namespace gimbal_to_motor_angles_spline_detail
+}  // namespace gimbal_angles_to_motor_angles_detail
 
 /*! This method evaluates the motor 1 and motor 2 step surfaces and converts the motor steps to motor angles.
- @return GimbalToMotorAnglesSplineOutput
+ @return GimbalAnglesToMotorAnglesOutput
  @param u [-] First normalized rhombus coordinate in [-1, 1]
  @param v [-] Second normalized rhombus coordinate in [-1, 1]
 */
-GimbalToMotorAnglesSplineOutput GimbalToMotorAnglesSplineAlgorithm::motorAngles(float u, float v) const {
+GimbalAnglesToMotorAnglesOutput GimbalAnglesToMotorAnglesAlgorithm::motorAngles(float u, float v) const {
     return {
-        .motorAngle1 = gimbal_to_motor_angles_spline_detail::evaluateSurface(this->cfg.getMotor1Coefficients(), u, v) *
+        .motorAngle1 = gimbal_angles_to_motor_angles_detail::evaluateSurface(this->cfg.getMotor1Coefficients(), u, v) *
                        this->stepAngle,
-        .motorAngle2 = gimbal_to_motor_angles_spline_detail::evaluateSurface(this->cfg.getMotor2Coefficients(), u, v) *
+        .motorAngle2 = gimbal_angles_to_motor_angles_detail::evaluateSurface(this->cfg.getMotor2Coefficients(), u, v) *
                        this->stepAngle,
     };
 }
 
-GimbalToMotorAnglesSplineAlgorithm::GimbalToMotorAnglesSplineAlgorithm(const GimbalToMotorAnglesSplineConfig& config)
+GimbalAnglesToMotorAnglesAlgorithm::GimbalAnglesToMotorAnglesAlgorithm(const GimbalAnglesToMotorAnglesConfig& config)
     : cfg(config) {
     setConfig(config);
     reInitialize();
@@ -69,7 +69,7 @@ GimbalToMotorAnglesSplineAlgorithm::GimbalToMotorAnglesSplineAlgorithm(const Gim
  no previous valid output, the motor angles of the new configuration at zero gimbal angles are used at once.
  @param config Validated configuration
 */
-void GimbalToMotorAnglesSplineAlgorithm::setConfig(const GimbalToMotorAnglesSplineConfig& config) {
+void GimbalAnglesToMotorAnglesAlgorithm::setConfig(const GimbalAnglesToMotorAnglesConfig& config) {
     this->cfg = config;
     this->stepAngle = 2.0F * std::numbers::pi_v<float> / static_cast<float>(this->cfg.getStepsPerRevolution());
     this->zeroGimbalMotorAngles = this->motorAngles(0.0F, 0.0F);
@@ -79,18 +79,18 @@ void GimbalToMotorAnglesSplineAlgorithm::setConfig(const GimbalToMotorAnglesSpli
  until the next valid request.
  @return void
 */
-void GimbalToMotorAnglesSplineAlgorithm::reInitialize() { this->previousValidOutput.reset(); }
+void GimbalAnglesToMotorAnglesAlgorithm::reInitialize() { this->previousValidOutput.reset(); }
 
 /*! This method determines the stepper motor angles corresponding to the incoming gimbal tip and tilt angles.
  The spline surface of each motor gives motor steps, which are converted to motor angles with the step angle
  2*pi / stepsPerRevolution.
  Requests that are not finite or are outside the addressable rhombus return the previous valid motor angles. If
  there is no previous valid output, they return the motor angles of the current configuration at zero gimbal angles.
- @return GimbalToMotorAnglesSplineOutput
+ @return GimbalAnglesToMotorAnglesOutput
  @param gimbalAngle1 [rad] Gimbal tip angle
  @param gimbalAngle2 [rad] Gimbal tilt angle
 */
-GimbalToMotorAnglesSplineOutput GimbalToMotorAnglesSplineAlgorithm::update(float gimbalAngle1, float gimbalAngle2) {
+GimbalAnglesToMotorAnglesOutput GimbalAnglesToMotorAnglesAlgorithm::update(float gimbalAngle1, float gimbalAngle2) {
     // Map the gimbal angles to the normalized rhombus coordinates
     const GimbalRhombusDomain& domain = this->cfg.getDomain();
     const float x = gimbalAngle1 / domain.halfDiagonalTip;
@@ -99,7 +99,7 @@ GimbalToMotorAnglesSplineOutput GimbalToMotorAnglesSplineAlgorithm::update(float
     const float v = x - y;
 
     // Reject requests outside the addressable rhombus
-    GimbalToMotorAnglesSplineOutput output{};
+    GimbalAnglesToMotorAnglesOutput output{};
     if (fabsf(u) <= 1.0F && fabsf(v) <= 1.0F) {
         // Store the valid motor angles for the next update call
         output = this->motorAngles(u, v);

@@ -1,7 +1,7 @@
 """
-Module Name:        gimbalToMotorAnglesSpline
+Module Name:        gimbalAnglesToMotorAngles
 
-Fit tests for the fp32 gimbalToMotorAnglesSpline module. The GTest suite tests the algorithm. These tests check the
+Fit tests for the fp32 gimbalAnglesToMotorAngles module. The GTest suite tests the algorithm. These tests check the
 committed configuration (splineDomain.csv, splineCoefficientsMotor1.csv, and splineCoefficientsMotor2.csv) against
 the lookup tables in _tests, like the oeStateEphem test checks its Chebyshev fit against SPICE. The reference values
 come from the tables and from scipy at run time, so no reference data is committed.
@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 from scipy.interpolate import NdBSpline
 from xmera.architecture import messaging
-from xmera.fp32 import gimbalToMotorAnglesSplineF32
+from xmera.fp32 import gimbalAnglesToMotorAnglesF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
@@ -127,8 +127,8 @@ def run_adapter(config, tip, tilt):
     process = sim.CreateNewProcess(process_name)
     process.addTask(sim.CreateNewTask(task_name, time_step))
 
-    module = gimbalToMotorAnglesSplineF32.GimbalToMotorAnglesSpline()
-    module.modelTag = "gimbalToMotorAnglesSpline"
+    module = gimbalAnglesToMotorAnglesF32.GimbalAnglesToMotorAngles()
+    module.modelTag = "gimbalAnglesToMotorAngles"
     module.stepsPerRevolution = STEPS_PER_REVOLUTION
     module.halfDiagonalTip = config.half_diagonal_tip
     module.halfDiagonalTilt = config.half_diagonal_tilt

@@ -2,7 +2,7 @@ Executive Summary
 -----------------
 This module calculates the two gimbal angles :math:`(\alpha, \beta)` that align the gimbal thrust axis with the
 thrust direction from the input message. :ref:`thrustVectoring` gives that thrust direction.
-:ref:`gimbalAnglesToMotorAnglesTable` receives the two gimbal angles and calculates the stepper motor angles.
+:ref:`gimbalAnglesToMotorAngles` receives the two gimbal angles and calculates the stepper motor angles.
 
 The module also gives the thrust direction that these two angles achieve. This direction is the request, if the
 request is inside the travel of the mechanism. If it is not, the direction is on the edge of the travel.
@@ -56,7 +56,7 @@ Python. The message type contains a link to the message structure definition.
     * - twoAxisGimbalOutMsg
       - :ref:`TwoAxisGimbalMsgPayload`
       - Output message with the two gimbal angles. ``theta1`` is the angle :math:`\alpha`. ``theta2`` is the
-        angle :math:`\beta`. :ref:`gimbalAnglesToMotorAnglesTable` receives this message. The module does not write
+        angle :math:`\beta`. :ref:`gimbalAnglesToMotorAngles` receives this message. The module does not write
         the step fields of the payload.
     * - bodyHeadingOutMsg
       - :ref:`BodyHeadingMsgPayload`
@@ -240,7 +240,7 @@ The module uses two-phase initialization. Do the steps that follow:
 If the mounting orientation changes during the mission, call ``reconfigure()`` to build the configuration again.
 
 To calculate the stepper motor angles, connect the gimbal angle output message to
-:ref:`gimbalAnglesToMotorAnglesTable`:
+:ref:`gimbalAnglesToMotorAngles`:
 
 ::
 
@@ -268,7 +268,7 @@ difference.
 
 **Assumption.** One cone of half-angle :math:`\theta_\text{max}` gives the travel of the mechanism. A gimbal
 with a different limit on each axis, or with a limit that changes with the other angle, needs a different
-description. :ref:`gimbalAnglesToMotorAnglesTable` applies the limits of the motors themselves.
+description. :ref:`gimbalAnglesToMotorAngles` rejects a request outside the rhombus of its spline fit.
 
 **Assumption.** Each component of the input direction is a finite number. The module does not examine the input
 for a NaN or an infinity. The module that sends ``thrustDirectionInMsg`` must give a finite direction. If a

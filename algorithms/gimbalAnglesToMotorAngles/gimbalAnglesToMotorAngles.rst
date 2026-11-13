@@ -1,6 +1,6 @@
 .. raw:: latex
 
-    {\LARGE \textbf{gimbalToMotorAnglesSpline}}
+    {\LARGE \textbf{gimbalAnglesToMotorAngles}}
 
 Executive Summary
 -----------------
@@ -12,20 +12,20 @@ For other gimbal angles, the module keeps the last motor angles that it calculat
 
 An offline tool calculates the two surfaces from the measured gimbal-to-motor-steps lookup table. The module does not
 keep the table in memory. The two surfaces use :math:`2 \times 81 = 162` coefficients (648 bytes), much less than the
-full grid of the lookup table (see :ref:`gimbalToMotorAnglesSpline_memoryComparison`).
+full grid of the lookup table (see :ref:`gimbalAnglesToMotorAngles_memoryComparison`).
 
 Module Architecture
 -------------------
 
 The module has two layers:
 
-- The **adapter** (``gimbalToMotorAnglesSpline.h`` and ``.cpp``) is a ``SysModel``. It reads and writes the
-  messages. It makes a ``GimbalToMotorAnglesSplineConfig`` from the public properties. This configuration cannot
+- The **adapter** (``gimbalAnglesToMotorAngles.h`` and ``.cpp``) is a ``SysModel``. It reads and writes the
+  messages. It makes a ``GimbalAnglesToMotorAnglesConfig`` from the public properties. This configuration cannot
   change after the adapter makes it. The adapter makes the algorithm with two-phase initialization.
-- The **algorithm** (``gimbalToMotorAnglesSplineAlgorithm.h`` and ``.cpp``) is a C++23 class that has no
+- The **algorithm** (``gimbalAnglesToMotorAnglesAlgorithm.h`` and ``.cpp``) is a C++23 class that has no
   framework dependencies. It receives the gimbal angles and it gives the motor angles. ``update()`` does not throw.
 
-A C shim (``gimbalToMotorAnglesSplineAlgorithm_c.h`` and ``.cpp``) gives access to the algorithm. Ada and
+A C shim (``gimbalAnglesToMotorAnglesAlgorithm_c.h`` and ``.cpp``) gives access to the algorithm. Ada and
 Adamant components use the shim through ``extern "C"`` bindings.
 
 The offline fit tool is ``_tools/fitGimbalToMotorSpline.py``. It is not flight code.
@@ -144,7 +144,7 @@ square.
 
 The addressable rhombus is the square :math:`|u| \le 1, |v| \le 1`. The algorithm accepts a point on the edge, and
 rejects a point past the edge. The fp32 calculation of :math:`u` and :math:`v` has a rounding error, thus a point
-near the edge can be accepted or rejected. The subsection :ref:`gimbalToMotorAnglesSpline_rhombus` explains how the
+near the edge can be accepted or rejected. The subsection :ref:`gimbalAnglesToMotorAngles_rhombus` explains how the
 size of the rhombus keeps this rounding away from the requests that the module assumes.
 
 The inverse mapping changes the normalized coordinates back to the gimbal angles. The sum and the difference of
@@ -310,7 +310,7 @@ The table that follows gives the sizes of the spline for :math:`N` intervals and
 The spline does not go through its control points: at a knot, :math:`t = 0` and the weights are
 :math:`(1/6, 4/6, 1/6, 0)`, thus the value is a blend of three coefficients, not one coefficient. For this reason, the
 coefficients come from a fit and are not the measured motor steps. The section
-:ref:`gimbalToMotorAnglesSpline_offlineAnalysis` explains the fit.
+:ref:`gimbalAnglesToMotorAngles_offlineAnalysis` explains the fit.
 
 Motor Angles
 ~~~~~~~~~~~~
@@ -329,7 +329,7 @@ The algorithm calculates :math:`s` in fp32. :math:`N_s` is not more than 100000,
 The two surfaces use the same point :math:`(u, v)`. Each coefficient is in :math:`[-100000, 100000]`, thus each
 surface value is also in this range.
 
-.. _gimbalToMotorAnglesSpline_algorithmFlow:
+.. _gimbalAnglesToMotorAngles_algorithmFlow:
 
 Algorithm Flow
 ^^^^^^^^^^^^^^
@@ -350,7 +350,7 @@ configuration, at creation and at each ``setConfig()``. It does not keep them as
 keeps the last motor angles. If the algorithm has not calculated motor angles yet, the motor angles of the new
 configuration at zero gimbal angles apply at once. The adapter creates a new algorithm at each ``reset()``.
 
-.. _gimbalToMotorAnglesSpline_assumptions:
+.. _gimbalAnglesToMotorAngles_assumptions:
 
 Algorithm Assumptions and Limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -361,7 +361,7 @@ Algorithm Assumptions and Limitations
   ``thetaMax`` is more than zero and not more than the radius of the largest circle in the rhombus: then every request
   that the module assumes is addressable.
 - The fit tool makes the rhombus larger than the circle by a margin :math:`m` (see
-  :ref:`gimbalToMotorAnglesSpline_rhombus`). The configuration does not check this margin, thus a configuration that
+  :ref:`gimbalAnglesToMotorAngles_rhombus`). The configuration does not check this margin, thus a configuration that
   is not from the fit tool can have a rhombus that only touches the circle.
 - The algorithm rejects a request past the edge of the rhombus with no tolerance. With a rhombus from the fit tool, a
   request near the edge is about :math:`m` outside the circle, thus it is not a request that the module assumes.
@@ -372,17 +372,17 @@ Algorithm Assumptions and Limitations
 - The fit accuracy is applicable only to the lookup tables that the tool used. If the hardware calibration changes,
   make new coefficients.
 
-.. _gimbalToMotorAnglesSpline_offlineAnalysis:
+.. _gimbalAnglesToMotorAngles_offlineAnalysis:
 
 Offline Analysis
 ----------------
 
 The offline tool ``_tools/fitGimbalToMotorSpline.py`` calculates the configuration of the algorithm from the
 lookup tables. The algorithm does not do these calculations. This section gives the method of the fit, and then the
-results of the fit for the lookup tables in ``_tests``. The subsection :ref:`gimbalToMotorAnglesSpline_fitMethod`
-lists the steps of the tool, and the section :ref:`gimbalToMotorAnglesSpline_runOfflineFit` explains how to run it.
+results of the fit for the lookup tables in ``_tests``. The subsection :ref:`gimbalAnglesToMotorAngles_fitMethod`
+lists the steps of the tool, and the section :ref:`gimbalAnglesToMotorAngles_runOfflineFit` explains how to run it.
 
-.. _gimbalToMotorAnglesSpline_leastSquares:
+.. _gimbalAnglesToMotorAngles_leastSquares:
 
 Least-Squares Fit
 ^^^^^^^^^^^^^^^^^
@@ -437,7 +437,7 @@ mostly outside the rhombus. The table cells determine only the part of these fun
 these coefficients can be outside the range of the table steps. Thus the bound "between the smallest coefficient and the
 largest coefficient" is wider than the range of the table steps.
 
-.. _gimbalToMotorAnglesSpline_rhombus:
+.. _gimbalAnglesToMotorAngles_rhombus:
 
 Addressable Rhombus
 ^^^^^^^^^^^^^^^^^^^
@@ -458,7 +458,7 @@ The rhombus must be inside the populated cells of the table. It is inside if, at
 samples the rhombus at 2001 tilt angles for this check, and stops with an error if the rhombus is not inside.
 
 The module assumes that every request is in the circle of radius :math:`r` (``thetaMax``), see
-:ref:`gimbalToMotorAnglesSpline_assumptions`. The rhombus contains the circle of radius :math:`r + m`, with the margin
+:ref:`gimbalAnglesToMotorAngles_assumptions`. The rhombus contains the circle of radius :math:`r + m`, with the margin
 :math:`m` (``GIMBAL_MARGIN``), the same for every radius. A request less than :math:`m` past the required
 circle is still in the rhombus, thus the algorithm accepts a request that is a little larger than :math:`r`, for
 example because of a rounding before the algorithm. The configuration keeps :math:`r` as ``thetaMax``, not
@@ -476,9 +476,9 @@ value is more than 1.
 The margin :math:`m` makes the largest fp32 value of :math:`|u|` and :math:`|v|` on the required circle smaller than 1
 by approximately :math:`m / (r + m)`.
 
-.. _gimbalToMotorAnglesSpline_fitResults:
+.. _gimbalAnglesToMotorAngles_fitResults:
 
-.. _gimbalToMotorAnglesSpline_fitMetrics:
+.. _gimbalAnglesToMotorAngles_fitMetrics:
 
 Fit Results
 ^^^^^^^^^^^
@@ -559,7 +559,7 @@ The fit has these results:
 
     Motor 1 spline surface in the addressable rhombus, colored by the gimbal angle error, with the table cells.
 
-.. _gimbalToMotorAnglesSpline_numIntervals:
+.. _gimbalAnglesToMotorAngles_numIntervals:
 
 Number of Intervals
 ~~~~~~~~~~~~~~~~~~~
@@ -660,7 +660,7 @@ RMS errors of larger values of :math:`N`: 0.0072 deg at the fitted cells and 0.0
 0.0439 deg at the not used cells, and 0.0231 deg and 0.0254 deg for :math:`N = 12`. Of the values in the comparison,
 :math:`N = 12` gives the smallest errors at the not used cells, with 225 coefficients for each surface.
 
-.. _gimbalToMotorAnglesSpline_memoryComparison:
+.. _gimbalAnglesToMotorAngles_memoryComparison:
 
 Memory Comparison
 ~~~~~~~~~~~~~~~~~
@@ -700,20 +700,20 @@ The spline uses about 1/100 of the memory of the table.
 Test Description
 ----------------
 
-The tests are in ``_tests``. The C++ unit tests (``test_gimbalToMotorAnglesSpline.cpp``) and the fuzz tests
-(``test_gimbalToMotorAnglesSpline_fuzz.cpp``) test the algorithm. The Python tests
-(``test_gimbalToMotorAnglesSpline.py``) test the fit: they operate the adapter in a simulation with the committed
+The tests are in ``_tests``. The C++ unit tests (``test_gimbalAnglesToMotorAngles.cpp``) and the fuzz tests
+(``test_gimbalAnglesToMotorAngles_fuzz.cpp``) test the algorithm. The Python tests
+(``test_gimbalAnglesToMotorAngles.py``) test the fit: they operate the adapter in a simulation with the committed
 configuration and compare it with the lookup tables and scipy. The fuzz tests are built only when
 ``XMERA_ENABLE_FUZZTESTS`` is on.
 
-The algorithm declares its spline functions in the namespace ``gimbal_to_motor_angles_spline_detail``:
+The algorithm declares its spline functions in the namespace ``gimbal_angles_to_motor_angles_detail``:
 ``cubicBSplineWeights``, ``splineInterval``, and ``evaluateSurface``. The tests of the spline itself call these
 functions directly, at exact values of :math:`u` and :math:`v` anywhere in :math:`[-1, 1] \times [-1, 1]`, edges and
 vertices included, without the change from gimbal angles and without the step angle. The other tests send requests to
 ``update()``, thus they also check the change from gimbal angles to :math:`u` and :math:`v`, the accepted and the
 rejected requests, the step angle, and the configuration.
 
-.. _gimbalToMotorAnglesSpline_testData:
+.. _gimbalAnglesToMotorAngles_testData:
 
 Test Data and Tolerances
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -721,7 +721,7 @@ Test Data and Tolerances
 The C++ tests do not read files. They use two made-up test configurations, the linear and the rough test
 configuration, as the ``oeStateEphem`` C++ tests use made-up Chebyshev coefficients. Only the Python tests use the
 fitted configuration: ``splineDomain.csv``, ``splineCoefficientsMotor1.csv``, and ``splineCoefficientsMotor2.csv``,
-which ``--emit`` writes (see :ref:`gimbalToMotorAnglesSpline_runOfflineFit`) from the two lookup tables in ``_tests``.
+which ``--emit`` writes (see :ref:`gimbalAnglesToMotorAngles_runOfflineFit`) from the two lookup tables in ``_tests``.
 These tables are changed from the calibration of the hardware, thus the tests, the fit results, and the figures in this
 document do not give the motor steps of the hardware. If the tables in ``_tests`` change, write the configuration and
 the figures again with the tool; ``test_configuration_matches_fit_tool`` fails until then. All the tests use
@@ -854,7 +854,7 @@ The tests use these tolerances:
   error only.
 
 The tests of the fitted configuration, against scipy at the table cells, against the fit tool, and for the
-least-squares solution, are the Python fit tests (see :ref:`gimbalToMotorAnglesSpline_pythonFitTests`).
+least-squares solution, are the Python fit tests (see :ref:`gimbalAnglesToMotorAngles_pythonFitTests`).
 
 Acceptance and Hold Tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -985,7 +985,7 @@ Property Tests
 Fuzz Tests
 ^^^^^^^^^^
 
-Each fuzz test calls the same property function as a unit test, from ``gimbalToMotorAnglesSplineTestHelpers.hpp``,
+Each fuzz test calls the same property function as a unit test, from ``gimbalAnglesToMotorAnglesTestHelpers.hpp``,
 with inputs that the fuzzer generates.
 
 - ``propertyOutputIsFiniteForAnyInput``
@@ -1012,7 +1012,7 @@ with inputs that the fuzzer generates.
       configuration accepts, at a random point of :math:`[-1, 1] \times [-1, 1]`. Checks that the value is between the
       smallest and the largest coefficient, with the surface value tolerance.
 
-.. _gimbalToMotorAnglesSpline_pythonFitTests:
+.. _gimbalAnglesToMotorAngles_pythonFitTests:
 
 Python Fit Tests
 ^^^^^^^^^^^^^^^^
@@ -1046,7 +1046,7 @@ The step tolerance is calculated as ``stepTolerance`` in the GTest suite.
       angles, :math:`\sqrt{\Delta\psi^2 + \Delta\phi^2}`, is not more than ``MAX_ROUND_TRIP_ERROR`` = 0.05 deg at
       every table cell in the circle of radius :math:`r`. The fit does not use this table, thus this test is an
       independent check of the accuracy of the module, as the gimbal error metrics of the fit tool (see
-      :ref:`gimbalToMotorAnglesSpline_fitMetrics`). The committed configuration gives about 0.043 deg at most. The two
+      :ref:`gimbalAnglesToMotorAngles_fitMetrics`). The committed configuration gives about 0.043 deg at most. The two
       tables alone give about 0.006 deg at most: the table steps mapped back with the other table.
 
 - ``test_configuration_matches_fit_tool``
@@ -1063,7 +1063,7 @@ The step tolerance is calculated as ``stepTolerance`` in the GTest suite.
       rhombus, for each motor. Checks that each component is zero to within the rounding of the coefficients in the
       files: they keep ten significant digits, thus the bound is :math:`A^T A \, (10^{-9} |c|)`, twice the rounding.
 
-.. _gimbalToMotorAnglesSpline_runOfflineFit:
+.. _gimbalAnglesToMotorAngles_runOfflineFit:
 
 Python Offline Fit Tool
 -----------------------
@@ -1077,7 +1077,7 @@ Each time the tool starts, it reads the two lookup tables, finds the addressable
 of :math:`|u|` and :math:`|v|` on the circle. Then it does the actions that the options select. If no action is
 selected, the tool stops after this.
 
-.. _gimbalToMotorAnglesSpline_fitMethod:
+.. _gimbalAnglesToMotorAngles_fitMethod:
 
 Fit Method
 ^^^^^^^^^^
@@ -1089,14 +1089,14 @@ The tool ``_tools/fitGimbalToMotorSpline.py`` does these steps:
    gimbal tilt angles :math:`\beta = \phi` (rows). The populated cells form a rhombus.
 2. It finds the addressable rhombus: the rhombus about zero gimbal angles, with the aspect ratio of the populated
    cells of the table, whose edges touch the required circle of gimbal angles plus a small margin. The subsection
-   :ref:`gimbalToMotorAnglesSpline_rhombus` explains this step.
+   :ref:`gimbalAnglesToMotorAngles_rhombus` explains this step.
 3. It calculates the coefficients of the two surfaces with linear least squares. The subsection
-   :ref:`gimbalToMotorAnglesSpline_leastSquares` explains this step.
+   :ref:`gimbalAnglesToMotorAngles_leastSquares` explains this step.
 4. It calculates the errors of the fit as gimbal angles with the motor-steps-to-gimbal lookup table
    (``_tests/stepsToGimbalTip.csv`` and ``_tests/stepsToGimbalTilt.csv``). The fit does not use this table. The subsection
-   :ref:`gimbalToMotorAnglesSpline_fitMetrics` explains the errors.
+   :ref:`gimbalAnglesToMotorAngles_fitMetrics` explains the errors.
 5. It writes the configuration to ``DIR`` (``--emit DIR``). The subsection
-   :ref:`gimbalToMotorAnglesSpline_makeNewCoefficients` explains how to run the tool, with ``DIR`` set to ``_tests``.
+   :ref:`gimbalAnglesToMotorAngles_makeNewCoefficients` explains how to run the tool, with ``DIR`` set to ``_tests``.
 
 Command-Line Options
 ^^^^^^^^^^^^^^^^^^^^
@@ -1161,9 +1161,9 @@ condition number of :math:`A`, the coefficient range, the maximum tip and tilt e
 percentile of the gimbal angle error [deg], the maximum and RMS gimbal angle error of the lookup tables [deg], the
 maximum and RMS of the error at the fitted table [steps], and the maximum and RMS of the gimbal angle error at the not
 used cells [deg] with the number of these cells whose motor steps are outside the motor-steps-to-gimbal lookup table.
-The subsection :ref:`gimbalToMotorAnglesSpline_fitMetrics` explains these metrics.
+The subsection :ref:`gimbalAnglesToMotorAngles_fitMetrics` explains these metrics.
 
-.. _gimbalToMotorAnglesSpline_outputFiles:
+.. _gimbalAnglesToMotorAngles_outputFiles:
 
 Output Files
 ^^^^^^^^^^^^
@@ -1209,7 +1209,7 @@ The tool writes each figure as a PDF file and as an SVG file. The figures in thi
 ``rhombusMapping`` and ``basisFunctions`` do not use the lookup table data. The other figures come from the lookup
 tables in ``_tests``. This document shows all the figures.
 
-.. _gimbalToMotorAnglesSpline_makeNewCoefficients:
+.. _gimbalAnglesToMotorAngles_makeNewCoefficients:
 
 Make New Coefficients
 ^^^^^^^^^^^^^^^^^^^^^
@@ -1232,10 +1232,10 @@ To make new coefficients, do the steps that follow:
 
 3. Set the configuration from ``_tests/splineDomain.csv``, ``_tests/splineCoefficientsMotor1.csv``, and
    ``_tests/splineCoefficientsMotor2.csv``. Set ``stepsPerRevolution`` from the stepper motor.
-4. If you change the number of intervals, change ``NUM_SPLINE_INTERVALS`` in ``gimbalToMotorAnglesSplineTypes.h``.
+4. If you change the number of intervals, change ``NUM_SPLINE_INTERVALS`` in ``gimbalAnglesToMotorAnglesTypes.h``.
    ``NUM_SPLINE_COEFFS_PER_AXIS`` and ``NUM_SPLINE_COEFFS`` derive from it.
 5. The lookup tables in ``_tests`` are not the calibration of the hardware (see
-   :ref:`gimbalToMotorAnglesSpline_testData`). To make the coefficients of the hardware, write its lookup tables as
+   :ref:`gimbalAnglesToMotorAngles_testData`). To make the coefficients of the hardware, write its lookup tables as
    the CSV files of ``--table-dir`` in a directory outside the repository, give this directory with ``--table-dir``,
    and write the files and the figures to directories outside the
    repository. Do not commit the hardware lookup tables, or the files, figures, and numbers that the tool makes from
