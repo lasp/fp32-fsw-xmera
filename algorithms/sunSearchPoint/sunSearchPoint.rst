@@ -9,7 +9,7 @@ followed by closed-loop **sun pointing**. On reset it begins a sequence of const
 rotations that sweep the body-fixed coarse sun sensors (CSS) through different orientations. Once
 the sun is acquired — signalled by the CSS observation count reaching a configurable threshold —
 the module transitions to sun pointing, producing attitude tracking errors as Modified Rodrigues
-Parameters (MRPs) and body-rate tracking errors that align a commanded body axis with the sun
+Parameters (MRPs) and body-rate tracking errors that align the sun pointing axis with the sun
 heading. An optional constant spin rate about the sun heading axis can be specified. If the sun
 direction is not available during pointing, the attitude error is zeroed and a configurable
 body-fixed fallback rate is commanded instead.
@@ -66,11 +66,11 @@ Module Parameters
       - Units
       - Default
       - Description
-    * - sHatBdyCmd (required)
+    * - sunPointAxis_B (required)
       - Eigen::Vector3f
       - [-]
       - zero
-      - Commanded body-fixed unit direction vector :math:`\hat{\mathbf s}_{c}` to align with the sun
+      - Sun pointing axis, the body-fixed unit direction vector :math:`\hat{\mathbf s}_{p}` to align with the sun
         (norm must be within ``1e-3`` of 1.0; renormalized on storage)
     * - sunAxisSpinRate
       - float
@@ -112,7 +112,7 @@ Module Assumptions and Limitations
 -----------------------------------
 - The input sun direction vector :math:`\mathbf s` can have any length. Only the exact zero vector is
   treated as sun-not-available; any non-zero magnitude is accepted.
-- The commanded body-relative unit direction vector :math:`\hat{\mathbf s}_{c}` is fixed relative to the body.
+- The sun pointing axis :math:`\hat{\mathbf s}_{p}` is fixed relative to the body.
 - The sun-pointing condition is under-determined (2 DOF): the rotation about :math:`\mathbf s` is arbitrary.
 - Each rotation's duration must be finite and round to at least 1 ns. The commanded rate must be
   finite (any sign). The sum of the rotation durations plus one ``controlPeriod`` must be in the
@@ -133,7 +133,7 @@ The module is configured by::
 
     module = sunSearchPointF32.SunSearchPoint()
     module.modelTag = "sunSearchPoint"
-    module.sHatBdyCmd = [0.0, 0.0, 1.0]
+    module.sunPointAxis_B = [0.0, 0.0, 1.0]
     module.sunAxisSpinRate = 0.0
     module.omega_RN_B = [0.0, 0.0, 0.0]
     module.observationThreshold = 4
@@ -187,14 +187,14 @@ has not yet elapsed. The body-rate error is
 
 Pointing Phase — Good Sun Direction Vector
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The principal rotation vector and angle aligning :math:`\hat{\mathbf s}_{c}` with the sun heading
+The principal rotation vector and angle aligning :math:`\hat{\mathbf s}_{p}` with the sun heading
 :math:`\mathbf s` are
 
 .. math::
 
-   \hat{\mathbf e} = \frac{\mathbf s \times \hat{\mathbf s}_{c}}{|\mathbf s \times \hat{\mathbf s}_{c}|}
+   \hat{\mathbf e} = \frac{\mathbf s \times \hat{\mathbf s}_{p}}{|\mathbf s \times \hat{\mathbf s}_{p}|}
    \qquad
-   \Phi = \arccos \left( \frac{\mathbf s \cdot \hat{\mathbf s}_{c}}{|\mathbf s|} \right)
+   \Phi = \arccos \left( \frac{\mathbf s \cdot \hat{\mathbf s}_{p}}{|\mathbf s|} \right)
 
 The attitude error MRP and reference rate are
 
@@ -237,13 +237,13 @@ fallback rate is commanded: :math:`\mathbf\sigma_{B/R} = \mathbf 0`,
 sequence elapses without acquiring the sun, keeping the vehicle slewing rather than at rest. The
 branch is evaluated every update, so re-acquiring the sun resumes pointing immediately.
 
-Collinear Commanded and Sun Heading Vectors
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-When :math:`\mathbf s \approx \hat{\mathbf s}_{c}` the cross product vanishes; ``stableNormalized``
+Collinear Sun Pointing Axis and Sun Heading Vectors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+When :math:`\mathbf s \approx \hat{\mathbf s}_{p}` the cross product vanishes; ``stableNormalized``
 returns the zero vector and :math:`\tan(\Phi/4) \to 0`, so :math:`\mathbf\sigma_{B/R} = \mathbf 0`
-without a special case. When :math:`\mathbf s \approx -\hat{\mathbf s}_{c}` (180°), a fallback
-eigen-axis orthogonal to :math:`\hat{\mathbf s}_{c}` is used:
-:math:`\hat{\mathbf e}_{180} = \texttt{sHatBdyCmd.unitOrthogonal()}`.
+without a special case. When :math:`\mathbf s \approx -\hat{\mathbf s}_{p}` (180°), a fallback
+eigen-axis orthogonal to :math:`\hat{\mathbf s}_{p}` is used:
+:math:`\hat{\mathbf e}_{180} = \texttt{sunPointAxis\_B.unitOrthogonal()}`.
 
 Test Description
 -------------------------------

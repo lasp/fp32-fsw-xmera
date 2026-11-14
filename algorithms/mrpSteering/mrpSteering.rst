@@ -55,13 +55,13 @@ The following table lists all the module parameters than can be set. The paramet
       - Default
       - Description
       - Bounds
-    * - K1
+    * - Kp1
       - float
       - [rad/s]
       - 0
       - Proportional gain applied to MRP errors
       - Must not be negative (validated at reset())
-    * - K3
+    * - Kp3
       - float
       - [rad/s]
       - 0
@@ -79,7 +79,7 @@ The following table lists all the module parameters than can be set. The paramet
       - false
       - Indicates if feedforward term should be included
       - N/A
-    * - P
+    * - Kd
       - float
       - [N m s]
       - 0
@@ -119,8 +119,8 @@ when the immutable configuration is built at ``reset()`` (an invalid value throw
 
 Module Assumptions and Limitations
 ----------------------------------
-This control assumes the spacecraft is rigid and that the control gains of the attitude control (P, Ki) are chosen such
-that the decay time is much faster than that of the body rate computation (K1, K3).
+This control assumes the spacecraft is rigid and that the control gains of the attitude control (Kd, Ki) are chosen such
+that the decay time is much faster than that of the body rate computation (Kp1, Kp3).
 
 Module Architecture
 -------------------
@@ -140,10 +140,10 @@ The gains, ``omegaMax`` and ``controlPeriod`` must be set, and the required inpu
 
     module = mrpSteeringF32.MrpSteering()
     module.modelTag = "mrpSteering"
-    module.K1 = K1
-    module.K3 = K3
+    module.Kp1 = Kp1
+    module.Kp3 = Kp3
     module.omegaMax = omega_max
-    module.P = P
+    module.Kd = Kd
     module.Ki = Ki
     module.integralLimit = integral_limit
     module.knownTorquePntB_B = known_torque

@@ -8,6 +8,10 @@
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
 %include <std_array.i>
 %template(BoolArray3) std::array<bool, 3>;
+%template(RwSpeedArray) std::array<float, RW_EFF_CNT>;
+
+// Accept any Python sequence for the public array member instead of only a wrapped array object.
+%naturalvar RwMotorTorque::rwDesiredSpeeds;
 
 %include "rwMotorTorque.h"
 

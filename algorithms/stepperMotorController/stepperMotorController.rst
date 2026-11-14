@@ -39,8 +39,8 @@ Algorithm Parameters
 -------------------------------
 The following table lists the configuration parameters. They are held in the validated immutable
 ``StepperMotorControllerConfig`` (built and validated at ``reset()``); the Xmera adapter exposes them as same-named
-public properties that are set before ``reset()``. The integer steps-per-revolution and the full-circle flag are
-*derived* from ``stepAngle`` and the angle range by the algorithm — they are not configuration inputs.
+public properties that are set before ``reset()``. The step angle and the full-circle flag are *derived* from
+``stepsPerRevolution`` and the angle range by the algorithm — they are not configuration inputs.
 
 .. list-table:: Algorithm Parameters
     :widths: 32 15 10 10 40 30
@@ -52,14 +52,13 @@ public properties that are set before ``reset()``. The integer steps-per-revolut
       - Default
       - Description
       - Bounds
-    * - stepAngle (required)
-      - float
-      - [rad/step]
+    * - stepsPerRevolution (required)
+      - uint32
+      - [steps]
       - 0 (must be set)
-      - Angle traversed per motor step
-      - Must be in :math:`[2\pi / 100000,\, 2\pi]` (validated at reset(); the lower bound caps
-        ``stepsPerRev`` at 100k so the fp32 round-trip in ``angleToSteps`` stays within rounding
-        tolerance)
+      - Motor steps per full revolution
+      - Must be in :math:`[1,\, 100000]` (validated at reset(); the upper bound keeps the fp32
+        round-trip in ``angleToSteps`` within rounding tolerance)
     * - minAngle
       - float
       - [rad]
@@ -91,7 +90,7 @@ Module Architecture
 -------------------------------
 The module is split into a pure algorithm (``StepperMotorControllerAlgorithm``, free of any messaging or framework
 dependencies) and an Xmera adapter (``StepperMotorController``, a ``SysModel``) that owns the message I/O. The adapter
-follows a two-phase initialization pattern: the public configuration properties (``stepAngle``, ``minAngle``,
+follows a two-phase initialization pattern: the public configuration properties (``stepsPerRevolution``, ``minAngle``,
 ``maxAngle``, ``settleCountMax``, ``minStepCommand``) and the input messages are set first, then ``reset()`` builds and
 validates the immutable ``StepperMotorControllerConfig`` and constructs the algorithm. An invalid parameter throws
 ``fsw::invalid_argument`` at ``reset()``. The adapter exposes no parameters of its own; the motor's absolute position is
@@ -154,8 +153,8 @@ step size,
 
     n = \text{round}\!\left( \frac{\theta}{\Delta\theta} \right)
 
-where :math:`\theta` is an angle in radians and :math:`\Delta\theta` is ``stepAngle`` (the angle per motor step).
-A derived integer :math:`N = \text{round}(2\pi / \Delta\theta)` is cached internally for the wrap-around math; the
+where :math:`\theta` is an angle in radians and :math:`\Delta\theta = 2\pi / N` is the angle per motor step, with
+:math:`N` the configured ``stepsPerRevolution``. :math:`N` is also used directly for the wrap-around math; the
 controller never reasons in radians otherwise: both the current and desired positions are integer step counts.
 
 Motor Angle Range
@@ -237,9 +236,9 @@ Position Tracking via Feedback (Xmera Adapter)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The adapter reads the motor's absolute step position directly from ``stepperMotorInMsg.motorPosition`` each tick
 (:math:`n_c = \text{motorPosition}_{\text{feedback}}`). The dynamics module maintains this as a cumulative net signed
-step count from the angular zero (``motorPosition * stepAngle`` ≈ :math:`\theta`) and never resets it across commands,
-so the adapter does not need to track command-start baselines or initialize a position. ``isMotorMoving`` is read
-directly from the same message.
+step count from the angular zero (``motorPosition * 2*pi / stepsPerRevolution`` ≈ :math:`\theta`) and never resets
+it across commands, so the adapter does not need to track command-start baselines or initialize a position.
+``isMotorMoving`` is read directly from the same message.
 
 Algorithm Assumptions and Limitations
 -------------------------------------
@@ -276,7 +275,7 @@ Typical usage in Python is (the configuration properties and message connections
 
     module = stepperMotorControllerF32.StepperMotorController()
     module.modelTag = "stepperMotorController"
-    module.stepAngle = math.radians(1.0)             # [rad/step] (1 deg/step = 360 steps/rev)
+    module.stepsPerRevolution = 360                  # [steps] (1 deg/step)
     module.minAngle = 0.0                            # full circle (default); use a partial range for bounded steppers
     module.maxAngle = 2 * math.pi
     module.settleCountMax = 2

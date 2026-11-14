@@ -24,7 +24,7 @@ struct MomentumManagementRwArrayConfiguration {
 /*! @brief Dumping threshold, feedback gains and integration step of the momentum management control law. */
 struct MomentumManagementControlParameters {
     float hsMin{};          //!< [Nms] momentum difference magnitude below which no dumping is requested
-    float K{};              //!< [1/s] proportional gain mapping the momentum difference onto the requested torque
+    float Kp{};             //!< [1/s] proportional gain mapping the momentum difference onto the requested torque
     float Ki{};             //!< [1/s2] integral gain on the accumulated momentum difference (0 disables the integral)
     float integralLimit{};  //!< [Nms2] anti-windup clamp on each component of the momentum integral
     float controlPeriod{};  //!< [s] time between two update() calls, the integration step (only used when Ki > 0)
@@ -43,8 +43,8 @@ class MomentumManagementConfig final {
                 "momentumManagement: hsMin (minimum RW cluster momentum for dumping) must be finite and "
                 "non-negative.");
         }
-        if (!isValidK(controlParameters.K)) {
-            FSW_THROW_INVALID_ARGUMENT("momentumManagement: K must be finite and non-negative.");
+        if (!isValidKp(controlParameters.Kp)) {
+            FSW_THROW_INVALID_ARGUMENT("momentumManagement: Kp must be finite and non-negative.");
         }
         if (!isValidKi(controlParameters.Ki)) {
             FSW_THROW_INVALID_ARGUMENT("momentumManagement: Ki must be finite and non-negative.");
@@ -83,7 +83,7 @@ class MomentumManagementConfig final {
     }
 
     static bool isValidHsMin(float hsMin) { return fsw::is_finite(hsMin) && hsMin >= 0.0F; }
-    static bool isValidK(float K) { return fsw::is_finite(K) && K >= 0.0F; }
+    static bool isValidKp(float Kp) { return fsw::is_finite(Kp) && Kp >= 0.0F; }
     static bool isValidKi(float Ki) { return fsw::is_finite(Ki) && Ki >= 0.0F; }
     /*! A zero limit is only allowed when the integral term is switched off (Ki == 0). */
     static bool isValidIntegralLimit(float integralLimit, float Ki) {

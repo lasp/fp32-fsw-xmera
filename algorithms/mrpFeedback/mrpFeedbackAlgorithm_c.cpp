@@ -21,8 +21,8 @@ MrpFeedbackInputRwData rwConfigFromC(const MrpFeedbackRwSpinAxes_c& GsMatrix_B,
     return out;
 }
 
-MrpFeedbackConfig makeConfig(float K,
-                             float P,
+MrpFeedbackConfig makeConfig(float Kp,
+                             float Kd,
                              float Ki,
                              float integralLimit,
                              ControlLawType_c controlLawType,
@@ -33,8 +33,8 @@ MrpFeedbackConfig makeConfig(float K,
                              const MrpFeedbackRwInertias_c* JsList,
                              const MrpFeedbackRwAvailability_c* wheelAvailability) {
     const MrpFeedbackControlParameters controlParameters{
-        .K = K,
-        .P = P,
+        .Kp = Kp,
+        .Kd = Kd,
         .Ki = Ki,
         .integralLimit = integralLimit,
         .controlLawType = static_cast<ControlLawType>(controlLawType),
@@ -56,8 +56,8 @@ MrpFeedbackConfig makeConfig(float K,
 
 uint32_t MrpFeedbackAlgorithm_getMaxNumRw(void) { return kMaxNumRw; }
 
-bool MrpFeedbackAlgorithm_validateConfig(float K,
-                                         float P,
+bool MrpFeedbackAlgorithm_validateConfig(float Kp,
+                                         float Kd,
                                          float Ki,
                                          float integralLimit,
                                          ControlLawType_c controlLawType,
@@ -68,8 +68,8 @@ bool MrpFeedbackAlgorithm_validateConfig(float K,
                                          const MrpFeedbackRwInertias_c* JsList,
                                          const MrpFeedbackRwAvailability_c* wheelAvailability) {
     try {
-        (void)makeConfig(K,
-                         P,
+        (void)makeConfig(Kp,
+                         Kd,
                          Ki,
                          integralLimit,
                          controlLawType,
@@ -85,8 +85,8 @@ bool MrpFeedbackAlgorithm_validateConfig(float K,
     }
 }
 
-MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(float K,
-                                                        float P,
+MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(float Kp,
+                                                        float Kd,
                                                         float Ki,
                                                         float integralLimit,
                                                         ControlLawType_c controlLawType,
@@ -96,8 +96,8 @@ MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(float K,
                                                         const MrpFeedbackRwSpinAxes_c* GsMatrix_B,
                                                         const MrpFeedbackRwInertias_c* JsList,
                                                         const MrpFeedbackRwAvailability_c* wheelAvailability) {
-    return fsw::createHandle<::MrpFeedbackAlgorithm, MrpFeedbackAlgorithmHandle>(makeConfig(K,
-                                                                                            P,
+    return fsw::createHandle<::MrpFeedbackAlgorithm, MrpFeedbackAlgorithmHandle>(makeConfig(Kp,
+                                                                                            Kd,
                                                                                             Ki,
                                                                                             integralLimit,
                                                                                             controlLawType,
@@ -112,8 +112,8 @@ MrpFeedbackAlgorithmHandle* MrpFeedbackAlgorithm_create(float K,
 void MrpFeedbackAlgorithm_destroy(MrpFeedbackAlgorithmHandle* self) { fsw::deleteHandle<::MrpFeedbackAlgorithm>(self); }
 
 void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self,
-                                    float K,
-                                    float P,
+                                    float Kp,
+                                    float Kd,
                                     float Ki,
                                     float integralLimit,
                                     ControlLawType_c controlLawType,
@@ -123,8 +123,8 @@ void MrpFeedbackAlgorithm_setConfig(MrpFeedbackAlgorithmHandle* self,
                                     const MrpFeedbackRwSpinAxes_c* GsMatrix_B,
                                     const MrpFeedbackRwInertias_c* JsList,
                                     const MrpFeedbackRwAvailability_c* wheelAvailability) {
-    fsw::fromHandle<::MrpFeedbackAlgorithm>(self)->setConfig(makeConfig(K,
-                                                                        P,
+    fsw::fromHandle<::MrpFeedbackAlgorithm>(self)->setConfig(makeConfig(Kp,
+                                                                        Kd,
                                                                         Ki,
                                                                         integralLimit,
                                                                         controlLawType,

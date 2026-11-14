@@ -48,7 +48,7 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
     for (Eigen::Index i = 0; i < 3; ++i) {
         const float sigma_i = sigma_BR[i];
         const float f_i =
-            safeAtanf(kPiOver2 / params.omegaMax * ((params.K1 * sigma_i) + (params.K3 * powf(sigma_i, 3.0F)))) /
+            safeAtanf(kPiOver2 / params.omegaMax * ((params.Kp1 * sigma_i) + (params.Kp3 * powf(sigma_i, 3.0F)))) /
             kPiOver2 * params.omegaMax;
         omega_BastR_B[i] = -f_i;
     }
@@ -58,8 +58,9 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
         for (Eigen::Index i = 0; i < 3; ++i) {
             const float sigma_i = sigma_BR[i];
             const float f_i =
-                ((3.0F * params.K3 * powf(sigma_i, 2.0F)) + params.K1) /
-                (powf(kPiOver2 / params.omegaMax * ((params.K1 * sigma_i) + (params.K3 * powf(sigma_i, 3.0F))), 2.0F) +
+                ((3.0F * params.Kp3 * powf(sigma_i, 2.0F)) + params.Kp1) /
+                (powf(kPiOver2 / params.omegaMax * ((params.Kp1 * sigma_i) + (params.Kp3 * powf(sigma_i, 3.0F))),
+                      2.0F) +
                  1.0F);
             omegap_BastR_B[i] = -f_i * sigmaDot_BR[i];
         }
@@ -108,7 +109,7 @@ Eigen::Vector3f MrpSteeringAlgorithm::update(const InputGuidanceData& attGuidInp
     }
 
     /*! - evaluate required attitude control torque Lc */
-    const Eigen::Vector3f Lc = params.P * omega_BBast_B + params.Ki * this->z - omega_BastN_B.cross(H_B) -
+    const Eigen::Vector3f Lc = params.Kd * omega_BBast_B + params.Ki * this->z - omega_BastN_B.cross(H_B) -
                                ISCPntB_B * (omegap_BastR_B + domega_RN_B - omega_BN_B.cross(omega_RN_B)) +
                                this->cfg.getKnownTorquePntB_B();
 

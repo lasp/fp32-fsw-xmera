@@ -48,7 +48,7 @@ FUZZ_TEST(MomentumManagementPropertyFuzz, propertyIntegralTermStaysBounded)
                  fuzztest::InRange(0.0F, 10.0F));                // [s] control period
 
 // Deliberately unphysical: wheels and speeds orders of magnitude past anything real. The ceiling is not
-// arbitrary -- the request is K times the cluster momentum, so it overflows once that product nears FLT_MAX
+// arbitrary -- the request is Kp times the cluster momentum, so it overflows once that product nears FLT_MAX
 // ~ 3.4e38. These domains cap the momentum near 3e9 and the gain at 1e3.
 FUZZ_TEST(MomentumManagementPropertyFuzz, propertyTorqueStaysFinite)
     .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // spin axis 0 (normalized in helper)

@@ -38,7 +38,11 @@ void RwMotorTorque::reset(const uint64_t callTime) {
 
     /*! - Build the validated configuration and (re)create the algorithm (computes the mapping and
      projection; throws on an invalid config). */
-    const auto config = RwMotorTorqueConfig::create(this->desiredControlAxes_B, rwConfiguration, this->omegaGain);
+    const auto config =
+        RwMotorTorqueConfig::create(this->desiredControlAxes_B,
+                                    rwConfiguration,
+                                    this->Kp,
+                                    Eigen::Map<const Eigen::Vector<float, kMaxNumRw>>(this->rwDesiredSpeeds.data()));
     this->algorithm = std::make_unique<RwMotorTorqueAlgorithm>(config);
 }
 
@@ -54,7 +58,10 @@ RwMotorTorqueConfig RwMotorTorque::toConfig() {
         }
     }
 
-    return RwMotorTorqueConfig::create(this->desiredControlAxes_B, rwConfiguration, this->omegaGain);
+    return RwMotorTorqueConfig::create(this->desiredControlAxes_B,
+                                       rwConfiguration,
+                                       this->Kp,
+                                       Eigen::Map<const Eigen::Vector<float, kMaxNumRw>>(this->rwDesiredSpeeds.data()));
 }
 
 void RwMotorTorque::reconfigure() {
@@ -82,17 +89,12 @@ void RwMotorTorque::updateState(const uint64_t callTime) {
     }
 
     /*! - Read the optional RW speeds for the null-space term; unlinked speeds default to zero. */
-    RwMotorTorqueSpeeds speeds{};
+    Eigen::Vector<float, kMaxNumRw> rwSpeeds = Eigen::Vector<float, kMaxNumRw>::Zero();
     if (this->rwSpeedsInMsg.isLinked()) {
-        const RWSpeedMsgF32Payload rwSpeeds = this->rwSpeedsInMsg();
-        speeds.rwSpeeds = cArrayToEigenVector(rwSpeeds.wheelSpeeds);
-    }
-    if (this->rwDesiredSpeedsInMsg.isLinked()) {
-        const RWSpeedMsgF32Payload rwDesiredSpeeds = this->rwDesiredSpeedsInMsg();
-        speeds.rwDesiredSpeeds = cArrayToEigenVector(rwDesiredSpeeds.wheelSpeeds);
+        rwSpeeds = cArrayToEigenVector(this->rwSpeedsInMsg().wheelSpeeds);
     }
 
-    const Eigen::Vector<float, kMaxNumRw> motorTorque = this->algorithm->update(Lr_B, speeds);
+    const Eigen::Vector<float, kMaxNumRw> motorTorque = this->algorithm->update(Lr_B, rwSpeeds);
 
     RwMotorTorqueMsgF32Payload rwMotorTorques{};
     eigenVectorToCArray(motorTorque, rwMotorTorques.motorTorque);

@@ -17,14 +17,14 @@ typedef struct DvManeuverAlgorithmHandle DvManeuverAlgorithmHandle;
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param minTime       [s] minimum burn time before completion; finite, non-negative, and in the
- *                      uint64_t nanosecond range.
- * @param maxTime       [s] maximum burn time; finite, at least 1 ns, in the uint64_t nanosecond
- *                      range, and greater than minTime.
- * @param controlPeriod [s] update period of the module; finite, at least 1 ns, and in the uint64_t
- *                      nanosecond range.
- * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
- * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
+ * @param minTime          [s] minimum burn time before completion; finite, non-negative, and in the
+ *                         uint64_t nanosecond range.
+ * @param maxTime          [s] maximum burn time; finite, at least 1 ns, in the uint64_t nanosecond
+ *                         range, and greater than minTime.
+ * @param controlPeriod    [s] update period of the module; finite, at least 1 ns, and in the uint64_t
+ *                         nanosecond range.
+ * @param requestedForce_B [N] body force requested while the burn executes; must be finite.
+ * @param requestedDv_N    [m/s] requested delta-V in inertial frame components; must be finite.
  * @note maxTime - 1 ns + 2 * controlPeriod must also be in the uint64_t nanosecond range, so that the
  *       burn time cannot wrap before the burn completes.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
@@ -33,19 +33,19 @@ typedef struct DvManeuverAlgorithmHandle DvManeuverAlgorithmHandle;
 bool DvManeuverAlgorithm_validateConfig(double minTime,
                                         double maxTime,
                                         double controlPeriod,
-                                        const Vector3f_c* cmdForce_B,
-                                        const Vector3f_c* cmdDv_N);
+                                        const Vector3f_c* requestedForce_B,
+                                        const Vector3f_c* requestedDv_N);
 
 /**
  * @brief Construct a new DvManeuverAlgorithm instance from the supplied configuration.
- * @param minTime       [s] minimum burn time before completion; finite, non-negative, and in the
- *                      uint64_t nanosecond range.
- * @param maxTime       [s] maximum burn time; finite, at least 1 ns, in the uint64_t nanosecond
- *                      range, and greater than minTime.
- * @param controlPeriod [s] update period of the module; finite, at least 1 ns, and in the uint64_t
- *                      nanosecond range.
- * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
- * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
+ * @param minTime          [s] minimum burn time before completion; finite, non-negative, and in the
+ *                         uint64_t nanosecond range.
+ * @param maxTime          [s] maximum burn time; finite, at least 1 ns, in the uint64_t nanosecond
+ *                         range, and greater than minTime.
+ * @param controlPeriod    [s] update period of the module; finite, at least 1 ns, and in the uint64_t
+ *                         nanosecond range.
+ * @param requestedForce_B [N] body force requested while the burn executes; must be finite.
+ * @param requestedDv_N    [m/s] requested delta-V in inertial frame components; must be finite.
  * @note maxTime - 1 ns + 2 * controlPeriod must also be in the uint64_t nanosecond range, so that the
  *       burn time cannot wrap before the burn completes.
  * @return Pointer to a new DvManeuverAlgorithm (must be destroyed).
@@ -54,8 +54,8 @@ bool DvManeuverAlgorithm_validateConfig(double minTime,
 DvManeuverAlgorithmHandle* DvManeuverAlgorithm_create(double minTime,
                                                       double maxTime,
                                                       double controlPeriod,
-                                                      const Vector3f_c* cmdForce_B,
-                                                      const Vector3f_c* cmdDv_N);
+                                                      const Vector3f_c* requestedForce_B,
+                                                      const Vector3f_c* requestedDv_N);
 
 /**
  * @brief Destroy a previously created DvManeuverAlgorithm.
@@ -66,15 +66,15 @@ void DvManeuverAlgorithm_destroy(DvManeuverAlgorithmHandle* self);
 /**
  * @brief Install the configuration on an existing instance (parameters only; call _reInitialize to
  *        reset the burn state machine).
- * @param self          Pointer to the instance.
- * @param minTime       [s] minimum burn time before completion; finite, non-negative, and in the
- *                      uint64_t nanosecond range.
- * @param maxTime       [s] maximum burn time; finite, at least 1 ns, in the uint64_t nanosecond
- *                      range, and greater than minTime.
- * @param controlPeriod [s] update period of the module; finite, at least 1 ns, and in the uint64_t
- *                      nanosecond range.
- * @param cmdForce_B    [N] body force commanded while the burn executes; must be finite.
- * @param cmdDv_N       [m/s] commanded delta-V in inertial frame components; must be finite.
+ * @param self             Pointer to the instance.
+ * @param minTime          [s] minimum burn time before completion; finite, non-negative, and in the
+ *                         uint64_t nanosecond range.
+ * @param maxTime          [s] maximum burn time; finite, at least 1 ns, in the uint64_t nanosecond
+ *                         range, and greater than minTime.
+ * @param controlPeriod    [s] update period of the module; finite, at least 1 ns, and in the uint64_t
+ *                         nanosecond range.
+ * @param requestedForce_B [N] body force requested while the burn executes; must be finite.
+ * @param requestedDv_N    [m/s] requested delta-V in inertial frame components; must be finite.
  * @note maxTime - 1 ns + 2 * controlPeriod must also be in the uint64_t nanosecond range, so that the
  *       burn time cannot wrap before the burn completes.
  * Validate the values with validateConfig first; invalid input throws.
@@ -83,8 +83,8 @@ void DvManeuverAlgorithm_setConfig(DvManeuverAlgorithmHandle* self,
                                    double minTime,
                                    double maxTime,
                                    double controlPeriod,
-                                   const Vector3f_c* cmdForce_B,
-                                   const Vector3f_c* cmdDv_N);
+                                   const Vector3f_c* requestedForce_B,
+                                   const Vector3f_c* requestedDv_N);
 
 /**
  * @brief Reset the burn state machine to its initial (pre-burn) condition.

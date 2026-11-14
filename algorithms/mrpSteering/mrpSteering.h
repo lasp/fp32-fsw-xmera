@@ -27,11 +27,11 @@ class MrpSteering final : public SysModel {
     void reInitialize();
 
     // Phase 1: public config properties -- set before reset().
-    float K1{};                         //!< [rad/s] proportional gain applied to MRP errors
-    float K3{};                         //!< [rad/s] cubic gain applied to MRP error in steering saturation function
+    float Kp1{};                        //!< [rad/s] proportional gain applied to MRP errors
+    float Kp3{};                        //!< [rad/s] cubic gain applied to MRP error in steering saturation function
     float omegaMax{};                   //!< [rad/s] maximum rate command of steering control
     bool ignoreOuterLoopFeedforward{};  //!< [-] whether the outer-loop feedforward term is excluded
-    float P{};                          //!< [N*m*s] rate error feedback gain
+    float Kd{};                         //!< [N*m*s] rate error feedback gain
     float Ki{};                         //!< [N*m] integral feedback gain on the rate error
     float integralLimit{};              //!< [N*m] integral limit to avoid wind-up
     Eigen::Vector3f knownTorquePntB_B = Eigen::Vector3f::Zero();  //!< [N*m] known external torque in body frame

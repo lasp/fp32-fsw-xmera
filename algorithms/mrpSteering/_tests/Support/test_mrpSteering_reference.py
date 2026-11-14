@@ -16,8 +16,8 @@ does not keep them, and it checks against the computed values.
 import numpy as np
 
 # --- Setup ------------------------------------------------------------------------------------------
-K1 = 0.15
-K3 = 1.0
+Kp1 = 0.15
+Kp3 = 1.0
 KI = 0.01
 P = 150.0
 OMEGA_MAX = np.radians(1.5)  # [rad/s]
@@ -48,14 +48,14 @@ def bmat_mrp(sigma):
 
 
 def steering_rate(sigma):
-    """omega_B*/R = -(2 omega_max / pi) * atan((K1 sigma + K3 sigma^3) * pi / (2 omega_max))."""
-    return -np.arctan((K1 * sigma + K3 * sigma**3) * np.pi / (2.0 * OMEGA_MAX)) * 2.0 * OMEGA_MAX / np.pi
+    """omega_B*/R = -(2 omega_max / pi) * atan((Kp1 sigma + Kp3 sigma^3) * pi / (2 omega_max))."""
+    return -np.arctan((Kp1 * sigma + Kp3 * sigma**3) * np.pi / (2.0 * OMEGA_MAX)) * 2.0 * OMEGA_MAX / np.pi
 
 
 def steering_rate_derivative(sigma, omega_bstar_r):
     """d(omega_B*/R)/dt, with d(sigma)/dt = 1/4 B(sigma) omega_B*/R."""
-    x = K1 * sigma + K3 * sigma**3
-    scale = (K1 + 3.0 * K3 * sigma**2) / (1.0 + x**2 * (np.pi / (2.0 * OMEGA_MAX)) ** 2)
+    x = Kp1 * sigma + Kp3 * sigma**3
+    scale = (Kp1 + 3.0 * Kp3 * sigma**2) / (1.0 + x**2 * (np.pi / (2.0 * OMEGA_MAX)) ** 2)
     return -scale * 0.25 * (bmat_mrp(sigma) @ omega_bstar_r)
 
 

@@ -11,7 +11,7 @@ constexpr float kJs = 0.1F;           // [kg m^2] spin-axis inertia
 constexpr float kUMax = 0.2F;         // [Nm] max motor torque
 constexpr float kVoltageMax = 10.0F;  // [V]
 constexpr float kTorqueCmd = 0.05F;   // [Nm]
-constexpr float kGainK = 1.0F;        // [V/Nm]
+constexpr float kKp = 1.0F;           // [V/Nm]
 
 // Feed-forward only: voltageMax / uMax * torque (voltageMin = 0).
 constexpr float kFeedForwardVoltage = kVoltageMax / kUMax * kTorqueCmd;
@@ -23,7 +23,7 @@ class RwMotorVoltageDtTest : public ::testing::Test {
         config.numRW = 1;
         config.JsList[0] = kJs;
         config.uMax[0] = kUMax;
-        alg.setGainK(kGainK);
+        alg.setKp(kKp);
         alg.reset(config);
         // Two warm-up calls at a constant speed. The first call latches priorTime. The second call clears
         // the reset flag. The two calls do not apply feedback. Start at 1 s so that priorTime is not zero.
@@ -46,7 +46,7 @@ class RwMotorVoltageDtTest : public ::testing::Test {
 };
 
 // Baseline: a 1 s step with a 1 rad/s speed change gives OmegaDot = 1 rad/s^2, so the feedback
-// term K * (Js * OmegaDot - torque) = 0.05 Nm cancels the 0.05 Nm command exactly.
+// term Kp * (Js * OmegaDot - torque) = 0.05 Nm cancels the 0.05 Nm command exactly.
 TEST_F(RwMotorVoltageDtTest, ForwardStepAppliesFeedback) { EXPECT_FLOAT_EQ(step(3U * kOneSecNs, 1.0F), 0.0F); }
 
 // A repeated callTime gives a period of 0 s. The algorithm does not apply the feedback, and thus does
@@ -56,7 +56,7 @@ TEST_F(RwMotorVoltageDtTest, RepeatedCallTimeSkipsFeedback) {
     EXPECT_TRUE(std::isfinite(repeated));
     EXPECT_FLOAT_EQ(repeated, kFeedForwardVoltage);
 
-    // The speed did not change after the latch. Thus OmegaDot = 0, and the feedback adds K * torque to
+    // The speed did not change after the latch. Thus OmegaDot = 0, and the feedback adds Kp * torque to
     // the command.
     EXPECT_FLOAT_EQ(step(3U * kOneSecNs, 1.0F), 2.0F * kFeedForwardVoltage);
 }

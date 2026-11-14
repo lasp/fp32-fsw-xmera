@@ -42,11 +42,11 @@ void MrpSteering::reset(const uint64_t callTime) {
     }
 
     const MrpSteeringControlParameters controlParameters{
-        .K1 = this->K1,
-        .K3 = this->K3,
+        .Kp1 = this->Kp1,
+        .Kp3 = this->Kp3,
         .omegaMax = this->omegaMax,
         .ignoreOuterLoopFeedforward = this->ignoreOuterLoopFeedforward,
-        .P = this->P,
+        .Kd = this->Kd,
         .Ki = this->Ki,
         .integralLimit = this->integralLimit,
         .controlPeriod = this->controlPeriod,
@@ -76,11 +76,11 @@ MrpSteeringConfig MrpSteering::toConfig() {
     }
 
     const MrpSteeringControlParameters controlParameters{
-        .K1 = this->K1,
-        .K3 = this->K3,
+        .Kp1 = this->Kp1,
+        .Kp3 = this->Kp3,
         .omegaMax = this->omegaMax,
         .ignoreOuterLoopFeedforward = this->ignoreOuterLoopFeedforward,
-        .P = this->P,
+        .Kd = this->Kd,
         .Ki = this->Ki,
         .integralLimit = this->integralLimit,
         .controlPeriod = this->controlPeriod,

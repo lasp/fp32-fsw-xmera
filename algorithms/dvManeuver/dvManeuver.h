@@ -27,8 +27,9 @@ class DvManeuver final : public SysModel {
     double minTime = 0.0;       /*!< [s] Minimum burn time allowed to elapse */
     double maxTime = 0.0;       /*!< [s] Maximum burn time; must be set to a positive value before reset() */
     double controlPeriod = 0.0; /*!< [s] Update period of the module; must be set to a positive value before reset() */
-    Eigen::Vector3f cmdForce_B = Eigen::Vector3f::Zero(); /*!< [N] Body force commanded while the burn executes */
-    Eigen::Vector3f cmdDv_N = Eigen::Vector3f::Zero();    /*!< [m/s] Commanded delta-V in inertial frame components */
+    Eigen::Vector3f requestedForce_B = Eigen::Vector3f::Zero(); /*!< [N] Body force requested while the burn executes */
+    Eigen::Vector3f requestedDv_N =
+        Eigen::Vector3f::Zero(); /*!< [m/s] Requested delta-V in inertial frame components */
 
     // Input messages
     ReadFunctor<NavTransMsgF32Payload>

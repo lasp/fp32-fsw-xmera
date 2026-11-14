@@ -64,12 +64,12 @@ a non-unit spin axis causes the factory to throw before the algorithm is constru
       - Units
       - Default
       - Description / valid range
-    * - ``K``
+    * - ``Kp``
       - float
       - [N*m]
       - 0
       - Proportional gain on the MRP error. Must be ``>= 0``.
-    * - ``P``
+    * - ``Kd``
       - float
       - [N*m*s]
       - 0
@@ -107,8 +107,8 @@ Two-Phase Initialization
 Subscribe inputs and set the public configuration properties before ``reset()`` is invoked. ::
 
     module = mrpFeedbackF32.MrpFeedback()
-    module.K = 0.15
-    module.P = 150.0
+    module.Kp = 0.15
+    module.Kd = 150.0
     module.Ki = 0.01
     module.integralLimit = 20.0
     module.controlLawType = mrpFeedbackF32.ControlLawType_NORMAL
@@ -157,15 +157,15 @@ Control Law (``controlLawType = NORMAL``)
 
 .. math::
 
-    \boldsymbol{L}_{r} = -K \boldsymbol{\sigma}_{B/R}
-        - P \, {}^{B}\boldsymbol{\omega}_{B/R}
-        - P K_{I} \boldsymbol{z}
+    \boldsymbol{L}_{r} = -K_{p} \boldsymbol{\sigma}_{B/R}
+        - K_{d} \, {}^{B}\boldsymbol{\omega}_{B/R}
+        - K_{d} K_{i} \boldsymbol{z}
         - [I_{\text{RW}}]\!\left(
             -\dot{\boldsymbol{\omega}}_{R/N}
             + [\tilde{\boldsymbol{\omega}}]\boldsymbol{\omega}_{R/N}
           \right)
         - \boldsymbol{L}
-        + \left([\tilde{\boldsymbol{\omega}}_{R/N}] + [\widetilde{K_{I} \boldsymbol{z}}]\right)
+        + \left([\tilde{\boldsymbol{\omega}}_{R/N}] + [\widetilde{K_{i} \boldsymbol{z}}]\right)
           \!\left([I_{\text{RW}}]\boldsymbol{\omega}_{B/N} + [G_{s}]\boldsymbol{h}_{s}\right),
 
 where the per-wheel angular momentum is
@@ -180,7 +180,7 @@ The integral attitude-error measure :math:`\boldsymbol{z}` is
 
 .. math::
 
-    \boldsymbol{z} = K \int_{t_{0}}^{t} \boldsymbol{\sigma}_{B/R}\, \mathrm{d}t
+    \boldsymbol{z} = K_{p} \int_{t_{0}}^{t} \boldsymbol{\sigma}_{B/R}\, \mathrm{d}t
                    + [I_{\text{RW}}] \boldsymbol{\omega}_{B/R}.
 
 The integral :math:`\int \boldsymbol{\sigma}_{B/R}\, \mathrm{d}t` is accumulated with a fixed time step equal to the
@@ -193,9 +193,9 @@ Control Law (``controlLawType = SIMPLE_INTEGRAL``)
 
 .. math::
 
-    \boldsymbol{L}_{r} = -K \boldsymbol{\sigma}_{B/R}
-        - P \, {}^{B}\boldsymbol{\omega}_{B/R}
-        - P K_{I} \boldsymbol{z}
+    \boldsymbol{L}_{r} = -K_{p} \boldsymbol{\sigma}_{B/R}
+        - K_{d} \, {}^{B}\boldsymbol{\omega}_{B/R}
+        - K_{d} K_{i} \boldsymbol{z}
         - [I_{\text{RW}}]\!\left(
             -\dot{\boldsymbol{\omega}}_{R/N}
             + [\tilde{\boldsymbol{\omega}}]\boldsymbol{\omega}_{R/N}

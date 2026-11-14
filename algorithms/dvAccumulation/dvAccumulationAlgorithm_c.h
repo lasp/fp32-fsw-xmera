@@ -16,19 +16,23 @@ typedef struct DvAccumulationAlgorithmHandle DvAccumulationAlgorithmHandle;
  * @brief Shows if create/setConfig accept a configuration.
  * @param controlPeriod [s] control period. The algorithm uses it as the integration step. It must be
  *                      more than 0 and finite.
+ * @param accelBias_B   [m/s^2] offset that the measured acceleration contains. _update SUBTRACTS it
+ *                      from each sample. It must be finite. Use the zero vector for no correction.
  * @return true if the configuration is valid. This function never throws. Thus you can use it before
  *         create/setConfig to prevent a throw from an invalid configuration.
  */
-bool DvAccumulationAlgorithm_validateConfig(float controlPeriod);
+bool DvAccumulationAlgorithm_validateConfig(float controlPeriod, Vector3f_c accelBias_B);
 
 /*!
  * @brief Makes a new DvAccumulationAlgorithm from the supplied configuration.
  * @param controlPeriod [s] control period. The algorithm uses it as the integration step. It must be
  *                      more than 0 and finite.
+ * @param accelBias_B   [m/s^2] offset that the measured acceleration contains. _update SUBTRACTS it
+ *                      from each sample. It must be finite. Use the zero vector for no correction.
  * @return Pointer to a new DvAccumulationAlgorithm. You must destroy it.
  * Use validateConfig on the value first. An invalid configuration causes a throw.
  */
-DvAccumulationAlgorithmHandle* DvAccumulationAlgorithm_create(float controlPeriod);
+DvAccumulationAlgorithmHandle* DvAccumulationAlgorithm_create(float controlPeriod, Vector3f_c accelBias_B);
 
 /*!
  * @brief Installs the configuration on an instance that exists. It installs the parameters only. Use
@@ -36,9 +40,13 @@ DvAccumulationAlgorithmHandle* DvAccumulationAlgorithm_create(float controlPerio
  * @param self          Pointer to the instance.
  * @param controlPeriod [s] control period. The algorithm uses it as the integration step. It must be
  *                      more than 0 and finite.
+ * @param accelBias_B   [m/s^2] offset that the measured acceleration contains. _update SUBTRACTS it
+ *                      from each sample. It must be finite. Use the zero vector for no correction.
  * Use validateConfig on the value first. An invalid configuration causes a throw.
  */
-void DvAccumulationAlgorithm_setConfig(DvAccumulationAlgorithmHandle* self, float controlPeriod);
+void DvAccumulationAlgorithm_setConfig(DvAccumulationAlgorithmHandle* self,
+                                       float controlPeriod,
+                                       Vector3f_c accelBias_B);
 
 /*!
  * @brief Destroys a DvAccumulationAlgorithm that DvAccumulationAlgorithm_create made.
@@ -53,20 +61,14 @@ void DvAccumulationAlgorithm_destroy(DvAccumulationAlgorithmHandle* self);
 void DvAccumulationAlgorithm_reInitialize(DvAccumulationAlgorithmHandle* self);
 
 /*!
- * @brief Subtracts the supplied bias from one sample of the body-frame acceleration. Then it
+ * @brief Subtracts the configured bias from one sample of the body-frame acceleration. Then it
  *        integrates the remainder during the configured control period and adds the result to the
  *        Delta-V accumulator. It gives the accumulator.
  * @param self                 Pointer to the instance.
  * @param rDDotNoGravity_BN_B  Body-frame acceleration that gravity does not cause (m/s^2).
- * @param accelBias_B          [m/s^2] offset that the measured acceleration contains. _update
- *                             SUBTRACTS it from the sample. Use the zero vector for no correction.
- *                             _update does not validate the bias: a bias that is not finite gives a
- *                             Delta-V that is not finite.
  * @return Vector3f_c  Accumulated body-frame Delta-V (m/s).
  */
-Vector3f_c DvAccumulationAlgorithm_update(DvAccumulationAlgorithmHandle* self,
-                                          Vector3f_c rDDotNoGravity_BN_B,
-                                          Vector3f_c accelBias_B);
+Vector3f_c DvAccumulationAlgorithm_update(DvAccumulationAlgorithmHandle* self, Vector3f_c rDDotNoGravity_BN_B);
 
 #ifdef __cplusplus
 } /* extern "C" */

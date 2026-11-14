@@ -19,9 +19,9 @@
 #include "probeAlloca.h"
 
 #include <flybyFilterAlgorithm.h>
-#include <forceTorqueThrForceMappingAlgorithm.h>
 #include <inertialFilterAlgorithm.h>
 #include <sunlineFilterAlgorithm.h>
+#include <thrustMappingAlgorithm.h>
 
 #include <Eigen/Dense>
 
@@ -92,7 +92,7 @@ namespace {
 
 constexpr int updateCycles = 50;
 
-void checkForceTorqueThrForceMapping() {
+void checkThrustMapping() {
     ThrusterArrayConfiguration thr{};
     thr.numThrusters = 8;
     float const dirs[8][3] = {
@@ -110,16 +110,16 @@ void checkForceTorqueThrForceMapping() {
     Eigen::Vector3f const com(0.0F, 0.0F, 0.0F);
 
     begin();
-    auto const cfg = ForceTorqueThrForceMappingConfig::create(thr, com, axes);
-    ForceTorqueThrForceMappingAlgorithm const alg(cfg);
-    endExpectClean("forceTorqueThrForceMapping construct");
+    auto const cfg = ThrustMappingConfig::create(thr, com, axes);
+    ThrustMappingAlgorithm const alg(cfg);
+    endExpectClean("thrustMapping construct");
 
     begin();
     for (int i = 0; i < updateCycles; ++i) {
         auto const out = alg.update(Eigen::Vector3f(0.1F, 0.2F, 0.3F), Eigen::Vector3f(0.0F, 0.0F, 0.1F));
         (void)out.sum();
     }
-    endExpectClean("forceTorqueThrForceMapping update");
+    endExpectClean("thrustMapping update");
 }
 
 void checkInertialFilter() {
@@ -240,7 +240,7 @@ void checkNegativeControl() {
 
 int main() {
     try {
-        checkForceTorqueThrForceMapping();
+        checkThrustMapping();
         checkInertialFilter();
         checkSunlineFilter();
         checkFlybyFilter();

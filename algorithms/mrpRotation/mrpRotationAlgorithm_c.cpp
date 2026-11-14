@@ -8,11 +8,16 @@
 #include <Eigen/Core>
 
 namespace {
-MrpRotationConfig configFromC(const Vector3f_c& initialSigmaRR0,
-                              const Vector3f_c& omegaRR0R,
+MrpRotationConfig configFromC(const Vector3f_c& sigma_RcR0,
+                              const Vector3f_c& sigma_RpRc,
+                              const Vector3f_c& spinAxis_Rp,
+                              const float spinRate,
                               const float controlPeriod) {
-    return MrpRotationConfig::create(
-        cArrayToEigenVector3<float>(initialSigmaRR0.data), cArrayToEigenVector3<float>(omegaRR0R.data), controlPeriod);
+    return MrpRotationConfig::create(cArrayToEigenVector3<float>(sigma_RcR0.data),
+                                     cArrayToEigenVector3<float>(sigma_RpRc.data),
+                                     cArrayToEigenVector3<float>(spinAxis_Rp.data),
+                                     spinRate,
+                                     controlPeriod);
 }
 
 MrpRotationAttRefInputs attRefFromC(const MrpRotationAttRefInputs_c& c) {
@@ -32,33 +37,40 @@ MrpRotationOutput_c outputToC(const MrpRotationOutput& out) {
 }
 }  // namespace
 
-bool MrpRotationAlgorithm_validateConfig(const Vector3f_c* initialSigmaRR0,
-                                         const Vector3f_c* omegaRR0R,
+bool MrpRotationAlgorithm_validateConfig(const Vector3f_c* sigma_RcR0,
+                                         const Vector3f_c* sigma_RpRc,
+                                         const Vector3f_c* spinAxis_Rp,
+                                         const float spinRate,
                                          const float controlPeriod) {
     // Build the config through the same path create() uses: success means valid, a throw means
     // invalid. Sharing configFromC keeps the predicate from drifting from what create() accepts.
     try {
-        (void)configFromC(*initialSigmaRR0, *omegaRR0R, controlPeriod);
+        (void)configFromC(*sigma_RcR0, *sigma_RpRc, *spinAxis_Rp, spinRate, controlPeriod);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
     }
 }
 
-MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const Vector3f_c* initialSigmaRR0,
-                                                        const Vector3f_c* omegaRR0R,
+MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const Vector3f_c* sigma_RcR0,
+                                                        const Vector3f_c* sigma_RpRc,
+                                                        const Vector3f_c* spinAxis_Rp,
+                                                        const float spinRate,
                                                         const float controlPeriod) {
     return fsw::createHandle<::MrpRotationAlgorithm, MrpRotationAlgorithmHandle>(
-        configFromC(*initialSigmaRR0, *omegaRR0R, controlPeriod));
+        configFromC(*sigma_RcR0, *sigma_RpRc, *spinAxis_Rp, spinRate, controlPeriod));
 }
 
 void MrpRotationAlgorithm_destroy(MrpRotationAlgorithmHandle* self) { fsw::deleteHandle<::MrpRotationAlgorithm>(self); }
 
 void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self,
-                                    const Vector3f_c* initialSigmaRR0,
-                                    const Vector3f_c* omegaRR0R,
+                                    const Vector3f_c* sigma_RcR0,
+                                    const Vector3f_c* sigma_RpRc,
+                                    const Vector3f_c* spinAxis_Rp,
+                                    const float spinRate,
                                     const float controlPeriod) {
-    fsw::fromHandle<::MrpRotationAlgorithm>(self)->setConfig(configFromC(*initialSigmaRR0, *omegaRR0R, controlPeriod));
+    fsw::fromHandle<::MrpRotationAlgorithm>(self)->setConfig(
+        configFromC(*sigma_RcR0, *sigma_RpRc, *spinAxis_Rp, spinRate, controlPeriod));
 }
 
 MrpRotationOutput_c MrpRotationAlgorithm_update(MrpRotationAlgorithmHandle* self,

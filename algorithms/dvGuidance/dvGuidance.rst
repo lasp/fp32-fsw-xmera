@@ -2,8 +2,8 @@ Executive Summary
 -----------------
 
 The dvGuidance module produces an inertially fixed attitude reference frame :math:`\mathcal{R}` for a delta-V burn.
-The burn frame is constructed from the commanded delta-V vector and a preferred
-direction for its 2nd axis: the 3rd axis points along the commanded delta-V vector, and the 2nd axis points as close as
+The burn frame is constructed from the requested delta-V vector and a preferred
+direction for its 2nd axis: the 3rd axis points along the requested delta-V vector, and the 2nd axis points as close as
 possible to the preferred direction.
 The output is the MRP attitude :math:`\boldsymbol{\sigma}_{R/N}` of :math:`\mathcal{R}` with respect to the inertial
 frame :math:`\mathcal{N}`. Because :math:`\mathcal{R}` is inertially fixed, the published reference angular rate
@@ -14,7 +14,7 @@ frame :math:`\mathcal{R}_0` of the :ref:`mrpRotation` module, which applies the 
 :math:`\mathcal{R}`.
 
 This module derives from the Xmera ``dvAttGuidance`` module. Unlike the original, the burn frame is inertially fixed,
-and the commanded delta-V vector and preferred 2nd-axis direction are configuration parameters instead of inputs read
+and the requested delta-V vector and preferred 2nd-axis direction are configuration parameters instead of inputs read
 from a burn command message. Inputs and outputs are single-precision (FP32); the algorithm is single-precision
 throughout.
 
@@ -57,18 +57,18 @@ All parameters are validated once in ``DvGuidanceConfig::create()`` when the ada
       - Valid range
       - Default
       - Description
-    * - ``cmdDv_N``
+    * - ``requestedDv_N``
       - Eigen::Vector3f
       - finite, :math:`\lVert\Delta\boldsymbol{v}\rVert \geq 10^{-6}` [m/s]
       - :math:`\boldsymbol{0}` (must be set)
-      - commanded delta-V vector in inertial-frame components; defines the 3rd axis of :math:`\mathcal{R}`
+      - requested delta-V vector in inertial-frame components; defines the 3rd axis of :math:`\mathcal{R}`
     * - ``rHatPref_N``
       - Eigen::Vector3f
       - finite, within :math:`10^{-3}` of unit length, at least :math:`\sim 0.06^\circ` from parallel or
-        antiparallel to ``cmdDv_N``
+        antiparallel to ``requestedDv_N``
       - :math:`\boldsymbol{0}` (must be set)
       - preferred unit direction of the 2nd axis of :math:`\mathcal{R}` in inertial-frame components; normalized
-        when the configuration is built, and only its component perpendicular to ``cmdDv_N`` affects the frame
+        when the configuration is built, and only its component perpendicular to ``requestedDv_N`` affects the frame
 
 Two-Phase Initialization
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -77,15 +77,15 @@ The Python usage follows the standard adapter lifecycle: set the public configur
 once, then drive ``updateState()`` each cycle::
 
     module = dvGuidanceF32.DvGuidance()
-    module.cmdDv_N = [5.0, 5.0, 5.0]
+    module.requestedDv_N = [5.0, 5.0, 5.0]
     module.rHatPref_N = [1.0, 0.0, 0.0]
 
     sim.AddModelToTask(task_name, module)
     sim.InitializeSimulation()
     sim.ExecuteSimulation()
 
-If ``cmdDv_N`` or ``rHatPref_N`` is invalid when ``reset()`` runs, including when either is left at its zero default,
-an ``fsw::invalid_argument`` is thrown. If ``updateState()`` is called before ``reset()``, an
+If ``requestedDv_N`` or ``rHatPref_N`` is invalid when ``reset()`` runs, including when either is left at its zero
+default, an ``fsw::invalid_argument`` is thrown. If ``updateState()`` is called before ``reset()``, an
 ``XmeraLifecycleException`` is thrown. To change the configuration after ``reset()``, set the properties and call
 ``reconfigure()``; the new values are used from the next ``updateState()``.
 
@@ -108,10 +108,10 @@ reference frame. Its DCM relative to :math:`\mathcal{N}` is
        \hat{\boldsymbol{r}}_3^T
    \end{bmatrix}.
 
-The axes are constructed from the commanded delta-V vector :math:`\Delta\boldsymbol{v}` (``cmdDv_N``) and the
+The axes are constructed from the requested delta-V vector :math:`\Delta\boldsymbol{v}` (``requestedDv_N``) and the
 preferred 2nd-axis unit direction :math:`\hat{\boldsymbol{r}}_{2,\text{pref}}` (``rHatPref_N``):
 
-* :math:`\hat{\boldsymbol{r}}_3` points along the commanded delta-V vector,
+* :math:`\hat{\boldsymbol{r}}_3` points along the requested delta-V vector,
 
   .. math::
 
@@ -142,7 +142,7 @@ The construction is illustrated in Figure 1.
     :width: 75%
     :align: center
 
-    Construction of the burn reference frame :math:`\mathcal{R}` from the commanded delta-V vector
+    Construction of the burn reference frame :math:`\mathcal{R}` from the requested delta-V vector
     :math:`\Delta\boldsymbol{v}` and the preferred 2nd-axis direction :math:`\hat{\boldsymbol{r}}_{2,\text{pref}}`.
     The dotted line is the component of :math:`\hat{\boldsymbol{r}}_{2,\text{pref}}` along
     :math:`\Delta\boldsymbol{v}` that is removed to obtain :math:`\hat{\boldsymbol{r}}_2`.
@@ -190,10 +190,10 @@ Assumptions and Limitations
 ---------------------------
 
 * The spacecraft body 3rd axis is assumed to be the thrust direction: :math:`\hat{\boldsymbol{r}}_3` is aligned with
-  :math:`+\Delta\boldsymbol{v}`, so tracking :math:`\mathcal{R}` produces the commanded delta-V only if the thrust acts
+  :math:`+\Delta\boldsymbol{v}`, so tracking :math:`\mathcal{R}` produces the requested delta-V only if the thrust acts
   along the body :math:`+\hat{\boldsymbol{b}}_3` axis.
 * ``rHatPref_N`` is a preference, not an enforced axis. The achieved 2nd axis is the projection of ``rHatPref_N`` onto
-  the plane perpendicular to the commanded delta-V vector, so it differs from ``rHatPref_N`` by the angle between them;
+  the plane perpendicular to the requested delta-V vector, so it differs from ``rHatPref_N`` by the angle between them;
   near the ``kMinCross`` limit the two are almost perpendicular.
 * The burn direction is held inertially fixed for the whole burn. A burn direction that should change during the burn
   (for example, to follow the orbit) must be provided by updating the configuration through ``reconfigure()``.
@@ -203,9 +203,9 @@ Numerical conditioning
 
 ``kMinCross`` = :math:`10^{-3}` (an angle of about :math:`0.06^\circ`) is consistent with the small-angle threshold
 used by other FP32 guidance algorithms that construct reference frames from cross products. As ``rHatPref_N``
-approaches alignment with ``cmdDv_N``, the cross-product magnitude decreases, increasing sensitivity to FP32 round-off.
-This threshold prevents frame construction when the two vectors are nearly parallel.
+approaches alignment with ``requestedDv_N``, the cross-product magnitude decreases, increasing sensitivity to FP32
+round-off. This threshold prevents frame construction when the two vectors are nearly parallel.
 
-``kMinNorm`` = :math:`10^{-6}` m/s is not set by FP32 round-off. The frame construction normalizes ``cmdDv_N`` using a
-scaled norm, which maintains numerical accuracy even for very small magnitudes. Commands below this threshold are
-treated as effectively zero and do not define a meaningful burn direction.
+``kMinNorm`` = :math:`10^{-6}` m/s is not set by FP32 round-off. The frame construction normalizes ``requestedDv_N``
+using a scaled norm, which maintains numerical accuracy even for very small magnitudes. Commands below this threshold
+are treated as effectively zero and do not define a meaningful burn direction.

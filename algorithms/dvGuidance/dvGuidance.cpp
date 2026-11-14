@@ -6,11 +6,13 @@
 
 /*! Builds the validated configuration and constructs the algorithm. */
 void DvGuidance::reset(const uint64_t callTime) {
-    auto config = DvGuidanceConfig::create(this->cmdDv_N, this->rHatPref_N);
+    auto config = DvGuidanceConfig::create(this->requestedDv_N, this->rHatPref_N);
     this->algorithm = std::make_unique<DvGuidanceAlgorithm>(config);
 }
 
-DvGuidanceConfig DvGuidance::toConfig() const { return DvGuidanceConfig::create(this->cmdDv_N, this->rHatPref_N); }
+DvGuidanceConfig DvGuidance::toConfig() const {
+    return DvGuidanceConfig::create(this->requestedDv_N, this->rHatPref_N);
+}
 
 void DvGuidance::reconfigure() const {
     if (!this->algorithm) {

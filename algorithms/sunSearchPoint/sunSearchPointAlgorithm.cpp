@@ -115,22 +115,22 @@ SunSearchPointOutput SunSearchPointAlgorithm::computePointing(const Eigen::Vecto
     // Computing the attitude guidance states sigma_BR and omega_RN_B if valid sun direction is available
     if (rHatNormalized_SB_B.stableNorm() > 0.0F) {
         // Compute the current sun angle error
-        float const sunAngleErr = safeAcosf(this->cfg.getSHatBdyCmd().dot(rHatNormalized_SB_B));
+        float const sunAngleErr = safeAcosf(this->cfg.getSunPointAxis_B().dot(rHatNormalized_SB_B));
 
         // Compute the heading error relative to the sun direction vector
         Eigen::Vector3f e_axis{};  // Eigen Axis
         constexpr float kSmallAngle = 1e-3F;
-        // The commanded body vector is nearly opposite the sun heading
+        // The sun pointing axis is nearly opposite the sun heading
         if (static_cast<float>(std::numbers::pi) - sunAngleErr < kSmallAngle) {
-            e_axis = this->cfg.getSHatBdyCmd().unitOrthogonal();  // find orthogonal unit vector to sHatBdyCmd
-            // Normal case where sun and commanded body vectors are not aligned
+            e_axis = this->cfg.getSunPointAxis_B().unitOrthogonal();  // find orthogonal unit vector to sunPointAxis_B
+            // Normal case where the sun heading and the sun pointing axis are not aligned
         } else {
-            e_axis = rHatNormalized_SB_B.cross(this->cfg.getSHatBdyCmd());
+            e_axis = rHatNormalized_SB_B.cross(this->cfg.getSunPointAxis_B());
         }
         Eigen::Vector3f const e_hat = e_axis.stableNormalized();
         // Control to the band edge, not to zero error, so the error does not jump at the edge.
-        float const commandedAngleErr = std::max(sunAngleErr - this->cfg.getDeadbandAngle(), 0.0F);
-        Eigen::Vector3f sigma_BR = safeTanf(commandedAngleErr * 0.25F) * e_hat;
+        float const angleErrorBeyondDeadband = std::max(sunAngleErr - this->cfg.getDeadbandAngle(), 0.0F);
+        Eigen::Vector3f sigma_BR = safeTanf(angleErrorBeyondDeadband * 0.25F) * e_hat;
         sigma_BR = mrpSwitch(sigma_BR);
 
         output.sigma_BR = sigma_BR;

@@ -1,4 +1,4 @@
-#include "forceTorqueThrForceMapping.h"
+#include "thrustMapping.h"
 #include "utilities/fsw/eigenSupport.h"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
@@ -10,12 +10,12 @@
  @return void
  @param callTime [ns] time the method is called
 */
-void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
+void ThrustMapping::reset(const uint64_t callTime) {
     if (!this->thrConfigInMsg.isLinked()) {
-        throw std::invalid_argument("forceTorqueThrForceMapping.thrConfigInMsg was not connected.");
+        throw std::invalid_argument("thrustMapping.thrConfigInMsg was not connected.");
     }
     if (!this->vehConfigInMsg.isLinked()) {
-        throw std::invalid_argument("forceTorqueThrForceMapping.vehConfigInMsg was not connected.");
+        throw std::invalid_argument("thrustMapping.vehConfigInMsg was not connected.");
     }
 
     VehicleConfigMsgF32Payload vehConfigIn = this->vehConfigInMsg();
@@ -23,7 +23,7 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
 
     ThrusterArrayConfiguration thrusterConfiguration = this->toThrusterArrayConfiguration(thrConfigIn);
 
-    this->algorithm = std::make_unique<ForceTorqueThrForceMappingAlgorithm>(ForceTorqueThrForceMappingConfig::create(
+    this->algorithm = std::make_unique<ThrustMappingAlgorithm>(ThrustMappingConfig::create(
         thrusterConfiguration, cArrayToEigenVector(vehConfigIn.CoM_B), this->desiredControlAxes_B));
 }
 
@@ -32,15 +32,14 @@ void ForceTorqueThrForceMapping::reset(const uint64_t callTime) {
  @return ThrusterArrayConfiguration
  @param thrConfigIn thruster cluster configuration payload
 */
-ThrusterArrayConfiguration ForceTorqueThrForceMapping::toThrusterArrayConfiguration(
-    const THRArrayConfigMsgF32Payload& thrConfigIn) {
+ThrusterArrayConfiguration ThrustMapping::toThrusterArrayConfiguration(const THRArrayConfigMsgF32Payload& thrConfigIn) {
     ThrusterArrayConfiguration thrusterConfiguration{};
     thrusterConfiguration.numThrusters = thrConfigIn.numThrusters;
     thrusterConfiguration.thrusterAvailability.fill(fsw::DeviceAvailability::Available);
     for (uint32_t i = 0; i < thrConfigIn.numThrusters; ++i) {
         if (thrConfigIn.thrusters[i].maxThrust <= 0.0F) {
             throw std::invalid_argument(
-                "forceTorqueThrForceMapping: A configured thruster has a non-sensible "
+                "thrustMapping: A configured thruster has a non-sensible "
                 "saturation limit of <= 0 N!");
         }
         for (uint32_t j = 0; j < 3; ++j) {
@@ -60,19 +59,19 @@ ThrusterArrayConfiguration ForceTorqueThrForceMapping::toThrusterArrayConfigurat
     return thrusterConfiguration;
 }
 
-ForceTorqueThrForceMappingConfig ForceTorqueThrForceMapping::toConfig() {
+ThrustMappingConfig ThrustMapping::toConfig() {
     VehicleConfigMsgF32Payload vehConfigIn = this->vehConfigInMsg();
     THRArrayConfigMsgF32Payload thrConfigIn = this->thrConfigInMsg();
 
     ThrusterArrayConfiguration thrusterConfiguration = this->toThrusterArrayConfiguration(thrConfigIn);
 
-    return ForceTorqueThrForceMappingConfig::create(
+    return ThrustMappingConfig::create(
         thrusterConfiguration, cArrayToEigenVector(vehConfigIn.CoM_B), this->desiredControlAxes_B);
 }
 
-void ForceTorqueThrForceMapping::reconfigure() {
+void ThrustMapping::reconfigure() {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("ForceTorqueThrForceMapping reset() has not been called.");
+        throw XmeraLifecycleException("ThrustMapping reset() has not been called.");
     }
     this->algorithm->setConfig(this->toConfig());
 }
@@ -81,27 +80,28 @@ void ForceTorqueThrForceMapping::reconfigure() {
  @return void
  @param callTime The clock time at which the function was called (nanoseconds)
 */
-void ForceTorqueThrForceMapping::updateState(const uint64_t callTime) {
+void ThrustMapping::updateState(const uint64_t callTime) {
     if (!this->algorithm) {
-        throw XmeraLifecycleException("ForceTorqueThrForceMapping reset() has not been called.");
+        throw XmeraLifecycleException("ThrustMapping reset() has not been called.");
     }
 
-    Eigen::Vector3f cmdTorque{Eigen::Vector3f::Zero()};
-    Eigen::Vector3f cmdForce{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f requestedTorque_B{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f requestedForce_B{Eigen::Vector3f::Zero()};
 
     /* Check if torque message is linked and read, zero out if not*/
     if (this->cmdTorqueInMsg.isLinked()) {
-        CmdTorqueBodyMsgF32Payload cmdTorqueIn = this->cmdTorqueInMsg();
-        cmdTorque = cArrayToEigenVector(cmdTorqueIn.torqueRequestBody);
+        CmdTorqueBodyMsgF32Payload requestedTorqueIn = this->cmdTorqueInMsg();
+        requestedTorque_B = cArrayToEigenVector(requestedTorqueIn.torqueRequestBody);
     }
 
     /* Check if force message is linked and read, zero out if not*/
     if (this->cmdForceInMsg.isLinked()) {
-        CmdForceBodyMsgF32Payload cmdForceIn = this->cmdForceInMsg();
-        cmdForce = cArrayToEigenVector(cmdForceIn.forceRequestBody);
+        CmdForceBodyMsgF32Payload requestedForceIn = this->cmdForceInMsg();
+        requestedForce_B = cArrayToEigenVector(requestedForceIn.forceRequestBody);
     }
 
-    const Eigen::Vector<float, kMaxThrusterCount> thrForce = this->algorithm->update(cmdTorque, cmdForce);
+    const Eigen::Vector<float, kMaxThrusterCount> thrForce =
+        this->algorithm->update(requestedTorque_B, requestedForce_B);
 
     THRArrayCmdForceMsgF32Payload thrForceCmdOut{};
     eigenVectorToCArray(thrForce, thrForceCmdOut.thrForce);
@@ -113,11 +113,11 @@ void ForceTorqueThrForceMapping::updateState(const uint64_t callTime) {
  @return void
  @param desiredControlAxes the axes the mapping controls
 */
-void ForceTorqueThrForceMapping::setDesiredControlAxes(const std::array<bool, 6>& desiredControlAxes) {
+void ThrustMapping::setDesiredControlAxes(const std::array<bool, 6>& desiredControlAxes) {
     this->desiredControlAxes_B = desiredControlAxes;
 }
 
 /*! Getter for the desiredControlAxes_B axis selection.
  @return std::array<bool, 6>
 */
-std::array<bool, 6> ForceTorqueThrForceMapping::getDesiredControlAxes() const { return this->desiredControlAxes_B; }
+std::array<bool, 6> ThrustMapping::getDesiredControlAxes() const { return this->desiredControlAxes_B; }

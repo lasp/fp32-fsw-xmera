@@ -21,8 +21,8 @@ class DvGuidance final : public SysModel {
 
     void reconfigure() const;
 
-    Eigen::Vector3f cmdDv_N = Eigen::Vector3f::Zero();     //!< [m/s] Commanded delta-V vector, inertial frame
-    Eigen::Vector3f rHatPref_N = Eigen::Vector3f::Zero();  //!< [-] Preferred 2nd-axis unit direction, inertial frame
+    Eigen::Vector3f requestedDv_N = Eigen::Vector3f::Zero();  //!< [m/s] Requested delta-V vector, inertial frame
+    Eigen::Vector3f rHatPref_N = Eigen::Vector3f::Zero();     //!< [-] Preferred 2nd-axis unit direction, inertial frame
 
     Message<AttRefMsgF32Payload> attRefOutMsg;
 

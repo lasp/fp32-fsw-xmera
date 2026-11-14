@@ -20,12 +20,12 @@ ${CXX:-g++} -std=gnu++23 -O2 -DNDEBUG \
     -I"$root/algorithms/inertialFilter" \
     -I"$root/algorithms/sunlineFilter" \
     -I"$root/algorithms/flybyFilter" \
-    -I"$root/algorithms/forceTorqueThrForceMapping" \
+    -I"$root/algorithms/thrustMapping" \
     "$here/noHeapCheck.cpp" \
     "$root/algorithms/inertialFilter/inertialFilterAlgorithm.cpp" \
     "$root/algorithms/sunlineFilter/sunlineFilterAlgorithm.cpp" \
     "$root/algorithms/flybyFilter/flybyFilterAlgorithm.cpp" \
-    "$root/algorithms/forceTorqueThrForceMapping/forceTorqueThrForceMappingAlgorithm.cpp" \
+    "$root/algorithms/thrustMapping/thrustMappingAlgorithm.cpp" \
     -o "$out" -Wl,--wrap=malloc,--wrap=free
 
 exec "$out"

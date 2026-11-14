@@ -47,11 +47,11 @@ uint32_t MrpSteeringAlgorithm_getMaxNumRw(void);
 
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
- * @param K1                         [rad/s] proportional gain on MRP errors; must be >= 0.
- * @param K3                         [rad/s] cubic gain in the steering saturation function; must be >= 0.
+ * @param Kp1                         [rad/s] proportional gain on MRP errors; must be >= 0.
+ * @param Kp3                         [rad/s] cubic gain in the steering saturation function; must be >= 0.
  * @param omegaMax                   [rad/s] maximum rate command of the steering law; must be > 0.
  * @param ignoreOuterLoopFeedforward [-]     whether the outer-loop feedforward term is excluded.
- * @param P                          [N*m*s] rate error feedback gain; must be >= 0.
+ * @param Kd                         [N*m*s] rate error feedback gain; must be >= 0.
  * @param Ki                         [N*m]   integral feedback gain on the rate error; must be >= 0.
  * @param integralLimit              [N*m]   integral limit that avoids wind-up; must be >= 0.
  * @param controlPeriod              [s]     time between two update calls; must be > 0.
@@ -61,11 +61,11 @@ uint32_t MrpSteeringAlgorithm_getMaxNumRw(void);
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
-bool MrpSteeringAlgorithm_validateConfig(float K1,
-                                         float K3,
+bool MrpSteeringAlgorithm_validateConfig(float Kp1,
+                                         float Kp3,
                                          float omegaMax,
                                          bool ignoreOuterLoopFeedforward,
-                                         float P,
+                                         float Kd,
                                          float Ki,
                                          float integralLimit,
                                          float controlPeriod,
@@ -77,11 +77,11 @@ bool MrpSteeringAlgorithm_validateConfig(float K1,
 
 /**
  * @brief Construct a new MrpSteeringAlgorithm instance from the supplied configuration.
- * @param K1                         [rad/s] proportional gain on MRP errors; must be >= 0.
- * @param K3                         [rad/s] cubic gain in the steering saturation function; must be >= 0.
+ * @param Kp1                         [rad/s] proportional gain on MRP errors; must be >= 0.
+ * @param Kp3                         [rad/s] cubic gain in the steering saturation function; must be >= 0.
  * @param omegaMax                   [rad/s] maximum rate command of the steering law; must be > 0.
  * @param ignoreOuterLoopFeedforward [-]     whether the outer-loop feedforward term is excluded.
- * @param P                          [N*m*s] rate error feedback gain; must be >= 0.
+ * @param Kd                         [N*m*s] rate error feedback gain; must be >= 0.
  * @param Ki                         [N*m]   integral feedback gain on the rate error; must be >= 0.
  * @param integralLimit              [N*m]   integral limit that avoids wind-up; must be >= 0.
  * @param controlPeriod              [s]     time between two update calls; must be > 0.
@@ -93,11 +93,11 @@ bool MrpSteeringAlgorithm_validateConfig(float K1,
  * @param wheelAvailability          [-]     availability of each wheel: 0 available, 1 unavailable.
  * @return Pointer to a new MrpSteeringAlgorithm (must be destroyed).
  */
-MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(float K1,
-                                                        float K3,
+MrpSteeringAlgorithmHandle* MrpSteeringAlgorithm_create(float Kp1,
+                                                        float Kp3,
                                                         float omegaMax,
                                                         bool ignoreOuterLoopFeedforward,
-                                                        float P,
+                                                        float Kd,
                                                         float Ki,
                                                         float integralLimit,
                                                         float controlPeriod,
@@ -116,11 +116,11 @@ void MrpSteeringAlgorithm_destroy(MrpSteeringAlgorithmHandle* self);
 /**
  * @brief Replace the algorithm's configuration at runtime. The integral state is preserved.
  * @param self   Pointer to the instance.
- * @param K1                         [rad/s] proportional gain on MRP errors; must be >= 0.
- * @param K3                         [rad/s] cubic gain in the steering saturation function; must be >= 0.
+ * @param Kp1                         [rad/s] proportional gain on MRP errors; must be >= 0.
+ * @param Kp3                         [rad/s] cubic gain in the steering saturation function; must be >= 0.
  * @param omegaMax                   [rad/s] maximum rate command of the steering law; must be > 0.
  * @param ignoreOuterLoopFeedforward [-]     whether the outer-loop feedforward term is excluded.
- * @param P                          [N*m*s] rate error feedback gain; must be >= 0.
+ * @param Kd                         [N*m*s] rate error feedback gain; must be >= 0.
  * @param Ki                         [N*m]   integral feedback gain on the rate error; must be >= 0.
  * @param integralLimit              [N*m]   integral limit that avoids wind-up; must be >= 0.
  * @param controlPeriod              [s]     time between two update calls; must be > 0.
@@ -132,11 +132,11 @@ void MrpSteeringAlgorithm_destroy(MrpSteeringAlgorithmHandle* self);
  * @param wheelAvailability          [-]     availability of each wheel: 0 available, 1 unavailable.
  */
 void MrpSteeringAlgorithm_setConfig(MrpSteeringAlgorithmHandle* self,
-                                    float K1,
-                                    float K3,
+                                    float Kp1,
+                                    float Kp3,
                                     float omegaMax,
                                     bool ignoreOuterLoopFeedforward,
-                                    float P,
+                                    float Kd,
                                     float Ki,
                                     float integralLimit,
                                     float controlPeriod,

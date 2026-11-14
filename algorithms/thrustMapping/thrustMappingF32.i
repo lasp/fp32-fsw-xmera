@@ -1,6 +1,6 @@
-%module forceTorqueThrForceMappingF32
+%module thrustMappingF32
 %{
-    #include "forceTorqueThrForceMapping.h"
+    #include "thrustMapping.h"
 %}
 
 %include <std_array.i>
@@ -9,9 +9,9 @@
 %include <architecture/_GeneralModuleFiles/sys_model.i>
 %include <architecture/_GeneralModuleFiles/swig_conly_data.i>
 
-%include "forceTorqueThrForceMapping.h"
+%include "thrustMapping.h"
 
-%extend ForceTorqueThrForceMapping {
+%extend ThrustMapping {
 %pythoncode %{
     @property
     def desiredControlAxes_B(self):

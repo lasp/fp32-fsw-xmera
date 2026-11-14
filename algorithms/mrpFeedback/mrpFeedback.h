@@ -29,8 +29,8 @@ class MrpFeedback final : public SysModel {
     void reInitialize();
 
     // Phase 1: public config properties -- set before reset().
-    float K = 0.0F;                                               //!< [N*m]    proportional gain on MRP error
-    float P = 0.0F;                                               //!< [N*m*s]  rate-error feedback gain
+    float Kp = 0.0F;                                              //!< [N*m]    proportional gain on MRP error
+    float Kd = 0.0F;                                              //!< [N*m*s]  rate-error feedback gain
     float Ki = 0.0F;                                              //!< [N*m]    integral feedback gain (0 disables)
     float integralLimit = 0.0F;                                   //!< [N*m*s]  anti-windup clamp on int_sigma
     ControlLawType controlLawType = ControlLawType::NORMAL;       //!< control-law variant

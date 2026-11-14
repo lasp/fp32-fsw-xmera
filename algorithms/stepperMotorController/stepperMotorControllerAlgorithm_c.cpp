@@ -5,17 +5,17 @@
 #include "utilities/fsw/opaqueHandle.h"
 
 namespace {
-StepperMotorControllerConfig configFromC(const float stepAngle,
+StepperMotorControllerConfig configFromC(const uint32_t stepsPerRevolution,
                                          const float minAngle,
                                          const float maxAngle,
                                          const uint32_t settleCountMax,
                                          const uint32_t minStepCommand) {
     return StepperMotorControllerConfig::create(
-        stepAngle, StepperMotorAngleRange{minAngle, maxAngle}, settleCountMax, minStepCommand);
+        stepsPerRevolution, StepperMotorAngleRange{minAngle, maxAngle}, settleCountMax, minStepCommand);
 }
 }  // namespace
 
-bool StepperMotorControllerAlgorithm_validateConfig(const float stepAngle,
+bool StepperMotorControllerAlgorithm_validateConfig(const uint32_t stepsPerRevolution,
                                                     const float minAngle,
                                                     const float maxAngle,
                                                     const uint32_t settleCountMax,
@@ -23,20 +23,20 @@ bool StepperMotorControllerAlgorithm_validateConfig(const float stepAngle,
     // Attempt to build the config through the real create path; success means valid,
     // a throw means invalid. Reusing configFromC keeps validation from drifting.
     try {
-        (void)configFromC(stepAngle, minAngle, maxAngle, settleCountMax, minStepCommand);
+        (void)configFromC(stepsPerRevolution, minAngle, maxAngle, settleCountMax, minStepCommand);
         return true;
     } catch (const fsw::invalid_argument&) {
         return false;
     }
 }
 
-StepperMotorControllerAlgorithmHandle* StepperMotorControllerAlgorithm_create(const float stepAngle,
+StepperMotorControllerAlgorithmHandle* StepperMotorControllerAlgorithm_create(const uint32_t stepsPerRevolution,
                                                                               const float minAngle,
                                                                               const float maxAngle,
                                                                               const uint32_t settleCountMax,
                                                                               const uint32_t minStepCommand) {
     return fsw::createHandle<::StepperMotorControllerAlgorithm, StepperMotorControllerAlgorithmHandle>(
-        configFromC(stepAngle, minAngle, maxAngle, settleCountMax, minStepCommand));
+        configFromC(stepsPerRevolution, minAngle, maxAngle, settleCountMax, minStepCommand));
 }
 
 void StepperMotorControllerAlgorithm_destroy(StepperMotorControllerAlgorithmHandle* self) {
@@ -44,13 +44,13 @@ void StepperMotorControllerAlgorithm_destroy(StepperMotorControllerAlgorithmHand
 }
 
 void StepperMotorControllerAlgorithm_setConfig(StepperMotorControllerAlgorithmHandle* self,
-                                               const float stepAngle,
+                                               const uint32_t stepsPerRevolution,
                                                const float minAngle,
                                                const float maxAngle,
                                                const uint32_t settleCountMax,
                                                const uint32_t minStepCommand) {
     fsw::fromHandle<::StepperMotorControllerAlgorithm>(self)->setConfig(
-        configFromC(stepAngle, minAngle, maxAngle, settleCountMax, minStepCommand));
+        configFromC(stepsPerRevolution, minAngle, maxAngle, settleCountMax, minStepCommand));
 }
 
 void StepperMotorControllerAlgorithm_reInitialize(StepperMotorControllerAlgorithmHandle* self) {

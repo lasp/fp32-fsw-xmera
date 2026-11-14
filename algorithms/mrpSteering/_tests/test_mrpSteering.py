@@ -6,12 +6,12 @@ from xmera.utilities import RigidBodyKinematics
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
-@pytest.mark.parametrize("K1", [0.15, 0])
-@pytest.mark.parametrize("K3", [1.0, 0])
+@pytest.mark.parametrize("Kp1", [0.15, 0])
+@pytest.mark.parametrize("Kp3", [1.0, 0])
 @pytest.mark.parametrize("omega_max", [1.5 * macros.D2R, 0.001])
 @pytest.mark.parametrize("ignore_feed_forward", [True, False])
 
-def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_feed_forward):
+def test_mrp_steering_tracking_integrated(show_plots, Kp1, Kp3, omega_max, ignore_feed_forward):
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
 
@@ -29,12 +29,12 @@ def test_mrp_steering_tracking_integrated(show_plots, K1, K3, omega_max, ignore_
 
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
-    module.K1 = K1
-    module.K3 = K3
+    module.Kp1 = Kp1
+    module.Kp3 = Kp3
     module.omegaMax = omega_max
     module.ignoreOuterLoopFeedforward = ignore_feed_forward
     module.Ki = 0.01
-    module.P = 150.0
+    module.Kd = 150.0
     module.integralLimit = 2. / module.Ki * 0.1
     module.knownTorquePntB_B = [0., 0., 0.]
     module.controlPeriod = rate
@@ -114,20 +114,20 @@ def find_true_values(guid_cmd_data, module):
 
     omega_max = module.omegaMax
     sigma = np.asarray(guid_cmd_data.sigma_BR)
-    K1 = np.asarray(module.K1)
-    K3 = np.asarray(module.K3)
+    Kp1 = np.asarray(module.Kp1)
+    Kp3 = np.asarray(module.Kp3)
     B = RigidBodyKinematics.BmatMRP(sigma)
     omega_ast = []
     omega_ast_p = []
 
     for i in range(len(sigma)):
-        steer_rate = -1*(2*omega_max/np.pi)*np.arctan((K1*sigma[i]+K3*sigma[i]*sigma[i]*sigma[i])*np.pi/(2*omega_max))
+        steer_rate = -1*(2*omega_max/np.pi)*np.arctan((Kp1*sigma[i]+Kp3*sigma[i]*sigma[i]*sigma[i])*np.pi/(2*omega_max))
         omega_ast.append(steer_rate)
 
     if not module.ignoreOuterLoopFeedforward:
         sigma_p = 0.25*B.dot(omega_ast)
         for i in range(len(sigma)):
-            omega_ast_rate = (K1+3*K3*sigma[i]**2)/(1+((K1*sigma[i]+K3*sigma[i]**3)**2)*(np.pi/(2*omega_max))**2)*sigma_p[i]
+            omega_ast_rate = (Kp1+3*Kp3*sigma[i]**2)/(1+((Kp1*sigma[i]+Kp3*sigma[i]**3)**2)*(np.pi/(2*omega_max))**2)*sigma_p[i]
             omega_ast_p.append(-omega_ast_rate)
     else:
         omega_ast_p = np.asarray([0, 0, 0])
@@ -155,7 +155,7 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
     Isc = np.asarray(vehicle_config_out.ISCPntB_B)
     Isc = np.reshape(Isc, (3, 3))
     Ki = module.Ki
-    P = module.P
+    Kd = module.Kd
     jsVec = rw_config_params.JsList[0:num_rw]
     GsMatrix = (rw_config_params.GsMatrix_B)
     GsMatrix_B_array = np.reshape(GsMatrix[0:num_rw * 3], (num_rw, 3))
@@ -178,7 +178,7 @@ def find_true_torques(module, guid_cmd_data, rw_speed_message, vehicle_config_ou
 
         #compute torque Lr
         Lr0 = Ki * zVec  # +K*sigmaBR
-        Lr1 = Lr0 + P * omega_BBast_B  # +P*deltaOmega
+        Lr1 = Lr0 + Kd * omega_BBast_B  # +Kd*deltaOmega
 
         GsHs = np.array([0,0,0])
 

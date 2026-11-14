@@ -1,7 +1,7 @@
-#ifndef F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_H
-#define F32XMERA_FORCE_TORQUE_THR_FORCE_MAPPING_ALGORITHM_H
+#ifndef F32XMERA_THRUST_MAPPING_ALGORITHM_H
+#define F32XMERA_THRUST_MAPPING_ALGORITHM_H
 
-#include "forceTorqueThrForceMappingTypes.h"
+#include "thrustMappingTypes.h"
 
 #include "msgPayloadDef/definitions.h"
 #include "utilities/fsw/deviceAvailability.h"
@@ -44,26 +44,25 @@ struct ThrusterArrayConfiguration {
  * configuration whose remaining thrusters cannot reach a selected axis. The array must contain a minimum
  * of one available thruster.
  */
-class ForceTorqueThrForceMappingConfig final {
+class ThrustMappingConfig final {
    public:
-    static ForceTorqueThrForceMappingConfig create(const ThrusterArrayConfiguration& thrusters,
-                                                   const Eigen::Vector3f& centerOfMass_B,
-                                                   const std::array<bool, 6>& desiredControlAxes_B) {
+    static ThrustMappingConfig create(const ThrusterArrayConfiguration& thrusters,
+                                      const Eigen::Vector3f& centerOfMass_B,
+                                      const std::array<bool, 6>& desiredControlAxes_B) {
         if (!isValidThrusters(thrusters)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "forceTorqueThrForceMapping: numThrusters must be in [1, kMaxThrusterCount] and each thruster "
+                "thrustMapping: numThrusters must be in [1, kMaxThrusterCount] and each thruster "
                 "direction must be a unit vector");
         }
         if (!isValidCenterOfMass_B(centerOfMass_B)) {
-            FSW_THROW_INVALID_ARGUMENT("forceTorqueThrForceMapping: centerOfMass_B must be finite");
+            FSW_THROW_INVALID_ARGUMENT("thrustMapping: centerOfMass_B must be finite");
         }
         if (!isValidDesiredControlAxes_B(desiredControlAxes_B)) {
-            FSW_THROW_INVALID_ARGUMENT(
-                "forceTorqueThrForceMapping: desiredControlAxes_B must select at least one control axis.");
+            FSW_THROW_INVALID_ARGUMENT("thrustMapping: desiredControlAxes_B must select at least one control axis.");
         }
         if (!isValidMapping(thrusters, centerOfMass_B, desiredControlAxes_B)) {
             FSW_THROW_INVALID_ARGUMENT(
-                "forceTorqueThrForceMapping: the configuration does not yield a valid thruster mapping -- an "
+                "thrustMapping: the configuration does not yield a valid thruster mapping -- an "
                 "axis selected in desiredControlAxes_B is not controllable by the thruster array, or the thruster "
                 "geometry is ill-conditioned (condition number above 100).");
         }
@@ -110,9 +109,9 @@ class ForceTorqueThrForceMappingConfig final {
     const std::array<bool, 6>& getDesiredControlAxes() const { return desiredControlAxes_B; }
 
    private:
-    ForceTorqueThrForceMappingConfig(const ThrusterArrayConfiguration& thrusters,
-                                     const Eigen::Vector3f& centerOfMass_B,
-                                     const std::array<bool, 6>& desiredControlAxes_B)
+    ThrustMappingConfig(const ThrusterArrayConfiguration& thrusters,
+                        const Eigen::Vector3f& centerOfMass_B,
+                        const std::array<bool, 6>& desiredControlAxes_B)
         : thrusters(thrusters), centerOfMass_B(centerOfMass_B), desiredControlAxes_B(desiredControlAxes_B) {}
 
     ThrusterArrayConfiguration thrusters;
@@ -122,17 +121,17 @@ class ForceTorqueThrForceMappingConfig final {
 
 /*! @brief This module maps thruster forces for arbitrary forces and torques
  */
-class ForceTorqueThrForceMappingAlgorithm final {
+class ThrustMappingAlgorithm final {
    public:
-    explicit ForceTorqueThrForceMappingAlgorithm(const ForceTorqueThrForceMappingConfig& config);
+    explicit ThrustMappingAlgorithm(const ThrustMappingConfig& config);
 
-    void setConfig(const ForceTorqueThrForceMappingConfig& config);
+    void setConfig(const ThrustMappingConfig& config);
 
-    Eigen::Vector<float, kMaxThrusterCount> update(const Eigen::Vector3f& cmdTorque_B,
-                                                   const Eigen::Vector3f& cmdForce_B) const;
+    Eigen::Vector<float, kMaxThrusterCount> update(const Eigen::Vector3f& requestedTorque_B,
+                                                   const Eigen::Vector3f& requestedForce_B) const;
 
    private:
-    ForceTorqueThrForceMappingConfig cfg;  //!< validated configuration (thrusters, CoM, control-axis selection)
+    ThrustMappingConfig cfg;  //!< validated configuration (thrusters, CoM, control-axis selection)
     Eigen::Matrix<float, kMaxThrusterCount, 6> pseudoInverseDG{
         Eigen::Matrix<float, kMaxThrusterCount, 6>::Zero()};  //!< truncated-SVD pseudo-inverse of the selected DG rows
     Eigen::Vector<float, kMaxThrusterCount> nullSpaceShift{

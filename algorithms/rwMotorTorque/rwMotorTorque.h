@@ -27,7 +27,8 @@ class RwMotorTorque final : public SysModel {
     void setDesiredControlAxes(const std::array<bool, 3>& desiredControlAxes);
     std::array<bool, 3> getDesiredControlAxes() const;
 
-    float omegaGain{};  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
+    float Kp{};  //!< [-] RW null-space feedback gain (>= 0; 0 disables the null-space term)
+    std::array<float, RW_EFF_CNT> rwDesiredSpeeds{};  //!< [r/s] desired RW speeds for the null-space term
 
     /* declare module IO interfaces */
     Message<RwMotorTorqueMsgF32Payload> rwMotorTorqueOutMsg;   //!< RW motor torque output message
@@ -36,7 +37,6 @@ class RwMotorTorque final : public SysModel {
     ReadFunctor<RWArrayConfigMsgF32Payload> rwParamsInMsg;     //!<  RW Array input message
     ReadFunctor<RWAvailabilityMsgPayload> rwAvailInMsg;        //!< optional RWs availability input message
     ReadFunctor<RWSpeedMsgF32Payload> rwSpeedsInMsg;           //!< optional current RW speeds (null-space)
-    ReadFunctor<RWSpeedMsgF32Payload> rwDesiredSpeedsInMsg;    //!< optional desired RW speeds (null-space)
 
    private:
     std::array<bool, 3> desiredControlAxes_B{true, true, true};  //!< [-] which body axes (x, y, z) to control

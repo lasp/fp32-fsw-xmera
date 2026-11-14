@@ -7,7 +7,7 @@ from xmera.architecture.messaging import (
     THRArrayConfigMsgF32,
     THRArrayConfigMsgF32Payload,
 )
-from xmera.fp32 import forceTorqueThrForceMappingF32
+from xmera.fp32 import thrustMappingF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
 
@@ -89,7 +89,7 @@ desired_control_axes_all = [True, True, True, True, True, True]
                           (rcs_location_data_rand, rcs_direction_data_rand, torque_rand, force_rand, True,
                            desired_control_axes_all)])
 
-def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_torque, requested_force,
+def test_thrust_mapping(rcs_location, rcs_direction, requested_torque, requested_force,
                                         torque_in_msg_flag, desired_control_axes):
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
@@ -100,8 +100,8 @@ def test_force_torque_thr_force_mapping(rcs_location, rcs_direction, requested_t
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
     # setup module to be tested
-    module = forceTorqueThrForceMappingF32.ForceTorqueThrForceMapping()
-    module.modelTag = "forceTorqueThrForceMappingTag"
+    module = thrustMappingF32.ThrustMapping()
+    module.modelTag = "thrustMappingTag"
     module.desiredControlAxes_B = desired_control_axes
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
@@ -229,7 +229,7 @@ Test 6: An unavailable thruster takes no part in the mapping. The module command
 
 
 @pytest.mark.parametrize("dead_thruster", [0, 3, 7])
-def test_force_torque_thr_force_mapping_availability(dead_thruster):
+def test_thrust_mapping_availability(dead_thruster):
     unit_task_name = "unitTask"
     unit_process_name = "TestProcess"
 
@@ -238,8 +238,8 @@ def test_force_torque_thr_force_mapping_availability(dead_thruster):
     test_proc = unit_test_sim.CreateNewProcess(unit_process_name)
     test_proc.addTask(unit_test_sim.CreateNewTask(unit_task_name, test_process_rate))
 
-    module = forceTorqueThrForceMappingF32.ForceTorqueThrForceMapping()
-    module.modelTag = "forceTorqueThrForceMappingTag"
+    module = thrustMappingF32.ThrustMapping()
+    module.modelTag = "thrustMappingTag"
     module.desiredControlAxes_B = desired_control_axes_layout_1
     unit_test_sim.AddModelToTask(unit_task_name, module)
 
@@ -304,7 +304,7 @@ def test_force_torque_thr_force_mapping_availability(dead_thruster):
 
 
 if __name__ == "__main__":
-    test_force_torque_thr_force_mapping(rcs_location_data_1,
+    test_thrust_mapping(rcs_location_data_1,
                                         rcs_direction_data_1,
                                         [0.4, 0.2, 0.4],
                                         [0.9, 1.1, 0.],

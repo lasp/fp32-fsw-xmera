@@ -38,7 +38,7 @@ struct SunSearchPointOutput {
  *
  * Holds the sun-search rotation sequence and the pointing parameters. An instance can only exist if
  * every rotation has a duration of at least 1 ns, a finite commanded rate, and a valid axis, if
- * sHatBdyCmd has unit norm (within 1e-3), if sunAxisSpinRate and omega_RN_B are finite, if
+ * sunPointAxis_B has unit norm (within 1e-3), if sunAxisSpinRate and omega_RN_B are finite, if
  * observationThreshold is at most kMaxNumCssSensors, if controlPeriod is at least 1 ns, if the whole
  * rotation sequence plus one control period is in the uint64_t nanosecond range, and if
  * deadbandAngle is finite and non-negative. deadbandAngle is an attitude deadband: while pointing, the
@@ -50,7 +50,7 @@ class SunSearchPointConfig final {
    public:
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
     static SunSearchPointConfig create(const std::array<RotationProperties, kNumSunSearchRotations>& rotations,
-                                       const Eigen::Vector3f& sHatBdyCmd,
+                                       const Eigen::Vector3f& sunPointAxis_B,
                                        float sunAxisSpinRate,
                                        const Eigen::Vector3f& omega_RN_B,
                                        uint32_t observationThreshold,
@@ -67,8 +67,8 @@ class SunSearchPointConfig final {
                 FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: rotationAxis must be b1Hat_B, b2Hat_B, or b3Hat_B");
             }
         }
-        if (!isValidSHatBdyCmd(sHatBdyCmd)) {
-            FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: sHatBdyCmd norm must be within 1e-3 of 1.0");
+        if (!isValidSunPointAxis(sunPointAxis_B)) {
+            FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: sunPointAxis_B norm must be within 1e-3 of 1.0");
         }
         if (!isValidSunAxisSpinRate(sunAxisSpinRate)) {
             FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: sunAxisSpinRate must be finite");
@@ -90,7 +90,7 @@ class SunSearchPointConfig final {
             FSW_THROW_INVALID_ARGUMENT("sunSearchPoint: deadbandAngle must be finite and >= 0");
         }
         return SunSearchPointConfig{rotations,
-                                    sHatBdyCmd.stableNormalized(),
+                                    sunPointAxis_B.stableNormalized(),
                                     sunAxisSpinRate,
                                     omega_RN_B,
                                     observationThreshold,
@@ -105,9 +105,9 @@ class SunSearchPointConfig final {
     static bool isValidRotationAxis(RotationAxis axis) {
         return axis == RotationAxis::b1Hat_B || axis == RotationAxis::b2Hat_B || axis == RotationAxis::b3Hat_B;
     }
-    static bool isValidSHatBdyCmd(const Eigen::Vector3f& sHatBdyCmd) {
+    static bool isValidSunPointAxis(const Eigen::Vector3f& sunPointAxis_B) {
         constexpr float kUnitNormTol = 1e-3F;
-        return fabsf(sHatBdyCmd.stableNorm() - 1.0F) <= kUnitNormTol;
+        return fabsf(sunPointAxis_B.stableNorm() - 1.0F) <= kUnitNormTol;
     }
     static bool isValidSunAxisSpinRate(float sunAxisSpinRate) { return fsw::is_finite(sunAxisSpinRate); }
     static bool isValidOmega_RN_B(const Eigen::Vector3f& omega_RN_B) { return omega_RN_B.allFinite(); }
@@ -143,7 +143,7 @@ class SunSearchPointConfig final {
     }
 
     const std::array<RotationProperties, kNumSunSearchRotations>& getRotations() const { return rotations; }
-    const Eigen::Vector3f& getSHatBdyCmd() const { return sHatBdyCmd; }
+    const Eigen::Vector3f& getSunPointAxis_B() const { return sunPointAxis_B; }
     float getSunAxisSpinRate() const { return sunAxisSpinRate; }
     const Eigen::Vector3f& getOmega_RN_B() const { return omega_RN_B; }
     uint32_t getObservationThreshold() const { return observationThreshold; }
@@ -153,14 +153,14 @@ class SunSearchPointConfig final {
    private:
     // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
     SunSearchPointConfig(const std::array<RotationProperties, kNumSunSearchRotations>& rotationsIn,
-                         const Eigen::Vector3f& sHatBdyCmdIn,
+                         const Eigen::Vector3f& sunPointAxisIn_B,
                          float sunAxisSpinRateIn,
                          const Eigen::Vector3f& omega_RN_BIn,
                          uint32_t observationThresholdIn,
                          float controlPeriodIn,
                          float deadbandAngleIn)
         : rotations(rotationsIn),
-          sHatBdyCmd(sHatBdyCmdIn),
+          sunPointAxis_B(sunPointAxisIn_B),
           sunAxisSpinRate(sunAxisSpinRateIn),
           omega_RN_B(omega_RN_BIn),
           observationThreshold(observationThresholdIn),
@@ -168,7 +168,7 @@ class SunSearchPointConfig final {
           deadbandAngle(deadbandAngleIn) {}
 
     std::array<RotationProperties, kNumSunSearchRotations> rotations;
-    Eigen::Vector3f sHatBdyCmd;
+    Eigen::Vector3f sunPointAxis_B;
     float sunAxisSpinRate;
     Eigen::Vector3f omega_RN_B;
     uint32_t observationThreshold;
