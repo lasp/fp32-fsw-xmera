@@ -500,4 +500,69 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, epToPrvPropertiesDouble)
     .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),  // Random X, Y, Z direction components.
                  fuzztest::InRange(-200.0, 0.79),          // Rotation angles from 1e-200 to 6.17 rad.
                  fuzztest::InRange(-100.0, 100.0));        // Euler parameter norms from 1e-100 to 1e100.
+
+// ---------------------------------------------------------------------------
+// dmrp: computes the MRP time derivative from the angular velocity, d(sigma)/dt = 1/4 [B(sigma)] omega.
+// ---------------------------------------------------------------------------
+template <typename T>
+void dmrpProperties(const Eigen::Vector3<T>& mrpDirection,
+                    T log10MrpNorm,
+                    const Eigen::Vector3<T>& omegaDirection,
+                    T log10OmegaNorm) {
+    using Vec3 = Eigen::Vector3<T>;
+
+    // A zero direction produces a zero MRP or a zero angular velocity.
+    Vec3 mrp = Vec3::Zero();
+    if (!mrpDirection.isZero(T(0))) {
+        mrp = mrpDirection.stableNormalized() * std::pow(T(10), log10MrpNorm);
+    }
+    Vec3 omega = Vec3::Zero();
+    if (!omegaDirection.isZero(T(0))) {
+        omega = omegaDirection.stableNormalized() * std::pow(T(10), log10OmegaNorm);
+    }
+
+    Vec3 const mrpRate = dmrp(mrp, omega);
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    // The MRP rate must contain only finite values.
+    ASSERT_TRUE(mrpRate.allFinite());
+
+    // The MRP rate must match the vector form of the MRP kinematic equation,
+    // d(sigma)/dt = 1/4 [(1 - |sigma|^2) omega + 2 sigma x omega + 2 sigma (sigma . omega)].
+    T const mrpSquaredNorm = mrp.squaredNorm();
+    Vec3 const expectedRate =
+        ((T(1) - mrpSquaredNorm) * omega + T(2) * mrp.cross(omega) + T(2) * mrp.dot(omega) * mrp) / T(4);
+    EXPECT_TRUE(mrpRate.isApprox(expectedRate, tol));
+
+    // [B] [B]^T = (1 + |sigma|^2)^2 I, so the MRP rate has norm (1 + |sigma|^2) |omega| / 4.
+    EXPECT_NEAR(mrpRate.stableNorm(), (T(1) + mrpSquaredNorm) * omega.stableNorm() / T(4), tol * mrpRate.stableNorm());
+}
+
+void dmrpPropertiesFloat(const Eigen::Vector3f& mrpDirection,
+                         float log10MrpNorm,
+                         const Eigen::Vector3f& omegaDirection,
+                         float log10OmegaNorm) {
+    dmrpProperties(mrpDirection, log10MrpNorm, omegaDirection, log10OmegaNorm);
+}
+
+void dmrpPropertiesDouble(const Eigen::Vector3d& mrpDirection,
+                          double log10MrpNorm,
+                          const Eigen::Vector3d& omegaDirection,
+                          double log10OmegaNorm) {
+    dmrpProperties(mrpDirection, log10MrpNorm, omegaDirection, log10OmegaNorm);
+}
+
+// The ranges keep the squared norm of the MRP rate, used by isApprox, finite: |mrp|^2 |omega| stays below 1e13 in
+// float and 1e150 in double.
+FUZZ_TEST(RigidBodyKinematicsFuzz, dmrpPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // Random MRP direction components.
+                 fuzztest::InRange(-18.0F, 4.0F),            // MRP norms from 1e-18 to 1e4.
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // Random angular velocity direction components.
+                 fuzztest::InRange(-10.0F, 5.0F));           // Angular velocity norms from 1e-10 to 1e5 rad/s.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, dmrpPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),  // Random MRP direction components.
+                 fuzztest::InRange(-150.0, 50.0),          // MRP norms from 1e-150 to 1e50.
+                 xmera::fuzz::Vector3dInRange(-1.0, 1.0),  // Random angular velocity direction components.
+                 fuzztest::InRange(-50.0, 50.0));          // Angular velocity norms from 1e-50 to 1e50 rad/s.
 }  // namespace

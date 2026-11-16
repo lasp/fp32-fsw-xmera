@@ -399,16 +399,18 @@ Eigen::Vector4<ScalarT> dep(const Eigen::Vector4<ScalarT>& ep, const Eigen::Vect
 }
 
 /**
- * Return the mrp derivative for a given mrp vector and body angular velocity vector.
- * dQ/dt = 1/4 [B(Q)] omega
- * @param mrp
- * @param omega
- * @return Eigen::Vector3d
+ * Compute the MRP time derivative from the angular velocity,
+ * d(sigma)/dt = 1/4 [B(sigma)] omega.
+ *
+ * @param mrp [-] MRP set of a frame relative to a reference frame
+ * @param omega [rad/s] angular velocity of the same frame relative to the reference frame, in components of the
+ * frame the MRP set describes
+ * @return [1/s] MRP time derivative
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> dmrp(const Eigen::Vector3<ScalarT>& mrp, const Eigen::Vector3<ScalarT>& omega) {
-    Eigen::Matrix3<ScalarT> B = bmatMrp(mrp);
-    return B * omega / 4.0;
+    const Eigen::Matrix3<ScalarT> B = bmatMrp(mrp);
+    return B * omega / ScalarT(4);
 }
 
 /**

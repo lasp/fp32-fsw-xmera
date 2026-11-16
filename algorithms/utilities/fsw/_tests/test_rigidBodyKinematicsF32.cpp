@@ -1523,7 +1523,10 @@ class RepresentationDerivativesTest : public ::testing::Test {
 
 TYPED_TEST_SUITE(RepresentationDerivativesTest, FloatingPointTypes);
 
-TYPED_TEST(RepresentationDerivativesTest, dmrp) {
+// ---------------------------------------------------------------------------
+// dmrp: computes the MRP time derivative from the angular velocity, d(sigma)/dt = 1/4 [B(sigma)] omega.
+// ---------------------------------------------------------------------------
+TYPED_TEST(RepresentationDerivativesTest, dmrpMatchesCReference) {
     using T = TypeParam;
     typename TestFixture::Vec3 rep = this->randVec3();
     typename TestFixture::Vec3 rate = this->randVec3() / 10.0;
@@ -1538,6 +1541,63 @@ TYPED_TEST(RepresentationDerivativesTest, dmrp) {
     typename TestFixture::Vec3 expected = Eigen::Map<typename TestFixture::Vec3>(expectedArray);
     T const tolerance = std::max(rotationParameterTolerance(expected), this->accuracy);
     EXPECT_LT(relativeErrorNorm(dmrp<T>(rep, rate), expected), tolerance);
+}
+
+// A zero angular velocity gives a zero MRP rate.
+TYPED_TEST(RepresentationDerivativesTest, dmrpZeroRateIsZero) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const mrp(T(0.1), T(-0.2), T(0.3));
+    Vec3 const zeroOmega = Vec3::Zero();
+    EXPECT_EQ(dmrp(mrp, zeroOmega), Vec3::Zero());
+}
+
+// At the zero MRP set, [B] is the identity, so the MRP rate is omega / 4.
+TYPED_TEST(RepresentationDerivativesTest, dmrpAtZeroMrp) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const zeroMrp = Vec3::Zero();
+    Vec3 const omega(T(0.4), T(-0.8), T(1.2));
+    EXPECT_EQ(dmrp(zeroMrp, omega), omega / T(4));
+}
+
+// For a rotation about a fixed axis, sigma = tan(phi / 4) * axis, so
+// d(sigma)/dt = (1 / 4) * sec^2(phi / 4) * (d(phi)/dt) * axis.
+TYPED_TEST(RepresentationDerivativesTest, dmrpRotationAboutFixedAxis) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const axis(T(0.48), T(0.36), T(-0.8));
+    T const phi = T(90) * std::numbers::pi_v<T> / T(180);
+    T const phiRate = T(0.3);
+
+    Vec3 const mrp = std::tan(phi / T(4)) * axis;
+    Vec3 const omega = phiRate * axis;
+
+    // Calculate the expected MRP rate by differentiating sigma = tan(phi / 4) * axis.
+    T const cosQuarterPhi = std::cos(phi / T(4));
+    Vec3 const expected = phiRate / (T(4) * cosQuarterPhi * cosQuarterPhi) * axis;
+
+    EXPECT_TRUE(dmrp(mrp, omega).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Verify the MRP derivative when angular velocity is perpendicular to the MRP vector.
+// The nonzero cross product checks the sign and direction of the coupling term.
+TYPED_TEST(RepresentationDerivativesTest, dmrpRatePerpendicularToMrp) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    T const s = T(0.5);
+    T const w = T(0.2);
+    Vec3 const mrp(s, T(0), T(0));
+    Vec3 const omega(T(0), w, T(0));
+
+    // sigma x omega = (0, 0, s * w).
+    Vec3 const expected = Vec3(T(0), (T(1) - s * s) * w, T(2) * s * w) / T(4);
+
+    EXPECT_TRUE(dmrp(mrp, omega).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
 }
 
 TYPED_TEST(RepresentationDerivativesTest, dmrpToOmega) {
