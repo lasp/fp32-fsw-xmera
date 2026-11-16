@@ -503,17 +503,20 @@ Eigen::Matrix3<ScalarT> epToDcm(const Eigen::Vector4<ScalarT>& ep) {
 }
 
 /**
- * Translate a Euler parameter vector into an mrp vector.
- * @param ep
- * @return Eigen::Vector3d
+ * Convert Euler parameters to the MRP set with norm at most 1.
+ * q and -q give the same MRP set, so the result is the short rotation for either sign.
+ * An all-zero quaternion is not a valid rotation, but it returns a zero MRP set (identity) without
+ * an error; callers must reject it before the call.
+ *
+ * @param ep [-] unit Euler parameters (q0, q1, q2, q3), scalar first
+ * @return [-] MRP set, norm <= 1
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> epToMrp(const Eigen::Vector4<ScalarT>& ep) {
-    if (ep(0) >= 0.0) {
-        return ep.template tail<3>() / (1.0 + ep(0));
-    } else {
-        return -ep.template tail<3>() / (1.0 - ep(0));
+    if (ep(0) >= ScalarT(0)) {
+        return ep.template tail<3>() / (ScalarT(1) + ep(0));
     }
+    return -ep.template tail<3>() / (ScalarT(1) - ep(0));
 }
 
 /**

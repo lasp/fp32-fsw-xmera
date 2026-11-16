@@ -366,4 +366,74 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, dcmToEpPropertiesDouble)
     .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),             // Random X, Y, Z direction components.
                  fuzztest::OneOf(fuzztest::InRange(-150.0, 76.0),     // MRP norms from 1e-150 to 1e76.
                                  fuzztest::InRange(-0.001, 0.001)));  // Rotations from 179.74 to 180.26 deg.
+
+// ---------------------------------------------------------------------------
+// epToMrp: converts Euler parameters to the principal MRP set.
+// ---------------------------------------------------------------------------
+template <typename T>
+void epToMrpProperties(const Eigen::Vector3<T>& direction, T log10MrpNorm) {
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    // A zero direction produces the zero MRP (identity rotation).
+    Vec3 inputMrp = Vec3::Zero();
+    if (!direction.isZero(T(0))) {
+        inputMrp = direction.stableNormalized() * std::pow(T(10), log10MrpNorm);
+    }
+
+    // Construct Euler parameters from the generated MRP.
+    T const inputMrpSquaredNorm = inputMrp.squaredNorm();
+    Vec4 ep;
+    ep << T(1) - inputMrpSquaredNorm, T(2) * inputMrp;
+    ep /= T(1) + inputMrpSquaredNorm;
+
+    // q and -q represent the same attitude.
+    Vec4 const negatedEp = -ep;
+
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+    T const inputMrpNorm = inputMrp.stableNorm();
+
+    // Test both quaternion representations of the same attitude.
+    for (Vec4 const& testEp : {ep, negatedEp}) {
+        Vec3 const resultMrp = epToMrp(testEp);
+
+        // The resulting MRP must contain only finite values.
+        ASSERT_TRUE(resultMrp.allFinite());
+
+        // The principal MRP norm must be at most 1, allowing rounding.
+        EXPECT_LE(resultMrp.norm(), T(1) + tol);
+
+        if (inputMrpNorm < T(1) - tol) {
+            // Principal MRPs must be recovered unchanged.
+            EXPECT_TRUE(resultMrp.isApprox(inputMrp, tol));
+        } else if (inputMrpNorm > T(1) + tol) {
+            // Non-principal MRPs must be converted to their shadow set.
+            EXPECT_TRUE(resultMrp.isApprox(mrpShadow(inputMrp), tol));
+        } else {
+            // Near 180 degrees, rounding can affect the selected sign.
+            EXPECT_TRUE(resultMrp.isApprox(inputMrp, tol) || resultMrp.isApprox(mrpShadow(inputMrp), tol));
+        }
+    }
+}
+
+void epToMrpPropertiesFloat(const Eigen::Vector3f& direction, float log10MrpNorm) {
+    epToMrpProperties(direction, log10MrpNorm);
+}
+
+void epToMrpPropertiesDouble(const Eigen::Vector3d& direction, double log10MrpNorm) {
+    epToMrpProperties(direction, log10MrpNorm);
+}
+
+// The Euler parameters are built from MRPs. The largest norms stay below the overflow of |mrp|^2 (|mrp| ~1e19 in
+// float, ~1e154 in double). The second range (MRP norms 0.9977 to 1.0023) tests rotations close to 180 deg, where
+// q0 changes sign.
+FUZZ_TEST(RigidBodyKinematicsFuzz, epToMrpPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),             // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-18.0F, 18.0F),      // MRP norms from 1e-18 to 1e18.
+                                 fuzztest::InRange(-0.001F, 0.001F)));  // Rotations from 179.74 to 180.26 deg.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, epToMrpPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),             // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-150.0, 150.0),    // MRP norms from 1e-150 to 1e150.
+                                 fuzztest::InRange(-0.001, 0.001)));  // Rotations from 179.74 to 180.26 deg.
 }  // namespace

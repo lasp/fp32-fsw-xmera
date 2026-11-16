@@ -1107,7 +1107,10 @@ class RepresentationTransformTest : public ::testing::Test {
 
 TYPED_TEST_SUITE(RepresentationTransformTest, FloatingPointTypes);
 
-TYPED_TEST(RepresentationTransformTest, epToMrp) {
+// ---------------------------------------------------------------------------
+// epToMrp: converts Euler parameters to the principal MRP set.
+// ---------------------------------------------------------------------------
+TYPED_TEST(RepresentationTransformTest, epToMrpMatchesCReference) {
     using T = TypeParam;
     using Vec4 = Eigen::Matrix<T, 4, 1>;
     using Vec3 = Eigen::Matrix<T, 3, 1>;
@@ -1131,6 +1134,104 @@ TYPED_TEST(RepresentationTransformTest, epToMrp) {
 
     T const tolerance = std::max(rotationParameterTolerance(expected), TestFixture::accuracy);
     EXPECT_LT(relativeErrorNorm(result, expected), tolerance);
+}
+
+// The identity Euler parameters (1, 0, 0, 0) give the zero MRP set.
+TYPED_TEST(RepresentationTransformTest, epToMrpIdentityIsZero) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    Vec4 const identity(T(1), T(0), T(0), T(0));
+    EXPECT_EQ(epToMrp(identity), Vec3::Zero());
+}
+
+// Verify EP-to-MRP conversion for a 90-degree rotation about X, given as q and as -q.
+TYPED_TEST(RepresentationTransformTest, epToMrp90DegX) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    // Euler parameters of a 90-degree rotation about X: q = (cos(phi / 2), sin(phi / 2) * axis).
+    Vec3 const axis(T(1), T(0), T(0));
+    T const phi = T(90) * std::numbers::pi_v<T> / T(180);
+    Vec4 ep;
+    ep << std::cos(phi / T(2)), std::sin(phi / T(2)) * axis;
+
+    // Calculate the expected MRP using sigma = axis * tan(phi / 4).
+    Vec3 const expected = axis * std::tan(phi / T(4));
+
+    // Verify the converted MRP against the analytical result.
+    EXPECT_TRUE(epToMrp(ep).isApprox(expected, tol));
+
+    // -q describes the same rotation, so it must give the same MRP set.
+    Vec4 const negatedEp = -ep;
+    EXPECT_TRUE(epToMrp(negatedEp).isApprox(expected, tol));
+}
+
+// A 270-degree rotation about X gives q0 = cos(135 deg) < 0. It is equivalent to a -90-degree rotation
+// about X, and epToMrp must return that principal (shortest-rotation) MRP set, whose norm is at most 1.
+TYPED_TEST(RepresentationTransformTest, epToMrp270DegX) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    // Euler parameters of a 270-degree rotation about X: q = (cos(phi / 2), sin(phi / 2) * axis).
+    T const phi = T(270) * std::numbers::pi_v<T> / T(180);
+    Vec4 const ep270AboutX(std::cos(phi / T(2)), std::sin(phi / T(2)), T(0), T(0));
+
+    // Calculate the expected MRP using sigma = axis * tan(phi / 4).
+    // The equivalent shortest rotation is 90 degrees about the negative X-axis.
+    Vec3 const principalAxis(T(-1), T(0), T(0));
+    T const principalAngle = T(90) * std::numbers::pi_v<T> / T(180);
+    Vec3 const expectedMrp = principalAxis * std::tan(principalAngle / T(4));
+
+    // Verify that the 270-degree Euler parameters produce the MRP of the equivalent -90-degree rotation.
+    EXPECT_TRUE(epToMrp(ep270AboutX).isApprox(expectedMrp, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Verify 180-degree rotations about each axis: q0 = 0 and the MRP set equals the rotation axis.
+TYPED_TEST(RepresentationTransformTest, epToMrp180Degrees) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    Vec4 const ep180AboutX(T(0), T(1), T(0), T(0));
+    Vec4 const ep180AboutY(T(0), T(0), T(1), T(0));
+    Vec4 const ep180AboutZ(T(0), T(0), T(0), T(1));
+
+    // At 180 degrees, sigma = axis * tan(phi / 4) = axis.
+    EXPECT_EQ(epToMrp(ep180AboutX), Vec3::UnitX());
+    EXPECT_EQ(epToMrp(ep180AboutY), Vec3::UnitY());
+    EXPECT_EQ(epToMrp(ep180AboutZ), Vec3::UnitZ());
+}
+
+// Verify that epToMrp preserves a very small rotation about the Z-axis.
+// At 1e-8 radians, q0 = cos(angle / 2) rounds to 1 in float and double, so the
+// rotation is carried only by the vector part of the Euler parameters.
+TYPED_TEST(RepresentationTransformTest, epToMrpSmallRotation) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    T const angle = T(1e-8);
+    Vec4 const ep(std::cos(angle / T(2)), T(0), T(0), std::sin(angle / T(2)));
+
+    // Calculate the expected MRP using sigma = axis * tan(angle / 4), about 2.5e-9 about Z.
+    Vec3 const expected(T(0), T(0), std::tan(angle / T(4)));
+
+    EXPECT_TRUE(epToMrp(ep).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// An all-zero quaternion is not a valid rotation. epToMrp returns the zero MRP set (identity) without an error.
+TYPED_TEST(RepresentationTransformTest, epToMrpOfZeroIsZero) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    EXPECT_EQ(epToMrp(Vec4(Vec4::Zero())), Vec3::Zero());
 }
 
 TYPED_TEST(RepresentationTransformTest, epToPrv) {
