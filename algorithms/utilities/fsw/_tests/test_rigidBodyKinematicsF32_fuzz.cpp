@@ -620,4 +620,46 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, prvToDcmPropertiesDouble)
     .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),            // Random X, Y, Z direction components.
                  fuzztest::OneOf(fuzztest::InRange(-6.0, 1.0),       // Angles from 1e-6 to 10 rad.
                                  fuzztest::InRange(-150.0, -6.0)));  // Angles from 1e-150 to 1e-6 rad.
+
+// ---------------------------------------------------------------------------
+// subMrp: computes the MRP set of frame 1 relative to frame 2.
+// ---------------------------------------------------------------------------
+template <typename T>
+void subMrpProperties(const Eigen::Vector3<T>& mrp1, const Eigen::Vector3<T>& mrp2) {
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    Vec3 const resultMrp = subMrp(mrp1, mrp2);
+
+    // The result must contain only finite values.
+    ASSERT_TRUE(resultMrp.allFinite());
+
+    // The result is the principal MRP set, norm at most 1.
+    EXPECT_LE(resultMrp.norm(), T(1));
+
+    // The DCM of the result must be [C1] [C2]^T. The DCM of each input is built independently with
+    // Eigen::AngleAxis, using the rotation angle 4 atan(|mrp|) about the MRP axis (the DCM is the transpose of its
+    // matrix). The comparison has three DCMs, each within 10 eps, so the two sides can differ by up to 30 eps.
+    auto const toDcm = [](Vec3 const& mrp) -> Mat3 {
+        return Eigen::AngleAxis<T>(T(4) * std::atan(mrp.stableNorm()), mrp.stableNormalized())
+            .toRotationMatrix()
+            .transpose();
+    };
+    T const tol = T(30) * std::numeric_limits<T>::epsilon();
+    EXPECT_TRUE(mrpToDcm(resultMrp).isApprox(toDcm(mrp1) * toDcm(mrp2).transpose(), tol));
+}
+
+void subMrpPropertiesFloat(const Eigen::Vector3f& mrp1, const Eigen::Vector3f& mrp2) { subMrpProperties(mrp1, mrp2); }
+
+void subMrpPropertiesDouble(const Eigen::Vector3d& mrp1, const Eigen::Vector3d& mrp2) { subMrpProperties(mrp1, mrp2); }
+
+// MRP norms below 1 are rotations up to 180 deg; norms above 1 are the non-principal sets of rotations above 180 deg.
+// The domain therefore covers the shadow branch and the switch to the principal set.
+FUZZ_TEST(RigidBodyKinematicsFuzz, subMrpPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-2.0F, 2.0F),   // Random MRP 1 components.
+                 xmera::fuzz::Vector3fInRange(-2.0F, 2.0F));  // Random MRP 2 components.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, subMrpPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-2.0, 2.0),   // Random MRP 1 components.
+                 xmera::fuzz::Vector3dInRange(-2.0, 2.0));  // Random MRP 2 components.
 }  // namespace
