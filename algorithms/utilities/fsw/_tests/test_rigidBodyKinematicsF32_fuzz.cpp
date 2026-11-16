@@ -249,4 +249,53 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, dcmToMrpPropertiesDouble)
     .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),             // Random X, Y, Z direction components.
                  fuzztest::OneOf(fuzztest::InRange(-150.0, 76.0),     // MRP norms from 1e-150 to 1e76.
                                  fuzztest::InRange(-0.001, 0.001)));  // Rotations from 179.74 to 180.26 deg.
+
+// ---------------------------------------------------------------------------
+// mrpToDcm: converts an MRP set to its direction cosine matrix.
+// ---------------------------------------------------------------------------
+template <typename T>
+void mrpToDcmProperties(const Eigen::Vector3<T>& direction, T log10MrpNorm) {
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix<T, 3, 3>;
+
+    // The zero MRP has no rotation axis; it is covered by the identity GTest.
+    if (direction.isZero(T(0))) {
+        return;
+    }
+
+    Vec3 const axis = direction.stableNormalized();
+    Vec3 const mrp = axis * std::pow(T(10), log10MrpNorm);
+    Mat3 const dcm = mrpToDcm(mrp);
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    // The DCM must contain only finite values.
+    ASSERT_TRUE(dcm.allFinite());
+
+    // The DCM must match the rotation by 4 atan(|mrp|) about the MRP axis, built independently with Eigen::AngleAxis.
+    // AngleAxis gives the active rotation matrix; the DCM is its transpose. A match also makes the DCM orthonormal
+    // with determinant +1.
+    T const angle = T(4) * std::atan(mrp.stableNorm());
+    Mat3 const expectedDcm = Eigen::AngleAxis<T>(angle, axis).toRotationMatrix().transpose();
+    EXPECT_TRUE(dcm.isApprox(expectedDcm, tol));
+}
+
+void mrpToDcmPropertiesFloat(const Eigen::Vector3f& direction, float log10MrpNorm) {
+    mrpToDcmProperties(direction, log10MrpNorm);
+}
+
+void mrpToDcmPropertiesDouble(const Eigen::Vector3d& direction, double log10MrpNorm) {
+    mrpToDcmProperties(direction, log10MrpNorm);
+}
+
+// The largest norms stay below the mrpToDcm overflow (|mrp| ~4e9 in float, ~1e77 in double).
+// The second range (MRP norms 0.9977 to 1.0023) tests rotations close to 180 deg, where the MRP norm is 1.
+FUZZ_TEST(RigidBodyKinematicsFuzz, mrpToDcmPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),             // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-18.0F, 9.0F),       // MRP norms from 1e-18 to 1e9.
+                                 fuzztest::InRange(-0.001F, 0.001F)));  // Rotations from 179.74 to 180.26 deg.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, mrpToDcmPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),             // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-150.0, 76.0),     // MRP norms from 1e-150 to 1e76.
+                                 fuzztest::InRange(-0.001, 0.001)));  // Rotations from 179.74 to 180.26 deg.
 }  // namespace

@@ -554,17 +554,23 @@ Eigen::Matrix3<ScalarT> tildeMatrix(const Eigen::Vector3<ScalarT>& vector) {
 }
 
 /**
- * Return the direction cosine matrix in terms of an mrp vector.
- * @param mrp
- * @return Eigen::Matrix3d
+ * Convert an MRP set to its direction cosine matrix.
+ * [C] = I + (8 [sigma~]^2 - 4 (1 - |sigma|^2) [sigma~]) / (1 + |sigma|^2)^2
+ *
+ * Principal and shadow MRP sets produce the same DCM.
+ * The denominator (1 + |sigma|^2)^2 overflows above |sigma| ~4e9 in float (~1e77 in double); the output is
+ * non-finite above ~5e12 in float (~4e102 in double). Principal MRP sets (|sigma| <= 1) are far from both limits.
+ *
+ * @param mrp [-] MRP set
+ * @return [-] 3x3 direction cosine matrix
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> mrpToDcm(const Eigen::Vector3<ScalarT>& mrp) {
-    Eigen::Matrix3<ScalarT> dcm;
-
-    Eigen::Matrix3<ScalarT> t = tildeMatrix(mrp);
-    ScalarT denom = (1.0 + mrp.dot(mrp));
-    dcm = (8.0 * t * t - 4.0 * (1.0 - mrp.dot(mrp)) * t) / (denom * denom);
+    const ScalarT mrpSquared = mrp.squaredNorm();
+    const Eigen::Matrix3<ScalarT> tilde = tildeMatrix(mrp);
+    const ScalarT denom = ScalarT(1) + mrpSquared;
+    const Eigen::Matrix3<ScalarT> dcm =
+        (ScalarT(8) * tilde * tilde - ScalarT(4) * (ScalarT(1) - mrpSquared) * tilde) / (denom * denom);
 
     return dcm + Eigen::Matrix3<ScalarT>::Identity();
 }
