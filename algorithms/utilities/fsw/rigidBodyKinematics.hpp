@@ -319,17 +319,25 @@ Eigen::Vector3<ScalarT> dcmToMrp(const Eigen::Matrix3<ScalarT>& dcm) {
  * sine and the cosine of the half angle. This gives two results.
  *
  * First, for a rotation of less than approximately 2e-8 radians, ep(0) becomes equal to 1. Then
- * acos gives 0 and the previous code gave a zero vector. atan2 calculates the angle from the vector
+ * 2*acos(ep(0)) would give a zero vector. atan2 calculates the angle from the vector
  * part and keeps the rotation. Second, atan2 accepts an ep(0) that is more than 1. A decode step or
  * a normalize step can make this value, and acos gives NaN for it.
  *
- * The result is a zero vector only when the vector part is exactly zero, which is the identity
- * quaternion. Every other input has a direction, and the division by the norm gives a unit vector
+ * The result is a zero vector only when the vector part is exactly zero. With a nonzero ep(0), such a
+ * quaternion is a rotation of 0 deg (ep(0) > 0) or 360 deg (ep(0) < 0). An all-zero quaternion also
+ * returns zero, but it is not a valid rotation.
+ * Every other input has a direction, and the division by the norm gives a unit vector
  * for it. stableNorm scales the terms before it squares them, so the norm of a vector part that is
  * near the smallest number of the scalar type is not zero.
  *
- * @param ep Euler parameters, scalar part first
- * @return Eigen::Vector3d
+ * The function deliberately keeps the sign of ep(0) and does not switch to the short rotation:
+ * q and -q give the same rotation with angles phi and 2*pi - phi about opposite axes. Callers that
+ * need the short rotation must flip the sign themselves. For a nonzero vector part the angle is in
+ * (0, 2*pi), up to rounding. The result does not depend on the norm of ep, so ep does not need to
+ * be unit length.
+ *
+ * @param ep [-] Euler parameters (q0, q1, q2, q3), scalar first
+ * @return [-] principal rotation vector, angle times unit axis; zero if the vector part is zero
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> epToPrv(const Eigen::Vector4<ScalarT>& ep) {

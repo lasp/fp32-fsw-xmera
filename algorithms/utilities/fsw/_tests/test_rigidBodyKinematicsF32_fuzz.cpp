@@ -7,6 +7,7 @@
 #include <Eigen/Dense>
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <type_traits>
 
 namespace {
@@ -436,4 +437,67 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, epToMrpPropertiesDouble)
     .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),             // Random X, Y, Z direction components.
                  fuzztest::OneOf(fuzztest::InRange(-150.0, 150.0),    // MRP norms from 1e-150 to 1e150.
                                  fuzztest::InRange(-0.001, 0.001)));  // Rotations from 179.74 to 180.26 deg.
+
+// ---------------------------------------------------------------------------
+// epToPrv: converts Euler parameters to the principal rotation vector, keeping the sign of q0.
+// ---------------------------------------------------------------------------
+template <typename T>
+void epToPrvProperties(const Eigen::Vector3<T>& direction, T log10Angle, T log10EpScale) {
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    // A zero direction gives a zero vector part, covered by the zero vector part GTest.
+    if (direction.isZero(T(0))) {
+        return;
+    }
+
+    // Euler parameters of the rotation, scaled: q = scale * (cos(phi / 2), sin(phi / 2) * axis).
+    Vec3 const axis = direction.stableNormalized();
+    T const phi = std::pow(T(10), log10Angle);
+    Vec4 ep;
+    ep << std::cos(phi / T(2)), std::sin(phi / T(2)) * axis;
+    ep *= std::pow(T(10), log10EpScale);
+
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    Vec3 const resultPrv = epToPrv(ep);
+
+    // -q describes the same attitude: epToPrv keeps the sign of q0, so it gives the long rotation about -axis.
+    Vec4 const negatedEp = -ep;
+    Vec3 const resultLongPrv = epToPrv(negatedEp);
+
+    // The rotation vectors must contain only finite values.
+    ASSERT_TRUE(resultPrv.allFinite());
+    ASSERT_TRUE(resultLongPrv.allFinite());
+
+    // q gives phi * axis. Dividing by the angle compares the result relative to its own size.
+    EXPECT_TRUE((resultPrv / phi).isApprox(axis, tol));
+
+    // -q turns about the opposite axis.
+    EXPECT_TRUE(resultLongPrv.stableNormalized().isApprox(-axis, tol));
+
+    // The short and long rotation angles add up to a full turn.
+    T const twoPi = T(2) * std::numbers::pi_v<T>;
+    EXPECT_NEAR(resultPrv.stableNorm() + resultLongPrv.stableNorm(), twoPi, tol * twoPi);
+}
+
+void epToPrvPropertiesFloat(const Eigen::Vector3f& direction, float log10Angle, float log10EpScale) {
+    epToPrvProperties(direction, log10Angle, log10EpScale);
+}
+
+void epToPrvPropertiesDouble(const Eigen::Vector3d& direction, double log10Angle, double log10EpScale) {
+    epToPrvProperties(direction, log10Angle, log10EpScale);
+}
+
+// The largest angle, 10^0.79 = 6.17 rad, stays below 2 pi. With -q, the long rotations 2 pi - phi cover the rest up
+// to 2 pi. The scale keeps the vector part above the smallest normal number (1e-38 in float, 1e-308 in double).
+FUZZ_TEST(RigidBodyKinematicsFuzz, epToPrvPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // Random X, Y, Z direction components.
+                 fuzztest::InRange(-25.0F, 0.79F),           // Rotation angles from 1e-25 to 6.17 rad.
+                 fuzztest::InRange(-10.0F, 10.0F));          // Euler parameter norms from 1e-10 to 1e10.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, epToPrvPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),  // Random X, Y, Z direction components.
+                 fuzztest::InRange(-200.0, 0.79),          // Rotation angles from 1e-200 to 6.17 rad.
+                 fuzztest::InRange(-100.0, 100.0));        // Euler parameter norms from 1e-100 to 1e100.
 }  // namespace

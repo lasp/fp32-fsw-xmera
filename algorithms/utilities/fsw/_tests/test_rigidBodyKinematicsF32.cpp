@@ -1234,7 +1234,10 @@ TYPED_TEST(RepresentationTransformTest, epToMrpOfZeroIsZero) {
     EXPECT_EQ(epToMrp(Vec4(Vec4::Zero())), Vec3::Zero());
 }
 
-TYPED_TEST(RepresentationTransformTest, epToPrv) {
+// ---------------------------------------------------------------------------
+// epToPrv: converts Euler parameters to the principal rotation vector, keeping the sign of q0.
+// ---------------------------------------------------------------------------
+TYPED_TEST(RepresentationTransformTest, epToPrvMatchesCReference) {
     using T = TypeParam;
     using Vec4 = Eigen::Matrix<T, 4, 1>;
     using Vec3 = Eigen::Matrix<T, 3, 1>;
@@ -1258,6 +1261,123 @@ TYPED_TEST(RepresentationTransformTest, epToPrv) {
 
     T const tolerance = std::max(rotationParameterTolerance(expected), TestFixture::accuracy);
     EXPECT_LT(relativeErrorNorm(result, expected), tolerance);
+}
+
+// The identity Euler parameters (1, 0, 0, 0) give the zero principal rotation vector.
+TYPED_TEST(RepresentationTransformTest, epToPrvIdentityIsZero) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    Vec4 const identity(T(1), T(0), T(0), T(0));
+    EXPECT_EQ(epToPrv(identity), Vec3::Zero());
+}
+
+// Verify EP-to-PRV conversion for a 90-degree rotation about X, given as q and as -q.
+TYPED_TEST(RepresentationTransformTest, epToPrv90DegX) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    // Euler parameters of a 90-degree rotation about X: q = (cos(phi / 2), sin(phi / 2) * axis).
+    Vec3 const axis(T(1), T(0), T(0));
+    T const phi = T(90) * std::numbers::pi_v<T> / T(180);
+    Vec4 ep;
+    ep << std::cos(phi / T(2)), std::sin(phi / T(2)) * axis;
+
+    // Calculate the expected principal rotation vector using prv = phi * axis.
+    EXPECT_TRUE(epToPrv(ep).isApprox(phi * axis, tol));
+
+    // epToPrv keeps the sign of q0, so -q gives the long rotation: 360 - 90 = 270 degrees about -X.
+    Vec4 const negatedEp = -ep;
+    T const longPhi = T(270) * std::numbers::pi_v<T> / T(180);
+    EXPECT_TRUE(epToPrv(negatedEp).isApprox(longPhi * -axis, tol));
+}
+
+// A 270-degree rotation about X gives q0 = cos(135 deg) < 0. epToPrv does not switch to the short
+// rotation, so the result is the 270-degree rotation vector itself.
+TYPED_TEST(RepresentationTransformTest, epToPrv270DegX) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    // Euler parameters of a 270-degree rotation about X: q = (cos(phi / 2), sin(phi / 2) * axis).
+    Vec3 const axis(T(1), T(0), T(0));
+    T const phi = T(270) * std::numbers::pi_v<T> / T(180);
+    Vec4 ep270AboutX;
+    ep270AboutX << std::cos(phi / T(2)), std::sin(phi / T(2)) * axis;
+
+    EXPECT_TRUE(epToPrv(ep270AboutX).isApprox(phi * axis, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Verify 180-degree rotations about each axis: q0 = 0 and the rotation vector is pi times the axis.
+TYPED_TEST(RepresentationTransformTest, epToPrv180Degrees) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+    T const pi = std::numbers::pi_v<T>;
+
+    Vec4 const ep180AboutX(T(0), T(1), T(0), T(0));
+    Vec4 const ep180AboutY(T(0), T(0), T(1), T(0));
+    Vec4 const ep180AboutZ(T(0), T(0), T(0), T(1));
+
+    EXPECT_TRUE(epToPrv(ep180AboutX).isApprox(pi * Vec3::UnitX(), tol));
+    EXPECT_TRUE(epToPrv(ep180AboutY).isApprox(pi * Vec3::UnitY(), tol));
+    EXPECT_TRUE(epToPrv(ep180AboutZ).isApprox(pi * Vec3::UnitZ(), tol));
+}
+
+// Verify that epToPrv preserves a very small rotation about the Z-axis.
+// At 1e-8 radians, q0 rounds to 1, so using acos(q0) would lose the rotation.
+TYPED_TEST(RepresentationTransformTest, epToPrvSmallRotation) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    T const angle = T(1e-8);
+    Vec3 const axis(T(0), T(0), T(1));
+
+    // Construct the quaternion using q = (cos(angle / 2), sin(angle / 2) * axis).
+    Vec4 ep;
+    ep << std::cos(angle / T(2)), std::sin(angle / T(2)) * axis;
+
+    // Calculate the expected PRV using prv = angle * axis.
+    Vec3 const expected = angle * axis;
+
+    EXPECT_TRUE(epToPrv(ep).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Verify that scaling the Euler parameters by a positive factor does not
+// change the resulting PRV.
+TYPED_TEST(RepresentationTransformTest, epToPrvNonUnitEp) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    Vec3 const axis(T(1), T(0), T(0));
+    T const phi = T(90) * std::numbers::pi_v<T> / T(180);
+    Vec4 ep;
+    ep << std::cos(phi / T(2)), std::sin(phi / T(2)) * axis;
+
+    Vec4 const scaledEp = T(2) * ep;
+
+    // The scaled Euler parameters must preserve the original rotation.
+    EXPECT_TRUE(epToPrv(scaledEp).isApprox(phi * axis, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// A zero vector part gives the zero rotation vector: (-1, 0, 0, 0) is a 360-degree rotation, and the all-zero
+// quaternion is not a valid rotation but returns zero without an error.
+TYPED_TEST(RepresentationTransformTest, epToPrvZeroVectorPartIsZero) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+
+    Vec4 const ep360(T(-1), T(0), T(0), T(0));
+    EXPECT_EQ(epToPrv(ep360), Vec3::Zero());
+    EXPECT_EQ(epToPrv(Vec4(Vec4::Zero())), Vec3::Zero());
 }
 
 TYPED_TEST(RepresentationTransformTest, epToEulerAngles321) {
@@ -1649,10 +1769,10 @@ TYPED_TEST(RepresentationDerivativesTest, tildeMatrix) {
 }
 
 // ---------------------------------------------------------------------------
-// Near-identity conditioning regressions (compared against analytic truth).
-// These exercise the regime where the old 2*acos(cos(phi/2)) formulation loses
-// precision (cos(phi/2) rounds to 1.0) while 2*atan2(|vec|, scalar) stays exact.
-// kCondTol is far tighter than the old acos error (~1e-11) yet loose vs atan2 (~1e-16).
+// Near-identity accuracy, compared against analytic truth.
+// Near identity cos(phi/2) rounds to 1.0, so 2*acos(cos(phi/2)) would lose the angle, while
+// 2*atan2(|vec|, scalar) keeps it. kCondTol is far tighter than the acos error (~1e-11) and loose
+// compared with the atan2 error (~1e-16).
 // ---------------------------------------------------------------------------
 namespace {
 constexpr double kCondTol = 1e-12;
@@ -1750,9 +1870,8 @@ TEST(Euler321NearGimbalLock, ExactNinetyStaysFinite) {
 }
 
 // ---------------------------------------------------------------------------
-// C/C++ parity at near-identity / near-singular inputs. These agree only because the
-// C analogs were switched to atan2 in lockstep; with the old acos/asin C reference they
-// would diverge here.
+// C/C++ parity at near-identity and near-singular inputs. The C and C++ functions both use
+// atan2, so they agree here; an acos or asin version would not.
 // ---------------------------------------------------------------------------
 TEST(CCppParityNearIdentity, EpToPrvSmallAngle) {
     double const phi = 1e-7;
