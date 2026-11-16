@@ -828,6 +828,144 @@ TYPED_TEST(DcmToRepresentationTest, mrpToDcmSmallRotation) {
     EXPECT_TRUE((mrpToDcm(mrp) - identity).isApprox(expected - identity, T(10) * std::numeric_limits<T>::epsilon()));
 }
 
+// ---------------------------------------------------------------------------
+// dcmToEp: converts a DCM to unit Euler parameters (scalar first) with q0 >= 0.
+// ---------------------------------------------------------------------------
+TYPED_TEST(DcmToRepresentationTest, dcmToEpMatchesCReference) {
+    using T = TypeParam;
+    Eigen::Matrix<T, 3, 3> dcm = rotationMatrix(this->dist(this->generator), 3) *
+                                 rotationMatrix(this->dist(this->generator), 2) *
+                                 rotationMatrix(this->dist(this->generator), 1);
+
+    T dcmArray[3][3];
+    eigenMatrix3ToCArray(dcm, dcmArray);
+    T expectedArray[4] = {};
+    if constexpr (std::is_same_v<T, float>) {
+        C2EP_float(dcmArray, expectedArray);
+    } else {
+        C2EP(dcmArray, expectedArray);
+    }
+    auto expected = Eigen::Map<Eigen::Matrix<T, 4, 1>>(expectedArray);
+
+    auto const identity = TestFixture::Mat3::Identity();
+    T const orthoTolerance = std::max(rotationParameterTolerance(dcm), this->accuracy);
+    EXPECT_LT(relativeErrorNorm(dcm * dcm.transpose(), identity), orthoTolerance);
+
+    T const valueTolerance = std::max(rotationParameterTolerance(expected), this->accuracy);
+    EXPECT_LT(relativeErrorNorm(dcmToEp(dcm), expected), valueTolerance);
+}
+
+// The identity DCM gives the identity Euler parameters (1, 0, 0, 0).
+TYPED_TEST(DcmToRepresentationTest, dcmToEpIdentity) {
+    using T = TypeParam;
+    using Vec4 = Eigen::Vector4<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    Mat3 const identity = Mat3::Identity();
+    EXPECT_EQ(dcmToEp(identity), Vec4(T(1), T(0), T(0), T(0)));
+}
+
+// Verify DCM-to-Euler-parameter conversion for a 90-degree rotation about X.
+TYPED_TEST(DcmToRepresentationTest, dcmToEp90DegX) {
+    using T = TypeParam;
+    using Vec4 = Eigen::Vector4<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    // DCM representing a 90-degree rotation about X.
+    Mat3 dcm;
+    dcm << T(1), T(0), T(0), T(0), T(0), T(1), T(0), T(-1), T(0);
+
+    // Calculate the expected Euler parameters using q = (cos(phi / 2), sin(phi / 2) * axis).
+    T const phi = T(90) * std::numbers::pi_v<T> / T(180);
+    Vec4 const expected(std::cos(phi / T(2)), std::sin(phi / T(2)), T(0), T(0));
+
+    EXPECT_TRUE(dcmToEp(dcm).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// A 270-degree rotation about X gives q0 = cos(135 deg) < 0. dcmToEp returns q0 >= 0, so it must return
+// the negated set, which describes the same rotation.
+TYPED_TEST(DcmToRepresentationTest, dcmToEp270DegX) {
+    using T = TypeParam;
+    using Vec4 = Eigen::Vector4<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    // DCM representing a 270-degree rotation about X.
+    Mat3 dcm;
+    dcm << T(1), T(0), T(0), T(0), T(0), T(-1), T(0), T(1), T(0);
+
+    // Calculate q = (cos(phi / 2), sin(phi / 2) * axis) and negate it so that q0 >= 0.
+    T const phi = T(270) * std::numbers::pi_v<T> / T(180);
+    Vec4 const expected = -Vec4(std::cos(phi / T(2)), std::sin(phi / T(2)), T(0), T(0));
+
+    EXPECT_TRUE(dcmToEp(dcm).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Verify 180-degree rotations about each axis: q0 = 0 and the vector part is the rotation axis.
+// Each case uses a different branch of Stanley's method. Either sign of the axis describes the same rotation.
+TYPED_TEST(DcmToRepresentationTest, dcmToEp180Degrees) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    Mat3 const dcm180AboutX = Vec3(T(1), T(-1), T(-1)).asDiagonal();
+    Mat3 const dcm180AboutY = Vec3(T(-1), T(1), T(-1)).asDiagonal();
+    Mat3 const dcm180AboutZ = Vec3(T(-1), T(-1), T(1)).asDiagonal();
+
+    EXPECT_EQ(dcmToEp(dcm180AboutX).cwiseAbs(), Vec4(T(0), T(1), T(0), T(0)));
+    EXPECT_EQ(dcmToEp(dcm180AboutY).cwiseAbs(), Vec4(T(0), T(0), T(1), T(0)));
+    EXPECT_EQ(dcmToEp(dcm180AboutZ).cwiseAbs(), Vec4(T(0), T(0), T(0), T(1)));
+}
+
+// Verify 150-degree rotations whose largest Euler parameter is q1, q2 or q3, so each of those branches of Stanley's
+// method runs with non-zero off-diagonal terms. The negative axis component in the q1 and q3 cases makes those
+// branches flip the sign of the set to keep q0 >= 0; the all-positive q2 case needs no flip.
+TYPED_TEST(DcmToRepresentationTest, dcmToEpLargeRotations) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    T const phi = T(150) * std::numbers::pi_v<T> / T(180);
+    Vec3 const axisForQ1(T(-0.8), T(0.48), T(0.36));
+    Vec3 const axisForQ2(T(0.36), T(0.8), T(0.48));
+    Vec3 const axisForQ3(T(0.48), T(0.36), T(-0.8));
+
+    for (Vec3 const& axis : {axisForQ1, axisForQ2, axisForQ3}) {
+        // DCM of the rotation, built independently with Eigen::AngleAxis (the DCM is the transpose of its matrix).
+        Mat3 const dcm = Eigen::AngleAxis<T>(phi, axis).toRotationMatrix().transpose();
+
+        // Calculate the expected Euler parameters using q = (cos(phi / 2), sin(phi / 2) * axis); q0 = cos(75 deg) > 0.
+        Vec4 expected;
+        expected << std::cos(phi / T(2)), std::sin(phi / T(2)) * axis;
+
+        EXPECT_TRUE(dcmToEp(dcm).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+    }
+}
+
+// Verify that dcmToEp preserves a very small rotation about the Z-axis.
+// At 1e-8 radians, cos(angle) rounds to 1 in float and double, so the rotation is
+// carried only by the off-diagonal DCM elements.
+TYPED_TEST(DcmToRepresentationTest, dcmToEpSmallRotation) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    T const angle = T(1e-8);
+
+    // Construct the DCM for a small rotation about Z.
+    Mat3 dcm;
+    dcm << std::cos(angle), std::sin(angle), T(0), -std::sin(angle), std::cos(angle), T(0), T(0), T(0), T(1);
+
+    // Expected vector part: sin(angle / 2) * axis, about 5e-9 about Z.
+    Vec3 const expectedVector(T(0), T(0), std::sin(angle / T(2)));
+
+    // Compare the vector part relative to its own size, so the small rotation is not lost next to q0 = 1.
+    Vec4 const ep = dcmToEp(dcm);
+    EXPECT_TRUE(ep.template tail<3>().isApprox(expectedVector, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
 TYPED_TEST(DcmToRepresentationTest, dcmToPrv) {
     using T = TypeParam;
     Eigen::Matrix<T, 3, 3> dcm = rotationMatrix(this->dist(this->generator), 3) *
@@ -922,30 +1060,6 @@ TYPED_TEST(DcmToRepresentationTest, eulerAngles321ToDcm) {
 
     T const valueTolerance = std::max(rotationParameterTolerance(expected), this->accuracy);
     EXPECT_LT(relativeErrorNorm(result, expected), valueTolerance);
-}
-
-TYPED_TEST(DcmToRepresentationTest, dcmToEulerParameter) {
-    using T = TypeParam;
-    Eigen::Matrix<T, 3, 3> dcm = rotationMatrix(this->dist(this->generator), 3) *
-                                 rotationMatrix(this->dist(this->generator), 2) *
-                                 rotationMatrix(this->dist(this->generator), 1);
-
-    T dcmArray[3][3];
-    eigenMatrix3ToCArray(dcm, dcmArray);
-    T expectedArray[4] = {};
-    if constexpr (std::is_same_v<T, float>) {
-        C2EP_float(dcmArray, expectedArray);
-    } else {
-        C2EP(dcmArray, expectedArray);
-    }
-    auto expected = Eigen::Map<Eigen::Matrix<T, 4, 1>>(expectedArray);
-
-    auto const identity = TestFixture::Mat3::Identity();
-    T const orthoTolerance = std::max(rotationParameterTolerance(dcm), this->accuracy);
-    EXPECT_LT(relativeErrorNorm(dcm * dcm.transpose(), identity), orthoTolerance);
-
-    T const valueTolerance = std::max(rotationParameterTolerance(expected), this->accuracy);
-    EXPECT_LT(relativeErrorNorm(dcmToEp(dcm), expected), valueTolerance);
 }
 
 TYPED_TEST(DcmToRepresentationTest, eulerParameterToDcm) {

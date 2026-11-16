@@ -298,4 +298,72 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, mrpToDcmPropertiesDouble)
     .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),             // Random X, Y, Z direction components.
                  fuzztest::OneOf(fuzztest::InRange(-150.0, 76.0),     // MRP norms from 1e-150 to 1e76.
                                  fuzztest::InRange(-0.001, 0.001)));  // Rotations from 179.74 to 180.26 deg.
+
+// ---------------------------------------------------------------------------
+// dcmToEp: converts a DCM to unit Euler parameters (scalar first) with q0 >= 0.
+// ---------------------------------------------------------------------------
+template <typename T>
+void dcmToEpProperties(const Eigen::Vector3<T>& direction, T log10MrpNorm) {
+    using Vec3 = Eigen::Vector3<T>;
+    using Vec4 = Eigen::Vector4<T>;
+    using Mat3 = Eigen::Matrix<T, 3, 3>;
+
+    // A zero direction produces a zero MRP, representing the identity rotation.
+    Vec3 inputMrp = Vec3::Zero();
+    if (!direction.isZero(T(0))) {
+        inputMrp = direction.stableNormalized() * std::pow(T(10), log10MrpNorm);
+    }
+
+    Mat3 const dcm = mrpToDcm(inputMrp);
+    Vec4 const ep = dcmToEp(dcm);
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    // Verify that the Euler parameters contain only finite values.
+    ASSERT_TRUE(ep.allFinite());
+
+    // The scalar part q0 is never negative.
+    EXPECT_GE(ep(0), T(0));
+
+    // The Euler parameters have unit norm.
+    EXPECT_NEAR(ep.norm(), T(1), tol);
+
+    // Vector part of the Euler parameters of the input MRP: q_vec = 2 mrp / (1 + |mrp|^2). With the unit norm and
+    // q0 >= 0, the vector part fixes the whole set. It is compared relative to its own size, so small rotations count.
+    Vec3 const expectedVector = T(2) * inputMrp / (T(1) + inputMrp.squaredNorm());
+    Vec3 const resultVector = ep.template tail<3>();
+
+    T const inputMrpNorm = inputMrp.stableNorm();
+    if (inputMrpNorm < T(1) - tol) {
+        // Below norm 1 (rotations under 180 degrees), q0 > 0 and the vector part is unchanged.
+        EXPECT_TRUE(resultVector.isApprox(expectedVector, tol));
+    } else if (inputMrpNorm > T(1) + tol) {
+        // Above norm 1, q0 would be negative, so the whole set is negated to keep q0 >= 0.
+        EXPECT_TRUE(resultVector.isApprox(-expectedVector, tol));
+    } else {
+        // Near the 180-degree boundary q0 is about 0, so rounding can decide the sign.
+        // Accept either equivalent set within tolerance.
+        EXPECT_TRUE(resultVector.isApprox(expectedVector, tol) || resultVector.isApprox(-expectedVector, tol));
+    }
+}
+
+void dcmToEpPropertiesFloat(const Eigen::Vector3f& direction, float log10MrpNorm) {
+    dcmToEpProperties(direction, log10MrpNorm);
+}
+
+void dcmToEpPropertiesDouble(const Eigen::Vector3d& direction, double log10MrpNorm) {
+    dcmToEpProperties(direction, log10MrpNorm);
+}
+
+// The DCMs are built from MRPs. The largest norms stay below the mrpToDcm overflow (|mrp| ~4e9 in float, ~1e77 in
+// double). The second range (MRP norms 0.9977 to 1.0023) tests rotations close to 180 deg, where the q1, q2 and q3
+// branches of Stanley's method are used.
+FUZZ_TEST(RigidBodyKinematicsFuzz, dcmToEpPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),             // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-18.0F, 9.0F),       // MRP norms from 1e-18 to 1e9.
+                                 fuzztest::InRange(-0.001F, 0.001F)));  // Rotations from 179.74 to 180.26 deg.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, dcmToEpPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),             // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-150.0, 76.0),     // MRP norms from 1e-150 to 1e76.
+                                 fuzztest::InRange(-0.001, 0.001)));  // Rotations from 179.74 to 180.26 deg.
 }  // namespace

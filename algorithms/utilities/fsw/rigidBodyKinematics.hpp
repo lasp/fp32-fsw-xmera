@@ -246,53 +246,55 @@ Eigen::Matrix3<ScalarT> bmatEulerAngles321(const Eigen::Vector3<ScalarT>& euler3
 }
 
 /**
- * Translate the direction cosine matrix into the corresponding Euler parameter vector,
- * where the first component of is the non-dimensional Euler parameter >= 0. Transformation is done
- * using the Stanley method.
- * @param dcm
- * @return Eigen::Vector4d
+ * Convert a direction cosine matrix to Euler parameters using Stanley's method.
+ * The largest of the four squared Euler parameters is found first and the other three are
+ * computed from it, which avoids dividing by a small number at any rotation angle.
+ *
+ * @param dcm [-] direction cosine matrix; must be a proper rotation (orthonormal, det = +1)
+ * @return [-] unit Euler parameters (q0, q1, q2, q3), scalar first, with q0 >= 0
  */
 template <typename ScalarT>
 Eigen::Vector4<ScalarT> dcmToEp(const Eigen::Matrix3<ScalarT>& dcm) {
+    const ScalarT trace = dcm.trace();
     Eigen::Vector4<ScalarT> ep;
 
-    ep(0) = (1.0 + dcm.trace()) / 4.0;
-    ep(1) = (1.0 + 2.0 * dcm(0, 0) - dcm.trace()) / 4.0;
-    ep(2) = (1.0 + 2.0 * dcm(1, 1) - dcm.trace()) / 4.0;
-    ep(3) = (1.0 + 2.0 * dcm(2, 2) - dcm.trace()) / 4.0;
+    ep(0) = (ScalarT(1) + trace) / ScalarT(4);
+    ep(1) = (ScalarT(1) + ScalarT(2) * dcm(0, 0) - trace) / ScalarT(4);
+    ep(2) = (ScalarT(1) + ScalarT(2) * dcm(1, 1) - trace) / ScalarT(4);
+    ep(3) = (ScalarT(1) + ScalarT(2) * dcm(2, 2) - trace) / ScalarT(4);
 
-    if (ScalarT maxVal = ep.maxCoeff(); maxVal == ep(0)) {
+    if (const ScalarT maxVal = ep.maxCoeff(); maxVal == ep(0)) {
         ep(0) = std::sqrt(ep(0));
-        ep(1) = (dcm(1, 2) - dcm(2, 1)) / (4.0 * ep(0));
-        ep(2) = (dcm(2, 0) - dcm(0, 2)) / (4.0 * ep(0));
-        ep(3) = (dcm(0, 1) - dcm(1, 0)) / (4.0 * ep(0));
+        ep(1) = (dcm(1, 2) - dcm(2, 1)) / (ScalarT(4) * ep(0));
+        ep(2) = (dcm(2, 0) - dcm(0, 2)) / (ScalarT(4) * ep(0));
+        ep(3) = (dcm(0, 1) - dcm(1, 0)) / (ScalarT(4) * ep(0));
     } else if (maxVal == ep(1)) {
         ep(1) = std::sqrt(ep(1));
-        ep(0) = (dcm(1, 2) - dcm(2, 1)) / (4.0 * ep(1));
-        if (ep(0) < 0.0) {
+        ep(0) = (dcm(1, 2) - dcm(2, 1)) / (ScalarT(4) * ep(1));
+        if (ep(0) < ScalarT(0)) {
             ep(1) = -ep(1);
             ep(0) = -ep(0);
         }
-        ep(2) = (dcm(0, 1) + dcm(1, 0)) / (4.0 * ep(1));
-        ep(3) = (dcm(2, 0) + dcm(0, 2)) / (4.0 * ep(1));
+        ep(2) = (dcm(0, 1) + dcm(1, 0)) / (ScalarT(4) * ep(1));
+        ep(3) = (dcm(2, 0) + dcm(0, 2)) / (ScalarT(4) * ep(1));
     } else if (maxVal == ep(2)) {
         ep(2) = std::sqrt(ep(2));
-        ep(0) = (dcm(2, 0) - dcm(0, 2)) / (4.0 * ep(2));
-        if (ep(0) < 0.0) {
+        ep(0) = (dcm(2, 0) - dcm(0, 2)) / (ScalarT(4) * ep(2));
+        if (ep(0) < ScalarT(0)) {
             ep(2) = -ep(2);
             ep(0) = -ep(0);
         }
-        ep(1) = (dcm(0, 1) + dcm(1, 0)) / (4.0 * ep(2));
-        ep(3) = (dcm(1, 2) + dcm(2, 1)) / (4.0 * ep(2));
+        ep(1) = (dcm(0, 1) + dcm(1, 0)) / (ScalarT(4) * ep(2));
+        ep(3) = (dcm(1, 2) + dcm(2, 1)) / (ScalarT(4) * ep(2));
     } else if (maxVal == ep(3)) {
         ep(3) = std::sqrt(ep(3));
-        ep(0) = (dcm(0, 1) - dcm(1, 0)) / (4.0 * ep(3));
-        if (ep(0) < 0.0) {
+        ep(0) = (dcm(0, 1) - dcm(1, 0)) / (ScalarT(4) * ep(3));
+        if (ep(0) < ScalarT(0)) {
             ep(3) = -ep(3);
             ep(0) = -ep(0);
         }
-        ep(1) = (dcm(2, 0) + dcm(0, 2)) / (4.0 * ep(3));
-        ep(2) = (dcm(1, 2) + dcm(2, 1)) / (4.0 * ep(3));
+        ep(1) = (dcm(2, 0) + dcm(0, 2)) / (ScalarT(4) * ep(3));
+        ep(2) = (dcm(1, 2) + dcm(2, 1)) / (ScalarT(4) * ep(3));
     }
 
     return ep;
