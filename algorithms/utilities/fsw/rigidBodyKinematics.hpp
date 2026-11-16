@@ -885,32 +885,31 @@ Eigen::Vector3<ScalarT> addPrv(const Eigen::Vector3<ScalarT>& prv1, const Eigen:
 }
 
 /**
- * Provide the mrp parameter vector which corresponds to performing to successive rotations q1 and q2
- * @param mrp1 Eigen::Vector3d
- * @param mrp2 Eigen::Vector3d
- * @return Eigen::Vector3d
+ * Compute the MRP set of two successive rotations: first mrp1, then mrp2 relative to the frame that
+ * mrp1 reaches. For example, sigma_BN = addMrp(sigma_PN, sigma_BP).
+ * If the denominator is near zero, the shadow set of mrp1 is used instead.
+ * The result represents the shortest total rotation. Near 180 deg both MRP sets are almost equally
+ * short, so a small change in the inputs can switch the result to the other set.
+ *
+ * @param mrp1 [-] MRP set of the first rotation, frame 1 relative to the reference frame
+ * @param mrp2 [-] MRP set of the second rotation, frame 2 relative to frame 1
+ * @return [-] MRP set of frame 2 relative to the reference frame, norm <= 1
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> addMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen::Vector3<ScalarT>& mrp2) {
-    Eigen::Vector3<ScalarT> sigma1 = mrp1;
-    ScalarT denominator = 1.0 + mrp1.dot(mrp1) * mrp2.dot(mrp2) - 2.0 * mrp1.dot(mrp2);
-
+    const ScalarT mrp2Squared = mrp2.squaredNorm();
+    Eigen::Vector3<ScalarT> mrp1Shadow(mrp1);
+    ScalarT denominator = ScalarT(1) + mrp1.squaredNorm() * mrp2Squared - ScalarT(2) * mrp1.dot(mrp2);
     if (std::abs(denominator) < ScalarT(0.1)) {
-        sigma1 = mrpShadow<ScalarT>(mrp1);  // Shadow set
-        denominator = 1.0 + sigma1.dot(sigma1) * mrp2.dot(mrp2) - 2.0 * sigma1.dot(mrp2);
+        mrp1Shadow = mrpShadow(mrp1);  // Shadow set
+        denominator = ScalarT(1) + mrp1Shadow.squaredNorm() * mrp2Squared - ScalarT(2) * mrp1Shadow.dot(mrp2);
     }
-
     assert(std::abs(denominator) > Types<ScalarT>::eps);
-
-    Eigen::Vector3<ScalarT> numerator =
-        (1.0 - sigma1.dot(sigma1)) * mrp2 + (1.0 - mrp2.dot(mrp2)) * sigma1 - 2.0 * mrp2.cross(sigma1);
-
-    Eigen::Vector3<ScalarT> mrp = numerator / denominator;
-
-    // Map MRP to the inner set
-    mrp = mrpSwitch<ScalarT>(mrp, 1.0);
-
-    return mrp;
+    const Eigen::Vector3<ScalarT> numerator = (ScalarT(1) - mrp1Shadow.squaredNorm()) * mrp2 +
+                                              (ScalarT(1) - mrp2Squared) * mrp1Shadow -
+                                              ScalarT(2) * mrp2.cross(mrp1Shadow);
+    // Return the principal MRP set (norm <= 1).
+    return mrpSwitch(Eigen::Vector3<ScalarT>(numerator / denominator), ScalarT(1));
 }
 
 /**

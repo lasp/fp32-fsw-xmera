@@ -1579,6 +1579,99 @@ TYPED_TEST(RepresentationTransformTest, subMrpShadowBranch) {
     EXPECT_TRUE(subMrp(mrp1, mrp2).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
 }
 
+// ---------------------------------------------------------------------------
+// addMrp: computes the MRP set of two successive rotations, first mrp1, then mrp2.
+// ---------------------------------------------------------------------------
+// Adding the inverse rotation gives the zero MRP set, up to rounding.
+TYPED_TEST(RepresentationTransformTest, addMrpInverseIsZero) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const mrp(T(0.1), T(-0.2), T(0.3));
+    Vec3 const inverseMrp = -mrp;
+    EXPECT_TRUE(addMrp(mrp, inverseMrp).isZero(T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Adding the zero MRP set before or after a rotation returns the MRP set itself.
+TYPED_TEST(RepresentationTransformTest, addMrpWithZero) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const mrp(T(0.1), T(-0.2), T(0.3));
+    Vec3 const zeroMrp = Vec3::Zero();
+    EXPECT_EQ(addMrp(mrp, zeroMrp), mrp);
+    EXPECT_EQ(addMrp(zeroMrp, mrp), mrp);
+}
+
+// For rotations about the same axis, the angles add: 30 + 60 = 90 deg.
+TYPED_TEST(RepresentationTransformTest, addMrpSameAxis) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    T const degToRad = std::numbers::pi_v<T> / T(180);
+    Vec3 const axis(T(0.48), T(0.36), T(-0.8));
+
+    // Calculate the MRPs using sigma = axis * tan(phi / 4).
+    Vec3 const mrp1 = std::tan(T(30) * degToRad / T(4)) * axis;
+    Vec3 const mrp2 = std::tan(T(60) * degToRad / T(4)) * axis;
+    Vec3 const expected = std::tan(T(90) * degToRad / T(4)) * axis;
+
+    EXPECT_TRUE(addMrp(mrp1, mrp2).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// A total rotation above 180 deg is returned as its principal set: 150 + 150 = 300 deg about X is
+// the -60 deg rotation about X.
+TYPED_TEST(RepresentationTransformTest, addMrpReturnsPrincipalSet) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    T const degToRad = std::numbers::pi_v<T> / T(180);
+    Vec3 const axis(T(1), T(0), T(0));
+
+    // Calculate the MRPs using sigma = axis * tan(phi / 4).
+    Vec3 const mrp = std::tan(T(150) * degToRad / T(4)) * axis;
+    Vec3 const expected = std::tan(T(-60) * degToRad / T(4)) * axis;
+
+    EXPECT_TRUE(addMrp(mrp, mrp).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// The first rotation is mrp1 and the second is mrp2 relative to the frame mrp1 reaches, so the DCM of the result is
+// [C2] [C1]. The DCMs are built independently with Eigen::AngleAxis (the DCM is the transpose of its matrix).
+TYPED_TEST(RepresentationTransformTest, addMrpFrameOrder) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    T const degToRad = std::numbers::pi_v<T> / T(180);
+    Vec3 const axis1(T(1), T(0), T(0));
+    Vec3 const axis2(T(0), T(0.6), T(0.8));
+    T const phi1 = T(70) * degToRad;
+    T const phi2 = T(50) * degToRad;
+
+    Vec3 const mrp1 = std::tan(phi1 / T(4)) * axis1;
+    Vec3 const mrp2 = std::tan(phi2 / T(4)) * axis2;
+    Mat3 const dcm1 = Eigen::AngleAxis<T>(phi1, axis1).toRotationMatrix().transpose();
+    Mat3 const dcm2 = Eigen::AngleAxis<T>(phi2, axis2).toRotationMatrix().transpose();
+
+    EXPECT_TRUE(mrpToDcm(addMrp(mrp1, mrp2)).isApprox(dcm2 * dcm1, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Verify that addMrp uses the shadow MRP set when the denominator is near zero.
+// For mrp1 = X and mrp2 = 0.9 X, the original denominator is 0.01.
+// The equivalent principal total rotation has MRP -(0.1 / 1.9) * X.
+TYPED_TEST(RepresentationTransformTest, addMrpShadowBranch) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const axis(T(1), T(0), T(0));
+    Vec3 const mrp1 = axis;
+    Vec3 const mrp2 = T(0.9) * axis;
+
+    Vec3 const expected = -(T(1) - T(0.9)) / (T(1) + T(0.9)) * axis;
+
+    EXPECT_TRUE(addMrp(mrp1, mrp2).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
 TYPED_TEST(RepresentationTransformTest, epToEulerAngles321) {
     using T = TypeParam;
     using Vec4 = Eigen::Matrix<T, 4, 1>;
