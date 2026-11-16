@@ -565,4 +565,59 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, dmrpPropertiesDouble)
                  fuzztest::InRange(-150.0, 50.0),          // MRP norms from 1e-150 to 1e50.
                  xmera::fuzz::Vector3dInRange(-1.0, 1.0),  // Random angular velocity direction components.
                  fuzztest::InRange(-50.0, 50.0));          // Angular velocity norms from 1e-50 to 1e50 rad/s.
+
+// ---------------------------------------------------------------------------
+// prvToDcm: converts a principal rotation vector to its direction cosine matrix.
+// ---------------------------------------------------------------------------
+template <typename T>
+void prvToDcmProperties(const Eigen::Vector3<T>& direction, T log10Angle) {
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix<T, 3, 3>;
+
+    // The zero PRV has no rotation axis; it is covered by the identity GTest.
+    if (direction.isZero(T(0))) {
+        return;
+    }
+
+    Vec3 const axis = direction.stableNormalized();
+    Vec3 const prv = axis * std::pow(T(10), log10Angle);
+    Mat3 const dcm = prvToDcm(prv);
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    // The DCM must contain only finite values.
+    ASSERT_TRUE(dcm.allFinite());
+
+    // The DCM must match the rotation by |prv| about the PRV axis, built independently with Eigen::AngleAxis.
+    // AngleAxis gives the active rotation matrix; the DCM is its transpose. A match also makes the DCM orthonormal
+    // with determinant +1.
+    T const angle = prv.stableNorm();
+    Mat3 const expectedDcm = Eigen::AngleAxis<T>(angle, axis).toRotationMatrix().transpose();
+    EXPECT_TRUE(dcm.isApprox(expectedDcm, tol));
+
+    // The comparison above is relative to the whole DCM, so it cannot see a small rotation. Below 1 rad, the
+    // antisymmetric part, -2 sin(angle) [axis~], carries the rotation and is compared relative to its own size.
+    // Closer to 180 deg it becomes small next to the (1 - cos(angle)) terms and loses its relative accuracy.
+    if (angle < T(1)) {
+        EXPECT_TRUE((dcm - dcm.transpose()).isApprox(expectedDcm - expectedDcm.transpose(), tol));
+    }
+}
+
+void prvToDcmPropertiesFloat(const Eigen::Vector3f& direction, float log10Angle) {
+    prvToDcmProperties(direction, log10Angle);
+}
+
+void prvToDcmPropertiesDouble(const Eigen::Vector3d& direction, double log10Angle) {
+    prvToDcmProperties(direction, log10Angle);
+}
+
+// The first range covers the larger rotations, including 180 and 360 deg; the second covers very small rotations.
+FUZZ_TEST(RigidBodyKinematicsFuzz, prvToDcmPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),           // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-6.0F, 1.0F),      // Angles from 1e-6 to 10 rad.
+                                 fuzztest::InRange(-18.0F, -6.0F)));  // Angles from 1e-18 to 1e-6 rad.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, prvToDcmPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),            // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-6.0, 1.0),       // Angles from 1e-6 to 10 rad.
+                                 fuzztest::InRange(-150.0, -6.0)));  // Angles from 1e-150 to 1e-6 rad.
 }  // namespace

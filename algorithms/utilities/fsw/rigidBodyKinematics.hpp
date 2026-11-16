@@ -631,33 +631,36 @@ Eigen::Vector3<ScalarT> mrpToEulerAngles321(const Eigen::Vector3<ScalarT>& mrp) 
 }
 
 /**
- * Return the direction cosine matrix corresponding to a principal rotation vector
- * @param prv
- * @return Eigen::Matrix3d
+ * Convert a principal rotation vector to its direction cosine matrix,
+ * [C] = cos(phi) I + (1 - cos(phi)) u u^T - sin(phi) [u~], with phi = |prv| and u = prv / phi.
+ * The matrix maps vector components from the reference frame to the rotated frame. Any angle is valid.
+ *
+ * @param prv [-] principal rotation vector, angle times unit axis
+ * @return [-] direction cosine matrix; identity if prv is zero
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> prvToDcm(const Eigen::Vector3<ScalarT>& prv) {
-    ScalarT angle = prv.stableNorm();
+    const ScalarT angle = prv.stableNorm();
 
-    if (angle < Types<ScalarT>::eps) {
+    if (angle == ScalarT(0)) {
         return Eigen::Matrix3<ScalarT>::Identity();
     }
 
-    Eigen::Vector3<ScalarT> u = prv / angle;
-    ScalarT c = std::cos(angle);
-    ScalarT s = std::sin(angle);
-    ScalarT one_minus_c = 1.0 - c;
+    const Eigen::Vector3<ScalarT> u = prv / angle;
+    const ScalarT c = std::cos(angle);
+    const ScalarT s = std::sin(angle);
+    const ScalarT oneMinusC = ScalarT(1) - c;
 
     Eigen::Matrix3<ScalarT> dcm;
-    dcm(0, 0) = u(0) * u(0) * one_minus_c + c;
-    dcm(0, 1) = u(0) * u(1) * one_minus_c + u(2) * s;
-    dcm(0, 2) = u(0) * u(2) * one_minus_c - u(1) * s;
-    dcm(1, 0) = u(1) * u(0) * one_minus_c - u(2) * s;
-    dcm(1, 1) = u(1) * u(1) * one_minus_c + c;
-    dcm(1, 2) = u(1) * u(2) * one_minus_c + u(0) * s;
-    dcm(2, 0) = u(2) * u(0) * one_minus_c + u(1) * s;
-    dcm(2, 1) = u(2) * u(1) * one_minus_c - u(0) * s;
-    dcm(2, 2) = u(2) * u(2) * one_minus_c + c;
+    dcm(0, 0) = u(0) * u(0) * oneMinusC + c;
+    dcm(0, 1) = u(0) * u(1) * oneMinusC + u(2) * s;
+    dcm(0, 2) = u(0) * u(2) * oneMinusC - u(1) * s;
+    dcm(1, 0) = u(1) * u(0) * oneMinusC - u(2) * s;
+    dcm(1, 1) = u(1) * u(1) * oneMinusC + c;
+    dcm(1, 2) = u(1) * u(2) * oneMinusC + u(0) * s;
+    dcm(2, 0) = u(2) * u(0) * oneMinusC + u(1) * s;
+    dcm(2, 1) = u(2) * u(1) * oneMinusC - u(0) * s;
+    dcm(2, 2) = u(2) * u(2) * oneMinusC + c;
 
     return dcm;
 }

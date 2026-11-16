@@ -990,7 +990,10 @@ TYPED_TEST(DcmToRepresentationTest, dcmToPrv) {
     EXPECT_LT(relativeErrorNorm(dcmToPrv(dcm), expected), valueTolerance);
 }
 
-TYPED_TEST(DcmToRepresentationTest, prvToDcm) {
+// ---------------------------------------------------------------------------
+// prvToDcm: converts a principal rotation vector to its direction cosine matrix.
+// ---------------------------------------------------------------------------
+TYPED_TEST(DcmToRepresentationTest, prvToDcmMatchesCReference) {
     using T = TypeParam;
     using Vec3 = Eigen::Matrix<T, 3, 1>;
     using Mat3 = Eigen::Matrix<T, 3, 3>;
@@ -1012,6 +1015,108 @@ TYPED_TEST(DcmToRepresentationTest, prvToDcm) {
 
     T const valueTolerance = std::max(rotationParameterTolerance(expected), this->accuracy);
     EXPECT_LT(relativeErrorNorm(result, expected), valueTolerance);
+}
+
+// The zero principal rotation vector gives the identity DCM.
+TYPED_TEST(DcmToRepresentationTest, prvToDcmZeroIsIdentity) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    Vec3 const zeroPrv = Vec3::Zero();
+    Mat3 const identity = Mat3::Identity();
+    EXPECT_EQ(prvToDcm(zeroPrv), identity);
+}
+
+// Verify PRV-to-DCM conversion for a 90-degree rotation about X.
+TYPED_TEST(DcmToRepresentationTest, prvToDcm90DegX) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    // Calculate the PRV using prv = phi * axis.
+    Vec3 const axis(T(1), T(0), T(0));
+    T const phi = T(90) * std::numbers::pi_v<T> / T(180);
+    Vec3 const prv = phi * axis;
+
+    // DCM representing a 90-degree rotation about X.
+    Mat3 expected;
+    expected << T(1), T(0), T(0), T(0), T(0), T(1), T(0), T(-1), T(0);
+
+    EXPECT_TRUE(prvToDcm(prv).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// A 270-degree rotation about X gives the same DCM as the -90-degree rotation. prvToDcm accepts any angle.
+TYPED_TEST(DcmToRepresentationTest, prvToDcm270DegX) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    // Calculate the PRV using prv = phi * axis.
+    Vec3 const axis(T(1), T(0), T(0));
+    T const phi = T(270) * std::numbers::pi_v<T> / T(180);
+    Vec3 const prv = phi * axis;
+
+    // DCM representing a 270-degree (equivalently -90-degree) rotation about X.
+    Mat3 expected;
+    expected << T(1), T(0), T(0), T(0), T(0), T(-1), T(0), T(1), T(0);
+
+    EXPECT_TRUE(prvToDcm(prv).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Verify 180-degree rotations about each principal axis.
+TYPED_TEST(DcmToRepresentationTest, prvToDcm180Degrees) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+    T const pi = std::numbers::pi_v<T>;
+
+    Vec3 const prv180AboutX = pi * Vec3::UnitX();
+    Vec3 const prv180AboutY = pi * Vec3::UnitY();
+    Vec3 const prv180AboutZ = pi * Vec3::UnitZ();
+
+    Mat3 const dcm180AboutX = Vec3(T(1), T(-1), T(-1)).asDiagonal();
+    Mat3 const dcm180AboutY = Vec3(T(-1), T(1), T(-1)).asDiagonal();
+    Mat3 const dcm180AboutZ = Vec3(T(-1), T(-1), T(1)).asDiagonal();
+
+    // sin(pi) is not exactly 0 in floating point, so the off-diagonal terms are compared within tolerance.
+    EXPECT_TRUE(prvToDcm(prv180AboutX).isApprox(dcm180AboutX, tol));
+    EXPECT_TRUE(prvToDcm(prv180AboutY).isApprox(dcm180AboutY, tol));
+    EXPECT_TRUE(prvToDcm(prv180AboutZ).isApprox(dcm180AboutZ, tol));
+}
+
+// A full 360-degree turn about any axis gives the identity DCM.
+TYPED_TEST(DcmToRepresentationTest, prvToDcm360DegreesIsIdentity) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    Vec3 const axis(T(0.6), T(0), T(0.8));
+    Vec3 const prv = T(2) * std::numbers::pi_v<T> * axis;
+
+    EXPECT_TRUE(prvToDcm(prv).isApprox(Mat3::Identity(), T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Verify that prvToDcm preserves a very small rotation about the Z-axis.
+// At 1e-8 radians, cos(angle) rounds to 1 in float and double, so the rotation is
+// carried only by the off-diagonal DCM elements.
+TYPED_TEST(DcmToRepresentationTest, prvToDcmSmallRotation) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    T const angle = T(1e-8);
+    Vec3 const prv(T(0), T(0), angle);
+
+    // Construct the DCM for a small rotation about Z.
+    Mat3 expected;
+    expected << std::cos(angle), std::sin(angle), T(0), -std::sin(angle), std::cos(angle), T(0), T(0), T(0), T(1);
+
+    // Compare the deviation from the identity, so the small rotation is checked relative to its own size.
+    Mat3 const identity = Mat3::Identity();
+    EXPECT_TRUE((prvToDcm(prv) - identity).isApprox(expected - identity, T(10) * std::numeric_limits<T>::epsilon()));
 }
 
 TYPED_TEST(DcmToRepresentationTest, dcmToEuler321) {
