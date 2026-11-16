@@ -6,12 +6,15 @@ transforms into a position measurement. The written message contains a heading (
 (measurement noise).
 
 The published heading is the center of mass (COM), estimated from the COB using a Sun phase angle correction. The
-correction uses the "Binary" method, which assumes a brightness of either 1 or 0 in the image of the body, and is
-applied on every cycle. The COM offset itself, along with the uncorrected COB heading, is reported on the diagnostic
-message.
+correction uses the "Binary" method, which assumes a brightness of either 1 or 0 in the image of the body. With a zero
+object radius, an unusable filter state (non-finite, or a range below 1 mm), without a usable Sun direction, when the
+range does not exceed the object radius, or when the correction is not finite, the COB is published as the COM, without
+the phase-angle variance; the outlier check still applies. The COM offset itself is reported on the diagnostic message.
 
 Optionally, Brown-Conrady distortion coefficients can be provided; the measured normalized image-plane coordinate is
 then undistorted by inverting the Brown-Conrady model before the heading vector is computed.
+
+The algorithm computes in single precision; the filter message (double) is cast to float on input.
 
 Message Connection Descriptions
 -------------------------------
@@ -41,7 +44,7 @@ provides information on what this message is used for:
       - Output COM heading vector and its covariance, inertial frame only
     * - cobConverterDiagnosticOutMsg
       - :ref:`CobConverterDiagnosticMsgPayload`
-      - Output diagnostic message: the COM heading and covariance in the camera and body frames, the uncorrected COB heading in the camera, inertial, and body frames, the pixel-space centers, the phase-angle correction metadata, whether the COM outlier check was triggered, and whether the COM and COB Brown-Conrady undistortions converged
+      - Output diagnostic message: the COM pixel coordinates, the phase-angle correction metadata, whether the COM outlier check was triggered, and whether the COM and COB Brown-Conrady undistortions converged
 
 Detailed Module Description
 ---------------------------
@@ -85,15 +88,16 @@ principal point :math:`(u_p, v_p)` is at the image center, :math:`u_p = \mathrm{
 along each axis.
 
 The COB pixel :math:`\bar{\mathbf{u}}_{COB} = [\mathrm{cob}_x, \mathrm{cob}_y, 1]^T` is shifted to the center of mass
-(COM) following `this paper by S. Bhaskaran <https://doi.org/10.1109/AERO.1998.687921>`__. For a phase angle
-:math:`\alpha`, the Binary offset factor is
+(COM) following `this paper by S. Bhaskaran <https://doi.org/10.1109/AERO.1998.687921>`__. For the phase angle
+:math:`\alpha = \arccos(\hat{\mathbf{r}}^T \hat{\mathbf{s}})`, with :math:`\hat{\mathbf{r}}` the body-to-spacecraft
+direction and :math:`\hat{\mathbf{s}}` the Sun direction, the Binary offset factor is
 
 .. math::
 
     \gamma = \frac{4}{3 \pi} (1 - \cos\alpha)
 
-and the angular offset is :math:`\tan\beta = \gamma R / \rho`, with object radius :math:`R` and range :math:`\rho`. Along
-the Sun direction :math:`\phi` in the image plane,
+and the angular offset is :math:`\tan\beta = \gamma R / r`, with object radius :math:`R` and range
+:math:`r = |\mathbf{r}|`. Along the Sun direction :math:`\phi = \operatorname{atan2}(s^C_y, s^C_x)` in the image plane,
 
 .. math::
 
@@ -111,25 +115,24 @@ COM-to-spacecraft unit vector
     \hat{\mathbf{r}}^C = -\frac{\mathbf{h}}{|\mathbf{h}|}, \qquad
     \hat{\mathbf{r}}^N = [NC] \hat{\mathbf{r}}^C
 
-The COB heading, computed the same way from :math:`\bar{\mathbf{u}}_{COB}`, is used only for outlier detection and the
-diagnostic message.
+The COB pixel :math:`\bar{\mathbf{u}}_{COB}` is undistorted the same way only to report ``brownConradyCOBValid``.
 
-The variance of the phase-angle offset :math:`\beta` follows from the partials of the Geometric model correction
-with respect to the flyby and asteroid states:
+The variance of the phase-angle offset :math:`\beta` follows from the partials of the Binary correction
+:math:`\beta = \arctan(\gamma R / r)` with respect to the relative position :math:`\mathbf{r}` and the radius :math:`R`:
 
 .. math::
 
-    \frac{\partial \beta_G}{\partial \mathbf{r}} = -\frac{4R}{3\pi r}  \: \frac{(1 - \cos \alpha)}{1 +
+    \frac{\partial \beta}{\partial \mathbf{r}} = -\frac{4R}{3\pi r}  \: \frac{(1 - \cos \alpha)}{1 +
     \left( \frac{4R}{3\pi r} (1 - \cos \alpha) \right)^2}   \: \frac{    \mathbf{\hat{r}}  ^T}{r}
 
 
 
-    \frac{\partial \beta_G}{\partial R} = \frac{4}{3\pi r}   \: \frac{(1 - \cos \alpha)}{1 + \left( \frac{4R}{3\pi r}
+    \frac{\partial \beta}{\partial R} = \frac{4}{3\pi r}   \: \frac{(1 - \cos \alpha)}{1 + \left( \frac{4R}{3\pi r}
     (1 - \cos \alpha) \right)^2}
 
 
 
-    \frac{\partial \beta_G}{\partial \alpha} = \frac{4R}{3\pi r}   \:  \frac{\sin \alpha}{1 + \left( \frac{4R}{3\pi r}
+    \frac{\partial \beta}{\partial \alpha} = \frac{4R}{3\pi r}   \:  \frac{\sin \alpha}{1 + \left( \frac{4R}{3\pi r}
     (1 - \cos \alpha) \right)^2}
 
 
@@ -140,6 +143,10 @@ The next equation shows the partial of the phase angle with respect to the flyby
     \frac{\partial \alpha}{\partial \mathbf{r}} = \frac{ -  \mathbf{\hat{s}}  ^T}{r \sin \alpha}
     \left( \mathbf{I}  -  \mathbf{\hat{r}}     \mathbf{\hat{r}}  ^T \right)
 
+The :math:`1/\sin\alpha` in :math:`\partial \alpha / \partial \mathbf{r}` cancels the :math:`\sin\alpha` in
+:math:`\partial \beta / \partial \alpha`; the product
+:math:`-\frac{4R}{3\pi r^2}\hat{\mathbf{s}}^T(\mathbf{I}-\hat{\mathbf{r}}\hat{\mathbf{r}}^T)/(1+(\gamma R/r)^2)`
+is used directly and stays finite at :math:`\alpha = 0, \pi`.
 
 Gathering the partials gives the variance:
 
@@ -154,8 +161,9 @@ Gathering the partials gives the variance:
 
 where :math:`[P]` is the filter position covariance matrix and :math:`\sigma_{R}^2` is the object's radius uncertainty.
 
-The COM heading covariance combines COB pixel noise, the phase-angle offset and the attitude error. In the normalized
-image plane, with :math:`N` detected pixels,
+The COM heading covariance combines COB pixel noise, the phase-angle offset and the attitude error. With :math:`N`
+detected pixels, the COB is given the per-axis variance :math:`N/(4\pi)` px² of a uniform disk of :math:`N` pixels, a
+conservative model that scales with the blob size. In the normalized image plane,
 
 .. math::
 
@@ -193,11 +201,9 @@ covariance adds the mean cross-sight variance along it, so that a consumer that 
 
     P^N_{pub} = P^N + \frac{\operatorname{tr}(P^N)}{2} \, \hat{\mathbf{r}}^N \hat{\mathbf{r}}^{N\,T}
 
-The residual along :math:`\hat{\mathbf{r}}^N` is second order, so the added term carries no weight. The outlier gate
-and the diagnostic covariances use :math:`P^N`.
+The residual along :math:`\hat{\mathbf{r}}^N` is second order, so the added term carries no weight.
 
-The heading and covariance are also rotated to the camera and body frames for the diagnostic message. If the incoming
-image is not valid, or ``vehSunPntBdy`` is zero or non-finite, the module writes empty messages.
+If the COB message is invalid or its pixel count is not positive, the module writes empty messages.
 
 Camera distortion calibration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -221,39 +227,37 @@ The module inverts this model by fixed-point iteration from :math:`(x_u, y_u) = 
 
 stopping when :math:`\max(|x_d - x_u L - \Delta x_t|, |y_d - y_u L - \Delta y_t|) \le 10^{-6} S`, with
 :math:`S = \max(1, |x_d|, |y_d|, |x_u L|, |y_u L|)` finite, or after 50 iterations. Strong distortion near the edge
-of the field of view may not converge. This is flagged separately for the COM and the COB (``brownConradyCOMValid``
-and ``brownConradyCOBValid`` on the diagnostic message). A non-converged COM undistortion invalidates the published
-heading; a non-converged COB undistortion affects only the diagnostic COB heading. With all coefficients zero (the
-default) the module is an ideal pinhole camera.
+of the field of view may not converge; the initial guess is then returned. For realistic lenses the iteration contracts
+and converges in a few iterations; it fails only where the model has no inverse or is not a contraction, which no
+starting point fixes. This is flagged separately for the COM and the COB (``brownConradyCOMValid`` and
+``brownConradyCOBValid`` on the diagnostic message). A non-converged COM undistortion invalidates the published
+heading; a non-converged COB undistortion is only reported via ``brownConradyCOBValid``. With all coefficients zero
+(the default) the module is an ideal pinhole camera.
 
 COM outlier detection
 ^^^^^^^^^^^^^^^^^^^^^
 
-When ``outlierDetectionEnabled`` is true, the measured COM heading :math:`\hat{\mathbf{r}}^N` is compared with the
-heading predicted by the filter position :math:`\mathbf{r}^N` (spacecraft relative to the body, from
-:ref:`FilterMsgPayload`). Both point from the COM to the spacecraft:
+When ``outlierDetectionEnabled`` is true, the measured line of sight must pass near the body center predicted by the
+filter position :math:`\mathbf{r}^N` (spacecraft relative to the body, from :ref:`FilterMsgPayload`). With
+:math:`\hat{\mathbf{r}}^N` the published COM-to-spacecraft heading, the miss distance is
 
 .. math::
 
-    \hat{\mathbf{r}}_{nav}^N = \frac{\mathbf{r}^N}{|\mathbf{r}^N|}, \qquad
-    e = | \hat{\mathbf{r}}^N - \hat{\mathbf{r}}_{nav}^N | \approx \theta
+    d = \begin{cases}
+        |\mathbf{r}^N \times \hat{\mathbf{r}}^N| & \mathbf{r}^N \cdot \hat{\mathbf{r}}^N > 0 \\
+        |\mathbf{r}^N| & \text{otherwise}
+    \end{cases}, \qquad
+    d_{max} = N R + n_\sigma \sqrt{\operatorname{tr}[P]}
 
-where :math:`\theta` is the angle between them. Unless :math:`e < n_\sigma \sigma`, with :math:`n_\sigma` =
-``numStandardDeviations``, the output unit vector is invalidated and ``comErrorOutlierTrigger`` is set.
+where :math:`N` = ``outlierRadiusMultiple``, :math:`n_\sigma` = ``numStandardDeviations`` and :math:`[P]` is the
+filter position covariance. If the heading points away from the body, the closest point of the line of sight is the
+spacecraft itself. Unless :math:`d \le d_{max}`, the output unit vector is invalidated and ``comErrorOutlierTrigger``
+is set. This runs on both the phase-corrected and the COB-as-COM paths. An unusable filter state cannot validate the
+measurement, so it is rejected.
 
-:math:`\sigma` is the RMS of :math:`e`. If ``specifiedStandardDeviation`` is true, ``standardDeviation`` :math:`s` is the
-per-axis 1-sigma of the COM pixel error [px], and :math:`\sigma = s \sqrt{1/d_x^2 + 1/d_y^2}` (pixel scale at
-boresight). Otherwise, treating the measurement and filter errors as independent,
-
-.. math::
-
-    P_{nav}^N = \frac{(I - \hat{\mathbf{r}}_{nav}\hat{\mathbf{r}}_{nav}^T) [P] (I - \hat{\mathbf{r}}_{nav}\hat{\mathbf{r}}_{nav}^T)}
-    {|\mathbf{r}^N|^2}, \qquad \sigma = \sqrt{\operatorname{tr}\left(P^N + P_{nav}^N\right)}
-
-where :math:`[P]` is the filter position covariance and :math:`P_{nav}^N` is its linearized effect on the predicted
-heading; the projection removes the range error. For an isotropic in-plane error, :math:`e` is Rayleigh distributed, and
-a valid measurement is rejected with probability :math:`\exp(-n_\sigma^2)`, about :math:`10^{-4}` for
-:math:`n_\sigma = 3`. The filter state is used as received, without propagation to the image time.
+:math:`N R` covers the body size: the COB-to-COM offset is at most :math:`0.85 R`. :math:`n_\sigma \sqrt{\operatorname{tr}[P]}`
+covers the filter position uncertainty, so a filter that has not converged does not reject good measurements. The
+gate uses only the published heading and the filter state as received, without propagation to the image time.
 
 User Guide
 ----------
@@ -279,15 +283,14 @@ add the module to the simulation task (``reset()`` validates the configuration a
 
     sim.AddModelToTask(taskName, module)
 
-``attitudeCovariance`` is the covariance of the attitude error MRP, in the body frame.
+``attitudeCovariance`` is the covariance of the attitude error MRP, in the body frame. ``radius = 0`` disables the
+phase-angle correction (the COB is published as the COM) and ``radiusUncertainty`` is then unused.
 
-The outlier detection is disabled by default; enable it and configure the sigma-based gate by::
+The outlier detection is disabled by default; enable it and configure the gate by::
 
     module.outlierDetectionEnabled = True
+    module.outlierRadiusMultiple = 5  # default 5
     module.numStandardDeviations = 3  # default 3
-    module.specifiedStandardDeviation = True
-    module.standardDeviation = 100  # [px]; only used when specifiedStandardDeviation is True; otherwise the standard
-                                     # deviation is dynamically computed by the module
 
 The Brown-Conrady distortion coefficients are optional and default to zero. To apply a lens calibration, populate a
 ``CalibrationCoefficients`` struct and assign it to the module::
