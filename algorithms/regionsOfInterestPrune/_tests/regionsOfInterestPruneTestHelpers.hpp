@@ -5,110 +5,264 @@
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
 #include <gtest/gtest.h>
+#include <math.h>
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <limits>
+#include <span>
 #include <vector>
+
+// ---------------------------------------------------------------------------
+// Test frames
+// ---------------------------------------------------------------------------
+//
+// A Frame holds everything update() consumes for one image: per-row/col above-threshold counts and
+// intensities, and the bin grid of per-tile lit counts. makeFrame() builds all of them consistently
+// from a list of rectangular objects, so tests describe scenes ("two objects on a diagonal") rather
+// than hand-written arrays. Tests that need inconsistent inputs (e.g. a broken grid) edit the fields.
+
+//! A rectangular above-threshold object: every pixel in it is lit with blurred value `value`.
+struct TestObject {
+    uint32_t row{};
+    uint32_t col{};
+    uint32_t height{};
+    uint32_t width{};
+    uint32_t value{};
+};
+
+struct Frame {
+    uint32_t numRows{};
+    uint32_t numCols{};
+    std::vector<uint16_t> rowSums;
+    std::vector<uint16_t> colSums;
+    std::vector<uint32_t> rowIntensities;
+    std::vector<uint32_t> colIntensities;
+    uint32_t regionSize{};
+    uint32_t numRegionRows{};
+    uint32_t numRegionCols{};
+    std::vector<uint32_t> litCounts;  //!< row-major, numRegionRows * numRegionCols entries
+
+    RoiBinGrid binGrid() const {
+        return RoiBinGrid{.regionSize = regionSize,
+                          .numRegionRows = numRegionRows,
+                          .numRegionCols = numRegionCols,
+                          .litCounts = std::span<const uint32_t>(litCounts.data(), litCounts.size())};
+    }
+};
+
+//! Build a frame of numRows x numCols pixels with the given objects (later objects overwrite earlier ones
+//! where they overlap) and a bin grid of regionSize-pixel tiles.
+inline Frame makeFrame(uint32_t numRows,
+                       uint32_t numCols,
+                       uint32_t regionSize,
+                       const std::vector<TestObject>& objects) {
+    std::vector<uint32_t> pixels(static_cast<size_t>(numRows) * numCols, 0U);
+    for (const auto& o : objects) {
+        for (uint32_t r = o.row; r < o.row + o.height && r < numRows; ++r) {
+            for (uint32_t c = o.col; c < o.col + o.width && c < numCols; ++c) {
+                pixels[(static_cast<size_t>(r) * numCols) + c] = o.value;
+            }
+        }
+    }
+
+    Frame f;
+    f.numRows = numRows;
+    f.numCols = numCols;
+    f.rowSums.assign(numRows, 0U);
+    f.colSums.assign(numCols, 0U);
+    f.rowIntensities.assign(numRows, 0U);
+    f.colIntensities.assign(numCols, 0U);
+    f.regionSize = regionSize;
+    f.numRegionRows = (numRows + regionSize - 1U) / regionSize;
+    f.numRegionCols = (numCols + regionSize - 1U) / regionSize;
+    f.litCounts.assign(static_cast<size_t>(f.numRegionRows) * f.numRegionCols, 0U);
+    for (uint32_t r = 0; r < numRows; ++r) {
+        for (uint32_t c = 0; c < numCols; ++c) {
+            const uint32_t v = pixels[(static_cast<size_t>(r) * numCols) + c];
+            if (v == 0U) {
+                continue;
+            }
+            ++f.rowSums[r];
+            ++f.colSums[c];
+            f.rowIntensities[r] += v;
+            f.colIntensities[c] += v;
+            ++f.litCounts[(static_cast<size_t>(r / regionSize) * f.numRegionCols) + (c / regionSize)];
+        }
+    }
+    return f;
+}
+
+inline RoiCandidates runAlgorithm(const Frame& f, uint32_t x0, uint32_t y0, float alpha) {
+    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(x0, y0, alpha)};
+    return alg.update(f.rowSums.data(),
+                      f.numRows,
+                      f.colSums.data(),
+                      f.numCols,
+                      f.rowIntensities.data(),
+                      f.colIntensities.data(),
+                      f.binGrid());
+}
 
 // ---------------------------------------------------------------------------
 // Reference implementation
 // ---------------------------------------------------------------------------
 //
-// Independently reimplements the span / pre-filter / cross-product / sort pipeline using
-// std::vector, sharing no code with the algorithm under test.
-//
-// Tie-break note: the algorithm's running top-K span scan (findTopSpans) only replaces a kept span on a
-// strictly greater sum, so on a tie in accumulator sum at the maxRowSpans/maxColSpans cutoff the
-// earlier span wins — matching referenceTopSpans' stable sort. The final sort (packOutput), however,
-// is a plain std::ranges::sort, so a full tie on (count, distance-to-center, area) is
-// implementation-defined. Callers of referenceRegionsOfInterestPrune intended for exact-match
-// regression comparisons must choose inputs with no ties at that final-sort boundary.
+// Independently reimplements the six pipeline steps with std::vector and stable sorts, sharing no
+// code with the algorithm under test:
+//   1. contiguous non-zero count spans, each summing its counts (pixels) and intensities; keep the
+//      ROW_SPANS_MAX / COL_SPANS_MAX whose midpoints are closest to y0 / x0 (stable: an earlier span
+//      wins a distance tie),
+//   2. row x col cross-product, intensity = min(row-span intensity, col-span intensity),
+//   2b. with 2 row and 2 col spans, score the diagonal pairing {(r0,c0), (r1,c1)} and the anti-diagonal
+//      pairing {(r0,c1), (r1,c0)} by the summed relative mismatch of their spans' pixels and intensities;
+//      drop the worse pairing's two boxes when the better score < GHOST_PAIRING_MARGIN x the worse,
+//      otherwise keep all four,
+//   3. drop boxes whose covered tiles sum to 0 lit pixels (litPixelCount = that sum, saturated);
+//      an unusable grid yields nothing,
+//   4. scaledIntensity = intensity / area^(alpha - 1); left at 0 when alpha < 0 (cost function bypassed),
+//   5. stable sort by box-center distance to (x0, y0) ascending, then scaledIntensity descending (bypass:
+//      distance only, so equally close boxes keep the order they were formed in: row span, then col span),
+//   6. keep the first ROI_CANDIDATES_OUT_MAX.
+// The distance, mismatch and scaledIntensity expressions use the same float operations as the
+// algorithm so comparisons can be exact. The reference returns the full ranked list before step 6.
 
 struct RefSpan {
     uint32_t start{};
     uint32_t length{};
-    uint32_t sum{};
+    uint64_t pixels{};
+    uint64_t intensity{};
+    float distance{};
 };
 
-// Locate maximal contiguous non-zero runs in `s` and accumulate the sum of each run.
-inline std::vector<RefSpan> referenceFindSpans(const std::vector<uint16_t>& s) {
+inline std::vector<RefSpan> referenceClosestSpans(const std::vector<uint16_t>& counts,
+                                                  const std::vector<uint32_t>& intensities,
+                                                  float reference,
+                                                  uint32_t keep) {
     std::vector<RefSpan> spans;
     uint32_t i = 0;
-    while (i < s.size()) {
-        if (s[i] != 0) {
-            uint32_t j = i;
-            uint32_t sum = 0;
-            while (j < s.size() && s[j] != 0) {
-                sum += s[j];
-                ++j;
-            }
-            spans.push_back({i, j - i, sum});
-            i = j;
-        } else {
+    while (i < counts.size()) {
+        if (counts[i] == 0) {
+            ++i;
+            continue;
+        }
+        RefSpan s{.start = i};
+        while (i < counts.size() && counts[i] != 0) {
+            s.pixels += counts[i];
+            s.intensity += intensities[i];
             ++i;
         }
+        s.length = i - s.start;
+        s.distance = fabsf((static_cast<float>(s.start) + (static_cast<float>(s.length) / 2.0F)) - reference);
+        spans.push_back(s);
     }
-    return spans;
-}
-
-// Keep the `keep` spans with the highest sum (stable on ties).
-inline std::vector<RefSpan> referenceTopSpans(std::vector<RefSpan> spans, uint32_t keep) {
-    std::stable_sort(spans.begin(), spans.end(), [](const RefSpan& a, const RefSpan& b) { return a.sum > b.sum; });
+    std::stable_sort(
+        spans.begin(), spans.end(), [](const RefSpan& a, const RefSpan& b) { return a.distance < b.distance; });
     if (spans.size() > keep) {
         spans.resize(keep);
     }
     return spans;
 }
 
-// Squared Euclidean distance from a candidate box's center to a reference center point. Mirrors
-// RegionsOfInterestPruneAlgorithm's internal squaredDistanceToCenter (kept in float here too, so
-// tie-break decisions match the algorithm bit-for-bit rather than diverging on double vs. float
-// rounding).
-inline float referenceSquaredDistanceToCenter(const RoiCandidateEntry& e, float centerRow, float centerCol) {
-    const float rowCenter = static_cast<float>(e.row) + (static_cast<float>(e.height) / 2.0F);
-    const float colCenter = static_cast<float>(e.col) + (static_cast<float>(e.width) / 2.0F);
-    const float dRow = rowCenter - centerRow;
-    const float dCol = colCenter - centerCol;
+inline float referenceRelativeMismatch(uint64_t a, uint64_t b) {
+    const uint64_t larger = std::max(a, b);
+    if (larger == 0U) {
+        return 0.0F;
+    }
+    return static_cast<float>(a > b ? a - b : b - a) / static_cast<float>(larger);
+}
+
+inline float referencePairMismatch(const RefSpan& row, const RefSpan& col) {
+    return referenceRelativeMismatch(row.pixels, col.pixels) + referenceRelativeMismatch(row.intensity, col.intensity);
+}
+
+inline float referenceSquaredDistance(const RoiCandidateEntry& e, float referenceRow, float referenceCol) {
+    const float dRow = (static_cast<float>(e.row) + (static_cast<float>(e.height) / 2.0F)) - referenceRow;
+    const float dCol = (static_cast<float>(e.col) + (static_cast<float>(e.width) / 2.0F)) - referenceCol;
     return (dRow * dRow) + (dCol * dCol);
 }
 
-// Independently reimplements RegionsOfInterestPruneAlgorithm::update(): span detection, top-K
-// pre-filter, cross-product with count = min(R[k], C[l]), then sort by count desc / distance-to-image-
-// center asc / area asc and truncate to ROI_CANDIDATES_MAX.
-inline RoiCandidates referenceRegionsOfInterestPrune(const std::vector<uint16_t>& rowSums,
-                                                     const std::vector<uint16_t>& colSums,
-                                                     uint32_t maxRowSpans,
-                                                     uint32_t maxColSpans) {
-    const auto rowSpans = referenceTopSpans(referenceFindSpans(rowSums), maxRowSpans);
-    const auto colSpans = referenceTopSpans(referenceFindSpans(colSums), maxColSpans);
+inline bool referenceGridUsable(const Frame& f) {
+    if (f.regionSize == 0U) {
+        return false;
+    }
+    const uint64_t rows = (static_cast<uint64_t>(f.numRows) + f.regionSize - 1U) / f.regionSize;
+    const uint64_t cols = (static_cast<uint64_t>(f.numCols) + f.regionSize - 1U) / f.regionSize;
+    return f.numRegionRows == rows && f.numRegionCols == cols &&
+           static_cast<uint64_t>(f.numRegionRows) * f.numRegionCols == f.litCounts.size();
+}
 
-    std::vector<RoiCandidateEntry> candidates;
-    for (const auto& r : rowSpans) {
-        for (const auto& c : colSpans) {
-            candidates.push_back({r.start, c.start, r.length, c.length, std::min(r.sum, c.sum)});
+//! Sum of litCounts over the tiles a box covers, saturated at UINT32_MAX (grid must be usable).
+inline uint32_t referenceLitTileSum(const Frame& f, const RoiCandidateEntry& e) {
+    uint64_t sum = 0;
+    for (uint32_t tr = e.row / f.regionSize; tr <= (e.row + e.height - 1U) / f.regionSize; ++tr) {
+        for (uint32_t tc = e.col / f.regionSize; tc <= (e.col + e.width - 1U) / f.regionSize; ++tc) {
+            sum += f.litCounts[(static_cast<size_t>(tr) * f.numRegionCols) + tc];
+        }
+    }
+    return static_cast<uint32_t>(std::min<uint64_t>(sum, std::numeric_limits<uint32_t>::max()));
+}
+
+//! Steps 1-5: every surviving candidate, ranked (step 6's cut is applied by the caller).
+inline std::vector<RoiCandidateEntry> referenceRegionsOfInterestPrune(const Frame& f,
+                                                                      uint32_t x0,
+                                                                      uint32_t y0,
+                                                                      float alpha) {
+    const auto referenceRow = static_cast<float>(y0);
+    const auto referenceCol = static_cast<float>(x0);
+    const auto rowSpans = referenceClosestSpans(f.rowSums, f.rowIntensities, referenceRow, ROW_SPANS_MAX);
+    const auto colSpans = referenceClosestSpans(f.colSums, f.colIntensities, referenceCol, COL_SPANS_MAX);
+    if (!referenceGridUsable(f)) {
+        return {};
+    }
+
+    const bool bypassCost = alpha < 0.0F;
+
+    // Step 2b: which (row span, col span) pairs are ghosts.
+    bool dropDiagonal = false;
+    bool dropAntiDiagonal = false;
+    if (rowSpans.size() == 2U && colSpans.size() == 2U) {
+        const float diagonal =
+            referencePairMismatch(rowSpans[0], colSpans[0]) + referencePairMismatch(rowSpans[1], colSpans[1]);
+        const float antiDiagonal =
+            referencePairMismatch(rowSpans[0], colSpans[1]) + referencePairMismatch(rowSpans[1], colSpans[0]);
+        if (diagonal < GHOST_PAIRING_MARGIN * antiDiagonal) {
+            dropAntiDiagonal = true;
+        } else if (antiDiagonal < GHOST_PAIRING_MARGIN * diagonal) {
+            dropDiagonal = true;
         }
     }
 
-    const float centerRow = static_cast<float>(rowSums.size()) / 2.0F;
-    const float centerCol = static_cast<float>(colSums.size()) / 2.0F;
-    std::stable_sort(candidates.begin(),
-                     candidates.end(),
-                     [centerRow, centerCol](const RoiCandidateEntry& a, const RoiCandidateEntry& b) {
-                         if (a.count != b.count) {
-                             return a.count > b.count;
-                         }
-                         const float distA = referenceSquaredDistanceToCenter(a, centerRow, centerCol);
-                         const float distB = referenceSquaredDistanceToCenter(b, centerRow, centerCol);
-                         if (distA != distB) {
-                             return distA < distB;
-                         }
-                         return a.height * a.width < b.height * b.width;
-                     });
-
-    RoiCandidates out{};
-    out.numCandidates = std::min(static_cast<uint32_t>(candidates.size()), ROI_CANDIDATES_MAX);
-    for (uint32_t i = 0; i < out.numCandidates; ++i) {
-        out.candidates[i] = candidates[i];
+    std::vector<RoiCandidateEntry> out;
+    for (size_t a = 0; a < rowSpans.size(); ++a) {
+        for (size_t b = 0; b < colSpans.size(); ++b) {
+            const bool onDiagonal = (a == b);
+            if ((onDiagonal && dropDiagonal) || (!onDiagonal && dropAntiDiagonal)) {
+                continue;
+            }
+            const RefSpan& r = rowSpans[a];
+            const RefSpan& c = colSpans[b];
+            RoiCandidateEntry e{.row = r.start, .col = c.start, .height = r.length, .width = c.length};
+            e.litPixelCount = referenceLitTileSum(f, e);
+            if (e.litPixelCount == 0U) {
+                continue;
+            }
+            e.intensity = std::min(r.intensity, c.intensity);
+            if (!bypassCost) {
+                const auto area = static_cast<float>(e.width) * static_cast<float>(e.height);
+                e.scaledIntensity = static_cast<float>(e.intensity) / powf(area, alpha - 1.0F);
+            }
+            out.push_back(e);
+        }
     }
+    std::stable_sort(out.begin(), out.end(), [&](const RoiCandidateEntry& a, const RoiCandidateEntry& b) {
+        const float distanceA = referenceSquaredDistance(a, referenceRow, referenceCol);
+        const float distanceB = referenceSquaredDistance(b, referenceRow, referenceCol);
+        if (distanceA != distanceB) {
+            return distanceA < distanceB;
+        }
+        return !bypassCost && a.scaledIntensity > b.scaledIntensity;
+    });
     return out;
 }
 
@@ -116,33 +270,35 @@ inline RoiCandidates referenceRegionsOfInterestPrune(const std::vector<uint16_t>
 // Regression test helper
 // ---------------------------------------------------------------------------
 
-// Drive the algorithm on (rowSums, colSums) and compare its output to the independent reference.
-// Inputs should have no full ties at the final-sort boundary (see tie-break note above) so the
-// comparison is exact.
-inline void testRegionsOfInterestPrune(const std::vector<uint16_t>& rowSums,
-                                       const std::vector<uint16_t>& colSums,
-                                       uint32_t maxRowSpans,
-                                       uint32_t maxColSpans) {
-    const RegionsOfInterestPruneConfig cfg = RegionsOfInterestPruneConfig::create(maxRowSpans, maxColSpans);
-    const RegionsOfInterestPruneAlgorithm alg{cfg};
+inline bool sameCandidate(const RoiCandidateEntry& a, const RoiCandidateEntry& b) {
+    return a.row == b.row && a.col == b.col && a.height == b.height && a.width == b.width &&
+           a.litPixelCount == b.litPixelCount && a.intensity == b.intensity && a.scaledIntensity == b.scaledIntensity;
+}
 
-    RoiCandidates out{};
-    EXPECT_NO_THROW(out = alg.update(rowSums.data(),
-                                     static_cast<uint32_t>(rowSums.size()),
-                                     colSums.data(),
-                                     static_cast<uint32_t>(colSums.size())));
-
-    const RoiCandidates ref = referenceRegionsOfInterestPrune(rowSums, colSums, maxRowSpans, maxColSpans);
-
-    EXPECT_EQ(out.numCandidates, ref.numCandidates);
-    const uint32_t n = std::min(out.numCandidates, ref.numCandidates);
-    for (uint32_t i = 0; i < n; ++i) {
-        EXPECT_EQ(out.candidates[i].row, ref.candidates[i].row) << "candidate " << i;
-        EXPECT_EQ(out.candidates[i].col, ref.candidates[i].col) << "candidate " << i;
-        EXPECT_EQ(out.candidates[i].height, ref.candidates[i].height) << "candidate " << i;
-        EXPECT_EQ(out.candidates[i].width, ref.candidates[i].width) << "candidate " << i;
-        EXPECT_EQ(out.candidates[i].count, ref.candidates[i].count) << "candidate " << i;
+//! The output must be exactly the reference's first ROI_CANDIDATES_OUT_MAX candidates, in the same order (both
+//! rank with a stable sort, so equally ranked boxes keep the order they were formed in), and every slot after
+//! numCandidates must be zero.
+inline void expectSameCandidates(const RoiCandidates& out, const std::vector<RoiCandidateEntry>& rankedReference) {
+    const size_t expectedCount = std::min<size_t>(rankedReference.size(), ROI_CANDIDATES_OUT_MAX);
+    ASSERT_EQ(out.numCandidates, expectedCount);
+    for (uint32_t i = 0; i < out.numCandidates; ++i) {
+        const RoiCandidateEntry& got = out.candidates[i];
+        const RoiCandidateEntry& want = rankedReference[i];
+        EXPECT_TRUE(sameCandidate(got, want)) << "candidate " << i << ": got row " << got.row << " col " << got.col
+                                              << " " << got.width << "x" << got.height << ", reference row " << want.row
+                                              << " col " << want.col << " " << want.width << "x" << want.height;
     }
+    for (uint32_t i = out.numCandidates; i < ROI_CANDIDATES_MAX; ++i) {
+        EXPECT_TRUE(sameCandidate(out.candidates[i], RoiCandidateEntry{})) << "slot " << i << " should be zero";
+    }
+}
+
+//! Run the algorithm on a frame and require it to match the independent reference exactly.
+inline RoiCandidates testRegionsOfInterestPrune(const Frame& f, uint32_t x0, uint32_t y0, float alpha) {
+    RoiCandidates out{};
+    EXPECT_NO_THROW(out = runAlgorithm(f, x0, y0, alpha));
+    expectSameCandidates(out, referenceRegionsOfInterestPrune(f, x0, y0, alpha));
+    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -150,110 +306,112 @@ inline void testRegionsOfInterestPrune(const std::vector<uint16_t>& rowSums,
 // ---------------------------------------------------------------------------
 
 inline void testRegionsOfInterestPruneSetup() {
-    EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(1U, 1U));
-    EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(2U, 3U));
-    EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(DEFAULT_MAX_ROW_SPANS, DEFAULT_MAX_COL_SPANS));
-
-    EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(0U, 1U), fsw::invalid_argument);
-    EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(1U, 0U), fsw::invalid_argument);
-    EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(0U, 0U), fsw::invalid_argument);
-
-    const RegionsOfInterestPruneConfig cfg = RegionsOfInterestPruneConfig::create(2U, 4U);
-    EXPECT_EQ(cfg.getMaxRowSpans(), 2U);
-    EXPECT_EQ(cfg.getMaxColSpans(), 4U);
-}
-
-// ---------------------------------------------------------------------------
-// Property/edge-case helpers
-// ---------------------------------------------------------------------------
-
-struct GridInputs {
-    std::vector<uint16_t> rowSums;
-    std::vector<uint16_t> colSums;
-};
-
-// 5 row spans (sums 100,90,80,70,60) x 5 col spans (sums 50,40,30,20,10): every col sum is below
-// every row sum, so count = min(row,col) = col always; with the pre-filter at ROW_SPANS_MAX x
-// COL_SPANS_MAX both axes are pruned and the cross-product yields MAX_RAW_CANDIDATES — used by
-// the property tests below, which only check bound/order/count invariants that hold regardless of
-// which candidates win a count tie.
-inline GridInputs fiveRowFiveColSpans() {
-    return {
-        {100, 0, 90, 0, 80, 0, 70, 0, 60},
-        {50, 0, 40, 0, 30, 0, 20, 0, 10},
-    };
-}
-
-// Sum of v[start .. start+length).
-inline uint32_t rangeSum(const std::vector<uint16_t>& v, uint32_t start, uint32_t length) {
-    uint32_t sum = 0;
-    for (uint32_t i = start; i < start + length; ++i) {
-        sum += v[i];
+    EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(0U, 0U, 1.0F));
+    EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(MAX_IMAGE_COLS, MAX_IMAGE_ROWS, 1.0F));
+    // alpha: [0, 2] uses the cost function; any negative value, -infinity included, bypasses it.
+    for (const float alpha : {0.0F, 2.0F, -0.001F, -1.0F, -1000.0F, -std::numeric_limits<float>::infinity()}) {
+        EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(DEFAULT_X0, DEFAULT_Y0, alpha)) << "alpha " << alpha;
     }
-    return sum;
+
+    EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(MAX_IMAGE_COLS + 1U, DEFAULT_Y0, 1.0F),
+                 fsw::invalid_argument);
+    EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(DEFAULT_X0, MAX_IMAGE_ROWS + 1U, 1.0F),
+                 fsw::invalid_argument);
+    for (const float alpha :
+         {2.01F, 5.0F, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
+        EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(DEFAULT_X0, DEFAULT_Y0, alpha), fsw::invalid_argument)
+            << "alpha " << alpha;
+    }
+
+    const RegionsOfInterestPruneConfig cfg = RegionsOfInterestPruneConfig::create(12U, 34U, 0.5F);
+    EXPECT_EQ(cfg.getX0(), 12U);
+    EXPECT_EQ(cfg.getY0(), 34U);
+    EXPECT_EQ(cfg.getAlphaAreaPruneScaling(), 0.5F);
 }
 
 // ---------------------------------------------------------------------------
 // Fuzz-safe property helpers
 // ---------------------------------------------------------------------------
 //
-// Unlike testRegionsOfInterestPrune (exact-match against the reference), these only check invariants
-// that hold for ANY input regardless of how full ties are ordered at the final-sort boundary (see the
-// tie-break note above) — safe to fuzz with arbitrary row/col sum arrays, which are highly likely to
-// contain ties.
+// Invariants that hold for ANY frame, checked against the frame itself rather than the reference.
 
-// Output is well-formed: never throws, never exceeds ROI_CANDIDATES_MAX, sorted by count descending,
-// and every candidate's bounding box lies within the input arrays.
-inline void propertyRegionsOfInterestPruneOutputIsWellFormed(const std::vector<uint16_t>& rowSums,
-                                                             const std::vector<uint16_t>& colSums,
-                                                             uint32_t maxRowSpans,
-                                                             uint32_t maxColSpans) {
-    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(maxRowSpans, maxColSpans)};
+inline uint64_t rangeSum(const std::vector<uint32_t>& v, uint32_t start, uint32_t length) {
+    uint64_t sum = 0;
+    for (uint32_t i = start; i < start + length; ++i) {
+        sum += v[i];
+    }
+    return sum;
+}
 
+//! Output is well-formed: at most ROI_CANDIDATES_OUT_MAX boxes, each non-empty and inside the image, each
+//! touching a lit tile with litPixelCount equal to its covered-tile sum, intensity equal to
+//! min(row-span, col-span) intensity, a finite non-negative scaledIntensity (0 when alpha < 0 bypasses the
+//! cost), sorted by distance ascending then scaledIntensity descending (bypass: distance only), and every
+//! slot after numCandidates zero.
+inline void propertyRegionsOfInterestPruneOutputIsWellFormed(const Frame& f, uint32_t x0, uint32_t y0, float alpha) {
     RoiCandidates out{};
-    EXPECT_NO_THROW(out = alg.update(rowSums.data(),
-                                     static_cast<uint32_t>(rowSums.size()),
-                                     colSums.data(),
-                                     static_cast<uint32_t>(colSums.size())));
+    EXPECT_NO_THROW(out = runAlgorithm(f, x0, y0, alpha));
+    ASSERT_LE(out.numCandidates, ROI_CANDIDATES_OUT_MAX);
+    if (out.numCandidates > 0U) {
+        ASSERT_TRUE(referenceGridUsable(f)) << "candidates returned for an unusable grid";
+    }
 
-    EXPECT_LE(out.numCandidates, ROI_CANDIDATES_MAX);
-
-    const auto numRows = static_cast<uint32_t>(rowSums.size());
-    const auto numCols = static_cast<uint32_t>(colSums.size());
+    const auto refRow = static_cast<float>(y0);
+    const auto refCol = static_cast<float>(x0);
     for (uint32_t i = 0; i < out.numCandidates; ++i) {
         const auto& c = out.candidates[i];
-        EXPECT_LE(c.row + c.height, numRows) << "candidate " << i;
-        EXPECT_LE(c.col + c.width, numCols) << "candidate " << i;
-        if (i > 0) {
-            EXPECT_GE(out.candidates[i - 1].count, c.count) << "candidate " << i;
+        ASSERT_GT(c.height, 0U) << "candidate " << i;
+        ASSERT_GT(c.width, 0U) << "candidate " << i;
+        ASSERT_LE(c.row + c.height, f.numRows) << "candidate " << i;
+        ASSERT_LE(c.col + c.width, f.numCols) << "candidate " << i;
+        EXPECT_GT(c.litPixelCount, 0U) << "candidate " << i;
+        EXPECT_EQ(c.litPixelCount, referenceLitTileSum(f, c)) << "candidate " << i;
+        EXPECT_EQ(c.intensity,
+                  std::min(rangeSum(f.rowIntensities, c.row, c.height), rangeSum(f.colIntensities, c.col, c.width)))
+            << "candidate " << i;
+        EXPECT_TRUE(std::isfinite(c.scaledIntensity)) << "candidate " << i;
+        EXPECT_GE(c.scaledIntensity, 0.0F) << "candidate " << i;
+        if (alpha < 0.0F) {
+            EXPECT_EQ(c.scaledIntensity, 0.0F) << "candidate " << i << " (cost bypassed)";
         }
+        if (i > 0) {
+            const auto& p = out.candidates[i - 1];
+            const float distanceP = referenceSquaredDistance(p, refRow, refCol);
+            const float distanceC = referenceSquaredDistance(c, refRow, refCol);
+            EXPECT_LE(distanceP, distanceC) << "candidate " << i;
+            if (distanceP == distanceC && alpha >= 0.0F) {
+                EXPECT_GE(p.scaledIntensity, c.scaledIntensity) << "candidate " << i;
+            }
+        }
+    }
+    for (uint32_t i = out.numCandidates; i < ROI_CANDIDATES_MAX; ++i) {
+        EXPECT_TRUE(sameCandidate(out.candidates[i], RoiCandidateEntry{})) << "slot " << i << " should be zero";
     }
 }
 
-// A candidate's published count never exceeds the actual raw pixel sum over its own row/col
-// footprint — it is a genuine upper bound, not an overstatement. The bounds checks are ASSERT (fatal)
-// because rangeSum() would read out of bounds if a candidate's box ever extended past the input.
-inline void propertyRegionsOfInterestPruneCountBoundedByPixelSums(const std::vector<uint16_t>& rowSums,
-                                                                  const std::vector<uint16_t>& colSums,
-                                                                  uint32_t maxRowSpans,
-                                                                  uint32_t maxColSpans) {
-    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(maxRowSpans, maxColSpans)};
-
-    RoiCandidates out{};
-    EXPECT_NO_THROW(out = alg.update(rowSums.data(),
-                                     static_cast<uint32_t>(rowSums.size()),
-                                     colSums.data(),
-                                     static_cast<uint32_t>(colSums.size())));
-
-    const auto numRows = static_cast<uint32_t>(rowSums.size());
-    const auto numCols = static_cast<uint32_t>(colSums.size());
-    for (uint32_t i = 0; i < out.numCandidates; ++i) {
-        const auto& c = out.candidates[i];
-        ASSERT_LE(c.row + c.height, numRows) << "candidate " << i;
-        ASSERT_LE(c.col + c.width, numCols) << "candidate " << i;
-        EXPECT_LE(c.count, rangeSum(rowSums, c.row, c.height)) << "candidate " << i;
-        EXPECT_LE(c.count, rangeSum(colSums, c.col, c.width)) << "candidate " << i;
-    }
+//! Build a frame from fuzzed raw arrays: counts decide the spans; intensities and lit counts are
+//! resized to match, so any combination of sizes is a valid (if arbitrary) frame.
+inline Frame frameFromRaw(std::vector<uint16_t> rowSums,
+                          std::vector<uint16_t> colSums,
+                          std::vector<uint32_t> rowIntensities,
+                          std::vector<uint32_t> colIntensities,
+                          uint32_t regionSize,
+                          std::vector<uint32_t> litCounts) {
+    Frame f;
+    f.numRows = static_cast<uint32_t>(rowSums.size());
+    f.numCols = static_cast<uint32_t>(colSums.size());
+    rowIntensities.resize(rowSums.size(), 0U);
+    colIntensities.resize(colSums.size(), 0U);
+    f.rowSums = std::move(rowSums);
+    f.colSums = std::move(colSums);
+    f.rowIntensities = std::move(rowIntensities);
+    f.colIntensities = std::move(colIntensities);
+    f.regionSize = regionSize;
+    f.numRegionRows = (f.numRows + regionSize - 1U) / regionSize;
+    f.numRegionCols = (f.numCols + regionSize - 1U) / regionSize;
+    litCounts.resize(static_cast<size_t>(f.numRegionRows) * f.numRegionCols, 0U);
+    f.litCounts = std::move(litCounts);
+    return f;
 }
 
 #endif  // TEST_REGIONSOFINTERESTPRUNE_H
