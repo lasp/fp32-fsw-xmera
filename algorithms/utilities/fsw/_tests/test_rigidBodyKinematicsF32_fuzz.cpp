@@ -61,6 +61,62 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, epToDcmProperOrthonormal)
                  fuzztest::InRange(-1.0, 1.0),
                  fuzztest::InRange(-1.0, 1.0));
 
+// ---------------------------------------------------------------------------
+// addPrv: computes the PRV of two successive rotations, first prv1, then prv2.
+// ---------------------------------------------------------------------------
+template <typename T>
+void addPrvProperties(const Eigen::Vector3<T>& direction1, T angle1, const Eigen::Vector3<T>& direction2, T angle2) {
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    // A zero direction has no rotation axis; the zero PRV is covered by the addPrvWithZero GTest.
+    if (direction1.isZero(T(0)) || direction2.isZero(T(0))) {
+        return;
+    }
+    Vec3 const axis1 = direction1.stableNormalized();
+    Vec3 const axis2 = direction2.stableNormalized();
+
+    Vec3 const resultPrv = addPrv(Vec3(angle1 * axis1), Vec3(angle2 * axis2));
+
+    // The result must contain only finite values.
+    ASSERT_TRUE(resultPrv.allFinite());
+
+    // The DCM of the result must be [C2] [C1], built independently with Eigen::AngleAxis (the DCM is the transpose
+    // of its matrix). The comparison has three DCMs (the result and the two inputs), each within 10 eps as in the
+    // prvToDcm tests, so the two sides can differ by up to 30 eps.
+    Mat3 const dcm1 = Eigen::AngleAxis<T>(angle1, axis1).toRotationMatrix().transpose();
+    Mat3 const dcm2 = Eigen::AngleAxis<T>(angle2, axis2).toRotationMatrix().transpose();
+    T const tol = T(30) * std::numeric_limits<T>::epsilon();
+    EXPECT_TRUE(prvToDcm(resultPrv).isApprox(dcm2 * dcm1, tol));
+}
+
+void addPrvPropertiesFloat(const Eigen::Vector3f& direction1,
+                           float angle1,
+                           const Eigen::Vector3f& direction2,
+                           float angle2) {
+    addPrvProperties(direction1, angle1, direction2, angle2);
+}
+
+void addPrvPropertiesDouble(const Eigen::Vector3d& direction1,
+                            double angle1,
+                            const Eigen::Vector3d& direction2,
+                            double angle2) {
+    addPrvProperties(direction1, angle1, direction2, angle2);
+}
+
+// Each input rotation is 0 to 180 deg, so the result is 0 to 360 deg, including long rotations above 180 deg.
+FUZZ_TEST(RigidBodyKinematicsFuzz, addPrvPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),            // Random PRV 1 axis components.
+                 fuzztest::InRange(0.0F, std::numbers::pi_v<float>),   // PRV 1 angles from 0 to 180 deg.
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),            // Random PRV 2 axis components.
+                 fuzztest::InRange(0.0F, std::numbers::pi_v<float>));  // PRV 2 angles from 0 to 180 deg.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, addPrvPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),    // Random PRV 1 axis components.
+                 fuzztest::InRange(0.0, std::numbers::pi),   // PRV 1 angles from 0 to 180 deg.
+                 xmera::fuzz::Vector3dInRange(-1.0, 1.0),    // Random PRV 2 axis components.
+                 fuzztest::InRange(0.0, std::numbers::pi));  // PRV 2 angles from 0 to 180 deg.
+
 // subPrv undoes addPrv: subPrv(addPrv(b, a), b) == a (small domains keep the composition < pi).
 // PRV composition is non-commutative: addPrv(b, a) = qb (x) qa and subPrv(., b) removes qb from
 // the left, so b must be applied first for the round-trip to recover a (not a conjugation of it).
