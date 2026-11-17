@@ -567,9 +567,15 @@ Eigen::Vector3<ScalarT> epToEulerAngles321(const Eigen::Vector4<ScalarT>& ep) {
 }
 
 /**
- * Return the the cross product matrix
- * @param vector
- * @return Eigen::Matrix3d
+ * Compute the skew-symmetric cross-product matrix of a 3D vector.
+ *
+ * The matrix satisfies [v~]u = v x u, where
+ *   [v~] = [  0  -v3   v2 ]
+ *          [ v3    0  -v1 ]
+ *          [-v2   v1    0 ]
+ *
+ * @param vector input 3D vector v = (v1, v2, v3)
+ * @return skew-symmetric cross-product matrix
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> tildeMatrix(const Eigen::Vector3<ScalarT>& vector) {

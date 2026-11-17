@@ -916,4 +916,71 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, bmatMrpPropertiesFloat)
 FUZZ_TEST(RigidBodyKinematicsFuzz, bmatMrpPropertiesDouble)
     .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),  // Random X, Y, Z direction components.
                  fuzztest::InRange(-150.0, 37.0));         // MRP norms from 1e-150 to 1e37.
+
+// ---------------------------------------------------------------------------
+// tildeMatrix: computes the skew-symmetric cross-product matrix, [v~] u = v x u.
+// ---------------------------------------------------------------------------
+template <typename T>
+void tildeMatrixProperties(const Eigen::Vector3<T>& direction1,
+                           T log10Norm1,
+                           const Eigen::Vector3<T>& direction2,
+                           T log10Norm2) {
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    // A zero direction produces a zero vector.
+    Vec3 vector1 = Vec3::Zero();
+    if (!direction1.isZero(T(0))) {
+        vector1 = direction1.stableNormalized() * std::pow(T(10), log10Norm1);
+    }
+    Vec3 vector2 = Vec3::Zero();
+    if (!direction2.isZero(T(0))) {
+        vector2 = direction2.stableNormalized() * std::pow(T(10), log10Norm2);
+    }
+
+    Mat3 const tilde = tildeMatrix(vector1);
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    // The tilde matrix is exactly skew-symmetric.
+    EXPECT_EQ(tilde.transpose(), Mat3(-tilde));
+
+    // The cross product can cancel, so its error is bounded relative to the sizes of the two vectors.
+    T const norm1 = vector1.stableNorm();
+    T const norm2 = vector2.stableNorm();
+
+    // [v~] u must match the cross product v x u, computed independently with Eigen.
+    Vec3 const crossProductError = tilde * vector2 - vector1.cross(vector2);
+    EXPECT_LE(crossProductError.stableNorm(), tol * norm1 * norm2);
+
+    // A vector crossed with itself is zero.
+    Vec3 const selfCrossProduct = tilde * vector1;
+    EXPECT_LE(selfCrossProduct.stableNorm(), tol * norm1 * norm1);
+}
+
+void tildeMatrixPropertiesFloat(const Eigen::Vector3f& direction1,
+                                float log10Norm1,
+                                const Eigen::Vector3f& direction2,
+                                float log10Norm2) {
+    tildeMatrixProperties(direction1, log10Norm1, direction2, log10Norm2);
+}
+
+void tildeMatrixPropertiesDouble(const Eigen::Vector3d& direction1,
+                                 double log10Norm1,
+                                 const Eigen::Vector3d& direction2,
+                                 double log10Norm2) {
+    tildeMatrixProperties(direction1, log10Norm1, direction2, log10Norm2);
+}
+
+// The ranges keep the products of the two norms finite and above the smallest normal number.
+FUZZ_TEST(RigidBodyKinematicsFuzz, tildeMatrixPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // Random vector 1 direction components.
+                 fuzztest::InRange(-15.0F, 15.0F),           // Vector 1 norms from 1e-15 to 1e15.
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // Random vector 2 direction components.
+                 fuzztest::InRange(-15.0F, 15.0F));          // Vector 2 norms from 1e-15 to 1e15.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, tildeMatrixPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),  // Random vector 1 direction components.
+                 fuzztest::InRange(-150.0, 150.0),         // Vector 1 norms from 1e-150 to 1e150.
+                 xmera::fuzz::Vector3dInRange(-1.0, 1.0),  // Random vector 2 direction components.
+                 fuzztest::InRange(-150.0, 150.0));        // Vector 2 norms from 1e-150 to 1e150.
 }  // namespace

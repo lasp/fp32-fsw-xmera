@@ -2394,7 +2394,10 @@ TYPED_TEST(RepresentationDerivativesTest, rotationMatrix) {
     }
 }
 
-TYPED_TEST(RepresentationDerivativesTest, tildeMatrix) {
+// ---------------------------------------------------------------------------
+// tildeMatrix: computes the skew-symmetric cross-product matrix, [v~] u = v x u.
+// ---------------------------------------------------------------------------
+TYPED_TEST(RepresentationDerivativesTest, tildeMatrixMatchesCReference) {
     using T = TypeParam;
     typename TestFixture::Vec3 vec = TestFixture::randVec3();
     typename TestFixture::Vec3 testVec = TestFixture::randVec3();
@@ -2417,6 +2420,41 @@ TYPED_TEST(RepresentationDerivativesTest, tildeMatrix) {
 
     T const matrixTolerance = std::max(rotationParameterTolerance(expected), TestFixture::accuracy);
     EXPECT_LT(relativeErrorNorm(tildeMatrix<T>(vec), expected), matrixTolerance);
+}
+
+// The tilde matrix of the zero vector is the zero matrix.
+TYPED_TEST(RepresentationDerivativesTest, tildeMatrixOfZeroIsZero) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    Vec3 const zeroVector = Vec3::Zero();
+    EXPECT_EQ(tildeMatrix(zeroVector), Mat3::Zero());
+}
+
+// Verify [v~] u = v x u for the unit axes: X x Y = Z, Y x Z = X and Z x X = Y.
+TYPED_TEST(RepresentationDerivativesTest, tildeMatrixUnitAxes) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const unitX = Vec3::UnitX();
+    Vec3 const unitY = Vec3::UnitY();
+    Vec3 const unitZ = Vec3::UnitZ();
+
+    EXPECT_EQ(tildeMatrix(unitX) * unitY, unitZ);
+    EXPECT_EQ(tildeMatrix(unitY) * unitZ, unitX);
+    EXPECT_EQ(tildeMatrix(unitZ) * unitX, unitY);
+}
+
+// The tilde matrix is skew-symmetric: [v~]^T = -[v~].
+TYPED_TEST(RepresentationDerivativesTest, tildeMatrixIsSkewSymmetric) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    Vec3 const vector(T(1), T(-2), T(3));
+    Mat3 const tilde = tildeMatrix(vector);
+    EXPECT_EQ(tilde.transpose(), Mat3(-tilde));
 }
 
 // ---------------------------------------------------------------------------
