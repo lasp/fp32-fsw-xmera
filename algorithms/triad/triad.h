@@ -5,7 +5,7 @@
 #define F32XMERA_TRIAD_H
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
 #include "msgPayloadDef/BodyHeadingMsgF32Payload.h"
-#include "msgPayloadDef/NavAttMsgF32Payload.h"
+#include "msgPayloadDef/InertialHeadingMsgF32Payload.h"
 #include "triadAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
@@ -20,7 +20,7 @@ class Triad final : public SysModel {
 
     void reconfigure() const;
 
-    ReadFunctor<NavAttMsgF32Payload> attNavInMsg;
+    ReadFunctor<InertialHeadingMsgF32Payload> sunHeadingInMsg;
     ReadFunctor<BodyHeadingMsgF32Payload> bodyHeadingInMsg;
     Message<AttRefMsgF32Payload> attRefOutMsg;
 

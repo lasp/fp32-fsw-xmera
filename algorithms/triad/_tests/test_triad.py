@@ -70,14 +70,10 @@ def test_triad(show_plots, case):
     module.thrustReqHat_N = eh_N
     module.n3Axis = triadF32.N3Axis_plusZHat_N
 
-    sigma_BN = np.array([0.1, -0.2, 0.1])
-    BN = rbk.MRP2C(sigma_BN)
-    rS_B = np.matmul(BN, sh_N)
-    nav_att_data = messaging.NavAttMsgF32Payload()
-    nav_att_data.sigma_BN = sigma_BN
-    nav_att_data.vehSunPntBdy = rS_B
-    nav_att_msg = messaging.NavAttMsgF32().write(nav_att_data)
-    module.attNavInMsg.subscribeTo(nav_att_msg)
+    sun_heading_data = messaging.InertialHeadingMsgF32Payload()
+    sun_heading_data.rHat_XN_N = sh_N
+    sun_heading_msg = messaging.InertialHeadingMsgF32().write(sun_heading_data)
+    module.sunHeadingInMsg.subscribeTo(sun_heading_msg)
 
     thrust_body_msg_data = messaging.BodyHeadingMsgF32Payload()
     thrust_body_msg_data.rHat_XB_B = h1_B
