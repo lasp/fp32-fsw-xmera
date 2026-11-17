@@ -12,11 +12,10 @@ void SunlineEphemAlgorithm_destroy(SunlineEphemAlgorithmHandle* self) {
     fsw::deleteHandle<::SunlineEphemAlgorithm>(self);
 }
 
-void SunlineEphemAlgorithm_update(const SunlineEphemAlgorithmHandle* self,
-                                  const Vector3d_c* sunPos,
-                                  const Vector3d_c* scPos,
-                                  const Vector3f_c* sigmaBN,
-                                  Vector3f_c* result) {
+SunlineEphemOutput_c SunlineEphemAlgorithm_update(const SunlineEphemAlgorithmHandle* self,
+                                                  const Vector3d_c* sunPos,
+                                                  const Vector3d_c* scPos,
+                                                  const Vector3f_c* sigmaBN) {
     Eigen::Vector3d r_SN_N;
     r_SN_N << sunPos->data[0], sunPos->data[1], sunPos->data[2];
 
@@ -26,10 +25,13 @@ void SunlineEphemAlgorithm_update(const SunlineEphemAlgorithmHandle* self,
     Eigen::Vector3f sigma_BN;
     sigma_BN << sigmaBN->data[0], sigmaBN->data[1], sigmaBN->data[2];
 
-    const Eigen::Vector3f rHat_SB_B =
+    const SunlineEphemOutput out =
         fsw::fromHandle<const ::SunlineEphemAlgorithm>(self)->update(r_SN_N, r_BN_N, sigma_BN);
 
-    result->data[0] = rHat_SB_B[0];
-    result->data[1] = rHat_SB_B[1];
-    result->data[2] = rHat_SB_B[2];
+    SunlineEphemOutput_c result{};
+    for (int i = 0; i < 3; ++i) {
+        result.rHat_SB_N[i] = out.rHat_SB_N[i];
+        result.rHat_SB_B[i] = out.rHat_SB_B[i];
+    }
+    return result;
 }

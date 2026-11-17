@@ -33,9 +33,13 @@ void SunlineEphem::updateState(uint64_t callTime) {
     const Eigen::Vector3d r_BN_N = cArrayToEigenVector(spacecraftPosition.r_BN_N);
     const Eigen::Vector3f sigma_BN = cArrayToEigenVector(spacecraftAttitude.sigma_BN);
 
-    const Eigen::Vector3f rHat_SB_B = this->algorithm->update(r_SN_N, r_BN_N, sigma_BN);
+    const SunlineEphemOutput out = this->algorithm->update(r_SN_N, r_BN_N, sigma_BN);
 
     NavAttMsgF32Payload outputSunline{};
-    eigenVectorToCArray(rHat_SB_B, outputSunline.vehSunPntBdy);
+    eigenVectorToCArray(out.rHat_SB_B, outputSunline.vehSunPntBdy);
     this->navStateOutMsg.write(outputSunline, this->moduleID, callTime);
+
+    InertialHeadingMsgF32Payload outputSunHeading{};
+    eigenVectorToCArray(out.rHat_SB_N, outputSunHeading.rHat_XN_N);
+    this->sunHeadingOutMsg.write(outputSunHeading, this->moduleID, callTime);
 }

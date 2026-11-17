@@ -2,6 +2,7 @@
 #define F32XMERA_SUNLINE_EPHEM_H
 
 #include "msgPayloadDef/EphemerisMsgF32Payload.h"
+#include "msgPayloadDef/InertialHeadingMsgF32Payload.h"
 #include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "msgPayloadDef/NavTransMsgF32Payload.h"
 #include "sunlineEphemAlgorithm.h"
@@ -16,10 +17,11 @@ class SunlineEphem final : public SysModel {
 
     void reset(uint64_t callTime) override;
     void updateState(uint64_t callTime) override;
-    Message<NavAttMsgF32Payload> navStateOutMsg;           /*!< The name of the output message*/
-    ReadFunctor<EphemerisMsgF32Payload> sunPositionInMsg;  //!< The name of the sun ephemeris input message
-    ReadFunctor<NavTransMsgF32Payload> scPositionInMsg;    //!< The name of the spacecraft ephemeris input message
-    ReadFunctor<NavAttMsgF32Payload> scAttitudeInMsg;      //!< The name of the spacecraft attitude input message
+    Message<NavAttMsgF32Payload> navStateOutMsg;             //!< Sun direction in the body frame
+    Message<InertialHeadingMsgF32Payload> sunHeadingOutMsg;  //!< Sun direction in the inertial frame
+    ReadFunctor<EphemerisMsgF32Payload> sunPositionInMsg;    //!< The name of the sun ephemeris input message
+    ReadFunctor<NavTransMsgF32Payload> scPositionInMsg;      //!< The name of the spacecraft ephemeris input message
+    ReadFunctor<NavAttMsgF32Payload> scAttitudeInMsg;        //!< The name of the spacecraft attitude input message
 
    private:
     std::unique_ptr<SunlineEphemAlgorithm> algorithm = nullptr;
