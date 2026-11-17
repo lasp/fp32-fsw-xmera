@@ -351,10 +351,16 @@ Eigen::Vector3<ScalarT> epToPrv(const Eigen::Vector4<ScalarT>& ep) {
 }
 
 /**
- * Translate a direction cosine matrix into the corresponding principal rotation vector,
- * where the first component is the principal rotation angle 0<= phi <= Pi
- * @param dcm
- * @return Eigen::Vector3d
+ * Translate a direction cosine matrix into the principal rotation vector of the same rotation:
+ * the unit axis times the angle, so the norm of the result is the angle.
+ *
+ * The function converts the DCM to Euler parameters with dcmToEp, which returns q0 >= 0, and then
+ * to a principal rotation vector with epToPrv. The angle is therefore in [0, pi], up to rounding.
+ * The result represents the shortest rotation. At an angle of exactly pi, both axis directions give
+ * the same rotation. The identity matrix gives a zero vector.
+ *
+ * @param dcm [-] direction cosine matrix of a frame relative to a reference frame, a proper rotation
+ * @return [-] principal rotation vector of the frame relative to the reference frame, norm in [0, pi]
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> dcmToPrv(const Eigen::Matrix3<ScalarT>& dcm) {

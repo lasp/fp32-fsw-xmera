@@ -798,4 +798,72 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, addMrpPropertiesFloat)
 FUZZ_TEST(RigidBodyKinematicsFuzz, addMrpPropertiesDouble)
     .WithDomains(xmera::fuzz::Vector3dInRange(-2.0, 2.0),   // Random MRP 1 components.
                  xmera::fuzz::Vector3dInRange(-2.0, 2.0));  // Random MRP 2 components.
+
+// ---------------------------------------------------------------------------
+// dcmToPrv: converts a DCM to the principal rotation vector of the shortest rotation, angle in [0, pi].
+// ---------------------------------------------------------------------------
+template <typename T>
+void dcmToPrvProperties(const Eigen::Vector3<T>& direction, T log10Angle) {
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix<T, 3, 3>;
+
+    // The identity DCM has no rotation axis; it is covered by the identity GTest.
+    if (direction.isZero(T(0))) {
+        return;
+    }
+
+    // DCM of the rotation, built independently with Eigen::AngleAxis (the DCM is the transpose of its matrix).
+    Vec3 const axis = direction.stableNormalized();
+    T const angle = std::pow(T(10), log10Angle);
+    Mat3 const dcm = Eigen::AngleAxis<T>(angle, axis).toRotationMatrix().transpose();
+
+    Vec3 const resultPrv = dcmToPrv(dcm);
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+    T const pi = std::numbers::pi_v<T>;
+
+    // The rotation vector must contain only finite values.
+    ASSERT_TRUE(resultPrv.allFinite());
+
+    // The shortest rotation has an angle of at most pi, up to rounding.
+    EXPECT_LE(resultPrv.stableNorm(), pi * (T(1) + tol));
+
+    // A DCM carries the rotation to within a few eps of the rotation angle, so the error is bounded relative to the
+    // input angle. Above pi, the shortest rotation is angle - 2 pi about the same axis.
+    T const errorBound = tol * angle;
+    Vec3 const shortPrv = angle * axis;
+    Vec3 const wrappedPrv = (angle - T(2) * pi) * axis;
+
+    if (angle < pi - errorBound) {
+        // Rotations under 180 deg are recovered unchanged.
+        EXPECT_LE((resultPrv - shortPrv).stableNorm(), errorBound);
+    } else if (angle > pi + errorBound) {
+        // Rotations over 180 deg are returned as the shorter rotation about the opposite axis.
+        EXPECT_LE((resultPrv - wrappedPrv).stableNorm(), errorBound);
+    } else {
+        // Near 180 deg, rounding can decide the sign of the axis. Accept either.
+        EXPECT_TRUE((resultPrv - shortPrv).stableNorm() <= errorBound ||
+                    (resultPrv - wrappedPrv).stableNorm() <= errorBound);
+    }
+}
+
+void dcmToPrvPropertiesFloat(const Eigen::Vector3f& direction, float log10Angle) {
+    dcmToPrvProperties(direction, log10Angle);
+}
+
+void dcmToPrvPropertiesDouble(const Eigen::Vector3d& direction, double log10Angle) {
+    dcmToPrvProperties(direction, log10Angle);
+}
+
+// The largest angle, 10^0.79 = 6.17 rad, stays below 2 pi. The third range tests rotations close to 180 deg.
+FUZZ_TEST(RigidBodyKinematicsFuzz, dcmToPrvPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),              // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-6.0F, 0.79F),        // Angles from 1e-6 to 6.17 rad.
+                                 fuzztest::InRange(-18.0F, -6.0F),       // Angles from 1e-18 to 1e-6 rad.
+                                 fuzztest::InRange(0.4969F, 0.4974F)));  // Rotations from 179.90 to 180.10 deg.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, dcmToPrvPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),              // Random X, Y, Z direction components.
+                 fuzztest::OneOf(fuzztest::InRange(-6.0, 0.79),        // Angles from 1e-6 to 6.17 rad.
+                                 fuzztest::InRange(-150.0, -6.0),      // Angles from 1e-150 to 1e-6 rad.
+                                 fuzztest::InRange(0.4969, 0.4974)));  // Rotations from 179.90 to 180.10 deg.
 }  // namespace
