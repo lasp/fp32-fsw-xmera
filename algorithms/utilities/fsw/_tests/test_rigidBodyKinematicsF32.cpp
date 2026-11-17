@@ -7,12 +7,15 @@
 
 #include <Eigen/Dense>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <functional>
 #include <limits>
 #include <numbers>
 #include <random>
+#include <string>
 #include <type_traits>
+#include <vector>
 
 /**
  * @file test_rigidBodyKinematicsF32.cpp
@@ -26,7 +29,7 @@
  * wide angular ranges exposes singularity behavior and conditioning extremes.
  *
  * @section reference_parity Reference parity
- * Each templated C++ routine is validated against its legacy C wrapper (via SWIG) by converting
+ * Each templated C++ routine is validated against its legacy C implementation by converting
  * the C arrays back into Eigen objects, comparing outputs, and checking secondary invariants such as
  * DCM orthogonality, B·Bᵀ scaling, and Euler-parameter holonomic constraints.
  *
