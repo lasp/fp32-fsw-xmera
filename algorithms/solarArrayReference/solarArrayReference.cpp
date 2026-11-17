@@ -9,8 +9,8 @@
  @param callTime The clock time at which the function was called (nanoseconds)
  */
 void SolarArrayReference::reset(uint64_t callTime) {
-    if (!this->attNavInMsg.isLinked()) {
-        throw std::invalid_argument("solarArrayReference.attNavInMsg wasn't connected.");
+    if (!this->sunHeadingInMsg.isLinked()) {
+        throw std::invalid_argument("solarArrayReference.sunHeadingInMsg wasn't connected.");
     }
     if (!this->attRefInMsg.isLinked()) {
         throw std::invalid_argument("solarArrayReference.attRefInMsg wasn't connected.");
@@ -48,7 +48,7 @@ void SolarArrayReference::reInitialize() {
     this->algorithm->reInitialize();
 }
 
-/*! Read the navigation and reference messages, run the solar array reference law, and write the commanded array
+/*! Read the Sun heading and reference messages, run the solar array reference law, and write the commanded array
  reference angle output message.
  @param callTime The clock time at which the function was called (nanoseconds)
  */
@@ -57,14 +57,13 @@ void SolarArrayReference::updateState(uint64_t callTime) {
         throw XmeraLifecycleException("SolarArrayReference reset() has not been called.");
     }
 
-    NavAttMsgF32Payload attNavIn = this->attNavInMsg();
-    AttRefMsgF32Payload attRefIn = this->attRefInMsg();
+    const InertialHeadingMsgF32Payload sunHeadingIn = this->sunHeadingInMsg();
+    const AttRefMsgF32Payload attRefIn = this->attRefInMsg();
 
-    const Eigen::Vector3f sigma_BN = cArrayToEigenVector(attNavIn.sigma_BN);
     const Eigen::Vector3f sigma_RN = cArrayToEigenVector(attRefIn.sigma_RN);
-    const Eigen::Vector3f rHatIn_SB_B = cArrayToEigenVector(attNavIn.vehSunPntBdy);
+    const Eigen::Vector3f rHat_SB_N = cArrayToEigenVector(sunHeadingIn.rHat_XN_N);
 
-    const float thetaRef = this->algorithm->update(sigma_BN, sigma_RN, rHatIn_SB_B);
+    const float thetaRef = this->algorithm->update(sigma_RN, rHat_SB_N);
 
     MotorAngleRefMsgF32Payload solarArrayRefOut = {};
     solarArrayRefOut.theta = thetaRef;

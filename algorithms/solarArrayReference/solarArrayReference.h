@@ -2,8 +2,8 @@
 #define F32XMERA_SOLAR_ARRAY_REFERENCE_H
 
 #include "msgPayloadDef/AttRefMsgF32Payload.h"
+#include "msgPayloadDef/InertialHeadingMsgF32Payload.h"
 #include "msgPayloadDef/MotorAngleRefMsgF32Payload.h"
-#include "msgPayloadDef/NavAttMsgF32Payload.h"
 #include "solarArrayReferenceAlgorithm.h"
 #include <architecture/_GeneralModuleFiles/sys_model.h>
 #include <architecture/messaging/messaging.h>
@@ -32,8 +32,8 @@ class SolarArrayReference final : public SysModel {
     float offsetAngle{};          //!< [rad] offset angle added to the Sun-tracking reference angle
 
     /* declare module IO interfaces */
-    ReadFunctor<NavAttMsgF32Payload> attNavInMsg;             //!< input msg measured attitude
-    ReadFunctor<AttRefMsgF32Payload> attRefInMsg;             //!< input attitude reference message
+    ReadFunctor<InertialHeadingMsgF32Payload> sunHeadingInMsg;  //!< input msg Sun direction in inertial frame
+    ReadFunctor<AttRefMsgF32Payload> attRefInMsg;               //!< input attitude reference message
     Message<MotorAngleRefMsgF32Payload> solarArrayRefOutMsg;  //!< output msg containing the solar array reference angle
 
    private:

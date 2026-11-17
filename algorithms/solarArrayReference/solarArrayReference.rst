@@ -25,10 +25,9 @@ provides information on what this message is used for.
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - attNavInMsg
-      - :ref:`NavAttMsgF32Payload`
-      - input attitude navigation message containing :math:`\mathbf\sigma_{\mathcal{B}/\mathcal{N}}` and the Sun
-        direction in body-frame components
+    * - sunHeadingInMsg
+      - :ref:`InertialHeadingMsgF32Payload`
+      - input Sun heading message containing the Sun direction in inertial-frame components
     * - attRefInMsg
       - :ref:`AttRefMsgF32Payload`
       - input attitude reference message containing :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{N}}`
@@ -104,9 +103,9 @@ Conversely, when they are parallel, no power generation is possible, and in that
 reference angle computed by the previous update to avoid pointless rotation.
 
 The drive axis :math:`\hat{\mathbf a}_1` and surface normal :math:`\hat{\mathbf a}_2` are assumed to be fixed in the
-body frame. The Sun direction in body-frame components is extracted from ``attNavInMsg`` and is mapped into the
-reference frame using the body and reference attitudes from ``attNavInMsg`` and ``attRefInMsg``, so the reference
-angle is computed in the frame that the spacecraft will occupy at the end of the active slew.
+body frame. The module maps the inertial Sun direction from ``sunHeadingInMsg`` into the reference frame with the
+reference attitude from ``attRefInMsg``. Thus the module computes the reference angle in the frame that the
+spacecraft will occupy at the end of the active slew.
 
 The output reference angle :math:`\theta_R` is always wrapped to :math:`[-\pi, \pi]`.
 
@@ -139,7 +138,7 @@ configured by::
     module.alignmentThreshold = 1e-3
     module.offsetAngle = 0.0
 
-    module.attNavInMsg.subscribeTo(att_nav_msg)
+    module.sunHeadingInMsg.subscribeTo(sun_heading_msg)
     module.attRefInMsg.subscribeTo(att_ref_msg)
 
 For ``AUTO_TRACK`` mode (the default), no further configuration is required. To use ``SPECIFIED_ANGLE`` mode::
@@ -168,13 +167,13 @@ At every update cycle, the ``solarArrayReference`` module performs the following
    - If ``trackingMode`` is ``SPECIFIED_ANGLE``, set :math:`\theta_R = \theta_{\text{specified}}` and skip to the
      wrap in step 5.
 
-2. **Map Sun direction to reference frame**: normalize the body-frame Sun direction
-   :math:`{}^{\mathcal{B}_C}\hat{\mathbf r}_S` (using ``stableNormalized``), then map it into the reference frame
-   using the DCM :math:`[\mathcal{R}\mathcal{B}] = [\mathcal{R}\mathcal{N}][\mathcal{B}\mathcal{N}]^T`:
+2. **Map Sun direction to reference frame**: normalize the inertial-frame Sun direction
+   :math:`{}^{\mathcal{N}}\hat{\mathbf r}_S` (using ``stableNormalized``), then map it into the reference frame
+   with the DCM :math:`[\mathcal{R}\mathcal{N}]`:
 
    .. math::
 
-      {}^\mathcal{R}\hat{\mathbf r}_S = [\mathcal{R}\mathcal{B}]\, {}^{\mathcal{B}_C}\hat{\mathbf r}_S
+      {}^\mathcal{R}\hat{\mathbf r}_S = [\mathcal{R}\mathcal{N}]\, {}^{\mathcal{N}}\hat{\mathbf r}_S
 
 3. **Check Sun/drive-axis alignment**: compute the angle between the Sun direction and the drive axis,
 

@@ -10,6 +10,6 @@
 %include "solarArrayReferenceTypes.h"
 %include "solarArrayReference.h"
 
-%include "msgPayloadDef/NavAttMsgF32Payload.h"
+%include "msgPayloadDef/InertialHeadingMsgF32Payload.h"
 %include "msgPayloadDef/AttRefMsgF32Payload.h"
 %include "msgPayloadDef/MotorAngleRefMsgF32Payload.h"

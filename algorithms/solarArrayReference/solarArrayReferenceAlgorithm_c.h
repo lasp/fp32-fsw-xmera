@@ -90,16 +90,14 @@ void SolarArrayReferenceAlgorithm_reInitialize(SolarArrayReferenceAlgorithmHandl
 
 /**
  * @brief Run the update step.
- * @param self        Pointer to the instance.
- * @param sigma_BN    Body attitude MRP relative to inertial frame.
- * @param sigma_RN    Reference attitude MRP relative to inertial frame.
- * @param rHatIn_SB_B Sun pointing vector in body frame.
+ * @param self      Pointer to the instance.
+ * @param sigma_RN  Reference attitude MRP relative to inertial frame.
+ * @param rHat_SB_N Sun direction in inertial frame.
  * @return float  Updated reference array angle wrapped to [-pi, pi] [rad].
  */
 float SolarArrayReferenceAlgorithm_update(SolarArrayReferenceAlgorithmHandle* self,
-                                          Vector3f_c sigma_BN,
                                           Vector3f_c sigma_RN,
-                                          Vector3f_c rHatIn_SB_B);
+                                          Vector3f_c rHat_SB_N);
 
 #ifdef __cplusplus
 }  // extern "C"

@@ -137,7 +137,7 @@ class SolarArrayReferenceAlgorithm final {
     void setConfig(const SolarArrayReferenceConfig& config);
     void reInitialize();
 
-    float update(const Eigen::Vector3f& sigma_BN, const Eigen::Vector3f& sigma_RN, const Eigen::Vector3f& rHatIn_SB_B);
+    float update(const Eigen::Vector3f& sigma_RN, const Eigen::Vector3f& rHat_SB_N);
 
    private:
     SolarArrayReferenceConfig cfg;  //!< [-] validated configuration

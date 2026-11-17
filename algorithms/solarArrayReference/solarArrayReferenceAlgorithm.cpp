@@ -16,16 +16,14 @@ void SolarArrayReferenceAlgorithm::setConfig(const SolarArrayReferenceConfig& co
 /*! @brief Reset the retained runtime state by zeroing the reference angle from the previous update. */
 void SolarArrayReferenceAlgorithm::reInitialize() { this->priorThetaRef = 0.0F; }
 
-/*! This method computes the updated rotation angle reference based on current attitude and reference attitude
+/*! This method computes the updated rotation angle reference based on the reference attitude
  @return float
- @param sigma_BN body attitude MRP with respect to inertial frame
  @param sigma_RN reference attitude MRP with respect to inertial frame
- @param rHatIn_SB_B Sun pointing vector in body frame
+ @param rHat_SB_N Sun direction in inertial frame
 */
 float SolarArrayReferenceAlgorithm::update(
-    const Eigen::Vector3f& sigma_BN,
     const Eigen::Vector3f& sigma_RN,  // NOLINT(bugprone-easily-swappable-parameters)
-    const Eigen::Vector3f& rHatIn_SB_B) {
+    const Eigen::Vector3f& rHat_SB_N) {
     const Eigen::Vector3f& a1Hat_B = this->cfg.getDriveAxisHat_B();
     const Eigen::Vector3f& a2Hat_B = this->cfg.getSurfaceNormalHat_B();
     const Eigen::Vector3f& a3Hat_B = this->cfg.getThirdAxisHat_B();
@@ -34,13 +32,9 @@ float SolarArrayReferenceAlgorithm::update(
     switch (this->cfg.getTrackingMode()) {
         case TrackingMode::AUTO_TRACK: {
             /*! track Sun in reference frame R, i.e. in the body frame that will be obtained at the end of the slew */
-            const Eigen::Vector3f rHat_SB_Bc =
-                rHatIn_SB_B.stableNormalized();  // Sun direction in current body frame Bc
-            const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
             const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
-            const Eigen::Matrix3f dcm_RB = dcm_RN * dcm_BN.transpose();
             // assume body frame B equals reference frame R (end of slew)
-            const Eigen::Vector3f rHat_SB_B = (dcm_RB * rHat_SB_Bc).stableNormalized();
+            const Eigen::Vector3f rHat_SB_B = dcm_RN * rHat_SB_N.stableNormalized();
 
             /*! check if sun direction is nearly aligned with drive axis */
             const float sunDriveAngle = safeAcosf(fabsf(rHat_SB_B.dot(a1Hat_B)));
