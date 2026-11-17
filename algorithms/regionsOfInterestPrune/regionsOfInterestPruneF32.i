@@ -13,11 +13,11 @@ struct RoiCandidateEntry;
 %template(RoiCandidateEntryArray) std::array<RoiCandidateEntry, 4>;  // must match ROI_CANDIDATES_MAX
 
 %include <architecture/_GeneralModuleFiles/sys_model.i>
-// NOTE: no %exception mapping exists for fsw::invalid_argument (it derives from the freestanding
-// fsw::exception, not std::exception), so an out-of-range x0/y0 (above
-// MAX_IMAGE_COLS/MAX_IMAGE_ROWS) passed to RegionsOfInterestPruneConfig::create() or applied via
-// reset()/reconfigure() terminates the Python process instead of raising a Python exception.
-// Validate with RegionsOfInterestPruneConfig.isValidX0()/isValidY0() first.
+// NOTE: this module has no %exception mapping. An invalid config (x0 above MAX_IMAGE_COLS, y0 above
+// MAX_IMAGE_ROWS, alphaAreaPruneScaling above 2 or NaN) raises a RuntimeError when applied through reset()
+// (the simulation's InitializeSimulation catches it), but terminates the Python process when passed to
+// RegionsOfInterestPruneConfig::create() or reconfigure() called directly. Validate first with
+// RegionsOfInterestPruneConfig.isValidX0()/isValidY0()/isValidAlphaAreaPruneScaling().
 %include "regionsOfInterestPrune.h"
 %include "regionsOfInterestPruneAlgorithm.h"
 

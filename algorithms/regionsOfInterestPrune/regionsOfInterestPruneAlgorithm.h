@@ -11,15 +11,15 @@ static constexpr uint32_t ROW_SPANS_MAX = 2;  //!< Number of row spans kept (clo
 static constexpr uint32_t COL_SPANS_MAX = 2;  //!< Number of col spans kept (closest to the reference col)
 
 //!< Capacity of RoiCandidates: the full row-span x col-span cross-product, so no candidate is ever dropped for
-//!< lack of room. The adapter publishes the first MAX_NUMBER_REGIONS.
+//!< lack of room. update() returns at most ROI_CANDIDATES_OUT_MAX of them.
 static constexpr uint32_t ROI_CANDIDATES_MAX = ROW_SPANS_MAX * COL_SPANS_MAX;
 
 //!< Number of ranked candidates update() returns: the list is cut to the first ROI_CANDIDATES_OUT_MAX after ranking.
 static constexpr uint32_t ROI_CANDIDATES_OUT_MAX = 2;
 static_assert(ROI_CANDIDATES_OUT_MAX <= ROI_CANDIDATES_MAX, "cannot return more candidates than are formed");
 
-//!< [-] Ghost-box removal (Step 2b) drops the worse span pairing only when the better pairing's mismatch is at most
-//!< this fraction of the worse one; otherwise the projections are ambiguous and all boxes are kept.
+//!< [-] Ghost-box removal (Step 2b) drops the worse span pairing only when the better pairing's mismatch is strictly
+//!< below this fraction of the worse one; otherwise the projections are ambiguous and all boxes are kept.
 static constexpr float GHOST_PAIRING_MARGIN = 0.5F;
 
 static constexpr uint32_t MAX_IMAGE_ROWS = 3000;  //!< [px] Full camera image height
@@ -33,7 +33,7 @@ static constexpr uint32_t DEFAULT_Y0 = MAX_IMAGE_ROWS / 2U;  //!< [px] Default r
 static constexpr float MAX_ALPHA_AREA_PRUNE_SCALING = 2.0F;      //!< [-] Highest accepted value (exponent +1)
 static constexpr float DEFAULT_ALPHA_AREA_PRUNE_SCALING = 1.0F;  //!< [-] Default: exponent 0, area ignored
 
-/*! @brief Internal bounding-box candidate (corner coordinates + pixel count). */
+/*! @brief Bounding-box candidate: corner, size, lit pixel count, intensity and scaled intensity. */
 struct RoiCandidateEntry {
     uint32_t row{};            //!< [px] Top-left row of the bounding box
     uint32_t col{};            //!< [px] Top-left column of the bounding box
@@ -62,9 +62,10 @@ struct RoiBinGrid {
 
 /*! @brief Fixed-capacity candidate list: candidates[0..numCandidates) are valid.
  *
- *  Used through the whole pipeline (built, filtered, scaled, then ranked in place). update() returns it
- *  ranked: sorted by distance to the reference point ascending, ties broken by scaledIntensity descending
- *  (in bypass, alpha < 0, ties keep the order the boxes were formed in).
+ *  Used through the whole pipeline (built, ghost-filtered, tile-filtered, scaled, ranked in place, then cut).
+ *  update() returns at most ROI_CANDIDATES_OUT_MAX, with the cut slots zeroed, sorted by distance to the
+ *  reference point ascending, ties broken by scaledIntensity descending (in bypass, alpha < 0, ties keep the
+ *  order the boxes were formed in).
  */
 struct RoiCandidates {
     uint32_t numCandidates{};                                        //!< [-] Number of valid entries
@@ -128,8 +129,8 @@ class RegionsOfInterestPruneConfig final {
 
 /*! @brief algorithm for the regions-of-interest pruning stage.
  *
- *  Accepts raw row/col sum arrays and returns a
- *  RoiCandidates.  Pipeline stages:
+ *  Accepts the row/col above-threshold pixel sums, the row/col intensity sums and the bin grid of one image,
+ *  and returns a RoiCandidates.  Pipeline stages:
  *    1. Single pass over rowSums / colSums: find contiguous non-zero spans, accumulate per-span
  *       pixel counts and intensities, and keep the ROW_SPANS_MAX / COL_SPANS_MAX spans whose
  *       midpoints are closest to the reference row / col.

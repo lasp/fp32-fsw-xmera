@@ -14,9 +14,10 @@
 
 /*! @brief adapter for the regions-of-interest pruning module.
  *
- *  Reads FpgaRowColSumMsgF32Payload, delegates computation to RegionsOfInterestPruneAlgorithm,
- *  and publishes up to MAX_NUMBER_REGIONS candidates sorted by estimated above-threshold
- *  pixel count to regionsIdentifiedOutMsg (RegionsIdentifiedMsgF32Payload).
+ *  Reads the row/col sums (FpgaRowColSumMsgF32Payload) and the bin grid (FpgaBinGridMsgF32Payload),
+ *  delegates computation to RegionsOfInterestPruneAlgorithm, and publishes at most ROI_CANDIDATES_OUT_MAX
+ *  candidates to regionsIdentifiedOutMsg (RegionsIdentifiedMsgF32Payload), sorted by distance to the
+ *  reference point (x0, y0); ties broken by scaledIntensity, or by span order when the cost is bypassed.
  */
 class RegionsOfInterestPrune : public SysModel {
    public:

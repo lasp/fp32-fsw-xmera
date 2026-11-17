@@ -17,7 +17,7 @@ typedef struct RegionsOfInterestPruneAlgorithmHandle RegionsOfInterestPruneAlgor
 
 /**
  * @brief Get the REGIONS_OF_INTEREST_PRUNE_ROI_CANDIDATES_MAX constant for Ada validation.
- * @return The maximum number of candidates returned at the C boundary.
+ * @return The capacity of RoiCandidates_c.candidates; update() fills at most ROI_CANDIDATES_OUT_MAX (2) of them.
  */
 uint32_t RegionsOfInterestPruneAlgorithm_getMaxCandidatesCount(void);
 
@@ -62,7 +62,9 @@ void RegionsOfInterestPruneAlgorithm_setConfig(RegionsOfInterestPruneAlgorithmHa
  * @param rowIntensities  Pointer to the per-row intensity sums (length numRows).
  * @param colIntensities  Pointer to the per-column intensity sums (length numCols).
  * @param binGrid  Pointer to the bin grid of the same image; candidates touching no lit tile are dropped.
- * @return The candidates sorted by distance to the reference point ascending, ties broken by scaledIntensity.
+ * @return At most ROI_CANDIDATES_OUT_MAX (2) candidates sorted by distance to the reference point ascending, ties
+ *         broken by scaledIntensity descending (kept in formation order when the cost function is bypassed);
+ *         trailing slots are zero.
  */
 RoiCandidates_c RegionsOfInterestPruneAlgorithm_update(const RegionsOfInterestPruneAlgorithmHandle* self,
                                                        const uint16_t* rowSums,

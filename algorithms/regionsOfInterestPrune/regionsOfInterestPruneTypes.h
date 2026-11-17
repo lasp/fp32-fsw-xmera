@@ -7,8 +7,8 @@
 extern "C" {
 #endif
 
-/* Maximum number of candidates retained/published at the C boundary. Must match
-   ROI_CANDIDATES_MAX in regionsOfInterestPruneAlgorithm.h (enforced by a static_assert in the
+/* Capacity of RoiCandidates_c.candidates; update() fills at most ROI_CANDIDATES_OUT_MAX (2) of them. Must
+   match ROI_CANDIDATES_MAX in regionsOfInterestPruneAlgorithm.h (enforced by a static_assert in the
    C shim). */
 #define REGIONS_OF_INTEREST_PRUNE_ROI_CANDIDATES_MAX 4
 

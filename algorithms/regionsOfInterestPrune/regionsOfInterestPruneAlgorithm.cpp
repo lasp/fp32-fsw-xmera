@@ -292,7 +292,7 @@ uint32_t RegionsOfInterestPruneAlgorithm::sumLitTiles(const RoiCandidateEntry& c
 /*! Drops candidates whose box overlaps no lit tile, keeping the survivors in their original order. Each
  *  survivor's litPixelCount is set to the sum of the lit counts of the tiles it covers (see sumLitTiles).
  @return RoiCandidates holding only the candidates that touch a lit tile.
- @param candidates  Candidates from buildCandidates (Step 2).
+ @param candidates  Candidates left after ghost removal (removeGhostPairs, Step 2b).
  @param binGrid     Usable bin grid (see isBinGridUsable).
 */
 RoiCandidates RegionsOfInterestPruneAlgorithm::filterByLitTiles(const RoiCandidates& candidates,
