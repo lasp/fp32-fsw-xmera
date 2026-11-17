@@ -28,9 +28,10 @@ static constexpr uint32_t MAX_IMAGE_COLS = 4096;  //!< [px] Full camera image wi
 static constexpr uint32_t DEFAULT_X0 = MAX_IMAGE_COLS / 2U;  //!< [px] Default reference column (image center)
 static constexpr uint32_t DEFAULT_Y0 = MAX_IMAGE_ROWS / 2U;  //!< [px] Default reference row (image center)
 
-static constexpr float MIN_ALPHA_AREA_PRUNE_SCALING = -1.0F;     //!< [-] Lowest accepted area exponent
-static constexpr float MAX_ALPHA_AREA_PRUNE_SCALING = 1.0F;      //!< [-] Highest accepted area exponent
-static constexpr float DEFAULT_ALPHA_AREA_PRUNE_SCALING = 0.0F;  //!< [-] Default area exponent (area ignored)
+//!< alphaAreaPruneScaling: any value below 0 bypasses the cost function (rank by distance only); a value in [0, 2]
+//!< uses the area exponent (alpha - 1), which lies in [-1, 1]. Values above 2 and NaN are rejected.
+static constexpr float MAX_ALPHA_AREA_PRUNE_SCALING = 2.0F;      //!< [-] Highest accepted value (exponent +1)
+static constexpr float DEFAULT_ALPHA_AREA_PRUNE_SCALING = 1.0F;  //!< [-] Default: exponent 0, area ignored
 
 /*! @brief Internal bounding-box candidate (corner coordinates + pixel count). */
 struct RoiCandidateEntry {
@@ -40,7 +41,7 @@ struct RoiCandidateEntry {
     uint32_t width{};          //!< [px] Width of the bounding box
     uint32_t litPixelCount{};  //!< [-] Sum of litPixelCount over the bin-grid tiles the box overlaps
     uint64_t intensity{};      //!< [-] Estimated intensity: min(row-span intensity sum, col-span intensity sum)
-    float scaledIntensity{};   //!< [-] intensity / (width * height)^alphaAreaPruneScaling
+    float scaledIntensity{};   //!< [-] intensity / (width * height)^(alphaAreaPruneScaling - 1); 0 in bypass
 };
 
 /*! @brief Bin grid of ROI tiles covering the image, used to drop candidates that touch no lit tile.
@@ -62,7 +63,8 @@ struct RoiBinGrid {
 /*! @brief Fixed-capacity candidate list: candidates[0..numCandidates) are valid.
  *
  *  Used through the whole pipeline (built, filtered, scaled, then ranked in place). update() returns it
- *  ranked: sorted by distance to the reference point ascending, ties broken by scaledIntensity descending.
+ *  ranked: sorted by distance to the reference point ascending, ties broken by scaledIntensity descending
+ *  (in bypass, alpha < 0, ties keep the order the boxes were formed in).
  */
 struct RoiCandidates {
     uint32_t numCandidates{};                                        //!< [-] Number of valid entries
@@ -75,12 +77,14 @@ struct RoiCandidates {
  *  position (x0, y0): x0 is the column, y0 the row, in the same coordinates as the published
  *  cornerX/cornerY. Defaults to the full-image center (DEFAULT_X0, DEFAULT_Y0).
  *
- *  alphaAreaPruneScaling is the area exponent in scaledIntensity = intensity / area^alpha, the tie-break
- *  between boxes equally close to the reference point: 0 uses intensity alone, a positive value favors
- *  smaller boxes, a negative value larger ones.
+ *  alphaAreaPruneScaling sets the tie-break between boxes equally close to the reference point:
+ *    - below 0: the cost function is bypassed. Boxes are ranked by distance alone, equally close boxes keep
+ *      the order they were formed in (closer row span first, then closer col span), and scaledIntensity is 0.
+ *    - in [0, 2]: scaledIntensity = intensity / area^(alpha - 1), the exponent alpha - 1 lying in [-1, 1].
+ *      1 uses intensity alone, 2 divides by the area (favors smaller boxes), 0 multiplies by it (larger).
  *
  *  An instance can only exist if x0 is in [0, MAX_IMAGE_COLS], y0 is in [0, MAX_IMAGE_ROWS] and
- *  alphaAreaPruneScaling is in [MIN_ALPHA_AREA_PRUNE_SCALING, MAX_ALPHA_AREA_PRUNE_SCALING].
+ *  alphaAreaPruneScaling is at most MAX_ALPHA_AREA_PRUNE_SCALING and not NaN (any negative value is accepted).
  *  Construct via RegionsOfInterestPruneConfig::create(...).
  */
 class RegionsOfInterestPruneConfig final {
@@ -94,7 +98,8 @@ class RegionsOfInterestPruneConfig final {
             FSW_THROW_INVALID_ARGUMENT("regionsOfInterestPrune: y0 must be in [0, MAX_IMAGE_ROWS]");
         }
         if (!isValidAlphaAreaPruneScaling(alphaAreaPruneScaling)) {
-            FSW_THROW_INVALID_ARGUMENT("regionsOfInterestPrune: alphaAreaPruneScaling must be in [-1, 1]");
+            FSW_THROW_INVALID_ARGUMENT(
+                "regionsOfInterestPrune: alphaAreaPruneScaling must be <= 2 (negative bypasses the cost function)");
         }
         return {x0, y0, alphaAreaPruneScaling};
     }
@@ -102,10 +107,9 @@ class RegionsOfInterestPruneConfig final {
 
     static bool isValidX0(uint32_t x0) { return x0 <= MAX_IMAGE_COLS; }
     static bool isValidY0(uint32_t y0) { return y0 <= MAX_IMAGE_ROWS; }
-    // NaN fails both comparisons and infinities fall outside the range, so no separate isfinite check is needed.
-    static bool isValidAlphaAreaPruneScaling(float alpha) {
-        return alpha >= MIN_ALPHA_AREA_PRUNE_SCALING && alpha <= MAX_ALPHA_AREA_PRUNE_SCALING;
-    }
+    // NaN fails the comparison and +infinity is above the maximum; any negative value, -infinity included, is a
+    // valid request to bypass the cost function.
+    static bool isValidAlphaAreaPruneScaling(float alpha) { return alpha <= MAX_ALPHA_AREA_PRUNE_SCALING; }
 
     uint32_t getX0() const { return x0; }
     uint32_t getY0() const { return y0; }
@@ -119,7 +123,7 @@ class RegionsOfInterestPruneConfig final {
 
     uint32_t x0;                  //!< [px] Reference point column
     uint32_t y0;                  //!< [px] Reference point row
-    float alphaAreaPruneScaling;  //!< [-] Area exponent in scaledIntensity
+    float alphaAreaPruneScaling;  //!< [-] Below 0: bypass; otherwise the area exponent is alpha - 1
 };
 
 /*! @brief algorithm for the regions-of-interest pruning stage.
@@ -133,8 +137,9 @@ class RegionsOfInterestPruneConfig final {
  *    2b. With 2 row and 2 col spans, drop the two ghost boxes of the span pairing whose pixel counts
  *       and intensities disagree (see removeGhostPairs).
  *    3. Drop boxes that overlap no lit bin-grid tile.
- *    4. scaledIntensity = intensity / area^alpha.
- *    5. Sort by distance to the reference point ascending, ties by scaledIntensity descending.
+ *    4. scaledIntensity = intensity / area^(alpha - 1); skipped (0) when alpha < 0 (bypass).
+ *    5. Sort by distance to the reference point ascending; ties by scaledIntensity descending, or, in
+ *       bypass, by the order the boxes were formed in.
  *    6. Return the first ROI_CANDIDATES_OUT_MAX.
  */
 class RegionsOfInterestPruneAlgorithm final {
@@ -191,11 +196,13 @@ class RegionsOfInterestPruneAlgorithm final {
     static bool isBinGridUsable(const RoiBinGrid& binGrid, uint32_t numRows, uint32_t numCols);
     static uint32_t sumLitTiles(const RoiCandidateEntry& candidate, const RoiBinGrid& binGrid);
 
-    // Step 4: set each candidate's scaledIntensity = intensity / area^alpha.
+    // Step 4: set each candidate's scaledIntensity = intensity / area^(alpha - 1).
     static void scaleIntensityByArea(RoiCandidates& candidates, float alphaAreaPruneScaling);
+    static bool isCostFunctionBypassed(float alphaAreaPruneScaling) { return alphaAreaPruneScaling < 0.0F; }
 
-    // Step 5: sort candidates in place by distance to the reference point ascending (ties broken by scaledIntensity).
-    static void rankCandidates(RoiCandidates& candidates, float referenceRow, float referenceCol);
+    // Step 5: sort candidates in place by distance to the reference point ascending; ties broken by scaledIntensity,
+    // or kept in formation order when the cost function is bypassed.
+    static void rankCandidates(RoiCandidates& candidates, float referenceRow, float referenceCol, bool bypassCost);
 };
 
 #endif

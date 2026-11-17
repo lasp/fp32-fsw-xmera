@@ -2,7 +2,6 @@
 
 #include <math.h>
 #include <algorithm>
-#include <iterator>
 #include <limits>
 
 RegionsOfInterestPruneAlgorithm::RegionsOfInterestPruneAlgorithm(const RegionsOfInterestPruneConfig& config)
@@ -15,7 +14,8 @@ void RegionsOfInterestPruneAlgorithm::setConfig(const RegionsOfInterestPruneConf
 /*! Update method for the regions-of-interest pruning algorithm.  Orchestrates
  *  the pipeline steps and returns a fully populated RoiCandidates.
  @return RoiCandidates  At most ROI_CANDIDATES_OUT_MAX candidates, sorted by distance from the box center to the
-                        reference point (ascending), ties broken by scaledIntensity (descending).
+                        reference point (ascending), ties broken by scaledIntensity (descending), or kept in
+                        formation order when alphaAreaPruneScaling < 0 bypasses the cost function.
  @param rowSums   Pointer to the per-row above-threshold pixel sums.
  @param numRows   Number of rows in the sum array.
  @param colSums   Pointer to the per-column above-threshold pixel sums.
@@ -58,11 +58,16 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
     }
     RoiCandidates litCandidates = filterByLitTiles(candidates, binGrid);
 
-    // Step 4: scale each box's intensity by area^alpha.
-    scaleIntensityByArea(litCandidates, this->cfg.getAlphaAreaPruneScaling());
+    // Step 4: scale each box's intensity by area^(alpha - 1), unless alpha < 0 bypasses the cost function.
+    const float alpha = this->cfg.getAlphaAreaPruneScaling();
+    const bool bypassCost = isCostFunctionBypassed(alpha);
+    if (!bypassCost) {
+        scaleIntensityByArea(litCandidates, alpha);
+    }
 
-    // Step 5: sort by distance to the reference point, ties broken by scaledIntensity.
-    rankCandidates(litCandidates, referenceRow, referenceCol);
+    // Step 5: sort by distance to the reference point; ties broken by scaledIntensity, or kept in formation order
+    // in bypass.
+    rankCandidates(litCandidates, referenceRow, referenceCol, bypassCost);
 
     // Step 6: keep only the top ROI_CANDIDATES_OUT_MAX ranked candidates; clear the slots that are cut.
     for (uint32_t i = ROI_CANDIDATES_OUT_MAX; i < litCandidates.numCandidates; ++i) {
@@ -304,40 +309,54 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::filterByLitTiles(const RoiCandida
     return kept;
 }
 
-/*! Sets each candidate's scaledIntensity = intensity / area^alpha, with area = width * height (always >= 1, since
- *  every span has at least one entry). alpha = 0 leaves scaledIntensity equal to the intensity.
+/*! Sets each candidate's scaledIntensity = intensity / area^(alpha - 1), with area = width * height (always >= 1,
+ *  since every span has at least one entry). The exponent alpha - 1 lies in [-1, 1]: alpha = 1 leaves
+ *  scaledIntensity equal to the intensity, 2 divides by the area, 0 multiplies by it. Not called when alpha < 0.
  @param candidates             Candidates to update in place.
- @param alphaAreaPruneScaling  [-] Area exponent, in [MIN_ALPHA_AREA_PRUNE_SCALING, MAX_ALPHA_AREA_PRUNE_SCALING].
+ @param alphaAreaPruneScaling  [-] In [0, MAX_ALPHA_AREA_PRUNE_SCALING].
 */
 void RegionsOfInterestPruneAlgorithm::scaleIntensityByArea(RoiCandidates& candidates, float alphaAreaPruneScaling) {
     for (uint32_t i = 0; i < candidates.numCandidates; ++i) {
         RoiCandidateEntry& candidate = candidates.candidates[i];
         const auto area = static_cast<float>(candidate.width) * static_cast<float>(candidate.height);
-        candidate.scaledIntensity = static_cast<float>(candidate.intensity) / powf(area, alphaAreaPruneScaling);
+        candidate.scaledIntensity = static_cast<float>(candidate.intensity) / powf(area, alphaAreaPruneScaling - 1.0F);
     }
 }
 
 /*! Sorts candidates in place by squared distance from the candidate's box center to the reference point
- *  (ascending — closer wins); ties are broken by scaledIntensity (descending — brighter wins). Afterwards
- *  candidates[0] is the box closest to the reference point; the adapter publishes the first MAX_NUMBER_REGIONS.
- @param candidates    Candidate list with scaledIntensity set; sorted in place.
+ *  (ascending — closer wins). Equally close candidates are ordered by scaledIntensity (descending — brighter
+ *  wins), or, when the cost function is bypassed, keep their current order: the order buildCandidates formed
+ *  them in (closer row span first, then closer col span). The sort is a stable insertion sort, so equal
+ *  candidates always keep that order; the list holds at most ROI_CANDIDATES_MAX entries. Afterwards
+ *  candidates[0] is the box closest to the reference point.
+ @param candidates    Candidate list (scaledIntensity set unless bypassed); sorted in place.
  @param referenceRow  [px] Reference point row coordinate (y0).
  @param referenceCol  [px] Reference point column coordinate (x0).
+ @param bypassCost    true when alphaAreaPruneScaling < 0: ties are not broken by scaledIntensity.
 */
 // NOLINTBEGIN(bugprone-easily-swappable-parameters) -- referenceRow/referenceCol are a legitimately
 // paired 2-D point; this shape is intentional.
 void RegionsOfInterestPruneAlgorithm::rankCandidates(RoiCandidates& candidates,
                                                      float referenceRow,
-                                                     float referenceCol) {
-    std::ranges::sort(candidates.candidates.begin(),
-                      std::next(candidates.candidates.begin(), candidates.numCandidates),
-                      [referenceRow, referenceCol](const RoiCandidateEntry& a, const RoiCandidateEntry& b) {
-                          const float distanceA = squaredDistanceToReference(a, referenceRow, referenceCol);
-                          const float distanceB = squaredDistanceToReference(b, referenceRow, referenceCol);
-                          if (distanceA != distanceB) {
-                              return distanceA < distanceB;
-                          }
-                          return a.scaledIntensity > b.scaledIntensity;
-                      });
+                                                     float referenceCol,
+                                                     bool bypassCost) {
+    const auto rankedBefore = [referenceRow, referenceCol, bypassCost](const RoiCandidateEntry& a,
+                                                                       const RoiCandidateEntry& b) {
+        const float distanceA = squaredDistanceToReference(a, referenceRow, referenceCol);
+        const float distanceB = squaredDistanceToReference(b, referenceRow, referenceCol);
+        if (distanceA != distanceB) {
+            return distanceA < distanceB;
+        }
+        return !bypassCost && a.scaledIntensity > b.scaledIntensity;
+    };
+    for (uint32_t i = 1; i < candidates.numCandidates; ++i) {
+        const RoiCandidateEntry entry = candidates.candidates[i];
+        uint32_t slot = i;
+        while (slot > 0 && rankedBefore(entry, candidates.candidates[slot - 1])) {
+            candidates.candidates[slot] = candidates.candidates[slot - 1];
+            --slot;
+        }
+        candidates.candidates[slot] = entry;
+    }
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)

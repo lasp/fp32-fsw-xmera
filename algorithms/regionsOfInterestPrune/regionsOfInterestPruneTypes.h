@@ -18,7 +18,7 @@ extern "C" {
  *  - height, width  [px] bounding box size
  *  - litPixelCount  [-]  sum of litPixelCount over the bin-grid tiles the box overlaps
  *  - intensity      [-]  estimated intensity, min(row-span intensity sum, col-span intensity sum)
- *  - scaledIntensity [-] intensity / (width * height)^alphaAreaPruneScaling
+ *  - scaledIntensity [-] intensity / (width * height)^(alphaAreaPruneScaling - 1); 0 when the cost is bypassed
  */
 typedef struct {
     uint32_t row;
@@ -34,7 +34,8 @@ typedef struct {
  * @brief Plain-old-data mirror of the C++ RoiCandidates.
  *  - numCandidates carries the number of valid entries in candidates
  *  - candidates[i] for i < numCandidates is sorted by distance to the reference point ascending, ties broken
- *    by scaledIntensity descending; trailing slots are zero
+ *    by scaledIntensity descending (kept in formation order when the cost function is bypassed); trailing
+ *    slots are zero
  */
 typedef struct {
     uint32_t numCandidates;
@@ -61,7 +62,8 @@ typedef struct {
  * @brief Plain-old-data mirror of the C++ RegionsOfInterestPruneConfig.
  *  - x0, y0 [px]: absolute reference point (x0 = column, y0 = row). Must satisfy
  *    x0 <= MAX_IMAGE_COLS (4096) and y0 <= MAX_IMAGE_ROWS (3000) (regionsOfInterestPruneAlgorithm.h).
- *  - alphaAreaPruneScaling [-]: area exponent in scaledIntensity, in [-1, 1].
+ *  - alphaAreaPruneScaling [-]: at most 2, not NaN. Any negative value bypasses the cost function (rank by
+ *    distance only); otherwise the area exponent in scaledIntensity is alphaAreaPruneScaling - 1.
  */
 typedef struct {
     uint32_t x0;
