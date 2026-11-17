@@ -48,7 +48,7 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
     const RoiCandidates allCandidates = buildCandidates(rowSpans, colSpans);
 
     // Step 2b: with 2 row x 2 col spans, drop the ghost boxes of the span pairing the projections reject.
-    const RoiCandidates candidates = removeGhostPairs(allCandidates, rowSpans, colSpans);
+    const RoiCandidates ghostFreeCandidates = removeGhostPairs(allCandidates, rowSpans, colSpans);
 
     // Step 3: keep only boxes that overlap at least one lit tile, setting each box's litPixelCount to the lit
     // pixels of the tiles it covers. A grid that does not cover this image cannot confirm any box, so it
@@ -56,25 +56,25 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::update(const uint16_t* rowSums,
     if (!isBinGridUsable(binGrid, numRows, numCols)) {
         return RoiCandidates{};
     }
-    RoiCandidates litCandidates = filterByLitTiles(candidates, binGrid);
+    RoiCandidates rankedCandidates = filterByLitTiles(ghostFreeCandidates, binGrid);
 
     // Step 4: scale each box's intensity by area^(alpha - 1), unless alpha < 0 bypasses the cost function.
     const float alpha = this->cfg.getAlphaAreaPruneScaling();
     const bool bypassCost = isCostFunctionBypassed(alpha);
     if (!bypassCost) {
-        scaleIntensityByArea(litCandidates, alpha);
+        scaleIntensityByArea(rankedCandidates, alpha);
     }
 
     // Step 5: sort by distance to the reference point; ties broken by scaledIntensity, or kept in formation order
     // in bypass.
-    rankCandidates(litCandidates, referenceRow, referenceCol, bypassCost);
+    rankCandidates(rankedCandidates, referenceRow, referenceCol, bypassCost);
 
     // Step 6: keep only the top ROI_CANDIDATES_OUT_MAX ranked candidates; clear the slots that are cut.
-    for (uint32_t i = ROI_CANDIDATES_OUT_MAX; i < litCandidates.numCandidates; ++i) {
-        litCandidates.candidates[i] = RoiCandidateEntry{};
+    for (uint32_t i = ROI_CANDIDATES_OUT_MAX; i < rankedCandidates.numCandidates; ++i) {
+        rankedCandidates.candidates[i] = RoiCandidateEntry{};
     }
-    litCandidates.numCandidates = std::min(litCandidates.numCandidates, ROI_CANDIDATES_OUT_MAX);
-    return litCandidates;
+    rankedCandidates.numCandidates = std::min(rankedCandidates.numCandidates, ROI_CANDIDATES_OUT_MAX);
+    return rankedCandidates;
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
@@ -137,10 +137,10 @@ RegionsOfInterestPruneAlgorithm::ClosestSpans<Capacity> RegionsOfInterestPruneAl
         }
 
         const uint32_t spanStart = pos;
-        uint64_t pixels = 0;
+        uint64_t litPixels = 0;
         uint64_t intensity = 0;  // 64-bit: a span of many rows can exceed uint32_t
         while (pos < n && counts[pos] != 0) {
-            pixels += counts[pos];
+            litPixels += counts[pos];
             intensity += intensities[pos];
             ++pos;
         }
@@ -148,7 +148,7 @@ RegionsOfInterestPruneAlgorithm::ClosestSpans<Capacity> RegionsOfInterestPruneAl
         const float midpoint = static_cast<float>(spanStart) + (static_cast<float>(length) / 2.0F);
         const float distance = fabsf(midpoint - reference);
         const SpanEntry span{
-            .start = spanStart, .length = length, .pixels = pixels, .intensity = intensity, .distance = distance};
+            .start = spanStart, .length = length, .litPixels = litPixels, .intensity = intensity, .distance = distance};
 
         // Append if there is room, otherwise overwrite the farthest kept span if this one is closer.
         uint32_t slot = 0;
@@ -180,15 +180,16 @@ RegionsOfInterestPruneAlgorithm::ClosestSpans<Capacity> RegionsOfInterestPruneAl
 RoiCandidates RegionsOfInterestPruneAlgorithm::buildCandidates(const RowClosestSpans& rowSpans,
                                                                const ColClosestSpans& colSpans) {
     RoiCandidates candidates;
-    for (uint32_t a = 0; a < rowSpans.count; ++a) {
-        const SpanEntry& r = rowSpans.data[a];
-        for (uint32_t b = 0; b < colSpans.count; ++b) {
-            const SpanEntry& c = colSpans.data[b];
-            candidates.candidates[candidates.numCandidates++] = {.row = r.start,
-                                                                 .col = c.start,
-                                                                 .height = r.length,
-                                                                 .width = c.length,
-                                                                 .intensity = std::min(r.intensity, c.intensity)};
+    for (uint32_t rowIdx = 0; rowIdx < rowSpans.count; ++rowIdx) {
+        const SpanEntry& rowSpan = rowSpans.data[rowIdx];
+        for (uint32_t colIdx = 0; colIdx < colSpans.count; ++colIdx) {
+            const SpanEntry& colSpan = colSpans.data[colIdx];
+            candidates.candidates[candidates.numCandidates++] = {
+                .row = rowSpan.start,
+                .col = colSpan.start,
+                .height = rowSpan.length,
+                .width = colSpan.length,
+                .intensity = std::min(rowSpan.intensity, colSpan.intensity)};
         }
     }
     return candidates;
@@ -219,19 +220,19 @@ RoiCandidates RegionsOfInterestPruneAlgorithm::removeGhostPairs(const RoiCandida
         return candidates;
     }
     const auto pairMismatch = [](const SpanEntry& row, const SpanEntry& col) {
-        return relativeMismatch(row.pixels, col.pixels) + relativeMismatch(row.intensity, col.intensity);
+        return relativeMismatch(row.litPixels, col.litPixels) + relativeMismatch(row.intensity, col.intensity);
     };
     const SpanEntry& row0 = rowSpans.data[0];
     const SpanEntry& row1 = rowSpans.data[1];
     const SpanEntry& col0 = colSpans.data[0];
     const SpanEntry& col1 = colSpans.data[1];
-    const float diagonal = pairMismatch(row0, col0) + pairMismatch(row1, col1);      // boxes 0 and 3
-    const float antiDiagonal = pairMismatch(row0, col1) + pairMismatch(row1, col0);  // boxes 1 and 2
+    const float diagonalMismatch = pairMismatch(row0, col0) + pairMismatch(row1, col1);      // boxes 0 and 3
+    const float antiDiagonalMismatch = pairMismatch(row0, col1) + pairMismatch(row1, col0);  // boxes 1 and 2
 
     bool keepDiagonal = false;
-    if (diagonal < GHOST_PAIRING_MARGIN * antiDiagonal) {
+    if (diagonalMismatch < GHOST_PAIRING_MARGIN * antiDiagonalMismatch) {
         keepDiagonal = true;
-    } else if (!(antiDiagonal < GHOST_PAIRING_MARGIN * diagonal)) {
+    } else if (!(antiDiagonalMismatch < GHOST_PAIRING_MARGIN * diagonalMismatch)) {
         return candidates;  // ambiguous: keep all four
     }
 

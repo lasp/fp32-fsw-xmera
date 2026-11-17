@@ -164,7 +164,7 @@ class RegionsOfInterestPruneAlgorithm final {
     struct SpanEntry {
         uint32_t start{};      //!< [px] First index of the span
         uint32_t length{};     //!< [px] Number of entries in the span
-        uint64_t pixels{};     //!< [-] Accumulated above-threshold pixel count over the span
+        uint64_t litPixels{};  //!< [-] Accumulated above-threshold pixel count over the span
         uint64_t intensity{};  //!< [-] Accumulated intensity over the span
         float distance{};      //!< [px] |span midpoint - reference coordinate|
     };

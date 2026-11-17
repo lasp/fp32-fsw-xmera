@@ -43,7 +43,7 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
         throw XmeraLifecycleException("RegionsOfInterestPrune reset() has not been called.");
     }
 
-    const FpgaRowColSumMsgF32Payload rcMsg = this->rowColSumInMsg();
+    const FpgaRowColSumMsgF32Payload rowColSumMsg = this->rowColSumInMsg();
     // The algorithm takes its own grid type, not the payload: copy the lit counts out of the
     // {x, y, litPixelCount} regions into a contiguous array. numRegions is clamped to the array size;
     // the algorithm rejects a grid whose tile count does not match the image.
@@ -57,12 +57,12 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
                              .numRegionCols = gridMsg.numRegionCols,
                              .litCounts = std::span<const uint32_t>(this->litCounts.data(), numRegions)};
 
-    const RoiCandidates candidates = this->algorithm->update(rcMsg.rowSums,
-                                                             rcMsg.numRows,
-                                                             rcMsg.colSums,
-                                                             rcMsg.numCols,
-                                                             rcMsg.rowIntensities,
-                                                             rcMsg.colIntensities,
+    const RoiCandidates candidates = this->algorithm->update(rowColSumMsg.rowSums,
+                                                             rowColSumMsg.numRows,
+                                                             rowColSumMsg.colSums,
+                                                             rowColSumMsg.numCols,
+                                                             rowColSumMsg.rowIntensities,
+                                                             rowColSumMsg.colIntensities,
                                                              binGrid);
 
     RegionsIdentifiedMsgF32Payload output{};
@@ -70,15 +70,15 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
     const double timeTagSec = fsw::nanosToSeconds(callTime);
     output.numberOfRegions = static_cast<int>(numPublished);
     for (uint32_t k = 0; k < numPublished; ++k) {
-        const auto& cand = candidates.candidates[k];
+        const auto& candidate = candidates.candidates[k];
         output.timeTag[k] = timeTagSec;
-        output.cornerX[k] = static_cast<int>(cand.col);
-        output.cornerY[k] = static_cast<int>(cand.row);
-        output.width[k] = static_cast<int>(cand.width);
-        output.height[k] = static_cast<int>(cand.height);
+        output.cornerX[k] = static_cast<int>(candidate.col);
+        output.cornerY[k] = static_cast<int>(candidate.row);
+        output.width[k] = static_cast<int>(candidate.width);
+        output.height[k] = static_cast<int>(candidate.height);
         // litPixelCount is saturated at UINT32_MAX; clamp so the int field cannot wrap negative.
         output.numberOfPixels[k] =
-            static_cast<int>(std::min(cand.litPixelCount, static_cast<uint32_t>(std::numeric_limits<int>::max())));
+            static_cast<int>(std::min(candidate.litPixelCount, static_cast<uint32_t>(std::numeric_limits<int>::max())));
     }
     this->regionsIdentifiedOutMsg.write(output, moduleID, callTime);
 }
