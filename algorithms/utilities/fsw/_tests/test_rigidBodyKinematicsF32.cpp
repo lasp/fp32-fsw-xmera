@@ -1752,6 +1752,87 @@ TEST(RigidBodyKinematics, addPrvSmallRotations) {
     EXPECT_TRUE(prvToDcm(addPrv(xAxis, Eigen::Vector3d(-(1.0 - netAngle) * xAxis))).isApprox(netDcm, tol));
 }
 
+// ---------------------------------------------------------------------------
+// subPrv: computes the PRV of frame 1 relative to frame 2.
+// ---------------------------------------------------------------------------
+// Subtracting the zero PRV returns the PRV itself; subtracting from the zero PRV returns its inverse.
+TYPED_TEST(RepresentationTransformTest, subPrvWithZero) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const prv(T(0.1), T(-0.2), T(0.3));
+    Vec3 const zeroPrv = Vec3::Zero();
+    EXPECT_EQ(subPrv(prv, zeroPrv), prv);
+    EXPECT_EQ(subPrv(zeroPrv, prv), Vec3(-prv));
+}
+
+// The relative rotation between two equal PRVs is the zero PRV, up to rounding.
+TYPED_TEST(RepresentationTransformTest, subPrvOfSameIsZero) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const prv(T(0.1), T(-0.2), T(0.3));
+    EXPECT_TRUE(subPrv(prv, prv).isZero(T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// For rotations about the same axis, the relative angle is the difference of the angles: 150 - (-150) = 300 deg.
+// The result is not switched to the short rotation (-60 deg).
+TYPED_TEST(RepresentationTransformTest, subPrvSameAxis) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    T const degToRad = std::numbers::pi_v<T> / T(180);
+    Vec3 const axis(T(1), T(0), T(0));
+    Vec3 const prv1 = T(150) * degToRad * axis;
+    Vec3 const prv2 = T(-150) * degToRad * axis;
+    Vec3 const expected = T(300) * degToRad * axis;
+
+    EXPECT_TRUE(subPrv(prv1, prv2).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// The result is the PRV of frame 1 relative to frame 2, so its DCM is [C1] [C2]^T. The DCMs are built
+// independently with Eigen::AngleAxis (the DCM is the transpose of its matrix).
+TYPED_TEST(RepresentationTransformTest, subPrvFrameOrder) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    T const degToRad = std::numbers::pi_v<T> / T(180);
+    Vec3 const axis1(T(1), T(0), T(0));
+    Vec3 const axis2(T(0), T(0.6), T(0.8));
+    T const phi1 = T(70) * degToRad;
+    T const phi2 = T(50) * degToRad;
+
+    Vec3 const prv1 = phi1 * axis1;
+    Vec3 const prv2 = phi2 * axis2;
+    Mat3 const dcm1 = Eigen::AngleAxis<T>(phi1, axis1).toRotationMatrix().transpose();
+    Mat3 const dcm2 = Eigen::AngleAxis<T>(phi2, axis2).toRotationMatrix().transpose();
+
+    EXPECT_TRUE(
+        prvToDcm(subPrv(prv1, prv2)).isApprox(dcm1 * dcm2.transpose(), T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Small rotations must not be lost. Double only: in float these rotations are too small to see.
+//  - A 1e-9 rad first rotation still changes the result. A shortcut that returns prv1 - prv2 would be off by
+//    1/2 (prv1 x prv2), about 5e-10 rad here.
+//  - Two rotations 1e-8 rad apart leave 1e-8 rad. A formula using 2*acos(cos(angle/2)) loses it.
+TEST(RigidBodyKinematics, subPrvSmallRotations) {
+    using Mat3 = Eigen::Matrix3d;
+
+    Eigen::Vector3d const xAxis(1.0, 0.0, 0.0);
+    Eigen::Vector3d const yAxis(0.0, 1.0, 0.0);
+    double const tol = 10.0 * std::numeric_limits<double>::epsilon();
+
+    double const tinyAngle = 1e-9;
+    Mat3 const tinyDcm = Eigen::AngleAxisd(tinyAngle, xAxis).toRotationMatrix().transpose();
+    Mat3 const yDcm = Eigen::AngleAxisd(1.0, yAxis).toRotationMatrix().transpose();
+    EXPECT_TRUE(prvToDcm(subPrv(Eigen::Vector3d(tinyAngle * xAxis), yAxis)).isApprox(tinyDcm * yDcm.transpose(), tol));
+
+    double const netAngle = 1e-8;
+    Mat3 const netDcm = Eigen::AngleAxisd(netAngle, xAxis).toRotationMatrix().transpose();
+    EXPECT_TRUE(prvToDcm(subPrv(xAxis, Eigen::Vector3d((1.0 - netAngle) * xAxis))).isApprox(netDcm, tol));
+}
+
 TYPED_TEST(RepresentationTransformTest, epToEulerAngles321) {
     using T = TypeParam;
     using Vec4 = Eigen::Matrix<T, 4, 1>;
@@ -2221,16 +2302,6 @@ TEST(ConditioningNearIdentity, EpToPrvSmallAngle) {
     }
 }
 
-TEST(ConditioningNearIdentity, SubPrvSmallRelativeRotation) {
-    double const phi = 1.0;  // O(1) inputs, tiny relative rotation -> realPart -> 1
-    for (double eps : {1e-2, 1e-4, 1e-6, 1e-8}) {
-        Eigen::Vector3d const a = phi * kCondAxis;
-        Eigen::Vector3d const b = (phi - eps) * kCondAxis;
-        Eigen::Vector3d const expected = eps * kCondAxis;
-        EXPECT_LT(relativeErrorNorm(subPrv<double>(a, b), expected), kCondTol) << "eps=" << eps;
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Domain robustness: degenerate inputs must stay finite (no acos-domain NaN, no 0/0).
 // ---------------------------------------------------------------------------
@@ -2238,14 +2309,6 @@ TEST(DomainRobustness, EpToPrvSlightlyOffUnit) {
     // q0 just above 1 from integer-decode / renorm rounding: acos -> NaN, atan2 stays finite.
     Eigen::Vector4d const ep(1.0 + 1e-9, 1e-6, -2e-6, 5e-7);
     EXPECT_TRUE(epToPrv<double>(ep).allFinite());
-}
-
-TEST(DomainRobustness, SubPrvIdenticalRotations) {
-    // Relative rotation of identical PRVs is identity: must be a finite zero, not 0/0.
-    Eigen::Vector3d const a(0.3, -0.4, 0.5);
-    Eigen::Vector3d const result = subPrv<double>(a, a);
-    EXPECT_TRUE(result.allFinite());
-    EXPECT_LT(result.norm(), 1e-9);
 }
 
 // ---------------------------------------------------------------------------

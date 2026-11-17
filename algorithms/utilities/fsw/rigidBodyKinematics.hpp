@@ -977,56 +977,74 @@ Eigen::Vector3<ScalarT> subMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen:
 }
 
 /**
- * Provide the principal rotation vector which corresponds to relative principal rotation from Q2
- * to Q1.
+ * Compute the principal rotation vector of the relative rotation from prv2 to prv1.
+ * For example, prv_BR = subPrv(prv_BN, prv_RN).
  *
- * The function calculates the angle as 2*atan2(|prv|, realPart) and not 2*acos(realPart). The code
- * calculates the vector part of the relative quaternion first, because atan2 must have its norm,
- * which is equal to sin(angle/2).
+ * The relative rotation is:
+ *   cos(Phi/2)   = cos(phi1)cos(phi2) + sin(phi1)sin(phi2) (e1 . e2)
+ *   e sin(Phi/2) = cos(phi2)sin(phi1) e1 - cos(phi1)sin(phi2) e2 + sin(phi1)sin(phi2) (e1 x e2)
+ * where Phi and e are the angle and unit axis of the result, phi1 = |prv1|/2, phi2 = |prv2|/2, and
+ * e1, e2 are the unit axes of prv1 and prv2.
  *
- * This has the most effect when the function measures a small attitude error. When the two rotations
- * are almost the same, realPart becomes equal to 1 and acos gives 0. The previous code thus gave a
- * zero result for a relative rotation of less than a few times 1e-8 radians. Rounding can also make
- * realPart more than 1. Then acos gives NaN, and the previous assert on its argument stopped the
- * program.
+ * If either input is exactly zero, the result is prv1 - prv2, which is exact. Any nonzero
+ * input, however small, uses the full formula, because prv1 - prv2 drops the
+ * 1/2 (prv1 x prv2) term.
+ *
+ * The function converts both rotations to Euler parameters, computes the relative Euler parameters
+ * epScalar and epVector, and converts the result back to a principal rotation vector.
+ *
+ * The sign of epScalar sets the angle of the result: epScalar >= 0 gives an angle in [0, pi]
+ * (the short rotation), and epScalar < 0 gives an angle in (pi, 2*pi) (the long rotation). The
+ * function does not switch to the short rotation. Callers that need an angle <= pi must convert it.
+ *
+ * The function calculates the angle as 2*atan2(|epVector|, epScalar) and not
+ * 2*acos(epScalar). The code calculates the vector part of the relative quaternion first, because
+ * atan2 must have its norm, which is equal to sin(angle/2).
+ *
+ * This matters most when the function measures a small attitude error. When the two rotations are
+ * almost the same, epScalar rounds to 1, and 2*acos(epScalar) would give 0 for a relative rotation of
+ * less than a few times 1e-8 radians. Rounding can also make epScalar more than 1, where acos gives
+ * NaN. atan2 has neither problem.
  *
  * The result is a zero vector only when the vector part of the relative quaternion is exactly zero,
  * which is a relative rotation equal to identity.
  *
- * @param prv1
- * @param prv2
- * @return Eigen::Vector3d
+ * @param prv1 [-] principal rotation vector of frame 1 relative to the reference frame
+ * @param prv2 [-] principal rotation vector of frame 2 relative to the reference frame
+ * @return [-] principal rotation vector of frame 1 relative to frame 2
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> subPrv(const Eigen::Vector3<ScalarT>& prv1, const Eigen::Vector3<ScalarT>& prv2) {
-    if (constexpr ScalarT threshold = ScalarT(1.0E-7); prv1.stableNorm() < threshold || prv2.stableNorm() < threshold) {
+    const ScalarT norm1 = prv1.stableNorm();
+    const ScalarT norm2 = prv2.stableNorm();
+    if (norm1 == ScalarT(0) || norm2 == ScalarT(0)) {
         return prv1 - prv2;
     }
 
-    ScalarT norm1 = prv1.stableNorm();
-    ScalarT norm2 = prv2.stableNorm();
+    const ScalarT phi1 = norm1 / ScalarT(2);
+    const ScalarT phi2 = norm2 / ScalarT(2);
 
-    ScalarT cosPhi1 = std::cos(norm1 / ScalarT(2));
-    ScalarT cosPhi2 = std::cos(norm2 / ScalarT(2));
-    ScalarT sinPhi1 = std::sin(norm1 / ScalarT(2));
-    ScalarT sinPhi2 = std::sin(norm2 / ScalarT(2));
+    const ScalarT cosPhi1 = std::cos(phi1);
+    const ScalarT cosPhi2 = std::cos(phi2);
+    const ScalarT sinPhi1 = std::sin(phi1);
+    const ScalarT sinPhi2 = std::sin(phi2);
 
-    Eigen::Vector3<ScalarT> unitVector1 = prv1 / norm1;
-    Eigen::Vector3<ScalarT> unitVector2 = prv2 / norm2;
+    const Eigen::Vector3<ScalarT> unitAxis1 = prv1 / norm1;
+    const Eigen::Vector3<ScalarT> unitAxis2 = prv2 / norm2;
 
-    ScalarT dotUV = unitVector1.dot(unitVector2);
-    ScalarT realPart = cosPhi1 * cosPhi2 + sinPhi1 * sinPhi2 * dotUV;
+    const ScalarT dotProduct = unitAxis1.dot(unitAxis2);
+    const ScalarT epScalar = cosPhi1 * cosPhi2 + sinPhi1 * sinPhi2 * dotProduct;
 
-    Eigen::Vector3<ScalarT> prv = cosPhi2 * sinPhi1 * unitVector1 - cosPhi1 * sinPhi2 * unitVector2 +
-                                  sinPhi1 * sinPhi2 * unitVector1.cross(unitVector2);
+    const Eigen::Vector3<ScalarT> epVector =
+        cosPhi2 * sinPhi1 * unitAxis1 - cosPhi1 * sinPhi2 * unitAxis2 + sinPhi1 * sinPhi2 * unitAxis1.cross(unitAxis2);
 
-    ScalarT vectorNorm = prv.stableNorm();
-    if (vectorNorm == ScalarT(0)) {
+    const ScalarT epVectorNorm = epVector.stableNorm();
+    if (epVectorNorm == ScalarT(0)) {
         return Eigen::Vector3<ScalarT>::Zero();
     }
-    ScalarT angle = ScalarT(2) * std::atan2(vectorNorm, realPart);
+    const ScalarT angle = ScalarT(2) * std::atan2(epVectorNorm, epScalar);
 
-    return prv * angle / vectorNorm;
+    return (epVector / epVectorNorm) * angle;
 }
 
 /**
