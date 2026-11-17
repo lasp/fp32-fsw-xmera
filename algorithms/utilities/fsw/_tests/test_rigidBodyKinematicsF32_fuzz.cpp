@@ -866,4 +866,54 @@ FUZZ_TEST(RigidBodyKinematicsFuzz, dcmToPrvPropertiesDouble)
                  fuzztest::OneOf(fuzztest::InRange(-6.0, 0.79),        // Angles from 1e-6 to 6.17 rad.
                                  fuzztest::InRange(-150.0, -6.0),      // Angles from 1e-150 to 1e-6 rad.
                                  fuzztest::InRange(0.4969, 0.4974)));  // Rotations from 179.90 to 180.10 deg.
+
+// ---------------------------------------------------------------------------
+// bmatMrp: computes [B(sigma)] = (1 - |sigma|^2) I + 2 [sigma~] + 2 sigma sigma^T.
+// ---------------------------------------------------------------------------
+template <typename T>
+void bmatMrpProperties(const Eigen::Vector3<T>& direction, T log10MrpNorm) {
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    // A zero direction produces a zero MRP, representing the identity rotation.
+    Vec3 mrp = Vec3::Zero();
+    if (!direction.isZero(T(0))) {
+        mrp = direction.stableNormalized() * std::pow(T(10), log10MrpNorm);
+    }
+
+    Mat3 const bmat = bmatMrp(mrp);
+    T const tol = T(10) * std::numeric_limits<T>::epsilon();
+
+    // The matrix must contain only finite values.
+    ASSERT_TRUE(bmat.allFinite());
+
+    // Build the expected matrix independently: the columns of [sigma~] are sigma x (unit axis).
+    Mat3 mrpTilde;
+    mrpTilde << mrp.cross(Vec3::UnitX()), mrp.cross(Vec3::UnitY()), mrp.cross(Vec3::UnitZ());
+    T const mrpSquaredNorm = mrp.squaredNorm();
+    Mat3 const expected = (T(1) - mrpSquaredNorm) * Mat3::Identity() + T(2) * mrpTilde + T(2) * mrp * mrp.transpose();
+    EXPECT_TRUE(bmat.isApprox(expected, tol));
+
+    // [B] [B]^T = (1 + |sigma|^2)^2 I.
+    T const scale = (T(1) + mrpSquaredNorm) * (T(1) + mrpSquaredNorm);
+    EXPECT_TRUE((bmat * bmat.transpose()).isApprox(scale * Mat3::Identity(), tol));
+}
+
+void bmatMrpPropertiesFloat(const Eigen::Vector3f& direction, float log10MrpNorm) {
+    bmatMrpProperties(direction, log10MrpNorm);
+}
+
+void bmatMrpPropertiesDouble(const Eigen::Vector3d& direction, double log10MrpNorm) {
+    bmatMrpProperties(direction, log10MrpNorm);
+}
+
+// The largest norms keep the squared norm of [B] [B]^T, used by isApprox, finite (|mrp| ~1e4 in float, ~1e37 in
+// double).
+FUZZ_TEST(RigidBodyKinematicsFuzz, bmatMrpPropertiesFloat)
+    .WithDomains(xmera::fuzz::Vector3fInRange(-1.0F, 1.0F),  // Random X, Y, Z direction components.
+                 fuzztest::InRange(-18.0F, 4.0F));           // MRP norms from 1e-18 to 1e4.
+
+FUZZ_TEST(RigidBodyKinematicsFuzz, bmatMrpPropertiesDouble)
+    .WithDomains(xmera::fuzz::Vector3dInRange(-1.0, 1.0),  // Random X, Y, Z direction components.
+                 fuzztest::InRange(-150.0, 37.0));         // MRP norms from 1e-150 to 1e37.
 }  // namespace

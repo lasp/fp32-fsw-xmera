@@ -507,7 +507,10 @@ TYPED_TEST(BMatrixTypedTest, BmatEp) {
     EXPECT_LT(relativeError, tolerance);
 }
 
-TYPED_TEST(BMatrixTypedTest, BmatMrp) {
+// ---------------------------------------------------------------------------
+// bmatMrp: computes [B(sigma)] = (1 - |sigma|^2) I + 2 [sigma~] + 2 sigma sigma^T.
+// ---------------------------------------------------------------------------
+TYPED_TEST(BMatrixTypedTest, bmatMrpMatchesCReference) {
     auto mrp = this->randVec3();
     TypeParam expectedArray[3][3] = {};
     if constexpr (std::is_same_v<TypeParam, float>) {
@@ -528,6 +531,54 @@ TYPED_TEST(BMatrixTypedTest, BmatMrp) {
 
     TypeParam const relativeError = (bmat - expected).norm() / (expected.norm() + eps);
     EXPECT_LT(relativeError, tolerance);
+}
+
+// At the zero MRP set, [B] is the identity.
+TYPED_TEST(BMatrixTypedTest, bmatMrpAtZeroIsIdentity) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    Vec3 const zeroMrp = Vec3::Zero();
+    EXPECT_EQ(bmatMrp(zeroMrp), Mat3::Identity());
+}
+
+// Verify the B-matrix property B(sigma) * sigma = (1 + |sigma|^2) * sigma.
+TYPED_TEST(BMatrixTypedTest, bmatMrpTimesMrp) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const mrp(T(0.1), T(-0.2), T(0.3));
+    Vec3 const expected = (T(1) + mrp.squaredNorm()) * mrp;
+
+    EXPECT_TRUE((bmatMrp(mrp) * mrp).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// Verify the cross-product sign using B(0.5 * X) * Y = (0, 0.75, 1),
+// consistent with the right-hand rule X cross Y = Z.
+TYPED_TEST(BMatrixTypedTest, bmatMrpCrossTermSign) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+
+    Vec3 const mrp(T(0.5), T(0), T(0));
+    Vec3 const unitY = Vec3::UnitY();
+    Vec3 const expected(T(0), T(0.75), T(1));
+
+    EXPECT_TRUE((bmatMrp(mrp) * unitY).isApprox(expected, T(10) * std::numeric_limits<T>::epsilon()));
+}
+
+// [B] [B]^T = (1 + |sigma|^2)^2 I, so [B] is a scaled rotation matrix.
+TYPED_TEST(BMatrixTypedTest, bmatMrpScaledOrthogonal) {
+    using T = TypeParam;
+    using Vec3 = Eigen::Vector3<T>;
+    using Mat3 = Eigen::Matrix3<T>;
+
+    Vec3 const mrp(T(0.1), T(-0.2), T(0.3));
+    Mat3 const bmat = bmatMrp(mrp);
+    T const scale = (T(1) + mrp.squaredNorm()) * (T(1) + mrp.squaredNorm());
+
+    EXPECT_TRUE(
+        (bmat * bmat.transpose()).isApprox(scale * Mat3::Identity(), T(10) * std::numeric_limits<T>::epsilon()));
 }
 
 TYPED_TEST(BMatrixTypedTest, BdotMrp) {

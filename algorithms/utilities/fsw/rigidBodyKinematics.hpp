@@ -154,10 +154,14 @@ Eigen::Matrix<ScalarT, 4, 3> bmatEp(const Eigen::Vector4<ScalarT>& ep) {
 }
 
 /**
- * Return the matrix which relates the body angular velocity vector w to the derivative of mrp vector
- * dQ/dt = 1/4 [B(Q)] omega
- * @param mrp
- * @return Eigen::Matrix3d
+ * Compute the matrix [B(sigma)] that maps the angular velocity to the MRP time derivative:
+ *   d(sigma)/dt = 1/4 [B(sigma)] omega
+ *   [B(sigma)] = (1 - |sigma|^2) I + 2 [sigma~] + 2 sigma sigma^T
+ * where omega is the angular velocity of the frame relative to the reference frame, in components
+ * of the frame the MRP set describes. B satisfies B B^T = (1 + |sigma|^2)^2 I.
+ *
+ * @param mrp [-] MRP set of a frame relative to a reference frame
+ * @return [-] matrix [B(sigma)]
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> bmatMrp(const Eigen::Vector3<ScalarT>& mrp) {
