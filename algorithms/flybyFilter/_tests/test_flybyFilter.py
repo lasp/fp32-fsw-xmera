@@ -463,10 +463,10 @@ def test_properties_have_the_filter_size():
             setattr(module, name, value)
 
 
-def _nav_att_payload(dcm_bn, sun_n):
+def _nav_att_payload(dcm_bn, rHat_SB_N):
     payload = messaging.NavAttMsgF32Payload()
     payload.sigma_BN = list(rbk.C2MRP(dcm_bn))
-    payload.vehSunPntBdy = list(dcm_bn @ sun_n)
+    payload.vehSunPntBdy = list(dcm_bn @ rHat_SB_N)
     return payload
 
 
@@ -477,7 +477,7 @@ def test_sun_direction_comes_from_the_attitude_message(show_plots):
     modeled and keeps its prior."""
     del show_plots
     r0, v0 = truth_rv()
-    sun_n = np.array([0.2, -1.0, 0.5]) / np.linalg.norm([0.2, -1.0, 0.5])
+    rHat_SB_N = np.array([0.2, -1.0, 0.5]) / np.linalg.norm([0.2, -1.0, 0.5])
     truth = rk4(two_body_gravity, np.arange(0.0, 62.0), np.concatenate([r0, v0]))
     bias_across = 2E-3  # [rad]
 
@@ -486,7 +486,7 @@ def test_sun_direction_comes_from_the_attitude_message(show_plots):
         if i % 5 != 0:
             return None
         rhat = truth[i + 1, 1:4] / np.linalg.norm(truth[i + 1, 1:4])
-        across = sun_n - sun_n.dot(rhat) * rhat
+        across = rHat_SB_N - rHat_SB_N.dot(rhat) * rhat
         across /= np.linalg.norm(across)
         return _heading_payload((i + 1) * 1.0, np.cos(bias_across) * rhat + np.sin(bias_across) * across)
 
@@ -497,7 +497,7 @@ def test_sun_direction_comes_from_the_attitude_message(show_plots):
         _, log, _, _ = _run_heading_scenario(1E-3, headings, nav_att=nav_att, initial_covariance=prior)
         return np.array(log.state)[-1, 6:NUM_STATES]
 
-    bias_identity = final_bias(_nav_att_payload(np.eye(3), sun_n))
+    bias_identity = final_bias(_nav_att_payload(np.eye(3), rHat_SB_N))
     np.testing.assert_allclose(bias_identity, [bias_across, 0.0], rtol=0, atol=0.25 * bias_across,
                                err_msg="the headings must estimate the across-terminator bias")
 
@@ -505,12 +505,12 @@ def test_sun_direction_comes_from_the_attitude_message(show_plots):
     # dropping the rotation into the inertial frame moves it by ~1e-3 rad.
     for sigma_bn in ([0.1, -0.2, 0.3], [-0.3, 0.1, 0.05]):
         dcm_bn = rbk.MRP2C(sigma_bn)
-        np.testing.assert_allclose(final_bias(_nav_att_payload(dcm_bn, sun_n)), bias_identity, rtol=0, atol=5E-5,
+        np.testing.assert_allclose(final_bias(_nav_att_payload(dcm_bn, rHat_SB_N)), bias_identity, rtol=0, atol=5E-5,
                                    err_msg=f"the sun direction must be rotated into the inertial frame "
                                            f"(sigma_BN {sigma_bn})")
         unrotated = messaging.NavAttMsgF32Payload()  # the body-frame sun direction, read as if inertial
         unrotated.sigma_BN = [0.0, 0.0, 0.0]
-        unrotated.vehSunPntBdy = list(dcm_bn @ sun_n)
+        unrotated.vehSunPntBdy = list(dcm_bn @ rHat_SB_N)
         assert np.max(np.abs(final_bias(unrotated) - bias_identity)) > 5E-4, \
             f"an unrotated sun direction must change the bias estimate (sigma_BN {sigma_bn})"
 

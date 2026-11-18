@@ -64,11 +64,12 @@ static_assert(filtering::Measurement<HeadingMeasurementModel, State>);
  *  both are zero and the heading is modeled without the bias.
  *  @return {e_across, e_along} [-] inertial frame
  *  @param rhat_N [-] measured line of sight, inertial frame
- *  @param shat_N [-] unit sun direction, inertial frame; zero when unavailable */
+ *  @param rHat_SB_N [-] unit sun direction, inertial frame; zero when unavailable */
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- line of sight and sun direction are distinct, named inputs.
 std::pair<Eigen::Vector3f, Eigen::Vector3f> terminatorFrame(Eigen::Vector3f const& rhat_N,
-                                                            Eigen::Vector3f const& shat_N) {
+                                                            Eigen::Vector3f const& rHat_SB_N) {
     Eigen::Vector3f const rHat = rhat_N.stableNormalized();
-    Eigen::Vector3f const sunAcrossLineOfSight = shat_N - (shat_N.dot(rHat) * rHat);
+    Eigen::Vector3f const sunAcrossLineOfSight = rHat_SB_N - (rHat_SB_N.dot(rHat) * rHat);
     float const sunAcrossNorm = sunAcrossLineOfSight.stableNorm();
     if (!(sunAcrossNorm > kMinSunProjection)) {
         return {Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()};
@@ -173,7 +174,7 @@ void FlybyFilterAlgorithm::clear() {
  *  @return true iff the update was applied (state/covariance finite)
  *  @param measurement [-] packed heading measurement (rhat_BN_N, noise) */
 bool FlybyFilterAlgorithm::applyMeasurement(HeadingMeasurement const& measurement) {
-    auto const [eAcross, eAlong] = terminatorFrame(measurement.rhat_BN_N, measurement.shat_N);
+    auto const [eAcross, eAlong] = terminatorFrame(measurement.rhat_BN_N, measurement.rHat_SB_N);
     HeadingMeasurementModel const model{measurement.rhat_BN_N, measurement.covar, eAcross, eAlong};
 
     auto const result = this->srukf.measurementUpdate(model);
@@ -188,7 +189,7 @@ bool FlybyFilterAlgorithm::applyMeasurement(HeadingMeasurement const& measuremen
 
 /*! Pack a raw heading reading into a HeadingMeasurement whose noise covariance is the reading's own
  *  covar_N scaled by the configured measurement-noise scale. The body-frame sun direction is rotated into the
- *  inertial frame, shat_N = [BN]^T shat_B, and normalized, or zeroed when it is not finite or is zero, so the
+ *  inertial frame, rHat_SB_N = [BN]^T rHat_SB_B, and normalized, or zeroed when it is not finite or is zero, so the
  *  measurement model sees a unit vector or no sun direction.
  *  @return HeadingMeasurement (always valid)
  *  @param headingData [-] raw heading unit vector, noise covariance and time tag
@@ -199,10 +200,10 @@ HeadingMeasurement FlybyFilterAlgorithm::packHeadingMeasurement(HeadingData cons
     packed.timeTag = headingData.timeTag;
     packed.rhat_BN_N = headingData.rhat_BN_N;
     packed.covar = this->cfg.getMeasurementNoiseScale() * headingData.covar_N;
-    Eigen::Vector3f const shat_N = mrpToDcm(attitude.sigma_BN).transpose() * attitude.vehSunPntBdy;
-    float const sunNorm = shat_N.stableNorm();
-    if (shat_N.allFinite() && sunNorm > 0.0F) {
-        packed.shat_N = shat_N / sunNorm;
+    Eigen::Vector3f const rHat_SB_N = mrpToDcm(attitude.sigma_BN).transpose() * attitude.rHat_SB_B;
+    float const sunNorm = rHat_SB_N.stableNorm();
+    if (rHat_SB_N.allFinite() && sunNorm > 0.0F) {
+        packed.rHat_SB_N = rHat_SB_N / sunNorm;
     }
     packed.valid = true;
     return packed;

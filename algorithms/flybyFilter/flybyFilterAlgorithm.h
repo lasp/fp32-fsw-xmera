@@ -28,12 +28,12 @@ struct HeadingData {
 
 /*! Attitude knowledge consumed by FlybyFilterAlgorithm::update() (e.g. navAggregate's attitude output): the body
  *  attitude and the sun direction in the body frame. update() rotates the sun direction into the inertial frame,
- *  shat_N = [BN]^T vehSunPntBdy, to define the terminator directions of a fresh heading reading's bias. With the
+ *  rHat_SB_N = [BN]^T rHat_SB_B, to define the terminator directions of a fresh heading reading's bias. With the
  *  zero default sun direction (no attitude message), or a non-finite attitude, the reading is modeled without the
  *  bias. */
 struct VehicleAttitude {
-    Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();      //!< [-] MRP attitude of the body frame B w.r.t. N
-    Eigen::Vector3f vehSunPntBdy = Eigen::Vector3f::Zero();  //!< [-] sun direction (spacecraft -> sun), body frame
+    Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();   //!< [-] MRP attitude of the body frame B w.r.t. N
+    Eigen::Vector3f rHat_SB_B = Eigen::Vector3f::Zero();  //!< [-] sun direction (spacecraft -> sun), body frame
 };
 
 /*! Snapshot returned by FlybyFilterAlgorithm::update(). Bundles the filter state with the

@@ -120,7 +120,7 @@ void FlybyFilter::updateState(uint64_t currentSimNanos) {
     if (this->navAttInMsg.isLinked() && this->navAttInMsg.isWritten()) {
         NavAttMsgF32Payload const navAtt = this->navAttInMsg();
         attitude.sigma_BN = cArrayToEigenVector(navAtt.sigma_BN).cast<float>();
-        attitude.vehSunPntBdy = cArrayToEigenVector(navAtt.vehSunPntBdy).cast<float>();
+        attitude.rHat_SB_B = cArrayToEigenVector(navAtt.vehSunPntBdy).cast<float>();
     }
 
     FlybyFilterOutput const filterOutput = this->algorithm->update(currentSeconds, headingData, attitude);

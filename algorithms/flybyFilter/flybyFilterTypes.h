@@ -21,12 +21,12 @@ typedef struct {
 } FlybyHeadingData_c;
 
 /**
- * @brief C mirror of the attitude knowledge used for the heading bias. vehSunPntBdy all zero means no sun
+ * @brief C mirror of the attitude knowledge used for the heading bias. rHat_SB_B all zero means no sun
  *        direction: a reading is then modeled without the heading bias.
  */
 typedef struct {
-    float sigma_BN[3];     /*!< [-] MRP attitude of the body frame w.r.t. the inertial frame */
-    float vehSunPntBdy[3]; /*!< [-] sun direction (spacecraft -> sun, body frame); zero if unavailable */
+    float sigma_BN[3];  /*!< [-] MRP attitude of the body frame w.r.t. the inertial frame */
+    float rHat_SB_B[3]; /*!< [-] sun direction (spacecraft -> sun, body frame); zero if unavailable */
 } FlybyVehicleAttitude_c;
 
 /**

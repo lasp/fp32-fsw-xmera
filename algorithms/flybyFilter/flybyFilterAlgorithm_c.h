@@ -138,7 +138,7 @@ void FlybyFilterAlgorithm_reInitialize(FlybyFilterAlgorithmHandle* self);
  * @param self           [-] filter handle
  * @param currentSeconds [s] simulation time to advance to
  * @param heading        [-] heading reading (timeTag > 0 to apply a measurement)
- * @param attitude       [-] body attitude and body-frame sun direction (vehSunPntBdy zero for no sun direction)
+ * @param attitude       [-] body attitude and body-frame sun direction (rHat_SB_B zero for no sun direction)
  * @return post-update filter snapshot (state, covariance, heading residuals) in internal km units
  */
 FlybyFilterOutput_c FlybyFilterAlgorithm_update(FlybyFilterAlgorithmHandle* self,

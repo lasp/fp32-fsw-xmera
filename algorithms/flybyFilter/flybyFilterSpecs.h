@@ -63,12 +63,12 @@ struct FlybyDynamics {
 };
 
 // Optical-navigation heading measurement: a unit vector rhat_BN_N (spacecraft-to-target, inertial
-// frame). covar is the measurement noise (dimensionless, the unit vector is frame-only). shat_N is the
+// frame). covar is the measurement noise (dimensionless, the unit vector is frame-only). rHat_SB_N is the
 // unit sun direction (spacecraft-to-sun, inertial frame) at the reading's time, or zero if unavailable.
 struct HeadingMeasurement {
     double timeTag = 0;
     Eigen::Vector3f rhat_BN_N = Eigen::Vector3f::Zero();
-    Eigen::Vector3f shat_N = Eigen::Vector3f::Zero();
+    Eigen::Vector3f rHat_SB_N = Eigen::Vector3f::Zero();
     Eigen::Matrix3f covar = Eigen::Matrix3f::Identity();
     bool valid = false;
 };

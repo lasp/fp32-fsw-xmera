@@ -206,7 +206,7 @@ void checkFlybyFilter() {
         hd.covar_N = Eigen::Matrix3f::Identity() * 1e-6F;  // a positive definite R, so the update runs
         fbf::VehicleAttitude att{};
         att.sigma_BN = Eigen::Vector3f(0.1F, -0.2F, 0.3F);
-        att.vehSunPntBdy = Eigen::Vector3f(1.0F, 0.0F, 0.0F);  // off the line of sight, so the bias rotation runs
+        att.rHat_SB_B = Eigen::Vector3f(1.0F, 0.0F, 0.0F);  // off the line of sight, so the bias rotation runs
         auto const out = filt.update(t, hd, att);
         (void)out.filterState.state.sum();
     }

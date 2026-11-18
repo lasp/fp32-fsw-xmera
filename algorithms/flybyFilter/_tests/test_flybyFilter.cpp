@@ -64,25 +64,25 @@ Eigen::Vector3f rotatedByTerminatorAngles(Eigen::Vector3f const& rhat,
 }
 
 //! The line of sight `rhat` rotated by the across- and along-terminator angles `bias` for the unit sun direction
-//! `shat`.
+//! `rHat_SB_N`.
 Eigen::Vector3f terminatorBiasedHeading(Eigen::Vector3f const& rhat,
-                                        Eigen::Vector3f const& shat,
+                                        Eigen::Vector3f const& rHat_SB_N,
                                         Eigen::Vector2f const& bias) {
-    Eigen::Vector3f const eAcross = (shat - (shat.dot(rhat) * rhat)).stableNormalized();
+    Eigen::Vector3f const eAcross = (rHat_SB_N - (rHat_SB_N.dot(rhat) * rhat)).stableNormalized();
     return rotatedByTerminatorAngles(rhat, eAcross, rhat.cross(eAcross), bias);
 }
 
-//! The filter's modeled heading for `state` and sun direction `shat`, for a reading of `observation` (by default the
-//! state's own line of sight). With a zero covariance every sigma point is the state, so the pre-fit residual of a
+//! The filter's modeled heading for `state` and sun direction `rHat_SB_N`, for a reading of `observation` (by default
+//! the state's own line of sight). With a zero covariance every sigma point is the state, so the pre-fit residual of a
 //! reading is the observation minus the model at the state. The bias maxima are wide so large angles can be probed.
 Eigen::Vector3f modeledHeading(State const& state,
-                               Eigen::Vector3f const& shat,
+                               Eigen::Vector3f const& rHat_SB_N,
                                std::optional<Eigen::Vector3f> const& reading = std::nullopt) {
     FlybyFilterAlgorithm algo(FlybyFilterConfig::create(
         kAlpha, kBeta, kMu, Matrix8::Zero(), state, Matrix8::Zero(), kNoiseScale, 1.0F, 1.0F));
     Eigen::Vector3f const observation = reading.value_or(headingOf(state));
     EXPECT_TRUE(algo.timeUpdate(0.0));
-    EXPECT_TRUE(algo.measurementUpdate(makeHeadingMeasurement(0.0, observation, kHeadingStd, shat)));
+    EXPECT_TRUE(algo.measurementUpdate(makeHeadingMeasurement(0.0, observation, kHeadingStd, rHat_SB_N)));
     return observation - algo.getLastHeadingResiduals().preFit;
 }
 
@@ -1176,19 +1176,19 @@ TEST(FlybyFilterAlgorithmConvergence, TracksHeadingUnderNoisyMeasurements) {
 TEST(FlybyFilterAlgorithmHeadingModel, EachBiasAngleRotatesTheHeadingTowardItsTerminatorDirection) {
     Eigen::Vector3f const r(1000.0, 0.0, 0.0);
     Eigen::Vector3f const rhat = Eigen::Vector3f::UnitX();
-    Eigen::Vector3f const shat = Eigen::Vector3f(0.6, 0.8, 0.0);
+    Eigen::Vector3f const rHat_SB_N = Eigen::Vector3f(0.6, 0.8, 0.0);
     constexpr float b = 0.2F;
 
     for (auto const& [bias, direction] : {std::pair{Eigen::Vector2f(b, 0.0F), Eigen::Vector3f::UnitY().eval()},
                                           std::pair{Eigen::Vector2f(0.0F, b), Eigen::Vector3f::UnitZ().eval()}}) {
-        Eigen::Vector3f const modeled = modeledHeading(makeState(r, {0.0, 1.0, 0.0}, bias), shat);
+        Eigen::Vector3f const modeled = modeledHeading(makeState(r, {0.0, 1.0, 0.0}, bias), rHat_SB_N);
         Eigen::Vector3f const expected = Eigen::AngleAxisf(b, rhat.cross(direction)) * rhat;
         EXPECT_LT((modeled - expected).stableNorm(), 1E-6F) << "bias " << bias.transpose();
         EXPECT_NEAR(acosf(modeled.dot(rhat)), b, 1E-5F) << "bias " << bias.transpose();
     }
 
     Eigen::Vector2f const both(b, b);
-    Eigen::Vector3f const modeled = modeledHeading(makeState(r, {0.0, 1.0, 0.0}, both), shat);
+    Eigen::Vector3f const modeled = modeledHeading(makeState(r, {0.0, 1.0, 0.0}, both), rHat_SB_N);
     EXPECT_LT((modeled - rotatedByTerminatorAngles(rhat, Eigen::Vector3f::UnitY(), Eigen::Vector3f::UnitZ(), both))
                   .stableNorm(),
               1E-6F);
@@ -1203,18 +1203,18 @@ TEST(FlybyFilterAlgorithmHeadingModel, WithoutTerminatorDirectionsTheBiasIsNotMo
     constexpr float margin = 0.1F * std::numbers::pi_v<float> / 180.0F;
     EXPECT_FLOAT_EQ(kMinSunProjection, sinf(kMinSunLineOfSightAngle)) << "the constexpr sine matches sinf";
 
-    for (Eigen::Vector3f const& shat : {Eigen::Vector3f::Zero().eval(),
-                                        Eigen::Vector3f::UnitX().eval(),
-                                        (-Eigen::Vector3f::UnitX()).eval(),
-                                        sunAt(kMinSunLineOfSightAngle - margin),
-                                        sunAt(std::numbers::pi_v<float> - kMinSunLineOfSightAngle + margin)}) {
-        EXPECT_LT((modeledHeading(biased, shat) - Eigen::Vector3f::UnitX()).stableNorm(), 1E-6F)
-            << "sun " << shat.transpose();
+    for (Eigen::Vector3f const& rHat_SB_N : {Eigen::Vector3f::Zero().eval(),
+                                             Eigen::Vector3f::UnitX().eval(),
+                                             (-Eigen::Vector3f::UnitX()).eval(),
+                                             sunAt(kMinSunLineOfSightAngle - margin),
+                                             sunAt(std::numbers::pi_v<float> - kMinSunLineOfSightAngle + margin)}) {
+        EXPECT_LT((modeledHeading(biased, rHat_SB_N) - Eigen::Vector3f::UnitX()).stableNorm(), 1E-6F)
+            << "sun " << rHat_SB_N.transpose();
     }
-    for (Eigen::Vector3f const& shat : {sunAt(kMinSunLineOfSightAngle + margin),
-                                        sunAt(std::numbers::pi_v<float> - kMinSunLineOfSightAngle - margin)}) {
-        EXPECT_GT((modeledHeading(biased, shat) - Eigen::Vector3f::UnitX()).stableNorm(), 1E-3F)
-            << "just outside the cone the bias is modeled again, sun " << shat.transpose();
+    for (Eigen::Vector3f const& rHat_SB_N : {sunAt(kMinSunLineOfSightAngle + margin),
+                                             sunAt(std::numbers::pi_v<float> - kMinSunLineOfSightAngle - margin)}) {
+        EXPECT_GT((modeledHeading(biased, rHat_SB_N) - Eigen::Vector3f::UnitX()).stableNorm(), 1E-3F)
+            << "just outside the cone the bias is modeled again, sun " << rHat_SB_N.transpose();
     }
 }
 
@@ -1224,14 +1224,14 @@ TEST(FlybyFilterAlgorithmHeadingModel, WithoutTerminatorDirectionsTheBiasIsNotMo
 TEST(FlybyFilterAlgorithmHeadingModel, TheTerminatorFrameComesFromTheMeasuredLineOfSight) {
     constexpr float deg = std::numbers::pi_v<float> / 180.0F;
     constexpr float b = 5E-3;
-    Eigen::Vector3f const shat(cosf(3.0F * deg), sinf(3.0F * deg), 0.0F);
+    Eigen::Vector3f const rHat_SB_N(cosf(3.0F * deg), sinf(3.0F * deg), 0.0F);
     Eigen::Vector3f const reading(cosf(-8.0F * deg), sinf(-8.0F * deg), 0.0F);
     State const biased = makeState({1000.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {b, b});
 
-    Eigen::Vector3f const eAcross = (shat - (shat.dot(reading) * reading)).stableNormalized();
+    Eigen::Vector3f const eAcross = (rHat_SB_N - (rHat_SB_N.dot(reading) * reading)).stableNormalized();
     Eigen::Vector3f const eAlong = reading.cross(eAcross);
     Eigen::Vector3f const expected = rotatedByTerminatorAngles(Eigen::Vector3f::UnitX(), eAcross, eAlong, {b, b});
-    EXPECT_LT((modeledHeading(biased, shat, reading) - expected).stableNorm(), 1E-6F);
+    EXPECT_LT((modeledHeading(biased, rHat_SB_N, reading) - expected).stableNorm(), 1E-6F);
 }
 
 // A non-finite sun direction or attitude (an unusable attitude message) is treated as no sun direction.
@@ -1261,19 +1261,19 @@ TEST(FlybyFilterAlgorithmHeadingModel, NonFiniteSunDirectionIsTreatedAsNone) {
 TEST(FlybyFilterAlgorithmHeadingModel, TheSunDirectionIsRotatedIntoTheInertialFrame) {
     State const initial = makeState(
         nominalTruth().get<filtering::Position<3>>(), nominalTruth().get<filtering::Velocity<3>>(), {5E-3, -5E-3});
-    Eigen::Vector3f const shat_N = Eigen::Vector3f(0.2, -1.0, 0.5).stableNormalized();
+    Eigen::Vector3f const rHat_SB_N = Eigen::Vector3f(0.2, -1.0, 0.5).stableNormalized();
     auto const outputWith = [&](VehicleAttitude const& attitude) {
         FlybyFilterAlgorithm algo(baseConfig(initial, diagCovariance(100.0, 0.1)));
         algo.update(0.0, HeadingData{});  // synchronize the filter time at t = 0
         return algo.update(10.0, makeHeadingData(10.0, headingOf(nominalTruth())), attitude).filterState.state;
     };
-    Eigen::Matrix<float, 8, 1> const aligned = outputWith(sunAttitude(shat_N));
+    Eigen::Matrix<float, 8, 1> const aligned = outputWith(sunAttitude(rHat_SB_N));
 
     VehicleAttitude rotated;
     rotated.sigma_BN = Eigen::Vector3f(0.1, -0.2, 0.3);
-    rotated.vehSunPntBdy = mrpToDcm(rotated.sigma_BN) * shat_N;
+    rotated.rHat_SB_B = mrpToDcm(rotated.sigma_BN) * rHat_SB_N;
     EXPECT_TRUE(outputWith(rotated).isApprox(aligned, 1E-5F)) << outputWith(rotated).transpose();
-    EXPECT_FALSE(outputWith(sunAttitude(rotated.vehSunPntBdy)).isApprox(aligned, 1E-5F))
+    EXPECT_FALSE(outputWith(sunAttitude(rotated.rHat_SB_B)).isApprox(aligned, 1E-5F))
         << "the body-frame sun direction read as inertial should change the update";
 }
 
@@ -1304,8 +1304,8 @@ TEST(FlybyFilterAlgorithmHeadingModel, WithoutASunDirectionTheBiasKeepsItsPrior)
 // the bias (and its covariance rows and columns) differs.
 TEST(FlybyFilterAlgorithmBiasBound, EitherAngleBeyondItsMaximumReseedsTheBiasAndKeepsTheTrajectory) {
     State const truth0 = nominalTruth();
-    Eigen::Vector3f const shat = Eigen::Vector3f(0.2, -1.0, 0.5).stableNormalized();
-    VehicleAttitude const sun = sunAttitude(shat);
+    Eigen::Vector3f const rHat_SB_N = Eigen::Vector3f(0.2, -1.0, 0.5).stableNormalized();
+    VehicleAttitude const sun = sunAttitude(rHat_SB_N);
     constexpr float bound = 2E-3;
 
     for (int const axis : {kAcrossTerminator, kAlongTerminator}) {
@@ -1324,7 +1324,7 @@ TEST(FlybyFilterAlgorithmBiasBound, EitherAngleBeyondItsMaximumReseedsTheBiasAnd
         for (int i = 1; i <= 40 && !reseeded; ++i) {
             truth = filtering::propagate(FlybyDynamics{kMu}, truth, {0.0, dt});
             HeadingData const heading =
-                makeHeadingData(i * dt, terminatorBiasedHeading(headingOf(truth), shat, biasTrue));
+                makeHeadingData(i * dt, terminatorBiasedHeading(headingOf(truth), rHat_SB_N, biasTrue));
             FlybyFilterOutput const out = bounded.update(i * dt, heading, sun);
             FlybyFilterOutput const reference = wide.update(i * dt, heading, sun);
             reseeded = !FlybyFilterConfig::biasIsWithinBounds(
@@ -1347,8 +1347,8 @@ TEST(FlybyFilterAlgorithmBiasBound, EitherAngleBeyondItsMaximumReseedsTheBiasAnd
 
 TEST(FlybyFilterAlgorithmBiasBound, BiasWithinItsMaximaIsNotReseeded) {
     State const truth0 = nominalTruth();
-    Eigen::Vector3f const shat = Eigen::Vector3f(0.2, -1.0, 0.5).stableNormalized();
-    VehicleAttitude const sun = sunAttitude(shat);
+    Eigen::Vector3f const rHat_SB_N = Eigen::Vector3f(0.2, -1.0, 0.5).stableNormalized();
+    VehicleAttitude const sun = sunAttitude(rHat_SB_N);
     Eigen::Vector2f const biasTrue(2E-3, -1E-3);
     ConfigInputs in;
     in.initialState = truth0;
@@ -1362,7 +1362,8 @@ TEST(FlybyFilterAlgorithmBiasBound, BiasWithinItsMaximaIsNotReseeded) {
     State truth = truth0;
     for (int i = 1; i <= 40; ++i) {
         truth = filtering::propagate(FlybyDynamics{kMu}, truth, {0.0, dt});
-        HeadingData const heading = makeHeadingData(i * dt, terminatorBiasedHeading(headingOf(truth), shat, biasTrue));
+        HeadingData const heading =
+            makeHeadingData(i * dt, terminatorBiasedHeading(headingOf(truth), rHat_SB_N, biasTrue));
         EXPECT_EQ(bounded.update(i * dt, heading, sun).filterState.state,
                   wide.update(i * dt, heading, sun).filterState.state);
     }
@@ -1377,8 +1378,8 @@ TEST(FlybyFilterAlgorithmConvergence, EstimatesAConstantTerminatorBiasThroughClo
     // A pass 5000 km from the body at 5 km/s, from 4 hours before closest approach to 4 hours after: the line of
     // sight turns by about 150 degrees, and with the sun out of the flyby plane the terminator directions turn with it.
     State const truth0 = makeState({-20000.0, 5000.0, 0.0}, {5.0, 0.0, 0.0});
-    Eigen::Vector3f const shat = Eigen::Vector3f(0.2, -1.0, 0.5).stableNormalized();
-    VehicleAttitude const sun = sunAttitude(shat);
+    Eigen::Vector3f const rHat_SB_N = Eigen::Vector3f(0.2, -1.0, 0.5).stableNormalized();
+    VehicleAttitude const sun = sunAttitude(rHat_SB_N);
     Eigen::Vector2f const biasTrue = 2.0F * kBiasStd * Eigen::Vector2f(1.0, -0.5);
 
     FlybyFilterAlgorithm biased(configWithProcessNoise(truth0, diagCovariance(150.0, 0.1), smallProcessNoise()));
@@ -1389,7 +1390,8 @@ TEST(FlybyFilterAlgorithmConvergence, EstimatesAConstantTerminatorBiasThroughClo
     State truth = truth0;
     for (int i = 1; i <= 400; ++i) {
         truth = filtering::propagate(FlybyDynamics{kMu}, truth, {0.0, dt});
-        HeadingData const heading = makeHeadingData(i * dt, terminatorBiasedHeading(headingOf(truth), shat, biasTrue));
+        HeadingData const heading =
+            makeHeadingData(i * dt, terminatorBiasedHeading(headingOf(truth), rHat_SB_N, biasTrue));
         biased.update(i * dt, heading, sun);
         unbiased.update(i * dt, heading, sun);
     }
