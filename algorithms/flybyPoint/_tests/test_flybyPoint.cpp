@@ -21,14 +21,15 @@ ConfigParams withPositionSigma(double positionSigma, ConfigParams p = {}) {
     return p;
 }
 
-// Samples that can't be used: non-finite, (near) zero r or v, |r||v| overflows, (|v|/|r|)^2 overflows.
-const std::array<std::pair<Eigen::Vector3f, Eigen::Vector3f>, 6> kUnusableSamples{{
+// Samples that can't be used: non-finite, (near) zero r or v, |r||v| overflows, (f0 / kMinOrbitNormalNorm)^2 overflows.
+const std::array<std::pair<Eigen::Vector3f, Eigen::Vector3f>, 7> kUnusableSamples{{
     {Eigen::Vector3f::Constant(kNaN), kV},
     {kR0, Eigen::Vector3f{kInf, 0.0F, 0.0F}},
     {Eigen::Vector3f{1e-4F, 0.0F, 0.0F}, kV},
     {kR0, Eigen::Vector3f{0.0F, 1e-4F, 0.0F}},
     {Eigen::Vector3f{1e20F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1e20F, 0.0F}},
     {Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1e20F, 0.0F}},
+    {Eigen::Vector3f{1.0F, 0.0F, 0.0F}, Eigen::Vector3f{0.0F, 1.5e13F, 0.0F}},  // 2 (f0 / 1e-6)^2 = 4.5e38
 }};
 }  // namespace
 
@@ -329,39 +330,8 @@ TEST(FlybyPointTest, RejectedAverageRestartsWindow) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Zero reference fallback
-// ---------------------------------------------------------------------------
-
-// A reference that overflows float is output as zero, and the output recovers at the next accepted re-read.
-TEST(FlybyPointTest, UnrepresentableReferenceFallsBackToZero) {
-    // Ground state with f0 = |v| / |r| = 1.5e19 1/s: f0^2 fits in float, so it is usable, but 2 f0^2 in the
-    // acceleration overflows. Its wide velocity covariance lets the re-read of the test trajectory pass the state
-    // check.
-    const Eigen::Vector3f r{1.0F, 0.0F, 0.0F};
-    const Eigen::Vector3f v = 1.5e19F * Eigen::Vector3f{-1.0F, 1.0F, 0.0F}.stableNormalized();
-    for (const int sign : {1, -1}) {
-        SCOPED_TRACE("sign " + std::to_string(sign));
-        FlybyPointAlgorithm alg(makeConfig({.filterReadPeriods = 3U,
-                                            .signOfOrbitNormalFrameVector = sign,
-                                            .groundPosition_BN_N = r,
-                                            .groundVelocity_BN_N = v,
-                                            .groundVelocityCovarianceDiag_N = Eigen::Vector3f::Constant(5e37F)}));
-        for (int k = 0; k <= 2; ++k) {
-            SCOPED_TRACE("period " + std::to_string(k));
-            const AttGuideOutput out = alg.updateState(truthAt(k), kV);
-            expectFlags(out);
-            if (k < 2) {
-                expectZeroGuidance(out);
-            } else {
-                expectReference(out, straightLineReference(kR0, kV, 2.0, sign));
-            }
-        }
-    }
-}
-
 // At a near-head-on closest approach (sine of the r-v angle 4.5e-5) the rate denominator doesn't cancel in float: the
-// output is the finite peak rate |v| / d, not the zero fallback.
+// output is the finite peak rate |v| / d.
 TEST(FlybyPointTest, NearHeadOnClosestApproachIsFinite) {
     const Eigen::Vector3f r0{-1e8F, 4.5e3F, 0.0F};  // [m] closest approach distance d = 4.5 km
     const Eigen::Vector3f v{1e5F, 0.0F, 0.0F};      // [m/s] closest approach at t = 1000 s
