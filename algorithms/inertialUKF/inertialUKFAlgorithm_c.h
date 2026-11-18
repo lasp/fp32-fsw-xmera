@@ -52,10 +52,10 @@ typedef struct {
  * @brief C-compatible representation of NavAttOutput.
  */
 typedef struct {
-    double timeTag;        /*!< Time tag of navigation solution (s) */
-    float sigma_BN[3];     /*!< MRP attitude of body w.r.t. inertial frame */
-    float omega_BN_B[3];   /*!< Angular velocity of body w.r.t. inertial, body frame (rad/s) */
-    float vehSunPntBdy[3]; /*!< Sun direction unit vector in body frame */
+    double timeTag;      /*!< Time tag of navigation solution (s) */
+    float sigma_BN[3];   /*!< MRP attitude of body w.r.t. inertial frame */
+    float omega_BN_B[3]; /*!< Angular velocity of body w.r.t. inertial, body frame (rad/s) */
+    float rHat_SB_B[3];  /*!< Sun direction unit vector in body frame */
 } NavAttOutput_c;
 
 /**

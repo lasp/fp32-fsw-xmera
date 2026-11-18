@@ -42,9 +42,9 @@ InertialUKFOutput_c InertialUKFAlgorithm_updateState(const STAttInput_c* stAtt,
     out.navAtt.omega_BN_B[0] = output.navAtt.omega_BN_B[0];
     out.navAtt.omega_BN_B[1] = output.navAtt.omega_BN_B[1];
     out.navAtt.omega_BN_B[2] = output.navAtt.omega_BN_B[2];
-    out.navAtt.vehSunPntBdy[0] = output.navAtt.vehSunPntBdy[0];
-    out.navAtt.vehSunPntBdy[1] = output.navAtt.vehSunPntBdy[1];
-    out.navAtt.vehSunPntBdy[2] = output.navAtt.vehSunPntBdy[2];
+    out.navAtt.rHat_SB_B[0] = output.navAtt.rHat_SB_B[0];
+    out.navAtt.rHat_SB_B[1] = output.navAtt.rHat_SB_B[1];
+    out.navAtt.rHat_SB_B[2] = output.navAtt.rHat_SB_B[2];
     out.filter.timeTag = output.filter.timeTag;
     out.filter.numObs = output.filter.numObs;
 
