@@ -151,8 +151,10 @@ class FlybyPointConfig final {
     static bool isUsableSample(const Eigen::Vector3f& r_BN_N, const Eigen::Vector3f& v_BN_N) {
         const float rNorm = r_BN_N.stableNorm();
         const float vNorm = v_BN_N.stableNorm();
+        const float f0 = vNorm / rNorm;
         return r_BN_N.allFinite() && v_BN_N.allFinite() && rNorm >= kMinPositionNorm && vNorm >= kMinVelocityNorm &&
-               fsw::is_finite(rNorm * vNorm) && fsw::is_finite((vNorm / rNorm) * (vNorm / rNorm));
+               fsw::is_finite(rNorm * vNorm) &&
+               fsw::is_finite(2.0F * (f0 / kMinOrbitNormalNorm) * (f0 / kMinOrbitNormalNorm));
     }
 
     /*! Check whether r and v are collinear: 1 - |cos| of their angle is below toleranceForCollinearity, or

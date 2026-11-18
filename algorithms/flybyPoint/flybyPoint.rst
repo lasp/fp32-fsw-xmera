@@ -30,8 +30,7 @@ Message Connection Descriptions
         every update. ``timeTag`` and ``vehAccumDV`` are not used.
     * - attRefOutMsg
       - :ref:`AttRefMsgF32Payload`
-      - Reference attitude, angular rate and angular acceleration. All zero only if the guidance solution is not finite
-        (numerical overflow); there is no separate validity flag.
+      - Reference attitude, angular rate and angular acceleration. Always finite; there is no separate validity flag.
     * - flybyDiagnosticOutMsg
       - :ref:`FlybyDiagnosticMsgF32Payload`
       - Written every update. ``collinearityTrigger``, ``maxRateTrigger``, ``maxAccelerationTrigger`` and
@@ -89,10 +88,12 @@ The state received on update :math:`j = 0, \dots, N - 1` of the window is :math:
     \bar{\boldsymbol{v}} = \frac{1}{n} \sum_j \boldsymbol{v}_j
 
 A state is unusable if it is not finite, if :math:`\|\boldsymbol{r}\| <` 1 mm or :math:`\|\boldsymbol{v}\| <`
-1 mm/s (near zero), or if :math:`\|\boldsymbol{r}\|\|\boldsymbol{v}\|` or
-:math:`(\|\boldsymbol{v}\| / \|\boldsymbol{r}\|)^2` overflows. It is left out of the average and does not affect
-the output. A window with no usable state, or whose average is unusable, makes no re-read. With :math:`N = 1` the
-module re-reads every state without averaging.
+1 mm/s (near zero), or if :math:`\|\boldsymbol{r}\|\|\boldsymbol{v}\|` or :math:`2\,(f_0 / 10^{-6})^2` overflows,
+with :math:`f_0 = \|\boldsymbol{v}\| / \|\boldsymbol{r}\|`. Since the profile is also non-collinear
+(:math:`\|\hat{\boldsymbol{r}} \times \hat{\boldsymbol{v}}\| \ge 10^{-6}`), this keeps the reference rate and
+acceleration finite. An unusable state is left out of the average and does not affect the output. A window with no
+usable state, or whose average is unusable, makes no re-read. With :math:`N = 1` the module re-reads every state
+without averaging.
 
 Filter Solution Validity Checks
 ...............................

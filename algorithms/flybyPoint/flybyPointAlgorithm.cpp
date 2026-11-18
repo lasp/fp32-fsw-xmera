@@ -222,14 +222,8 @@ FlybyPointAlgorithm::GuidanceReference FlybyPointAlgorithm::computeGuidanceRefer
     const float alongTrack = (f0 * dt) + sinGamma0;  // zero at closest approach
     const float den = (alongTrack * alongTrack) + (cosGamma0 * cosGamma0);
     const float thetaDot = f0 * cosGamma0 / den;
-    const float thetaDDot = -2.0F * f0 * f0 * cosGamma0 * alongTrack / (den * den);
-
-    /*! a profile that overflows (e.g. f0^2 in the acceleration) has no finite solution; stop before the attitude
-     conversions, which must not be given non-finite values. Once these are finite, so is the output */
-    if (!fsw::is_finite(f0) || !fsw::is_finite(gamma0) || !fsw::is_finite(theta) || !fsw::is_finite(thetaDot) ||
-        !fsw::is_finite(thetaDDot)) {
-        return {};
-    }
+    const float alongTrackOverDen = alongTrack / den;  // 0 if den overflows
+    const float thetaDDot = -2.0F * thetaDot * (f0 * alongTrackOverDen);
 
     /*! DCM of the reference frame at the last read time + dt with respect to the inertial frame */
     const Eigen::Matrix3f RtN = prvToDcm(Eigen::Vector3f{0.0F, 0.0F, theta}) * p.R0N;

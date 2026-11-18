@@ -64,11 +64,6 @@ struct ReferenceFlybyOutput {
     Eigen::Vector3d domega_RN_N;
 };
 
-/*! The zero reference output when no guidance solution is available (zero MRP = identity DCM). */
-inline ReferenceFlybyOutput zeroReference() {
-    return {Eigen::Matrix3d::Identity(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero()};
-}
-
 /*! Exact reference t seconds after (r0, v) on a straight line, from the geometry alone, in double.
  @return the expected reference
  @param r0 [m] position at time 0
@@ -129,13 +124,6 @@ inline void expectReference(const AttGuideOutput& out,
         << "domega " << out.domega_RN_N.transpose() << ", expected " << expected.domega_RN_N.transpose();
 }
 
-/*! No guidance solution: attitude, rate and acceleration all exactly zero. */
-inline void expectZeroGuidance(const AttGuideOutput& out) {
-    EXPECT_TRUE(out.sigma_RN.isZero(0.0F)) << out.sigma_RN.transpose();
-    EXPECT_TRUE(out.omega_RN_N.isZero(0.0F)) << out.omega_RN_N.transpose();
-    EXPECT_TRUE(out.domega_RN_N.isZero(0.0F)) << out.domega_RN_N.transpose();
-}
-
 /*! Expected diagnostic flags of one period; the defaults are a clean period. */
 struct ExpectedFlags {
     bool collinearity = false;
@@ -174,9 +162,11 @@ struct ReferenceFlybyState {
 inline bool referenceIsUsableSample(const Eigen::Vector3f& r, const Eigen::Vector3f& v) {
     const float rNorm = r.stableNorm();
     const float vNorm = v.stableNorm();
+    const float f0 = vNorm / rNorm;
     return r.allFinite() && v.allFinite() && rNorm >= FlybyPointConfig::kMinPositionNorm &&
            vNorm >= FlybyPointConfig::kMinVelocityNorm && std::isfinite(rNorm * vNorm) &&
-           std::isfinite((vNorm / rNorm) * (vNorm / rNorm));
+           std::isfinite(2.0F * (f0 / FlybyPointConfig::kMinOrbitNormalNorm) *
+                         (f0 / FlybyPointConfig::kMinOrbitNormalNorm));
 }
 
 /*! Same test as FlybyPointConfig::isCollinear(). */
@@ -244,7 +234,7 @@ inline ReferenceFlybyState referenceInit(const FlybyPointConfig& config) {
     return s;
 }
 
-/*! Same solution and float MRP output as computeGuidanceReference(), including its zero fallback. */
+/*! Same solution and float MRP output as computeGuidanceReference(). */
 inline ReferenceFlybyOutput referenceGuidanceSolution(const ReferenceFlybyState& s, const FlybyPointConfig& config) {
     const float f0 = s.f0;
     const float gamma0 = s.gamma0;
@@ -255,11 +245,8 @@ inline ReferenceFlybyOutput referenceGuidanceSolution(const ReferenceFlybyState&
     const float alongTrack = (f0 * dt) + sinGamma0;
     const float den = (alongTrack * alongTrack) + (cosGamma0 * cosGamma0);
     const float thetaDot = f0 * cosGamma0 / den;
-    const float thetaDDot = -2.0F * f0 * f0 * cosGamma0 * alongTrack / (den * den);
-    if (!std::isfinite(f0) || !std::isfinite(gamma0) || !std::isfinite(theta) || !std::isfinite(thetaDot) ||
-        !std::isfinite(thetaDDot)) {
-        return zeroReference();
-    }
+    const float alongTrackOverDen = alongTrack / den;  // 0 if den overflows
+    const float thetaDDot = -2.0F * thetaDot * (f0 * alongTrackOverDen);
 
     const Eigen::Matrix3f RtN = prvToDcm(Eigen::Vector3f{0.0F, 0.0F, theta}) * s.R0N;
     const Eigen::Vector3f omega = RtN.transpose() * Eigen::Vector3f{0.0F, 0.0F, thetaDot};

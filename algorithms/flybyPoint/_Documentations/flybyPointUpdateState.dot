@@ -1,0 +1,64 @@
+// FlybyPointAlgorithm::updateState() flow chart.
+// Render: dot -Tjpg -Gdpi=150 flybyPointUpdateState.dot -o flybyPointUpdateState.jpg
+digraph flybyPointUpdateState {
+    rankdir=TB;
+    nodesep=0.4;
+    ranksep=0.35;
+    node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#ffffff"];
+    edge [fontname="Helvetica", fontsize=10];
+
+    label="FlybyPointAlgorithm::updateState";
+    labelloc=t;
+    fontname="Helvetica-Bold"; fontsize=12;
+
+    start [label="Inputs: filter sample r_BN_N, v_BN_N\n(profile seeded from ground state at construction / reset)", style="filled", fillcolor="#dde8f5"];
+
+    usable [label="isUsableSample(r, v)?\nr, v finite, ‖r‖ ≥ r_min, ‖v‖ ≥ v_min\n‖r‖‖v‖ finite, ‖v‖/‖r‖ bounded", shape=diamond, style="filled", fillcolor="#fff4cc"];
+    rejected [label="inputSampleRejected = true\nsample left out of window", fillcolor="#f6d5d5"];
+    lowPass [label="Low-pass filter\nΔt_end = (filterReadPeriods − 1 − window.periods) Δt_ctrl\nr_end = r + Δt_end v\n++samples, running means of r_end and v"];
+    periods [label="++window.periods"];
+
+    windowEnd [label="window.periods ≥\nfilterReadPeriods?", shape=diamond, style="filled", fillcolor="#fff4cc"];
+    rejectedCount [label="rejectedSamplesInWindow = periods − samples"];
+    hasSamples [label="window.samples > 0?", shape=diamond, style="filled", fillcolor="#fff4cc"];
+    averageUsable [label="isUsableSample(r̄, v̄)?", shape=diamond, style="filled", fillcolor="#fff4cc"];
+    noReRead [label="No re-read attempted\nall triggers false, keep profile", fillcolor="#e6f2e6"];
+
+    ground [label="propagateGroundState(t = periodsSinceGroundState Δt_ctrl)\nr_g = r_0 + t v_0,  v_g = v_0\nσ_r = √(σ²_r0 + t² σ²_v0),  σ_v = σ_v0"];
+    validity [label="checkValidity(r̄, v̄)\ncollinearityTrigger: 1 − |cos∠(r, v)| < tol or |r̂ × v̂| small\nd_CA = ‖r × v‖ / ‖v‖  (d_CA = 0 → rate and accel triggers set)\nmaxRateTrigger: ‖v‖ / d_CA > maximumRateThreshold\nmaxAccelerationTrigger: (3√3/8)(‖v‖ / d_CA)² > maximumAccelerationThreshold\nstateKnowledgeExceedTrigger: any axis |r̄ − r_g| > n_σ σ_r or |v̄ − v_g| > n_σ σ_v"];
+    anyTrigger [label="Any trigger set?", shape=diamond, style="filled", fillcolor="#fff4cc"];
+    averageRejected [label="Average rejected\nreport triggers, keep extrapolating\nlast accepted profile", fillcolor="#f6d5d5"];
+    averageAccepted [label="Average accepted: profile = makeProfile(r̄, v̄)\nR0N rows = [r̂, t̂, ĥ],  f0 = ‖v‖ / ‖r‖\nγ0 = atan2(v · r̂, v · t̂),  periodsSinceRead = 0\nall triggers false", fillcolor="#d5ecd5"];
+    copyTriggers [label="Copy triggers to output\nwindow = {} (start new window)"];
+
+    guidance [label="computeGuidanceReference(profile)\ndt = periodsSinceRead Δt_ctrl\nθ = atan(tan γ0 + f0 dt / cos γ0) − γ0\nden = (f0 dt + sin γ0)² + cos² γ0\nθ̇ = f0 cos γ0 / den,  θ̈ = −2 f0² cos γ0 (f0 dt + sin γ0) / den²"];
+    attitude [label="[RtN] = PRV(0, 0, θ) [R0N]\n[RN] = [RtN], last two rows negated if sign = −1\nσ_RN = MRP([RN])\nω_RN_N = [RtN]ᵀ (0, 0, θ̇),  ω̇_RN_N = [RtN]ᵀ (0, 0, θ̈)"];
+
+    publish [label="Publish\n++profile.periodsSinceRead, ++periodsSinceGroundState\nAttGuideOutput: σ_RN, ω_RN_N, ω̇_RN_N, triggers,\ninputSampleRejected, rejectedSamplesInWindow", fillcolor="#d5ecd5"];
+
+    start -> usable;
+    usable -> rejected [label=" no"];
+    usable -> lowPass [label=" yes"];
+    rejected -> periods;
+    lowPass -> periods;
+    periods -> windowEnd;
+
+    windowEnd -> rejectedCount [label=" yes"];
+    windowEnd -> guidance [label=" no"];
+    rejectedCount -> hasSamples;
+    hasSamples -> averageUsable [label=" yes"];
+    hasSamples -> noReRead [label=" no"];
+    averageUsable -> ground [label=" yes"];
+    averageUsable -> noReRead [label=" no"];
+    ground -> validity;
+    validity -> anyTrigger;
+    anyTrigger -> averageRejected [label=" yes"];
+    anyTrigger -> averageAccepted [label=" no"];
+    noReRead -> copyTriggers;
+    averageRejected -> copyTriggers;
+    averageAccepted -> copyTriggers;
+    copyTriggers -> guidance;
+
+    guidance -> attitude;
+    attitude -> publish;
+}
