@@ -26,8 +26,8 @@ class CssMeasurementModel {
     Eigen::Vector<float, size> observation() const { return this->observed; }
     Eigen::Vector<float, size> model(State const& state) const {
         float const bias = state.get<filtering::Bias<1>>()(0);
-        Eigen::Vector3f const sHat = state.get<filtering::Position<3>>();
-        return bias * (this->hMatrix * sHat);
+        Eigen::Vector3f const rHat_SB_B = state.get<filtering::Position<3>>();
+        return bias * (this->hMatrix * rHat_SB_B);
     }
     Eigen::Matrix<float, size, size> noise() const { return this->measNoise; }
     static Eigen::Vector<float, size> subtract(Eigen::Vector<float, size> const& a,

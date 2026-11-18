@@ -13,4 +13,4 @@ FUZZ_TEST(SunAvoidanceFuzz, fuzzRegressionSunAvoidance)
                  xmera::fuzz::Vector3fInRange(-1e1F, 1e1F),   // sigma_RN
                  xmera::fuzz::Vector3fInRange(-1e1F, 1e1F),   // omega_RN_N
                  xmera::fuzz::Vector3fInRange(-1e1F, 1e1F),   // domega_RN_N
-                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F));  // sHat_B
+                 xmera::fuzz::Vector3fInRange(-1.0F, 1.0F));  // rHat_SB_B

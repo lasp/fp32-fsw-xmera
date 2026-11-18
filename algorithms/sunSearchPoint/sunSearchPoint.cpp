@@ -73,22 +73,22 @@ void SunSearchPoint::updateState(uint64_t callTime) {
     if (this->rateInMsg.isWritten()) {
         rateMsgPayload = this->rateInMsg();
     }
-    auto sunDirectionMsgPayload = NavAttMsgF32Payload();
+    auto sunDirectionIn = NavAttMsgF32Payload();
     if (this->sunDirectionInMsg.isWritten()) {
-        sunDirectionMsgPayload = this->sunDirectionInMsg();
+        sunDirectionIn = this->sunDirectionInMsg();
     }
     auto filterResidualsMsgPayload = FilterResidualsMsgF32Payload();
     if (this->filterResidualsInMsg.isWritten()) {
         filterResidualsMsgPayload = this->filterResidualsInMsg();
     }
 
-    Eigen::Vector3f const vehSunPntBdy = cArrayToEigenVector(sunDirectionMsgPayload.vehSunPntBdy);
+    Eigen::Vector3f const rHat_SB_B = cArrayToEigenVector(sunDirectionIn.vehSunPntBdy);
     Eigen::Vector3f const omega_BN_B = cArrayToEigenVector(rateMsgPayload.omega_BN_B);
 
     // sizeOfObservations is signed in the filter residuals message; the filter cannot report a
     // negative size, so the count is always in range for the algorithm's unsigned argument.
     SunSearchPointOutput output = this->algorithm->update(
-        vehSunPntBdy, omega_BN_B, static_cast<uint32_t>(filterResidualsMsgPayload.sizeOfObservations));
+        rHat_SB_B, omega_BN_B, static_cast<uint32_t>(filterResidualsMsgPayload.sizeOfObservations));
 
     // Convert algorithm output to MsgPayload
     AttGuidMsgF32Payload attGuidanceOutBuffer{};

@@ -56,10 +56,10 @@ inline SunSearchPointOutput advanceTo(SunSearchPointAlgorithm& alg,
 // given sun/rate. The default search sequence is 4 s, so advancing to it forces the POINT
 // transition regardless of the observation count.
 inline SunSearchPointOutput pointUpdate(SunSearchPointAlgorithm& alg,
-                                        const Eigen::Vector3f& vehSunPntBdy,
+                                        const Eigen::Vector3f& rawRHat_SB_B,
                                         const Eigen::Vector3f& omega_BN_B) {
     constexpr uint64_t kDefaultSequenceEndNs = 4U * fsw::kNanosPerSecond;  // default 4 s sequence
-    return advanceTo(alg, kDefaultSequenceEndNs, vehSunPntBdy, omega_BN_B, 0);
+    return advanceTo(alg, kDefaultSequenceEndNs, rawRHat_SB_B, omega_BN_B, 0);
 }
 
 // Four 1 s no-op rotations (4 s sequence) for tests that only exercise the pointing phase.
@@ -90,14 +90,14 @@ inline SunSearchPointConfig makeSearchConfig(const std::array<RotationProperties
 inline SunSearchPointConfig defaultSearchConfig() { return makeSearchConfig(defaultRotations()); }
 
 // Reference computation that independently reimplements the sunSearchPoint pointing logic
-inline SunSearchPointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
+inline SunSearchPointOutput referenceUpdate(const Eigen::Vector3f& rawRHat_SB_B,
                                             const Eigen::Vector3f& omega_BN_B,
                                             float sunAxisSpinRate,
                                             const Eigen::Vector3f& sunPointAxis_B,
                                             const Eigen::Vector3f& omega_RN_B_cfg) {
     SunSearchPointOutput output{};
 
-    Eigen::Vector3f rHat_SB_B = vehSunPntBdy.stableNormalized();
+    Eigen::Vector3f rHat_SB_B = rawRHat_SB_B.stableNormalized();
     if (rHat_SB_B.stableNorm() > 0.0F) {
         // Compute sun angle error
         float cosAngle = sunPointAxis_B.dot(rHat_SB_B);
@@ -129,12 +129,12 @@ inline SunSearchPointOutput referenceUpdate(const Eigen::Vector3f& vehSunPntBdy,
 
 // The deadband commands max(err - deadbandAngle, 0) about the undeadbanded axis and leaves
 // both rate terms untouched.
-inline void propertyDeadbandShrinksAttitudeError(std::vector<float> sunVector,
+inline void propertyDeadbandShrinksAttitudeError(std::vector<float> rawRHat_SB_B_Vec,
                                                  std::vector<float> omega_BN_B_Vec,
                                                  float deadbandAngle) {
-    const Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
+    const Eigen::Vector3f rawRHat_SB_B(rawRHat_SB_B_Vec[0], rawRHat_SB_B_Vec[1], rawRHat_SB_B_Vec[2]);
     const Eigen::Vector3f omega_BN_B(omega_BN_B_Vec[0], omega_BN_B_Vec[1], omega_BN_B_Vec[2]);
-    if (sunVec.stableNorm() == 0.0F) {
+    if (rawRHat_SB_B.stableNorm() == 0.0F) {
         return;
     }
 
@@ -146,8 +146,8 @@ inline void propertyDeadbandShrinksAttitudeError(std::vector<float> sunVector,
                                                     /* observationThreshold = */ 4U,
                                                     kTestControlPeriodSec,
                                                     deadbandAngle)};
-    const SunSearchPointOutput ref = pointUpdate(plain, sunVec, omega_BN_B);
-    const SunSearchPointOutput out = pointUpdate(banded, sunVec, omega_BN_B);
+    const SunSearchPointOutput ref = pointUpdate(plain, rawRHat_SB_B, omega_BN_B);
+    const SunSearchPointOutput out = pointUpdate(banded, rawRHat_SB_B, omega_BN_B);
 
     const float refNorm = ref.sigma_BR.stableNorm();
     const float sunAngleErr = 4.0F * std::atan(refNorm);
@@ -166,7 +166,7 @@ inline void propertyDeadbandShrinksAttitudeError(std::vector<float> sunVector,
 // Regression test helper function
 // ---------------------------------------------------------------------------
 
-inline void regressionTestSunSearchPoint(std::vector<float> sunVector,
+inline void regressionTestSunSearchPoint(std::vector<float> rawRHat_SB_B_Vec,
                                          std::vector<float> omega_BN_B_Vec,
                                          float sunAxisSpinRate,
                                          std::vector<float> sunPointAxisVec_B,
@@ -178,7 +178,7 @@ inline void regressionTestSunSearchPoint(std::vector<float> sunVector,
     }
     Eigen::Vector3f normalizedSHat = sunPointAxis_B.stableNormalized();
 
-    Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
+    Eigen::Vector3f rawRHat_SB_B(rawRHat_SB_B_Vec[0], rawRHat_SB_B_Vec[1], rawRHat_SB_B_Vec[2]);
     Eigen::Vector3f omega_BN_B(omega_BN_B_Vec[0], omega_BN_B_Vec[1], omega_BN_B_Vec[2]);
     Eigen::Vector3f omega_RN_B_cfg(omega_RN_B_cfgVec[0], omega_RN_B_cfgVec[1], omega_RN_B_cfgVec[2]);
 
@@ -191,9 +191,9 @@ inline void regressionTestSunSearchPoint(std::vector<float> sunVector,
     Eigen::Vector3f algSHat = config.getSunPointAxis_B();
 
     SunSearchPointOutput output{};
-    EXPECT_NO_THROW(output = pointUpdate(alg, sunVec, omega_BN_B));
+    EXPECT_NO_THROW(output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B));
 
-    auto reference = referenceUpdate(sunVec, omega_BN_B, sunAxisSpinRate, algSHat, omega_RN_B_cfg);
+    auto reference = referenceUpdate(rawRHat_SB_B, omega_BN_B, sunAxisSpinRate, algSHat, omega_RN_B_cfg);
 
     // Compare MRPs nominal and shadow set
     Eigen::Vector3f sigmaOut = output.sigma_BR;
@@ -230,25 +230,25 @@ inline void regressionTestSunSearchPoint(std::vector<float> sunVector,
 // ---------------------------------------------------------------------------
 
 // sigma_BR norm is bounded by 1 (inner MRP set) for any visible sun vector.
-inline void propertySigmaBrNormBounded(std::vector<float> sunVector) {
-    Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
+inline void propertySigmaBrNormBounded(std::vector<float> rawRHat_SB_B_Vec) {
+    Eigen::Vector3f rawRHat_SB_B(rawRHat_SB_B_Vec[0], rawRHat_SB_B_Vec[1], rawRHat_SB_B_Vec[2]);
 
     SunSearchPointAlgorithm alg{defaultSearchConfig()};
 
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
     EXPECT_LE(output.sigma_BR.stableNorm(), 1.0F + 1e-6F);
 }
 
 // omega_BR_B always equals omega_BN_B - omega_RN_B.
-inline void propertyOmegaBrIdentity(std::vector<float> sunVector, std::vector<float> omega_BN_B_Vec) {
-    Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
+inline void propertyOmegaBrIdentity(std::vector<float> rawRHat_SB_B_Vec, std::vector<float> omega_BN_B_Vec) {
+    Eigen::Vector3f rawRHat_SB_B(rawRHat_SB_B_Vec[0], rawRHat_SB_B_Vec[1], rawRHat_SB_B_Vec[2]);
     Eigen::Vector3f omega_BN_B(omega_BN_B_Vec[0], omega_BN_B_Vec[1], omega_BN_B_Vec[2]);
 
     SunSearchPointAlgorithm alg{makeSearchConfig(
         defaultRotations(), Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 0.5F, Eigen::Vector3f{0.1F, -0.2F, 0.3F})};
 
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
     Eigen::Vector3f expected = omega_BN_B - output.omega_RN_B;
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(output.omega_BR_B(i), expected(i), 1e-6F);
@@ -256,14 +256,14 @@ inline void propertyOmegaBrIdentity(std::vector<float> sunVector, std::vector<fl
 }
 
 // All output components are finite for valid inputs.
-inline void propertyOutputIsFinite(std::vector<float> sunVector) {
-    Eigen::Vector3f sunVec(sunVector[0], sunVector[1], sunVector[2]);
+inline void propertyOutputIsFinite(std::vector<float> rawRHat_SB_B_Vec) {
+    Eigen::Vector3f rawRHat_SB_B(rawRHat_SB_B_Vec[0], rawRHat_SB_B_Vec[1], rawRHat_SB_B_Vec[2]);
 
     SunSearchPointAlgorithm alg{makeSearchConfig(
         defaultRotations(), Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 1.0F, Eigen::Vector3f{0.1F, 0.2F, 0.3F})};
 
     Eigen::Vector3f omega_BN_B{5.0F, -3.0F, 1.0F};
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
     for (int i = 0; i < 3; ++i) {
         EXPECT_TRUE(std::isfinite(output.sigma_BR(i)));
         EXPECT_TRUE(std::isfinite(output.omega_BR_B(i)));

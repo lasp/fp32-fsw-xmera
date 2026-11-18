@@ -44,8 +44,9 @@ inline void fuzzUpdateKeepsStateValidAndBounded(Eigen::Vector3f rOffset,
                                                 float q,
                                                 Eigen::Vector3f rhat,
                                                 float dt,
-                                                Eigen::Vector3f shat) {
-    filtering::flybyFilter::propertyUpdateKeepsStateValidAndBounded(rOffset, vOffset, mu, covDiag, q, rhat, dt, shat);
+                                                Eigen::Vector3f rHat_SB_N) {
+    filtering::flybyFilter::propertyUpdateKeepsStateValidAndBounded(
+        rOffset, vOffset, mu, covDiag, q, rhat, dt, rHat_SB_N);
 }
 
 inline void fuzzArbitraryMeasurementsPreserveState(Eigen::Vector3f rOffset,
@@ -55,9 +56,9 @@ inline void fuzzArbitraryMeasurementsPreserveState(Eigen::Vector3f rOffset,
                                                    float q,
                                                    Eigen::Vector3f rhat,
                                                    float dt,
-                                                   Eigen::Vector3f shat) {
+                                                   Eigen::Vector3f rHat_SB_N) {
     filtering::flybyFilter::propertyArbitraryMeasurementsPreserveState(
-        rOffset, vOffset, mu, covDiag, q, rhat, dt, shat);
+        rOffset, vOffset, mu, covDiag, q, rhat, dt, rHat_SB_N);
 }
 
 inline void fuzzMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f rOffset,
@@ -65,8 +66,9 @@ inline void fuzzMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f rOffset,
                                                      float mu,
                                                      Vector8 covDiag,
                                                      Eigen::Vector3f rhat,
-                                                     Eigen::Vector3f shat) {
-    filtering::flybyFilter::propertyMeasurementDoesNotIncreaseCovariance(rOffset, vOffset, mu, covDiag, rhat, shat);
+                                                     Eigen::Vector3f rHat_SB_N) {
+    filtering::flybyFilter::propertyMeasurementDoesNotIncreaseCovariance(
+        rOffset, vOffset, mu, covDiag, rhat, rHat_SB_N);
 }
 
 }  // namespace

@@ -47,7 +47,7 @@ auto calibrationCoefficientsDomain() {
 const float kMrpComponentBound = 1.0F / safeSqrtf(3.0F);
 auto arbitraryMrpDomain() { return xmera::fuzz::Vector3fInRange(-kMrpComponentBound, kMrpComponentBound); }
 
-// vehSunPntBdy: sun direction, a body-frame unit vector. Parameterizing the unit sphere by
+// rHat_SB_B: sun direction, a body-frame unit vector. Parameterizing the unit sphere by
 // (z, azimuth) gives an exactly unit-length vector without normalizing near zero (which could
 // hit float32 subnormals and diverge from the double reference).
 auto arbitraryUnitVectorDomain() {
@@ -119,7 +119,7 @@ void testCobConverterOnSensor(float radius,
                               const Eigen::Vector2f& cobImageFraction,
                               uint64_t cobTimeTag,
                               const Eigen::Vector3f& sigma_BN,
-                              const Eigen::Vector3f& vehSunPntBdy,
+                              const Eigen::Vector3f& rHat_SB_B,
                               const Eigen::Vector3d& filterVehPosition,
                               const Eigen::Matrix3d& filterVehPositionCovariance) {
     const Eigen::Vector2f cobCenterOfBrightness =
@@ -142,7 +142,7 @@ void testCobConverterOnSensor(float radius,
                      cobCenterOfBrightness,
                      cobTimeTag,
                      sigma_BN,
-                     vehSunPntBdy,
+                     rHat_SB_B,
                      filterVehPosition,
                      filterVehPositionCovariance);
 }
@@ -171,7 +171,7 @@ FUZZ_TEST(CobConverterFuzz, testCobConverterOnSensor)
                  cobImageFractionDomain(),                // cobImageFraction -> on-sensor cobCenterOfBrightness
                  fuzztest::Arbitrary<uint64_t>(),         // cobTimeTag
                  arbitraryMrpDomain(),                    // sigma_BN
-                 arbitraryUnitVectorDomain(),             // vehSunPntBdy
+                 arbitraryUnitVectorDomain(),             // rHat_SB_B
                  filterVehPositionDomain(),               // filterVehPosition
                  filterVehPositionCovarianceDomain());    // filterVehPositionCovariance
 

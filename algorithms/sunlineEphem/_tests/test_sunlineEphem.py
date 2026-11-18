@@ -4,6 +4,7 @@ from xmera.architecture import messaging
 from xmera.fp32 import sunlineEphemF32
 from xmera.utilities import SimulationBaseClass
 from xmera.utilities import macros
+from xmera.utilities import RigidBodyKinematics as rbk
 
 def test_sunline_ephem():
     unit_task_name = "unitTask"               # arbitrary name (don't change)
@@ -32,10 +33,13 @@ def test_sunline_ephem():
 
     # Artificially put sun at the origin.
     sun_data.r_BdyZero_N = [0.0, 0.0, 0.0]
+
+    # Non-trivial attitude so the body-frame and inertial-frame outputs differ
+    sigma_BN = [0.1, 0.2, -0.3]
+    veh_att_data.sigma_BN = sigma_BN
     veh_att_in_msg = messaging.NavAttMsgF32().write(veh_att_data)
 
     # Place spacecraft unit length away on each coordinate axis
-    veh_att_data.sigma_BN = [0.0, 0.0, 0.0]
     test_vectors = [[-1.0, 0.0, 0.0],
                    [0.0, -1.0, 0.0],
                    [0.0, 0.0, -1.0],
@@ -44,7 +48,8 @@ def test_sunline_ephem():
                    [0.0, 0.0, 1.0],
                    [0.0, 0.0, 0.0]] # test if the space pos vector aligns with the sun pos vector
 
-    est_vector = np.zeros((len(test_vectors), 3))
+    est_vector_B = np.zeros((len(test_vectors), 3))
+    est_vector_N = np.zeros((len(test_vectors), 3))
 
     veh_pos_in_msg = messaging.NavTransMsgF32()
     sun_data_in_msg = messaging.EphemerisMsgF32().write(sun_data)
@@ -54,6 +59,8 @@ def test_sunline_ephem():
 
     data_log = sunline_ephem_obj.navStateOutMsg.recorder()
     unit_test_sim.AddModelToTask(unit_task_name, data_log)
+    heading_log = sunline_ephem_obj.sunHeadingOutMsg.recorder()
+    unit_test_sim.AddModelToTask(unit_task_name, heading_log)
 
     for i in range(len(test_vectors)):
         test_vec = test_vectors[i]
@@ -64,13 +71,14 @@ def test_sunline_ephem():
         unit_test_sim.InitializeSimulation()
         unit_test_sim.ConfigureStopTime(macros.sec2nano(1.0))        # seconds to stop simulation
         unit_test_sim.ExecuteSimulation()
-        est_vector[i] = data_log.vehSunPntBdy[-1]
+        est_vector_B[i] = data_log.vehSunPntBdy[-1]
+        est_vector_N[i] = heading_log.rHat_XN_N[-1]
 
         # reset the module to test this functionality
         sunline_ephem_obj.reset(1)
 
-    # set the filtered output truth states
-    true_vector = [
+    # set the inertial-frame truth states; the body-frame truth is the same direction rotated by [BN]
+    true_vector_N = [
                 [1.0, 0.0, 0.0],
                 [0.0, 1.0, 0.0],
                 [0.0, 0.0, 1.0],
@@ -80,9 +88,12 @@ def test_sunline_ephem():
                 [0.0, 0.0, 0.0],
                 ]
 
-    # one assert; on failure numpy.testing will show exactly where the mismatch is
-    for i in range(len(true_vector)):
-        np.testing.assert_almost_equal(est_vector[i], true_vector[i], decimal=7, verbose=False)
+    dcm_BN = np.array(rbk.MRP2C(sigma_BN))
+    true_vector_B = [dcm_BN @ np.array(v) for v in true_vector_N]
+
+    for i in range(len(true_vector_N)):
+        np.testing.assert_allclose(est_vector_N[i], true_vector_N[i], rtol=1e-6, atol=1e-6, verbose=False)
+        np.testing.assert_allclose(est_vector_B[i], true_vector_B[i], rtol=1e-6, atol=1e-6, verbose=False)
 
 
 if __name__ == "__main__":

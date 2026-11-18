@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 TEST(SunSearchPointTest, RegressionTest) {
-    regressionTestSunSearchPoint({1.0F, 1.0F, 0.0F},     // sunVec
+    regressionTestSunSearchPoint({1.0F, 1.0F, 0.0F},     // rawRHat_SB_B
                                  {0.01F, 0.50F, -0.2F},  // omega_BN_B
                                  0.0F,                   // sunAxisSpinRate
                                  {0.0F, 0.0F, 1.0F},     // sunPointAxis_B
@@ -71,40 +71,40 @@ TEST(SunSearchPointTest, SigmaBrZeroWhenAligned) {
     SunSearchPointAlgorithm alg{defaultSearchConfig()};
 
     // Sun direction exactly along sunPointAxis_B
-    Eigen::Vector3f sunVec{0.0F, 0.0F, 5.0F};
+    Eigen::Vector3f rawRHat_SB_B{0.0F, 0.0F, 5.0F};
 
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
     EXPECT_NEAR(output.sigma_BR.stableNorm(), 0.0F, 1e-6F);
 }
 
-// In the normal case, sigma_BR direction is orthogonal to both sunVec and sunPointAxis_B.
+// In the normal case, sigma_BR direction is orthogonal to both rawRHat_SB_B and sunPointAxis_B.
 TEST(SunSearchPointTest, SigmaBrOrthogonalToBothVectors) {
     const auto cfg = defaultSearchConfig();
     SunSearchPointAlgorithm alg{cfg};
 
     // Normal case: not aligned, not opposite
-    Eigen::Vector3f sunVec{1.0F, 1.0F, 0.0F};
+    Eigen::Vector3f rawRHat_SB_B{1.0F, 1.0F, 0.0F};
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
 
     Eigen::Vector3f sHat = cfg.getSunPointAxis_B();
     Eigen::Vector3f sigmaDir = output.sigma_BR.stableNormalized();
 
-    EXPECT_NEAR(sigmaDir.dot(sunVec.stableNormalized()), 0.0F, 1e-5F);
+    EXPECT_NEAR(sigmaDir.dot(rawRHat_SB_B.stableNormalized()), 0.0F, 1e-5F);
     EXPECT_NEAR(sigmaDir.dot(sHat), 0.0F, 1e-5F);
 }
 
-// When sunAxisSpinRate != 0 and sun is visible, omega_RN_B is parallel to vehSunPntBdy.
+// When sunAxisSpinRate != 0 and sun is visible, omega_RN_B is parallel to rawRHat_SB_B.
 TEST(SunSearchPointTest, OmegaRnParallelToSunVec) {
     SunSearchPointAlgorithm alg{makeSearchConfig(defaultRotations(), Eigen::Vector3f{0.0F, 0.0F, 1.0F}, 2.0F)};
 
-    Eigen::Vector3f sunVec{1.0F, 2.0F, 3.0F};
+    Eigen::Vector3f rawRHat_SB_B{1.0F, 2.0F, 3.0F};
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
 
-    // omega_RN_B should be parallel to sunVec: cross product should be zero
-    Eigen::Vector3f cross = output.omega_RN_B.cross(sunVec);
+    // omega_RN_B should be parallel to rawRHat_SB_B: cross product should be zero
+    Eigen::Vector3f cross = output.omega_RN_B.cross(rawRHat_SB_B);
     EXPECT_NEAR(cross.stableNorm(), 0.0F, 1e-5F);
 
     // Magnitude should be |sunAxisSpinRate|
@@ -120,9 +120,9 @@ TEST(SunSearchPointTest, SunOpposite180) {
     const auto cfg = defaultSearchConfig();
     SunSearchPointAlgorithm alg{cfg};
 
-    Eigen::Vector3f sunVec{0.0F, 0.0F, -1.0F};
+    Eigen::Vector3f rawRHat_SB_B{0.0F, 0.0F, -1.0F};
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
 
     // sigma_BR should be non-zero (180° rotation)
     EXPECT_GT(output.sigma_BR.stableNorm(), 0.1F);
@@ -130,7 +130,7 @@ TEST(SunSearchPointTest, SunOpposite180) {
 
     // Verify against reference
     Eigen::Vector3f sHat = cfg.getSunPointAxis_B();
-    auto reference = referenceUpdate(sunVec, omega_BN_B, 0.0F, sHat, Eigen::Vector3f::Zero());
+    auto reference = referenceUpdate(rawRHat_SB_B, omega_BN_B, 0.0F, sHat, Eigen::Vector3f::Zero());
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(output.sigma_BR(i), reference.sigma_BR(i), 1e-5F);
     }
@@ -140,9 +140,9 @@ TEST(SunSearchPointTest, SunOpposite180) {
 TEST(SunSearchPointTest, SunExactlyAligned) {
     SunSearchPointAlgorithm alg{defaultSearchConfig()};
 
-    Eigen::Vector3f sunVec{0.0F, 0.0F, 1.0F};
+    Eigen::Vector3f rawRHat_SB_B{0.0F, 0.0F, 1.0F};
     Eigen::Vector3f omega_BN_B{0.01F, -0.02F, 0.03F};
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
 
     EXPECT_FLOAT_EQ(output.sigma_BR(0), 0.0F);
     EXPECT_FLOAT_EQ(output.sigma_BR(1), 0.0F);
@@ -173,9 +173,9 @@ TEST(SunSearchPointTest, SHatAlongXAxis180Opposition) {
     SunSearchPointAlgorithm alg{makeSearchConfig(defaultRotations(), Eigen::Vector3f{1.0F, 0.0F, 0.0F})};
 
     // Sun opposite to sHat (along -x): exercises the unitOrthogonal() fallback branch
-    Eigen::Vector3f sunVec{-1.0F, 0.0F, 0.0F};
+    Eigen::Vector3f rawRHat_SB_B{-1.0F, 0.0F, 0.0F};
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
 
     // sigma_BR should be non-zero and finite
     EXPECT_GT(output.sigma_BR.stableNorm(), 0.1F);
@@ -188,13 +188,13 @@ TEST(SunSearchPointTest, SHatAlongXAxis180Opposition) {
 TEST(SunSearchPointTest, LargeUnnormalizedSunVector) {
     SunSearchPointAlgorithm alg{defaultSearchConfig()};
 
-    Eigen::Vector3f sunVec{1000.0F, 1000.0F, 0.0F};
+    Eigen::Vector3f rawRHat_SB_B{1000.0F, 1000.0F, 0.0F};
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
 
     // Should produce same sigma_BR as unit-magnitude version (angle is the same)
-    Eigen::Vector3f sunVecSmall{1.0F, 1.0F, 0.0F};
-    auto outputSmall = pointUpdate(alg, sunVecSmall, omega_BN_B);
+    Eigen::Vector3f smallRawRHat_SB_B{1.0F, 1.0F, 0.0F};
+    auto outputSmall = pointUpdate(alg, smallRawRHat_SB_B, omega_BN_B);
 
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(output.sigma_BR(i), outputSmall.sigma_BR(i), 1e-5F);
@@ -205,9 +205,9 @@ TEST(SunSearchPointTest, LargeUnnormalizedSunVector) {
 TEST(SunSearchPointTest, ZeroSpinRateZeroOmegaRn) {
     SunSearchPointAlgorithm alg{defaultSearchConfig()};
 
-    Eigen::Vector3f sunVec{1.0F, 1.0F, 0.0F};
+    Eigen::Vector3f rawRHat_SB_B{1.0F, 1.0F, 0.0F};
     Eigen::Vector3f omega_BN_B{0.5F, -0.3F, 0.1F};
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
 
     EXPECT_FLOAT_EQ(output.omega_RN_B(0), 0.0F);
     EXPECT_FLOAT_EQ(output.omega_RN_B(1), 0.0F);
@@ -223,11 +223,11 @@ TEST(SunSearchPointTest, ZeroSpinRateZeroOmegaRn) {
 TEST(SunSearchPointTest, NegativeSpinRate) {
     SunSearchPointAlgorithm alg{makeSearchConfig(defaultRotations(), Eigen::Vector3f{0.0F, 0.0F, 1.0F}, -2.0F)};
 
-    Eigen::Vector3f sunVec{1.0F, 0.0F, 0.0F};
+    Eigen::Vector3f rawRHat_SB_B{1.0F, 0.0F, 0.0F};
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    auto output = pointUpdate(alg, sunVec, omega_BN_B);
+    auto output = pointUpdate(alg, rawRHat_SB_B, omega_BN_B);
 
-    // omega_RN_B should be anti-parallel to sunVec
+    // omega_RN_B should be anti-parallel to rawRHat_SB_B
     EXPECT_LT(output.omega_RN_B(0), 0.0F);
     EXPECT_NEAR(output.omega_RN_B.stableNorm(), 2.0F, 1e-5F);
 }

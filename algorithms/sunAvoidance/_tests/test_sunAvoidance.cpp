@@ -14,7 +14,7 @@ const Eigen::Vector3f kSigmaBN{0.25F, -0.45F, 0.75F};
 const Eigen::Vector3f kSigmaRN{0.35F, -0.25F, 0.15F};
 const Eigen::Vector3f kOmegaRNN{0.018F, -0.032F, 0.015F};
 const Eigen::Vector3f kDomegaRNN{0.048F, -0.022F, 0.025F};
-const Eigen::Vector3f kSunHat_B{0.078F, -0.693F, 0.717F};
+const Eigen::Vector3f kRHat_SB_B{0.078F, -0.693F, 0.717F};
 const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 }  // namespace
 
@@ -25,13 +25,13 @@ const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 // Sun-avoidance maneuver actively feeding forward (residual angle > 0 throughout).
 TEST(SunAvoidanceTest, RegressionSunAvoidanceFeedingForward) {
     regressionTestSunAvoidance(
-        kSensitiveHat_B, kManeuverRate, kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN, kSunHat_B, kHalfSecNs, 12);
+        kSensitiveHat_B, kManeuverRate, kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN, kRHat_SB_B, kHalfSecNs, 12);
 }
 
 // Long run: the residual maneuver angle decays to zero and stays clamped.
 TEST(SunAvoidanceTest, RegressionSunAvoidanceDecaysToZero) {
     regressionTestSunAvoidance(
-        kSensitiveHat_B, kManeuverRate, kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN, kSunHat_B, kHalfSecNs, 400);
+        kSensitiveHat_B, kManeuverRate, kSigmaBN, kSigmaRN, kOmegaRNN, kDomegaRNN, kRHat_SB_B, kHalfSecNs, 400);
 }
 
 // ---------------------------------------------------------------------------
@@ -101,11 +101,11 @@ TEST(SunAvoidanceTest, EdgeSmallSlewRate) {
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRef refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
 
-    const SunAvoidanceAttRef first = alg.update(kSigmaBN, refIn, kSunHat_B, 0);
+    const SunAvoidanceAttRef first = alg.update(kSigmaBN, refIn, kRHat_SB_B, 0);
     // Total angle decay over the run is kSmallSlewRate * 11 * 0.5 s ~ 5.5e-4 rad.
     constexpr float tol = 2e-3F;
     for (int k = 1; k < 12; ++k) {
-        const SunAvoidanceAttRef out = alg.update(kSigmaBN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceAttRef out = alg.update(kSigmaBN, refIn, kRHat_SB_B, static_cast<uint64_t>(k) * kHalfSecNs);
         for (int i = 0; i < 3; ++i) {
             EXPECT_NEAR(out.sigma_RN(i), first.sigma_RN(i), tol);
             EXPECT_NEAR(out.omega_RN_N(i), first.omega_RN_N(i), tol);
@@ -158,7 +158,7 @@ TEST(SunAvoidanceTest, EdgeBodyAtReferencePassThrough) {
     constexpr float tol = 1e-5F;
     for (int k = 0; k < 5; ++k) {
         // sigma_BN == sigma_RN with the maneuver enabled and valid Sun geometry.
-        const SunAvoidanceAttRef out = alg.update(kSigmaRN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceAttRef out = alg.update(kSigmaRN, refIn, kRHat_SB_B, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         const Eigen::Matrix3f dcm_RN_out = mrpToDcm(out.sigma_RN);
         for (int r = 0; r < 3; ++r) {
@@ -172,14 +172,14 @@ TEST(SunAvoidanceTest, EdgeBodyAtReferencePassThrough) {
 namespace {
 // Drive the maneuver with the given Sun direction and assert the adjusted reference stays finite and its MRP
 // stays within the principal set.
-void expectManeuverBoundedAndFinite(const Eigen::Vector3f& sHat_B) {
+void expectManeuverBoundedAndFinite(const Eigen::Vector3f& rHat_SB_B) {
     const auto config = SunAvoidanceConfig::create(kSensitiveHat_B, kManeuverRate);
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRef refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
 
     constexpr float normBound = 1.0F + 1e-5F;
     for (int k = 0; k < 10; ++k) {
-        const SunAvoidanceAttRef out = alg.update(kSigmaBN, refIn, sHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceAttRef out = alg.update(kSigmaBN, refIn, rHat_SB_B, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
         EXPECT_LE(out.sigma_RN.stableNorm(), normBound);
@@ -214,7 +214,7 @@ TEST(SunAvoidanceTest, EdgeAntiParallelSensitiveAxes) {
 
     constexpr float normBound = 1.0F + 1e-5F;
     for (int k = 0; k < 10; ++k) {
-        const SunAvoidanceAttRef out = alg.update(sigmaBN, refIn, kSunHat_B, static_cast<uint64_t>(k) * kHalfSecNs);
+        const SunAvoidanceAttRef out = alg.update(sigmaBN, refIn, kRHat_SB_B, static_cast<uint64_t>(k) * kHalfSecNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
         EXPECT_LE(out.sigma_RN.stableNorm(), normBound);
@@ -230,8 +230,8 @@ TEST(SunAvoidanceTest, EdgeBackwardsClockHoldsFullManeuver) {
     const SunAvoidanceAttRef refIn{kSigmaRN, kOmegaRNN, kDomegaRNN};
 
     constexpr uint64_t kStartNs = 20U * kHalfSecNs;  // 10 s
-    const SunAvoidanceAttRef atStart = alg.update(kSigmaBN, refIn, kSunHat_B, kStartNs);
-    const SunAvoidanceAttRef beforeStart = alg.update(kSigmaBN, refIn, kSunHat_B, kStartNs - kHalfSecNs);
+    const SunAvoidanceAttRef atStart = alg.update(kSigmaBN, refIn, kRHat_SB_B, kStartNs);
+    const SunAvoidanceAttRef beforeStart = alg.update(kSigmaBN, refIn, kRHat_SB_B, kStartNs - kHalfSecNs);
 
     // The maneuver is engaged at the start (the output is not the pass-through reference)...
     const Eigen::Matrix3f dcm_RN_in = mrpToDcm(kSigmaRN);

@@ -116,7 +116,7 @@ inline Eigen::Vector3d mapState(const Eigen::Vector2d& pixel,
 inline double betaVariance(const Eigen::Vector3d& position,
                            double radius,
                            double alpha,
-                           const Eigen::Vector3d& sunUnit_N,
+                           const Eigen::Vector3d& rHat_SB_N,
                            double radiusUncertainty,
                            const Eigen::Matrix3d& positionCovar) {
     const double positionNorm = position.stableNorm();
@@ -130,7 +130,7 @@ inline double betaVariance(const Eigen::Vector3d& position,
     const double deltaBinaryDeltaAlphaCoeff =
         (4.0 * radius / (3.0 * std::numbers::pi * positionNorm)) / (1.0 + (binaryTerm * binaryTerm));
     const Eigen::RowVector3d deltaAlphaDeltaR =
-        -((sunUnit_N / positionNorm).transpose() * (Eigen::Matrix3d::Identity() - (rHat * rHat.transpose())));
+        -((rHat_SB_N / positionNorm).transpose() * (Eigen::Matrix3d::Identity() - (rHat * rHat.transpose())));
 
     const Eigen::RowVector3d deltaBinaryR = deltaBinaryDeltaR + (deltaBinaryDeltaAlphaCoeff * deltaAlphaDeltaR);
     const double totalDeltaBinaryPartials = (deltaBinaryR * positionCovar * deltaBinaryR.transpose())(0, 0);
@@ -178,7 +178,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     const bool filterUsable = CobConverterConfig::isUsableFilterState(filter);
     const bool phaseCorrected = filterUsable && cfg.getRadius() > 0.0F &&
                                 position.stableNorm() > static_cast<double>(cfg.getRadius()) &&
-                                attitude.vehSunPntBdy.allFinite() && attitude.vehSunPntBdy.stableNorm() > 0.0F;
+                                attitude.rHat_SB_B.allFinite() && attitude.rHat_SB_B.stableNorm() > 0.0F;
     double alpha = 0.0;
     double phi = 0.0;
     double gamma = 0.0;
@@ -187,19 +187,19 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     double betaVar = 0.0;
     if (phaseCorrected) {
         const Eigen::Vector3d rHat_N = position.stableNormalized();
-        const Eigen::Vector3d shat_B = attitude.vehSunPntBdy.cast<double>().stableNormalized();
-        const Eigen::Vector3d shat_N = dcm_BN.transpose() * shat_B;
-        const Eigen::Vector3d shat_C = dcm_CB * shat_B;
+        const Eigen::Vector3d rHat_SB_B = attitude.rHat_SB_B.cast<double>().stableNormalized();
+        const Eigen::Vector3d rHat_SB_N = dcm_BN.transpose() * rHat_SB_B;
+        const Eigen::Vector3d rHat_SB_C = dcm_CB * rHat_SB_B;
 
-        alpha = safeAcos(rHat_N.dot(shat_N));
-        phi = safeAtan2(shat_C(1), shat_C(0));
+        alpha = safeAcos(rHat_N.dot(rHat_SB_N));
+        phi = safeAtan2(rHat_SB_C(1), rHat_SB_C(0));
         gamma = (4.0 / (3.0 * std::numbers::pi)) * (1.0 - safeCos(alpha));
         objectRadiusPixels = static_cast<double>(cfg.getRadius()) * dX / position.stableNorm();
         tanBeta = static_cast<double>(cfg.getRadius()) * gamma / position.stableNorm();
         betaVar = betaVariance(position,
                                static_cast<double>(cfg.getRadius()),
                                alpha,
-                               shat_N,
+                               rHat_SB_N,
                                static_cast<double>(cfg.getRadiusUncertainty()),
                                positionCovariance);
         // Mirrors updateState: a non-finite correction (in fp32) falls back to the COB.
@@ -309,7 +309,7 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
 //
 // `tol` (1e-3F) covers rhat_BN_N, offsetFactor, phaseAngle, sunDirection.
 // phaseAngle sets it:
-// its acos(dot(rHat_N, shat_N)) is ill-conditioned as alpha -> 0 or pi (d(acos)/dx = -1/sin(alpha)),
+// its acos(dot(rHat_N, rHat_SB_N)) is ill-conditioned as alpha -> 0 or pi (d(acos)/dx = -1/sin(alpha)),
 // giving a floor of ~sqrt(2*n*epsilon) ~= 1.5e-3 for n ~ 5-10 upstream ops -- not a bug, since
 // alpha ~= 0 (sun nearly behind the spacecraft) is a valid but ill-conditioned geometry. Confirmed
 // empirically: tightening to 2e-4F failed on an alpha ~= 2.28e-4 rad case (2.6e-4 diff); reverted to
@@ -440,7 +440,7 @@ inline void testCobConverter(float radius,
                              const Eigen::Vector2f& cobCenterOfBrightness,
                              uint64_t cobTimeTag,
                              const Eigen::Vector3f& sigma_BN,
-                             const Eigen::Vector3f& vehSunPntBdy,
+                             const Eigen::Vector3f& rHat_SB_B,
                              const Eigen::Vector3d& filterVehPosition,
                              const Eigen::Matrix3d& filterVehPositionCovariance) {
     std::optional<CobConverterConfig> cfg;
@@ -466,7 +466,7 @@ inline void testCobConverter(float radius,
                              .cobPixelsFound = cobPixelsFound,
                              .cobCenterOfBrightness = cobCenterOfBrightness,
                              .cobTimeTag = cobTimeTag};
-    const VehicleAttitude attitude{.sigma_BN = sigma_BN, .vehSunPntBdy = vehSunPntBdy};
+    const VehicleAttitude attitude{.sigma_BN = sigma_BN, .rHat_SB_B = rHat_SB_B};
     // The adapter casts the double filter message to float.
     const FilterState filter{.filterVehPosition = filterVehPosition.cast<float>(),
                              .filterVehPositionCovariance = filterVehPositionCovariance.cast<float>()};

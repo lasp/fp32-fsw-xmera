@@ -36,7 +36,7 @@ CssWeightedLeastSquaresConfig configFromC(const CssBoresightArray_c& cssNHat_B,
 /*! Convert the algorithm's output struct to its C mirror. */
 CssWeightedLeastSquaresOutput_c outputToC(const CssWeightedLeastSquaresOutput& out) {
     CssWeightedLeastSquaresOutput_c result{};
-    eigenVectorToCArray(out.sunHeading_B, result.sunHeading_B.data);
+    eigenVectorToCArray(out.rHat_SB_B, result.rHat_SB_B.data);
     eigenVectorToCArray(out.omega_BN_B, result.omega_BN_B.data);
     eigenVectorToCArray(out.postFitResiduals, result.postFitResiduals);
     result.numCssViewingSun = out.numCssViewingSun;

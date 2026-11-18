@@ -103,7 +103,7 @@ void CobConverterAlgorithm_setConfig(CobConverterAlgorithmHandle* self,
  * @param cobCenterOfBrightness       [px] COB pixel coordinates.
  * @param cobTimeTag                  [ns] COB measurement time.
  * @param sigma_BN                    [-]  body-to-inertial MRP.
- * @param vehSunPntBdy                [-]  sun direction, body frame.
+ * @param rHat_SB_B                [-]  sun direction, body frame.
  * @param filterVehPosition           [m]  spacecraft position, inertial frame.
  * @param filterVehPositionCovariance [m^2] spacecraft position covariance, inertial frame.
  * @return CobConverterOutput_c Populated output (zeroed if cobValid is false or cobPixelsFound is zero).
@@ -114,7 +114,7 @@ CobConverterOutput_c CobConverterAlgorithm_updateState(CobConverterAlgorithmHand
                                                        Vector2f_c cobCenterOfBrightness,
                                                        uint64_t cobTimeTag,
                                                        Vector3f_c sigma_BN,
-                                                       Vector3f_c vehSunPntBdy,
+                                                       Vector3f_c rHat_SB_B,
                                                        Vector3f_c filterVehPosition,
                                                        Matrix3f_c filterVehPositionCovariance);
 

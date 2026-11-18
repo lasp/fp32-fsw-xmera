@@ -14,7 +14,7 @@ that maps between the two representations is the commanded attitude :math:`[\mat
 
 Specifically, the body thrust direction :math:`{}^\mathcal{B}\hat{t}` (read from ``bodyHeadingInMsg``) is matched
 exactly to the inertial thrust reference :math:`{}^\mathcal{N}\hat{t}_\text{ref}` (a configuration parameter). The Sun
-direction :math:`{}^\mathcal{N}\hat{r}_{S/B}` (from ``attNavInMsg``) and the solar array drive axis
+direction :math:`{}^\mathcal{N}\hat{r}_{S/B}` (from ``sunHeadingInMsg``) and the solar array drive axis
 :math:`{}^\mathcal{B}\hat{a}` (configuration parameter) are used to construct the auxiliary triad axes that fix the
 spin about the thrust direction. The goal is to place the solar array drive axis orthogonal to the Sun direction with
 the remaining rotational degree of freedom. This constraint can only be perfectly met when the solar array drive axis
@@ -60,9 +60,9 @@ The adapter consumes the following messages and public configuration properties:
     * - Msg Variable Name
       - Msg Type
       - Description
-    * - attNavInMsg
-      - :ref:`NavAttMsgF32Payload`
-      - Navigation attitude input (uses ``sigma_BN`` and ``vehSunPntBdy`` as :math:`{}^\mathcal{B}\hat{r}_{S/B}`)
+    * - sunHeadingInMsg
+      - :ref:`InertialHeadingMsgF32Payload`
+      - Inertial Sun direction input (uses ``rHat_XN_N`` as :math:`{}^\mathcal{N}\hat{r}_{S/B}`)
     * - bodyHeadingInMsg
       - :ref:`BodyHeadingMsgF32Payload`
       - Body thrust direction input (uses ``rHat_XB_B`` as :math:`{}^\mathcal{B}\hat{t}`)

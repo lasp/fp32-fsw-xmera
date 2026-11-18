@@ -78,7 +78,7 @@ void CssWeightedLeastSquaresAlgorithm::setConfig(const CssWeightedLeastSquaresCo
  */
 void CssWeightedLeastSquaresAlgorithm::reInitialize() {
     this->priorSignalAvailable = false;
-    this->priorSunHeading_B.setZero();
+    this->priorRHat_SB_B.setZero();
 }
 
 /*! This method takes the parsed CSS sensor data and outputs an estimate of the
@@ -98,7 +98,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     std::array<uint32_t, kMaxNumCssSensors> activeSensors{};
     uint32_t numCssViewingSun = 0;
     std::optional<Eigen::Vector3f> fit; /* the least squares solution; empty when there is none */
-    Eigen::Vector3f sunHeading_B = Eigen::Vector3f::Zero();
+    Eigen::Vector3f rHat_SB_B = Eigen::Vector3f::Zero();
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
     Eigen::Vector<float, kMaxNumCssSensors> postFitResiduals = Eigen::Vector<float, kMaxNumCssSensors>::Zero();
 
@@ -116,23 +116,22 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
     }
 
     if (fit) {
-        sunHeading_B = fit->stableNormalized();
+        rHat_SB_B = fit->stableNormalized();
 
         if (this->priorSignalAvailable) {
-            const Eigen::Vector3f rotationAxis = sunHeading_B.cross(this->priorSunHeading_B);
+            const Eigen::Vector3f rotationAxis = rHat_SB_B.cross(this->priorRHat_SB_B);
             const float rotationAxisMagnitude = rotationAxis.stableNorm();
             /* Leave the rate at zero when the two headings fix no axis to rotate about. Taking the
                angle from the cross product as well as the dot product keeps the significant digits of a
                small angle, which the dot product alone loses because its cosine rounds to one. */
             if (rotationAxisMagnitude > kMinRotationAxisMagnitude) {
-                const float principalAngle =
-                    safeAtan2f(rotationAxisMagnitude, sunHeading_B.dot(this->priorSunHeading_B));
+                const float principalAngle = safeAtan2f(rotationAxisMagnitude, rHat_SB_B.dot(this->priorRHat_SB_B));
                 omega_BN_B = principalAngle * (rotationAxis / rotationAxisMagnitude) / this->cfg.getControlPeriod();
             }
         } else {
             this->priorSignalAvailable = true;
         }
-        this->priorSunHeading_B = sunHeading_B;
+        this->priorRHat_SB_B = rHat_SB_B;
     }
 
     /* Residuals are measured against the unnormalized fit, which is zero when there was no sun */
@@ -144,7 +143,7 @@ CssWeightedLeastSquaresOutput CssWeightedLeastSquaresAlgorithm::update(
         this->priorSignalAvailable = false;
     }
 
-    return {.sunHeading_B = sunHeading_B,
+    return {.rHat_SB_B = rHat_SB_B,
             .omega_BN_B = omega_BN_B,
             .postFitResiduals = postFitResiduals,
             .numCssViewingSun = numCssViewingSun};

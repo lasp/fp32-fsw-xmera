@@ -70,10 +70,8 @@ void SolarArrayReferenceAlgorithm_reInitialize(SolarArrayReferenceAlgorithmHandl
 }
 
 float SolarArrayReferenceAlgorithm_update(SolarArrayReferenceAlgorithmHandle* self,
-                                          const Vector3f_c sigma_BN,
                                           const Vector3f_c sigma_RN,
-                                          const Vector3f_c rHatIn_SB_B) {
-    return fsw::fromHandle<::SolarArrayReferenceAlgorithm>(self)->update(cArrayToEigenVector3<float>(sigma_BN.data),
-                                                                         cArrayToEigenVector3<float>(sigma_RN.data),
-                                                                         cArrayToEigenVector3<float>(rHatIn_SB_B.data));
+                                          const Vector3f_c rHat_SB_N) {
+    return fsw::fromHandle<::SolarArrayReferenceAlgorithm>(self)->update(cArrayToEigenVector3<float>(sigma_RN.data),
+                                                                         cArrayToEigenVector3<float>(rHat_SB_N.data));
 }

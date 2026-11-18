@@ -11,13 +11,13 @@ from xmera.utilities import macros
 from xmera.architecture import messaging
 
 
-def reference_triad(eh_N, sh_N, a1_B, h1_B):
+def reference_triad(eh_N, rHat_SB_N, a1_B, h1_B):
     r2 = h1_B
     r3 = np.cross(a1_B, h1_B) / np.linalg.norm(np.cross(a1_B, h1_B))
     r1 = np.cross(r2, r3)
 
     n2 = eh_N
-    n1 = np.cross(sh_N, eh_N) / np.linalg.norm(np.cross(sh_N, eh_N))
+    n1 = np.cross(rHat_SB_N, eh_N) / np.linalg.norm(np.cross(rHat_SB_N, eh_N))
     n3 = np.cross(n1, n2)
 
     ND = (np.vstack((n1, n2, n3))).T
@@ -39,14 +39,14 @@ def test_triad(show_plots, case):
 
     if case == 1 or case == 2:
         # SPE = 7.16
-        sh_N = [2.12024926e+11, 2.12239088e+11, 6.60583756e-01]
+        rHat_SB_N = [2.12024926e+11, 2.12239088e+11, 6.60583756e-01]
         r_EN_N = [3.43401015e+11, 2.76561597e+11, 2.78825040e+10]
     if case == 3 or case == 4:
         # SPE = 129.23
-        sh_N = [-7.47993852e+10, -3.03274801e+08, -6.16397545e-01]
+        rHat_SB_N = [-7.47993852e+10, -3.03274801e+08, -6.16397545e-01]
         r_EN_N = [5.65767033e+10, 6.40192339e+10, 2.78825040e+10]
 
-    sh_N = sh_N / np.linalg.norm(sh_N)
+    rHat_SB_N = rHat_SB_N / np.linalg.norm(rHat_SB_N)
     r_BN_N = np.array([0, 0, 0])
 
     eh_N = r_EN_N - r_BN_N
@@ -70,14 +70,10 @@ def test_triad(show_plots, case):
     module.thrustReqHat_N = eh_N
     module.n3Axis = triadF32.N3Axis_plusZHat_N
 
-    sigma_BN = np.array([0.1, -0.2, 0.1])
-    BN = rbk.MRP2C(sigma_BN)
-    rS_B = np.matmul(BN, sh_N)
-    nav_att_data = messaging.NavAttMsgF32Payload()
-    nav_att_data.sigma_BN = sigma_BN
-    nav_att_data.vehSunPntBdy = rS_B
-    nav_att_msg = messaging.NavAttMsgF32().write(nav_att_data)
-    module.attNavInMsg.subscribeTo(nav_att_msg)
+    sun_heading_data = messaging.InertialHeadingMsgF32Payload()
+    sun_heading_data.rHat_XN_N = rHat_SB_N
+    sun_heading_msg = messaging.InertialHeadingMsgF32().write(sun_heading_data)
+    module.sunHeadingInMsg.subscribeTo(sun_heading_msg)
 
     thrust_body_msg_data = messaging.BodyHeadingMsgF32Payload()
     thrust_body_msg_data.rHat_XB_B = h1_B
@@ -96,7 +92,7 @@ def test_triad(show_plots, case):
     RN = rbk.MRP2C(sigma_RN)
 
     if case == 1 or case == 3:
-        check = np.dot(np.array(RN[0, :]), sh_N)
+        check = np.dot(np.array(RN[0, :]), rHat_SB_N)
         np.testing.assert_allclose(check, 0.0, atol=1e-3,
                                    err_msg=f"X-axis is not orthogonal to sun")
     elif case == 2 or case == 4:

@@ -18,7 +18,7 @@ from xmera.architecture import messaging
 # Fixed, representative navigation/reference inputs shared by the adapter tests.
 sigma_BN = [0.25, -0.45, 0.75]
 omega_BN_B = [-0.015, -0.012, 0.005]
-vehSunPntBdy = [0.078, -0.693, 0.717]
+rHat_SB_B = [0.078, -0.693, 0.717]
 sigma_RN = [0.35, -0.25, 0.15]
 omega_RN_N = [0.018, -0.032, 0.015]
 domega_RN_N = [0.048, -0.022, 0.025]
@@ -40,7 +40,7 @@ def _run_sim(sun_visible):
     NavStateOutData = messaging.NavAttMsgF32Payload()
     NavStateOutData.sigma_BN = sigma_BN
     NavStateOutData.omega_BN_B = omega_BN_B
-    NavStateOutData.vehSunPntBdy = vehSunPntBdy if sun_visible else [0.0, 0.0, 0.0]
+    NavStateOutData.vehSunPntBdy = rHat_SB_B if sun_visible else [0.0, 0.0, 0.0]
     navStateInMsg = messaging.NavAttMsgF32().write(NavStateOutData)
 
     RefStateOutData = messaging.AttRefMsgF32Payload()

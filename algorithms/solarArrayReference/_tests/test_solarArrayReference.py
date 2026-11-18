@@ -41,29 +41,23 @@ def compute_rotation_angle(sigma_RN, rHat_SB_N, a1Hat_B, a2Hat_B, priorThetaRef)
 
 @pytest.mark.parametrize("rHat_SB_N", [[1, 0, 0],
                                   [0, 0, 1]])
-@pytest.mark.parametrize("sigma_BN", [[0.1, 0.2, 0.3],
-                                      [0.5, 0.4, 0.3]])
 @pytest.mark.parametrize("sigma_RN", [[0.3, 0.2, 0.1],
                                       [0.9, 0.7, 0.8]])
 @pytest.mark.parametrize("accuracy", [1e-6])
 
 
-def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy):
+def test_solarArrayReference(show_plots, rHat_SB_N, sigma_RN, accuracy):
     r"""
     **Validation Test Description**
 
     This unit test verifies the correctness of the output reference angle computed by the :ref:`solarArrayReference`.
-    The inputs provided are the inertial Sun direction, current attitude of the hub, and reference frame. Based on
-    current attitude, the sun direction vector is mapped into body frame coordinates and passed into the Attitude
-    Navigation Message.
+    The inputs provided are the inertial Sun direction and the reference frame attitude.
 
     **Test Parameters**
 
     Args:
         rHat_SB_N[3] (double): Sun direction vector, in inertial frame components;
-        sigma_BN[3] (double): spacecraft hub attitude with respect to the inertial frame, in MRP;
         sigma_RN[3] (double): reference frame attitude with respect to the inertial frame, in MRP;
-        attitudeFrame (int): 0 to calculate reference rotation angle w.r.t. reference frame, 1 to calculate it w.r.t the current spacecraft attitude;
         accuracy (float): absolute accuracy value used in the validation tests.
 
     **Description of Variables Being Tested**
@@ -76,8 +70,6 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy
     """
     a1Hat_B = np.array([1, 0, 0])
     a2Hat_B = np.array([0, 1, 0])
-    BN = rbk.MRP2C(sigma_BN)
-    rHat_SB_B = np.matmul(BN, rHat_SB_N)
     # the module starts with a zero retained reference angle
     priorThetaRef = 0
 
@@ -104,12 +96,11 @@ def test_solarArrayReference(show_plots, rHat_SB_N, sigma_BN, sigma_RN, accuracy
     solar_array.driveAxis = a1Hat_B
     solar_array.surfaceNormal = a2Hat_B
 
-    # Create input attitude navigation message
-    nav_att_in_msg_data = messaging.NavAttMsgF32Payload()
-    nav_att_in_msg_data.sigma_BN = sigma_BN
-    nav_att_in_msg_data.vehSunPntBdy = rHat_SB_B
-    nav_att_in_msg = messaging.NavAttMsgF32().write(nav_att_in_msg_data)
-    solar_array.attNavInMsg.subscribeTo(nav_att_in_msg)
+    # Create input Sun heading message
+    sun_heading_in_msg_data = messaging.InertialHeadingMsgF32Payload()
+    sun_heading_in_msg_data.rHat_XN_N = rHat_SB_N
+    sun_heading_in_msg = messaging.InertialHeadingMsgF32().write(sun_heading_in_msg_data)
+    solar_array.sunHeadingInMsg.subscribeTo(sun_heading_in_msg)
 
     # Create input attitude reference message
     att_ref_in_msg_data = messaging.AttRefMsgF32Payload()
@@ -175,11 +166,10 @@ def test_solarArrayReference_specifiedAngle(show_plots, specifiedAngle, offsetAn
     solar_array.offsetAngle = offsetAngle
 
     # Inputs are arbitrary in this mode — the algorithm should ignore them.
-    nav_att_in_msg_data = messaging.NavAttMsgF32Payload()
-    nav_att_in_msg_data.sigma_BN = [0.1, 0.2, 0.3]
-    nav_att_in_msg_data.vehSunPntBdy = [1.0, 0.0, 0.0]
-    nav_att_in_msg = messaging.NavAttMsgF32().write(nav_att_in_msg_data)
-    solar_array.attNavInMsg.subscribeTo(nav_att_in_msg)
+    sun_heading_in_msg_data = messaging.InertialHeadingMsgF32Payload()
+    sun_heading_in_msg_data.rHat_XN_N = [1.0, 0.0, 0.0]
+    sun_heading_in_msg = messaging.InertialHeadingMsgF32().write(sun_heading_in_msg_data)
+    solar_array.sunHeadingInMsg.subscribeTo(sun_heading_in_msg)
 
     att_ref_in_msg_data = messaging.AttRefMsgF32Payload()
     att_ref_in_msg_data.sigma_RN = [0.3, 0.2, 0.1]
@@ -201,8 +191,6 @@ if __name__ == "__main__":
     test_solarArrayReference(
                  False,
                  np.array([1, 0, 0]),
-                 np.array([0.1, 0.2, 0.3]),
                  np.array([0.3, 0.2, 0.1]),
-                 0,
-                 1e-12
+                 1e-6
                )

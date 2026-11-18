@@ -100,10 +100,10 @@ inline HeadingData makeHeadingData(double timeTag,
 }
 
 //! Attitude knowledge with the body frame aligned with the inertial frame, so the body-frame sun direction is the
-//! inertial one, `shat_N`.
-inline VehicleAttitude sunAttitude(Eigen::Vector3f const& shat_N) {
+//! inertial one, `rHat_SB_N`.
+inline VehicleAttitude sunAttitude(Eigen::Vector3f const& rHat_SB_N) {
     VehicleAttitude attitude;
-    attitude.vehSunPntBdy = shat_N;
+    attitude.rHat_SB_B = rHat_SB_N;
     return attitude;
 }
 
@@ -112,11 +112,11 @@ inline VehicleAttitude sunAttitude(Eigen::Vector3f const& shat_N) {
 inline HeadingMeasurement makeHeadingMeasurement(double timeTag,
                                                  Eigen::Vector3f const& rhat,
                                                  float headingStd,
-                                                 Eigen::Vector3f const& shat_N = Eigen::Vector3f::Zero()) {
+                                                 Eigen::Vector3f const& rHat_SB_N = Eigen::Vector3f::Zero()) {
     HeadingMeasurement m;
     m.timeTag = timeTag;
     m.rhat_BN_N = rhat;
-    m.shat_N = shat_N;
+    m.rHat_SB_N = rHat_SB_N;
     m.covar = (headingStd * headingStd) * Eigen::Matrix3f::Identity();
     m.valid = true;
     return m;
@@ -189,10 +189,10 @@ inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3f const& rOffs
                                                     float q,
                                                     Eigen::Vector3f const& rhatRaw,
                                                     float dt,
-                                                    Eigen::Vector3f const& shatRaw = Eigen::Vector3f::Zero()) {
+                                                    Eigen::Vector3f const& rawRHat_SB_N = Eigen::Vector3f::Zero()) {
     std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, q, kNoiseScale);
-    if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3 || !shatRaw.allFinite() || !std::isfinite(dt) ||
-        dt < 0.0) {
+    if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3 || !rawRHat_SB_N.allFinite() ||
+        !std::isfinite(dt) || dt < 0.0) {
         return;
     }
     FlybyFilterAlgorithm algo(*cfg);
@@ -201,7 +201,7 @@ inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3f const& rOffs
     heading.timeTag = dt;
     heading.rhat_BN_N = rhatRaw.stableNormalized();
     heading.covar_N = headingCovariance();
-    FlybyFilterOutput const out = algo.update(dt, heading, sunAttitude(shatRaw));
+    FlybyFilterOutput const out = algo.update(dt, heading, sunAttitude(rawRHat_SB_N));
 
     EXPECT_TRUE(algo.getState().raw().allFinite());
     EXPECT_TRUE(finiteSymmetricPsd(algo.getCovariance()));
@@ -218,7 +218,7 @@ inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3f const& rO
                                                        float q,
                                                        Eigen::Vector3f const& rhat,
                                                        float dt,
-                                                       Eigen::Vector3f const& shat = Eigen::Vector3f::Zero()) {
+                                                       Eigen::Vector3f const& rHat_SB_N = Eigen::Vector3f::Zero()) {
     std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, q, kNoiseScale);
     if (!cfg || !std::isfinite(dt) || dt < 0.0) {
         return;
@@ -229,7 +229,7 @@ inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3f const& rO
     heading.timeTag = dt;
     heading.rhat_BN_N = rhat;
     heading.covar_N = headingCovariance();
-    algo.update(dt, heading, sunAttitude(shat));
+    algo.update(dt, heading, sunAttitude(rHat_SB_N));
 
     EXPECT_TRUE(algo.getState().raw().allFinite());
     EXPECT_TRUE(finiteSymmetricPsd(algo.getCovariance()));
@@ -238,24 +238,26 @@ inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3f const& rO
 //! Folding in a measurement never increases the total uncertainty: with no time propagation between
 //! them (timeUpdate(0) adds no process noise), the covariance trace after a heading measurementUpdate
 //! is no larger than before. This is the defining information-gain property of a Kalman-family update.
-inline void propertyMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f const& rOffset,
-                                                         Eigen::Vector3f const& vOffset,
-                                                         float mu,
-                                                         Vector8 const& covDiagRaw,
-                                                         Eigen::Vector3f const& rhatRaw,
-                                                         Eigen::Vector3f const& shatRaw = Eigen::Vector3f::Zero()) {
+inline void propertyMeasurementDoesNotIncreaseCovariance(
+    Eigen::Vector3f const& rOffset,
+    Eigen::Vector3f const& vOffset,
+    float mu,
+    Vector8 const& covDiagRaw,
+    Eigen::Vector3f const& rhatRaw,
+    Eigen::Vector3f const& rawRHat_SB_N = Eigen::Vector3f::Zero()) {
     std::optional<FlybyFilterConfig> const cfg = tryFuzzConfig(rOffset, vOffset, mu, covDiagRaw, 0.0, kNoiseScale);
-    if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3 || !shatRaw.allFinite()) {
+    if (!cfg || !rhatRaw.allFinite() || rhatRaw.stableNorm() < 1E-3 || !rawRHat_SB_N.allFinite()) {
         return;
     }
-    Eigen::Vector3f const shat = shatRaw.stableNorm() > 0.0F ? shatRaw.stableNormalized() : Eigen::Vector3f::Zero();
+    Eigen::Vector3f const rHat_SB_N =
+        rawRHat_SB_N.stableNorm() > 0.0F ? rawRHat_SB_N.stableNormalized() : Eigen::Vector3f::Zero();
     FlybyFilterAlgorithm algo(*cfg);
 
     float const traceBefore = algo.getCovariance().trace();
     if (!algo.timeUpdate(0.0)) {
         return;
     }
-    if (!algo.measurementUpdate(makeHeadingMeasurement(0.0, rhatRaw.stableNormalized(), kHeadingStd, shat))) {
+    if (!algo.measurementUpdate(makeHeadingMeasurement(0.0, rhatRaw.stableNormalized(), kHeadingStd, rHat_SB_N))) {
         return;
     }
     float const traceAfter = algo.getCovariance().trace();

@@ -30,11 +30,11 @@ using StateColumn = Eigen::Vector<float, SunlineState::size>;
 // ds/dt = s × omega; omega and bias constant under propagation.
 struct SunlineDynamics {
     SunlineState operator()(float /*t*/, SunlineState const& state) const {
-        Eigen::Vector3f const sHat = state.get<filtering::Position<3>>();
+        Eigen::Vector3f const rHat_SB_B = state.get<filtering::Position<3>>();
         Eigen::Vector3f const omega = state.get<filtering::Velocity<3>>();
 
         SunlineState xDot;
-        xDot.set<filtering::Position<3>>(sHat.cross(omega));
+        xDot.set<filtering::Position<3>>(rHat_SB_B.cross(omega));
         xDot.set<filtering::Velocity<3>>(Eigen::Vector3f::Zero());
         xDot.set<filtering::Bias<1>>(Eigen::Vector<float, 1>::Zero());
         return xDot;

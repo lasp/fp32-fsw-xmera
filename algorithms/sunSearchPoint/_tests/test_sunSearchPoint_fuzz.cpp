@@ -2,7 +2,7 @@
 #include <fuzztest/fuzztest.h>
 
 FUZZ_TEST(SunSearchPointAlgorithmFuzz, regressionTestSunSearchPoint)
-    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3),  // sunVec
+    .WithDomains(fuzztest::VectorOf(fuzztest::InRange(-10.0F, 10.0F)).WithSize(3),  // rawRHat_SB_B
                  fuzztest::VectorOf(fuzztest::InRange(-5.0F, 5.0F)).WithSize(3),    // omega_BN_B
                  fuzztest::InRange(-5.0F, 5.0F),                                    // sunAxisSpinRate
                  fuzztest::VectorOf(fuzztest::InRange(-1.0F, 1.0F)).WithSize(3),    // sunPointAxis_B

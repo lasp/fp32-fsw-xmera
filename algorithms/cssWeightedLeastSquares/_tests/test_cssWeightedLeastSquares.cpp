@@ -166,7 +166,7 @@ TEST(CssWeightedLeastSquaresTest, NoReadingAboveThresholdGivesNoHeading) {
         algorithm.update(makeReadings(std::vector<float>(kMaxNumCssSensors, 0.0F)));
 
     EXPECT_EQ(out.numCssViewingSun, 0U);
-    EXPECT_TRUE(out.sunHeading_B.isZero());
+    EXPECT_TRUE(out.rHat_SB_B.isZero());
     EXPECT_TRUE(out.omega_BN_B.isZero());
     EXPECT_TRUE(out.postFitResiduals.isZero());
 }
@@ -180,7 +180,7 @@ TEST(CssWeightedLeastSquaresTest, SingleSensorReturnsItsBoresight) {
 
     ASSERT_EQ(out.numCssViewingSun, 1U);
     const Eigen::Vector3d boresight = referenceConstellation()[3];
-    EXPECT_LT((out.sunHeading_B.cast<double>() - boresight).stableNorm(), 1e-5);
+    EXPECT_LT((out.rHat_SB_B.cast<double>() - boresight).stableNorm(), 1e-5);
 }
 
 // Two readings leave the system underdetermined, so the minimum norm solution bisects the two boresights
@@ -194,7 +194,7 @@ TEST(CssWeightedLeastSquaresTest, TwoSensorsGiveTheMinimumNormSolution) {
 
     ASSERT_EQ(out.numCssViewingSun, 2U);
     const Eigen::Vector3d bisector = (referenceConstellation()[0] + referenceConstellation()[3]).stableNormalized();
-    EXPECT_LT((out.sunHeading_B.cast<double>() - bisector).stableNorm(), 1e-5);
+    EXPECT_LT((out.rHat_SB_B.cast<double>() - bisector).stableNorm(), 1e-5);
 }
 
 // Two boresights that point the same way fix no plane for the minimum norm solution to lie in, so there is
@@ -218,7 +218,7 @@ TEST(CssWeightedLeastSquaresTest, TwoParallelBoresightsGiveNoHeading) {
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
     EXPECT_EQ(out.numCssViewingSun, 2U);
-    EXPECT_TRUE(out.sunHeading_B.isZero());
+    EXPECT_TRUE(out.rHat_SB_B.isZero());
 }
 
 // Three collinear boresights span one direction, so the normal matrix is singular and there is no fit to
@@ -234,7 +234,7 @@ TEST(CssWeightedLeastSquaresTest, CollinearBoresightsGiveNoHeading) {
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings({0.9F, 0.9F, 0.9F}));
 
     EXPECT_EQ(out.numCssViewingSun, 3U);
-    EXPECT_TRUE(out.sunHeading_B.isZero());
+    EXPECT_TRUE(out.rHat_SB_B.isZero());
 }
 
 // The fit forms its products over the full-width operands, which is only correct while a sensor that takes
@@ -272,7 +272,7 @@ TEST(CssWeightedLeastSquaresTest, CoverageDroppingBetweenCyclesLeavesNoStaleTail
                                              static_cast<double>(inputs.sensorUseThresh),
                                              toDouble(fewLit));
     ASSERT_TRUE(system.resolvable);
-    expectFitIsOptimal(system, lean.sunHeading_B, lean.postFitResiduals);
+    expectFitIsOptimal(system, lean.rHat_SB_B, lean.postFitResiduals);
 
     for (uint32_t k = lean.numCssViewingSun; k < static_cast<uint32_t>(kMaxNumCssSensors); ++k) {
         EXPECT_EQ(lean.postFitResiduals(static_cast<Eigen::Index>(k)), 0.0F) << "residual slot " << k;
@@ -338,7 +338,7 @@ TEST(CssWeightedLeastSquaresTest, ReInitializeDropsThePriorHeading) {
 
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readingsFor({0.0, 1.0, 0.0})));
     EXPECT_TRUE(out.omega_BN_B.isZero());  // nothing to difference the new heading against
-    EXPECT_FALSE(out.sunHeading_B.isZero());
+    EXPECT_FALSE(out.rHat_SB_B.isZero());
 }
 
 // A cycle with no sun drops the prior heading too, so the step across the gap is not differenced into a rate.

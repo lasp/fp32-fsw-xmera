@@ -137,7 +137,7 @@ def test_nav_aggregate(show_plots, num_att_nav, num_trans_nav):
     att_time_tag = np.transpose([data_att_log.timeTag])
     att_sigma = data_att_log.sigma_BN
     att_omega = data_att_log.omega_BN_B
-    att_sun_vector = data_att_log.vehSunPntBdy
+    rHat_SB_B = data_att_log.vehSunPntBdy
 
     trans_time_tag = np.transpose([data_trans_log.timeTag])
     trans_pos = data_trans_log.r_BN_N
@@ -149,7 +149,7 @@ def test_nav_aggregate(show_plots, num_att_nav, num_trans_nav):
         true_att_time_tag = [[0.0]]*3
         true_att_sigma = [[0., 0., 0.]]*3
         true_att_omega = [[0., 0., 0.]]*3
-        true_att_sun_vector = [[0., 0., 0.]]*3
+        true_rHat_SB_B = [[0., 0., 0.]]*3
 
     if num_trans_nav == 0 or num_trans_nav == 3:
         true_trans_time_tag = [[0.0]]*3
@@ -161,7 +161,7 @@ def test_nav_aggregate(show_plots, num_att_nav, num_trans_nav):
         true_att_time_tag = [[nav_att1_msg.timeTag]]*3
         true_att_sigma = [nav_att1_msg.sigma_BN]*3
         true_att_omega = [nav_att1_msg.omega_BN_B]*3
-        true_att_sun_vector = [nav_att1_msg.vehSunPntBdy]*3
+        true_rHat_SB_B = [nav_att1_msg.vehSunPntBdy]*3
 
     if num_trans_nav == 1:
         true_trans_time_tag = [[nav_trans1_msg.timeTag]]*3
@@ -173,7 +173,7 @@ def test_nav_aggregate(show_plots, num_att_nav, num_trans_nav):
         true_att_time_tag = [[nav_att2_msg.timeTag]] * 3
         true_att_sigma = [nav_att2_msg.sigma_BN] * 3
         true_att_omega = [nav_att2_msg.omega_BN_B] * 3
-        true_att_sun_vector = [nav_att2_msg.vehSunPntBdy] * 3
+        true_rHat_SB_B = [nav_att2_msg.vehSunPntBdy] * 3
 
     if num_trans_nav == 2:
         true_trans_time_tag = [[nav_trans2_msg.timeTag]]*3
@@ -187,7 +187,7 @@ def test_nav_aggregate(show_plots, num_att_nav, num_trans_nav):
     np.testing.assert_allclose(att_time_tag, true_att_time_tag, atol=accuracy, rtol=0, err_msg="att_time_tag")
     np.testing.assert_allclose(att_sigma, true_att_sigma, atol=accuracy, rtol=0, err_msg="att_sigma")
     np.testing.assert_allclose(att_omega, true_att_omega, atol=accuracy, rtol=0, err_msg="att_omega")
-    np.testing.assert_allclose(att_sun_vector, true_att_sun_vector, atol=accuracy, rtol=0, err_msg="att_sun_vector")
+    np.testing.assert_allclose(rHat_SB_B, true_rHat_SB_B, atol=accuracy, rtol=0, err_msg="rHat_SB_B")
     np.testing.assert_allclose(trans_time_tag, true_trans_time_tag, atol=accuracy, rtol=0, err_msg="trans_time_tag")
     np.testing.assert_allclose(trans_pos, true_trans_pos, atol=accuracy, rtol=0, err_msg="trans_pos")
     np.testing.assert_allclose(trans_vel, true_trans_vel, atol=accuracy, rtol=0, err_msg="trans_vel")

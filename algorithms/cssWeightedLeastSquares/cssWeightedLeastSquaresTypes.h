@@ -22,7 +22,7 @@ typedef struct {
  * @brief Plain-old-data mirror of the C++ CssWeightedLeastSquaresOutput fields.
  */
 typedef struct {
-    Vector3f_c sunHeading_B;                     /*!< [-]   estimated unit sun heading, body frame; zero when no fit */
+    Vector3f_c rHat_SB_B;                        /*!< [-]   estimated unit sun heading, body frame; zero when no fit */
     Vector3f_c omega_BN_B;                       /*!< [r/s] inertial angular velocity, body frame; zero when no rate */
     float postFitResiduals[MAX_NUM_CSS_SENSORS]; /*!< [-] post-fit residuals, one per active sensor, packed
                                                       into the leading numCssViewingSun entries; the rest are

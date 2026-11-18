@@ -450,8 +450,8 @@ def state_update_outlier_recovery(show_plots=False):
     unit_test_sim.InitializeSimulation()
     for i in range(num_steps):
         BN = rbk.MRP2C(bodyFrame[i, 1:4])
-        sunHeading_B = np.matmul(BN, [0, 0, 1])
-        clean = np.array([np.dot(CSSOrientationList[j], sunHeading_B) for j in range(num_css)])
+        rHat_SB_B = np.matmul(BN, [0, 0, 1])
+        clean = np.array([np.dot(CSSOrientationList[j], rHat_SB_B) for j in range(num_css)])
         cosValues = (clean + np.random.normal(0, cssSigma, num_css)) * expected[i, 7]
         omega = expected[0, 4:7] + np.random.normal(0, gyroSigma, 3)
         if i in CSS_OUTLIER_STEPS:
@@ -659,8 +659,8 @@ def state_update_delayed_gyro(show_plots=False):
     unit_test_sim.InitializeSimulation()
     for i in range(num_steps):
         BN = rbk.MRP2C(bodyFrame[i, 1:4])
-        sunHeading_B = np.matmul(BN, [0, 0, 1])
-        clean = np.array([np.dot(CSSOrientationList[j], sunHeading_B) for j in range(num_css)])
+        rHat_SB_B = np.matmul(BN, [0, 0, 1])
+        clean = np.array([np.dot(CSSOrientationList[j], rHat_SB_B) for j in range(num_css)])
         cssDataMsg.CosValue = (clean + np.random.normal(0, cssSigma, num_css)) * expected[i, 7]
         cssDataMsg.timeTag = time[i]
         cssMsg.write(cssDataMsg)

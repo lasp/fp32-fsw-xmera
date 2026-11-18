@@ -168,7 +168,7 @@ FlybyFilterOutput_c FlybyFilterAlgorithm_update(FlybyFilterAlgorithmHandle* self
             in.covar_N(i, j) = heading->covar_N[i][j];
         }
         att.sigma_BN(i) = attitude->sigma_BN[i];
-        att.vehSunPntBdy(i) = attitude->vehSunPntBdy[i];
+        att.rHat_SB_B(i) = attitude->rHat_SB_B[i];
     }
 
     auto* algo = fsw::fromHandle<FlybyFilterAlgorithm>(self);

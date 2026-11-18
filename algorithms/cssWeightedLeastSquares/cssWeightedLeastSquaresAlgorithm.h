@@ -21,11 +21,11 @@ struct CssConfiguration {
 
 /*! Estimator products for a single update cycle. */
 struct CssWeightedLeastSquaresOutput {
-    Eigen::Vector3f sunHeading_B = Eigen::Vector3f::Zero();  //!< [-] estimated unit sun heading, body frame; zero
-                                                             //!< when no fit was possible
-    Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();    //!< [r/s] inertial angular velocity, body frame; only
-                                                             //!< the component orthogonal to the heading is
-                                                             //!< observable, zero without a prior heading or dt
+    Eigen::Vector3f rHat_SB_B = Eigen::Vector3f::Zero();   //!< [-] estimated unit sun heading, body frame; zero
+                                                           //!< when no fit was possible
+    Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();  //!< [r/s] inertial angular velocity, body frame; only
+                                                           //!< the component orthogonal to the heading is
+                                                           //!< observable, zero without a prior heading or dt
     Eigen::Vector<float, kMaxNumCssSensors> postFitResiduals =
         Eigen::Vector<float, kMaxNumCssSensors>::Zero();  //!< [-] post-fit residuals, one per active sensor, packed
                                                           //!< into the leading numCssViewingSun entries
@@ -187,8 +187,8 @@ class CssWeightedLeastSquaresAlgorithm final {
         const std::array<uint32_t, kMaxNumCssSensors>& activeSensors,
         uint32_t numCssViewingSun) const;
 
-    CssWeightedLeastSquaresConfig cfg;                            //!< [-] the validated configuration in force
-    Eigen::Vector3f priorSunHeading_B = Eigen::Vector3f::Zero();  //!< [-] prior normalized sun heading, body frame
+    CssWeightedLeastSquaresConfig cfg;                         //!< [-] the validated configuration in force
+    Eigen::Vector3f priorRHat_SB_B = Eigen::Vector3f::Zero();  //!< [-] prior normalized sun heading, body frame
     bool priorSignalAvailable{};  //!< [-] whether a prior heading is available for the rate
 };
 

@@ -101,14 +101,14 @@ TEST(SunlineFilterAlgorithmProperty, RateMeasurementDoesNotIncreaseCovariance) {
 // must be zero. No integrator involved — this isolates the dynamics from any
 // numerical concerns in propagate().
 TEST(SunlineFilterAlgorithmDynamics, DerivativeIsOrthogonalToHeading) {
-    Eigen::Vector3f const sHat = Eigen::Vector3f(0.4, -0.7, 0.6).stableNormalized();
+    Eigen::Vector3f const rHat_SB_B = Eigen::Vector3f(0.4, -0.7, 0.6).stableNormalized();
     Eigen::Vector3f const omega = Eigen::Vector3f(0.02, -0.005, 0.01);
-    State s = makeState(sHat, omega, 0.6);
+    State s = makeState(rHat_SB_B, omega, 0.6);
 
     State const dot = SunlineDynamics{}(0.0, s);
 
     Eigen::Vector3f const dsdt = dot.get<filtering::Position<3>>();
-    EXPECT_NEAR(sHat.dot(dsdt), 0.0, kRoundoffTol);
+    EXPECT_NEAR(rHat_SB_B.dot(dsdt), 0.0, kRoundoffTol);
 
     EXPECT_TRUE(dot.get<filtering::Velocity<3>>().isApprox(Eigen::Vector3f::Zero(), 1E-12));
     EXPECT_FLOAT_EQ(dot.get<filtering::Bias<1>>()(0), 0.0);
@@ -119,47 +119,47 @@ TEST(SunlineFilterAlgorithmDynamics, DerivativeIsOrthogonalToHeading) {
 // does a SINGLE RK4 step of size dt — accurate only for small dt. Anything
 // long-horizon would trip on integrator error, not the dynamics' invariant.
 TEST(SunlineFilterAlgorithmDynamics, HeadingMagnitudePreservedOverSmallTimeUpdate) {
-    Eigen::Vector3f const sHat0 = Eigen::Vector3f(0.0, 0.0, 1.0);
+    Eigen::Vector3f const rHat_SB_B0 = Eigen::Vector3f(0.0, 0.0, 1.0);
     Eigen::Vector3f const omega0 = Eigen::Vector3f(0.02, -0.005, 0.01);
 
-    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(sHat0, omega0, 0.6), diagCovariance(1E-2, 1E-3, 1E-2)));
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(rHat_SB_B0, omega0, 0.6), diagCovariance(1E-2, 1E-3, 1E-2)));
 
     algo.timeUpdate(1.0);
 
-    Eigen::Vector3f const sHat = algo.getState().get<filtering::Position<3>>();
-    EXPECT_NEAR(sHat.stableNorm(), sHat0.stableNorm(), 1E-8);
+    Eigen::Vector3f const rHat_SB_B = algo.getState().get<filtering::Position<3>>();
+    EXPECT_NEAR(rHat_SB_B.stableNorm(), rHat_SB_B0.stableNorm(), 1E-8);
 }
 
 // With omega = 0 the heading must not move.
 TEST(SunlineFilterAlgorithmTimeUpdate, ZeroRateLeavesHeadingFixed) {
-    Eigen::Vector3f const sHat0 = Eigen::Vector3f(0.0, 1.0, 0.0).stableNormalized();
+    Eigen::Vector3f const rHat_SB_B0 = Eigen::Vector3f(0.0, 1.0, 0.0).stableNormalized();
     SunlineFilterAlgorithm algo(
-        rateOnlyConfig(makeState(sHat0, Eigen::Vector3f::Zero(), 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
+        rateOnlyConfig(makeState(rHat_SB_B0, Eigen::Vector3f::Zero(), 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
 
     algo.timeUpdate(10.0);
-    Eigen::Vector3f const sHat = algo.getState().get<filtering::Position<3>>();
-    EXPECT_TRUE(sHat.isApprox(sHat0, 1E-9));
+    Eigen::Vector3f const rHat_SB_B = algo.getState().get<filtering::Position<3>>();
+    EXPECT_TRUE(rHat_SB_B.isApprox(rHat_SB_B0, 1E-9));
 }
 
 // dt == 0 short-circuit: the state must equal the anchor on return, with no
 // dynamics evolution applied.
 TEST(SunlineFilterAlgorithmTimeUpdate, ZeroDtCollapsesToAnchor) {
-    Eigen::Vector3f const sHat0 = Eigen::Vector3f(0.0, 0.0, 1.0);
+    Eigen::Vector3f const rHat_SB_B0 = Eigen::Vector3f(0.0, 0.0, 1.0);
     Eigen::Vector3f const omega0 = Eigen::Vector3f(0.1, 0.0, 0.0);
 
-    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(rHat_SB_B0, omega0, 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
 
     algo.timeUpdate(0.0);
     State const s = algo.getState();
-    EXPECT_TRUE(s.get<filtering::Position<3>>().isApprox(sHat0, 1E-12));
+    EXPECT_TRUE(s.get<filtering::Position<3>>().isApprox(rHat_SB_B0, 1E-12));
     EXPECT_TRUE(s.get<filtering::Velocity<3>>().isApprox(omega0, 1E-12));
     EXPECT_FLOAT_EQ(s.get<filtering::Bias<1>>()(0), 1.0);
 }
 
 TEST(SunlineFilterAlgorithmTimeUpdate, NaNDtReturnsTrueAndLeavesStateUnchanged) {
-    Eigen::Vector3f const sHat0 = Eigen::Vector3f(0.0, 0.0, 1.0);
+    Eigen::Vector3f const rHat_SB_B0 = Eigen::Vector3f(0.0, 0.0, 1.0);
     Eigen::Vector3f const omega0 = Eigen::Vector3f(0.01, 0.0, -0.02);
-    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(rHat_SB_B0, omega0, 1.0), diagCovariance(1E-2, 1E-3, 1E-2)));
     State const before = algo.getState();
 
     EXPECT_TRUE(algo.timeUpdate(std::numeric_limits<float>::quiet_NaN()))
@@ -193,10 +193,10 @@ TEST(SunlineFilterAlgorithmTimeUpdate, GrowsCovarianceWithProcessNoise) {
 // going through the queue-driven update() — keeps the test focused on the SRUKF
 // math, independent of the pack/queue plumbing.
 TEST(SunlineFilterAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovariance) {
-    Eigen::Vector3f const sHat0 = Eigen::Vector3f(0.0, 0.0, 1.0);
+    Eigen::Vector3f const rHat_SB_B0 = Eigen::Vector3f(0.0, 0.0, 1.0);
     Eigen::Vector3f const omega0 = Eigen::Vector3f(0.01, 0.01, 0.01);
 
-    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(sHat0, omega0, 1.0), diagCovariance(1E-2, 1E-1, 1E-1)));
+    SunlineFilterAlgorithm algo(rateOnlyConfig(makeState(rHat_SB_B0, omega0, 1.0), diagCovariance(1E-2, 1E-1, 1E-1)));
 
     Matrix7 const covar0 = algo.getCovariance();
 
@@ -223,9 +223,9 @@ TEST(SunlineFilterAlgorithmMeasurementUpdate, RateMeasurementShrinksRateCovarian
 // untouched and no residual is reported valid (exercises the std::optional
 // no-value path in applyMeasurement).
 TEST(SunlineFilterAlgorithmMeasurementUpdate, NonFiniteRateMeasurementIsSkipped) {
-    Eigen::Vector3f const sHat0 = Eigen::Vector3f(0.0, 0.0, 1.0);
+    Eigen::Vector3f const rHat_SB_B0 = Eigen::Vector3f(0.0, 0.0, 1.0);
     SunlineFilterAlgorithm algo(
-        rateOnlyConfig(makeState(sHat0, Eigen::Vector3f::Zero(), 1.0), diagCovariance(1E-2, 1E-1, 1E-1)));
+        rateOnlyConfig(makeState(rHat_SB_B0, Eigen::Vector3f::Zero(), 1.0), diagCovariance(1E-2, 1E-1, 1E-1)));
     algo.timeUpdate(0.0);
     Matrix7 const covarBefore = algo.getCovariance();
     Vector7 const stateBefore = algo.getState().raw();
@@ -354,9 +354,9 @@ TEST(SunlineFilterAlgorithmMeasurements, LargerMeasurementNoiseStdShrinksCovaria
 // SunlineFilterOutput end valid when both kinds carry data — the regression case
 // that motivated splitting Residuals into per-kind storage.
 TEST(SunlineFilterAlgorithmUpdate, UpdateWithRateAndCssExposesBothResiduals) {
-    Eigen::Vector3f const sHat0 = Eigen::Vector3f(0.0, 0.0, 1.0);
-    SunlineFilterAlgorithm algo(
-        threeCssConfig(makeState(sHat0, Eigen::Vector3f(0.01, 0.0, 0.0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.0));
+    Eigen::Vector3f const rHat_SB_B0 = Eigen::Vector3f(0.0, 0.0, 1.0);
+    SunlineFilterAlgorithm algo(threeCssConfig(
+        makeState(rHat_SB_B0, Eigen::Vector3f(0.01, 0.0, 0.0), 1.0), diagCovariance(1E-2, 1E-2, 1E-1), 0.0));
     algo.update(0.0, CssData{}, RateData{});  // synchronize the filter time at t = 0
 
     CssData css;
@@ -588,8 +588,8 @@ TEST(SunlineFilterAlgorithmRegression, ConvergesToConstantSunDirection) {
 // the working estimate and the anchor the next update starts from.
 TEST(SunlineFilterAlgorithmEdgeCases, BiasOutsideBoundsIsResetToItsInitialValueAndVariance) {
     Eigen::Matrix<float, MaxCss, 3> const nHat = threeCssNHat();
-    Eigen::Vector3f const sHat(0.0, 0.0, 1.0);
-    State const initial = makeState(sHat, Eigen::Vector3f::Zero(), 1.0);
+    Eigen::Vector3f const rHat_SB_B(0.0, 0.0, 1.0);
+    State const initial = makeState(rHat_SB_B, Eigen::Vector3f::Zero(), 1.0);
     Matrix7 const P0 = diagCovariance(1E-2, 1E-3, 1.0);
     RateData const noRate;  // timeTag 0 -> not enqueued
 
@@ -599,7 +599,7 @@ TEST(SunlineFilterAlgorithmEdgeCases, BiasOutsideBoundsIsResetToItsInitialValueA
         CssData css;
         css.timeTag = 1.0;
         for (int i = 0; i < 3; ++i) {
-            css.cosValues(i) = intensity * nHat.row(i).dot(sHat.transpose());
+            css.cosValues(i) = intensity * nHat.row(i).dot(rHat_SB_B.transpose());
         }
         algo.update(1.0, css, noRate);
         ASSERT_TRUE(algo.getLastCssResiduals().valid) << "intensity " << intensity;

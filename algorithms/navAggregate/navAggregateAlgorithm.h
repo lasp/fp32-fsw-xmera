@@ -16,7 +16,7 @@ struct InputNavAttData {
     double timeTag{};
     Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();
     Eigen::Vector3f omega_BN_B = Eigen::Vector3f::Zero();
-    Eigen::Vector3f vehSunPntBdy = Eigen::Vector3f::Zero();
+    Eigen::Vector3f rHat_SB_B = Eigen::Vector3f::Zero();
 };
 
 /*! Struct containing the translational navigation input needed by the algorithm. */

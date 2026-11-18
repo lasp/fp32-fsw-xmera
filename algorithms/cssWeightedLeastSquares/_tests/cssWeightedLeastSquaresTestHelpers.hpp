@@ -99,13 +99,13 @@ inline ActiveSystem activeSystem(const std::vector<Eigen::Vector3d>& boresights,
 // The estimator publishes the heading normalized, so the scale of the unnormalized fit is recovered first by
 // projecting the measurements onto the reported direction.
 inline void expectFitIsOptimal(const ActiveSystem& system,
-                               const Eigen::Vector3f& sunHeading_B,
+                               const Eigen::Vector3f& rHat_SB_B,
                                const Eigen::Vector<float, kMaxNumCssSensors>& postFitResiduals) {
-    if (!system.resolvable || sunHeading_B.isZero()) {
+    if (!system.resolvable || rHat_SB_B.isZero()) {
         return;
     }
 
-    const Eigen::Vector3d heading = sunHeading_B.cast<double>().stableNormalized();
+    const Eigen::Vector3d heading = rHat_SB_B.cast<double>().stableNormalized();
     const Eigen::Vector3d htWy = system.H.transpose() * (system.weights.asDiagonal() * system.y);
     const Eigen::Matrix3d htWh = system.H.transpose() * system.weights.asDiagonal() * system.H;
 
@@ -220,11 +220,11 @@ inline std::vector<double> toDouble(const std::vector<float>& values) {
 
 // The readings a sun heading produces on the reference constellation. A coarse sun sensor cannot report a
 // negative cosine, so a sensor facing away reads zero.
-inline std::vector<float> readingsFor(const Eigen::Vector3d& sunHeading_B) {
+inline std::vector<float> readingsFor(const Eigen::Vector3d& rHat_SB_B) {
     const std::vector<Eigen::Vector3d> boresights = referenceConstellation();
     std::vector<float> readings(boresights.size(), 0.0F);
     for (size_t i = 0U; i < boresights.size(); ++i) {
-        readings[i] = static_cast<float>(std::max(0.0, boresights[i].dot(sunHeading_B)));
+        readings[i] = static_cast<float>(std::max(0.0, boresights[i].dot(rHat_SB_B)));
     }
     return readings;
 }
@@ -270,7 +270,7 @@ inline void runRegressionCase(ConstellationInputs inputs, std::vector<float> rea
     // Selecting the active sensors is pure logic, so the counts must agree exactly.
     EXPECT_EQ(out.numCssViewingSun, static_cast<uint32_t>(system.sensors.size()));
 
-    expectFitIsOptimal(system, out.sunHeading_B, out.postFitResiduals);
+    expectFitIsOptimal(system, out.rHat_SB_B, out.postFitResiduals);
 }
 
 // ---------------------------------------------------------------------------
@@ -288,7 +288,7 @@ inline void propertyOutputIsFinite(ConstellationInputs inputs, std::vector<float
     // Two cycles, so the rate path is exercised as well as the fit.
     for (int cycle = 0; cycle < 2; ++cycle) {
         const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
-        EXPECT_TRUE(out.sunHeading_B.allFinite());
+        EXPECT_TRUE(out.rHat_SB_B.allFinite());
         EXPECT_TRUE(out.omega_BN_B.allFinite());
         EXPECT_TRUE(out.postFitResiduals.allFinite());
         EXPECT_LE(out.numCssViewingSun, kMaxNumCssSensors);
@@ -305,11 +305,11 @@ inline void propertyHeadingIsUnitOrZero(ConstellationInputs inputs, std::vector<
     CssWeightedLeastSquaresAlgorithm algorithm{makeConfig(inputs, built)};
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(readings));
 
-    if (out.sunHeading_B.isZero()) {
+    if (out.rHat_SB_B.isZero()) {
         SUCCEED();
         return;
     }
-    EXPECT_NEAR(out.sunHeading_B.stableNorm(), 1.0F, 1e-5F);
+    EXPECT_NEAR(out.rHat_SB_B.stableNorm(), 1.0F, 1e-5F);
 }
 
 // The residuals are indexed by observation, so entries at and beyond the count stay zero. A consumer reads
@@ -359,7 +359,7 @@ inline void propertyDisabledSensorIgnored(ConstellationInputs inputs,
     const CssWeightedLeastSquaresOutput disabledOut = disabled.update(makeReadings(readings));
 
     EXPECT_EQ(disabledOut.numCssViewingSun, silencedOut.numCssViewingSun);
-    EXPECT_LT((disabledOut.sunHeading_B - silencedOut.sunHeading_B).stableNorm(), 1e-5F);
+    EXPECT_LT((disabledOut.rHat_SB_B - silencedOut.rHat_SB_B).stableNorm(), 1e-5F);
 }
 
 // Rotating the whole constellation rotates the heading with it. The fit is a geometric construction, so it
@@ -391,7 +391,7 @@ inline void propertyRotationEquivariance(ConstellationInputs inputs,
     const CssWeightedLeastSquaresOutput rotatedOut = rotated.update(cosValues);
 
     EXPECT_EQ(rotatedOut.numCssViewingSun, plainOut.numCssViewingSun);
-    if (plainOut.sunHeading_B.isZero() || rotatedOut.sunHeading_B.isZero()) {
+    if (plainOut.rHat_SB_B.isZero() || rotatedOut.rHat_SB_B.isZero()) {
         return;
     }
 
@@ -406,7 +406,7 @@ inline void propertyRotationEquivariance(ConstellationInputs inputs,
     const auto epsilon = static_cast<float>(std::numeric_limits<float>::epsilon());
     const auto condition = static_cast<float>(std::min(1e6, system.condition));
     const float tolerance = std::min(0.1F, std::max(1e-4F, 128.0F * epsilon * condition));
-    EXPECT_LT((rotatedOut.sunHeading_B - (dcm * plainOut.sunHeading_B)).stableNorm(), tolerance)
+    EXPECT_LT((rotatedOut.rHat_SB_B - (dcm * plainOut.rHat_SB_B)).stableNorm(), tolerance)
         << "normal matrix condition " << system.condition;
 }
 
@@ -425,7 +425,7 @@ inline void propertyRateOrthogonalToHeading(ConstellationInputs inputs,
     algorithm.update(makeReadings(firstReadings));
     const CssWeightedLeastSquaresOutput out = algorithm.update(makeReadings(secondReadings));
 
-    if (out.omega_BN_B.isZero() || out.sunHeading_B.isZero()) {
+    if (out.omega_BN_B.isZero() || out.rHat_SB_B.isZero()) {
         return;
     }
 
@@ -437,7 +437,7 @@ inline void propertyRateOrthogonalToHeading(ConstellationInputs inputs,
     const auto epsilon = static_cast<float>(std::numeric_limits<float>::epsilon());
     const float tolerance = std::min(0.5F, std::max(1e-4F, 64.0F * epsilon / sineOfAngle));
 
-    const float alignment = out.omega_BN_B.stableNormalized().dot(out.sunHeading_B);
+    const float alignment = out.omega_BN_B.stableNormalized().dot(out.rHat_SB_B);
     EXPECT_NEAR(alignment, 0.0F, tolerance) << "angle between headings " << angle;
 }
 

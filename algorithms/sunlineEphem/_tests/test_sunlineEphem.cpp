@@ -16,11 +16,12 @@ TEST(SunlineEphemTest, Colocation) {
     Eigen::Vector3d r_BN_N(1.0, 2.0, 3.0);
     Eigen::Vector3f sigma_BN(0.1f, 0.2f, -0.3f);
 
-    Eigen::Vector3f out;
+    SunlineEphemOutput out;
     EXPECT_NO_THROW(out = alg.update(r_SN_N, r_BN_N, sigma_BN));
 
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out[i], 0.0f, 1e-6);
+        EXPECT_NEAR(out.rHat_SB_N[i], 0.0f, 1e-6);
+        EXPECT_NEAR(out.rHat_SB_B[i], 0.0f, 1e-6);
     }
 }
 
@@ -37,11 +38,12 @@ TEST(SunlineEphemTest, TinyRelativePosition) {
     const Eigen::Vector3f expected = (r_SN_N_base - r_BN_N_base).stableNormalized().cast<float>();
 
     const double scale = 1.0e-200;
-    Eigen::Vector3f out;
+    SunlineEphemOutput out;
     EXPECT_NO_THROW(out = alg.update(scale * r_SN_N_base, scale * r_BN_N_base, sigma_BN));
 
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out[i], expected[i], 1e-6f);
+        EXPECT_NEAR(out.rHat_SB_N[i], expected[i], 1e-6f);
+        EXPECT_NEAR(out.rHat_SB_B[i], expected[i], 1e-6f);
     }
 }
 
@@ -57,11 +59,12 @@ TEST(SunlineEphemTest, HugeRelativePosition) {
     const Eigen::Vector3f expected = (r_SN_N_base - r_BN_N_base).stableNormalized().cast<float>();
 
     const double scale = 1.0e200;
-    Eigen::Vector3f out;
+    SunlineEphemOutput out;
     EXPECT_NO_THROW(out = alg.update(scale * r_SN_N_base, scale * r_BN_N_base, sigma_BN));
 
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out[i], expected[i], 1e-6f);
+        EXPECT_NEAR(out.rHat_SB_N[i], expected[i], 1e-6f);
+        EXPECT_NEAR(out.rHat_SB_B[i], expected[i], 1e-6f);
     }
 }
 
@@ -74,13 +77,33 @@ TEST(SunlineEphemTest, IdentityAttitude) {
     Eigen::Vector3d r_BN_N(1.0e3, -2.0e3, 0.5e3);
     Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();
 
-    Eigen::Vector3f out;
+    SunlineEphemOutput out;
     EXPECT_NO_THROW(out = alg.update(r_SN_N, r_BN_N, sigma_BN));
 
     // Expected: normalized (r_SN_N - r_BN_N) cast to float
     Eigen::Vector3f expected = (r_SN_N - r_BN_N).stableNormalized().cast<float>();
 
     for (int i = 0; i < 3; ++i) {
-        EXPECT_NEAR(out[i], expected[i], 1e-6);
+        EXPECT_NEAR(out.rHat_SB_N[i], expected[i], 1e-6);
+        EXPECT_NEAR(out.rHat_SB_B[i], expected[i], 1e-6);
+    }
+}
+
+TEST(SunlineEphemTest, InertialDirectionIndependentOfAttitude) {
+    // The inertial-frame direction depends only on the positions, so a different attitude leaves it unchanged
+    // while the body-frame direction is the inertial one rotated by [BN]
+    SunlineEphemAlgorithm alg{};
+
+    const Eigen::Vector3d r_SN_N(1.0e6, 2.0e6, 3.0e6);
+    const Eigen::Vector3d r_BN_N(1.0e3, -2.0e3, 0.5e3);
+    const Eigen::Vector3f sigma_BN(0.1F, 0.2F, -0.3F);
+
+    const SunlineEphemOutput outIdentity = alg.update(r_SN_N, r_BN_N, Eigen::Vector3f::Zero());
+    const SunlineEphemOutput out = alg.update(r_SN_N, r_BN_N, sigma_BN);
+    const Eigen::Vector3f rotated = mrpToDcm(sigma_BN) * out.rHat_SB_N;
+
+    for (int i = 0; i < 3; ++i) {
+        EXPECT_EQ(out.rHat_SB_N[i], outIdentity.rHat_SB_N[i]);
+        EXPECT_NEAR(out.rHat_SB_B[i], rotated[i], 1e-6F);
     }
 }

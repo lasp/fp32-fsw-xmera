@@ -31,7 +31,7 @@ AggregateOutput NavAggregateAlgorithm::update(std::array<InputNavAttData, MAX_AG
         navAttOutput.timeTag = attInputs.at(att.attTimeIdx).timeTag;
         navAttOutput.sigma_BN = attInputs.at(att.attIdx).sigma_BN;
         navAttOutput.omega_BN_B = attInputs.at(att.rateIdx).omega_BN_B;
-        navAttOutput.vehSunPntBdy = attInputs.at(att.sunIdx).vehSunPntBdy;
+        navAttOutput.rHat_SB_B = attInputs.at(att.sunIdx).rHat_SB_B;
     }
 
     /*! - check that translation navigation messages are present */
