@@ -1,0 +1,66 @@
+// RegionsOfInterestPruneAlgorithm::update() flow chart.
+// Render: dot -Tpng -Gdpi=150 regionsOfInterestPruneUpdate.dot -o regionsOfInterestPruneUpdate.png
+digraph regionsOfInterestPruneUpdate {
+    graph [rankdir=TB, nodesep=0.4, ranksep=0.35,
+           label="RegionsOfInterestPruneAlgorithm::update", labelloc=t,
+           fontname="Helvetica-Bold", fontsize=12];
+    node  [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="#ffffff"];
+    edge  [fontname="Helvetica", fontsize=10];
+
+    // Nodes, in flow order. group=main keeps the main path in one column.
+    start       [group=main, fillcolor="#dde8f5",
+                 label="Inputs: imageSize (numCols, numRows)\nrowSums, rowIntensities, colSums, colIntensities\nRoiBinGrid (regionSize, numRegionRows, numRegionCols, litCounts)\nConfig: centralPoint (x0, y0), alphaAreaPruneScaling"];
+    spans       [group=main,
+                 label="Step 1: findClosestSpans (rows and cols)\nScan for contiguous non-zero runs of counts\nPer span: start, length, Σ litPixels, Σ intensity\ndistance = |start + length/2 − reference|\nKeep the 2 closest row spans and 2 closest col spans\n(ties: earlier span wins)"];
+    build       [group=main,
+                 label="Step 2: buildCandidates\nCross-product row spans × col spans (≤ 4 boxes)\nbox = (row, col, height, width)\nintensity = min(row-span intensity, col-span intensity)"];
+    is2x2       [group=main, shape=diamond, style=filled, fillcolor="#fff4cc",
+                 label="2 row spans and\n2 col spans?"];
+    ghostScore  [group=main,
+                 label="Step 2b: removeGhostPairs\nmismatch(r, c) = rel(litPixels) + rel(intensity)\nrel(a, b) = |a − b| / max(a, b)\nD = mismatch(r0,c0) + mismatch(r1,c1)  (boxes 0, 3)\nA = mismatch(r0,c1) + mismatch(r1,c0)  (boxes 1, 2)"];
+    ghostDecide [group=main, shape=diamond, style=filled, fillcolor="#fff4cc",
+                 label="D < 0.5·A  or  A < 0.5·D?\n(GHOST_PAIRING_MARGIN)"];
+    dropGhosts  [group=main,
+                 label="Keep the better pairing's 2 boxes\nDrop the 2 ghost boxes"];
+    keepAll     [fillcolor="#e6f2e6",
+                 label="No ghost possible or ambiguous:\nkeep all candidates unchanged"];
+    gridUsable  [group=main, shape=diamond, style=filled, fillcolor="#fff4cc",
+                 label="Bin grid usable?\nregionSize > 0\nnumRegionRows = ⌈numRows / regionSize⌉\nnumRegionCols = ⌈numCols / regionSize⌉\nlitCounts.size() = rows × cols"];
+    emptyResult [fillcolor="#f6d5d5",
+                 label="Return empty RoiCandidates\n(numCandidates = 0)"];
+    litFilter   [group=main,
+                 label="Step 3: filterByLitTiles\nlitPixelCount = Σ litCounts over tiles the box covers\n(saturated at UINT32_MAX)\nDrop boxes with litPixelCount = 0"];
+    alphaCheck  [group=main, shape=diamond, style=filled, fillcolor="#fff4cc",
+                 label="alphaAreaPruneScaling < 0?\n(cost function bypassed)"];
+    scale       [group=main,
+                 label="Step 4: scaleIntensityByArea\nscaledIntensity = intensity / area^(α − 1)\narea = width × height"];
+    noScale     [fillcolor="#e6f2e6",
+                 label="Bypass: scaledIntensity left at 0"];
+    rank        [group=main,
+                 label="Step 5: rankCandidates (stable insertion sort)\nPrimary: squared distance box center → centralPoint (ascending)\nTie: scaledIntensity (descending)\nTie in bypass: keep formation order"];
+    publish     [group=main, fillcolor="#d5ecd5",
+                 label="Step 6: keep top ROI_CANDIDATES_OUT_MAX = 2\nClear cut slots\nReturn RoiCandidates (closest box first)"];
+
+    // Side nodes sit level with the decision that leads to them.
+    { rank=same; ghostDecide; keepAll; }
+    { rank=same; gridUsable; emptyResult; }
+    { rank=same; alphaCheck; noScale; }
+
+    // Edges
+    start -> spans -> build -> is2x2 [weight=10];
+    is2x2 -> ghostScore [label=" yes", weight=10];
+    is2x2 -> keepAll    [label=" no"];
+    ghostScore -> ghostDecide [weight=10];
+    ghostDecide -> dropGhosts [label=" yes", weight=10];
+    ghostDecide -> keepAll    [label=" no"];
+    dropGhosts -> gridUsable  [weight=10];
+    keepAll -> gridUsable;
+    gridUsable -> emptyResult [label=" no"];
+    gridUsable -> litFilter   [label=" yes", weight=10];
+    litFilter -> alphaCheck   [weight=10];
+    alphaCheck -> noScale     [label=" yes"];
+    alphaCheck -> scale       [label=" no", weight=10];
+    scale -> rank             [weight=10];
+    noScale -> rank;
+    rank -> publish           [weight=10];
+}
