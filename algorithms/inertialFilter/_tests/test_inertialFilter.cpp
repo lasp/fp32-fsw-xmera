@@ -8,6 +8,7 @@
 //   * timeUpdate(): zero-rate / zero-dt / NaN invariants; covariance growth under Q.
 //   * Measurement packing + application (through update()) and residual recording.
 //   * measurementUpdate(): covariance shrink + symmetry + PSD; high-noise limit; bad-update rejection.
+//   * MRP singularity: a star-tracker gap during a spin fails without NaNs.
 //   * Regularization: MRP shadow-set switch on over-unity attitude, with its covariance.
 //   * State convergence (exact and seeded-noisy measurements).
 
@@ -802,6 +803,95 @@ TEST(InertialFilterAlgorithmUpdate, BadMeasurementIsRejectedAndFilterRecovers) {
     EXPECT_TRUE(algo.getState().raw().allFinite()) << "state must be finite after recovery";
     EXPECT_TRUE(algo.getState().get<filtering::MrpAttitude<3>>().isApprox(recover.sigma_BN, 1E-2))
         << "the recovered filter must track the new measurement";
+}
+
+// ============================================================================
+// MRP singularity: a long star-tracker gap during a spin. Every propagation starts from the last-measurement
+// anchor, so without measurements the propagated MRP is not switched to its shadow set. When the spin axis is the
+// principal axis of the anchor attitude, the propagated attitude reaches 360 deg, where |sigma| = tan(360/4 deg)
+// is infinite, after (360 deg - anchor angle) / spin rate.
+// ============================================================================
+
+namespace {
+
+// Anchor at 90 deg about z, spinning at 2 deg/s about z: the propagation reaches the singularity after
+// (360 - 90) / 2 = 135 s.
+constexpr float kDegToRad = 0.017453292519943295F;
+constexpr float kSpinAnchorAngle = 90.0F * kDegToRad;
+constexpr float kSpinRate = 2.0F * kDegToRad;
+constexpr float kTimeToSingularity = (360.0F * kDegToRad - kSpinAnchorAngle) / kSpinRate;
+
+State spinAnchorState() {
+    return makeState(Eigen::Vector3f(0.0F, 0.0F, tanf(kSpinAnchorAngle / 4.0F)),
+                     Eigen::Vector3f(0.0F, 0.0F, kSpinRate));
+}
+
+}  // namespace
+
+// The direct timeUpdate() reports the failure: a propagation over half the time to the singularity is valid, one past
+// it is not. clear() then restores the finite anchor.
+TEST(InertialFilterAlgorithmSingularity, PropagationThroughTheMrpSingularityReportsFailure) {
+    State const anchor = spinAnchorState();
+    InertialFilterAlgorithm algo(baseConfig(anchor, diagCovariance(1E-2, 1E-3)));
+
+    EXPECT_TRUE(algo.timeUpdate(0.5F * kTimeToSingularity)) << "half way to the singularity the propagation is valid";
+    EXPECT_TRUE(algo.getState().raw().allFinite());
+
+    EXPECT_FALSE(algo.timeUpdate(kTimeToSingularity + 15.0F)) << "the propagation through the singularity must fail";
+
+    algo.clear();
+    EXPECT_EQ(algo.getState().raw(), anchor.raw()) << "clear() restores the anchor";
+    EXPECT_TRUE(algo.getCovariance().allFinite());
+    EXPECT_TRUE(isValidCovariance<6>(algo.getCovariance()));
+}
+
+// Through update(), a star-tracker gap past the singularity fails gracefully: on every call the output state,
+// covariance and residuals stay finite, and the covariance stays a valid covariance. When the propagation fails, the
+// filter falls back to its anchor. A star-tracker reading after the gap must not bring NaNs into the filter either.
+// This test checks only that the failure is free of NaNs: it does not check that the filter accepts the star-tracker
+// data again after the gap.
+TEST(InertialFilterAlgorithmSingularity, StarTrackerGapThroughTheMrpSingularityFailsWithoutNaNs) {
+    State const anchor = spinAnchorState();
+    InertialFilterAlgorithm algo(baseConfig(anchor, diagCovariance(1E-2, 1E-3)));
+    algo.update(0.0, StAttData{}, RateData{});  // synchronize the filter time at t = 0
+
+    auto const expectFinite = [](InertialFilterOutput const& out, double callTime) {
+        EXPECT_TRUE(out.filterState.state.allFinite()) << "non-finite state at t = " << callTime;
+        EXPECT_TRUE(out.filterState.covariance.allFinite()) << "non-finite covariance at t = " << callTime;
+        EXPECT_TRUE(isValidCovariance<6>(out.filterState.covariance)) << "invalid covariance at t = " << callTime;
+        EXPECT_TRUE(out.stAttResiduals.observation.allFinite() && out.stAttResiduals.preFit.allFinite() &&
+                    out.stAttResiduals.postFit.allFinite())
+            << "non-finite star-tracker residuals at t = " << callTime;
+        EXPECT_TRUE(out.rateResiduals.observation.allFinite() && out.rateResiduals.preFit.allFinite() &&
+                    out.rateResiduals.postFit.allFinite())
+            << "non-finite rate residuals at t = " << callTime;
+    };
+
+    double const gapEnd = 1.5 * static_cast<double>(kTimeToSingularity);
+    double firstFailure = -1.0;
+    for (double callTime = 1.0; callTime <= gapEnd; callTime += 1.0) {
+        InertialFilterOutput const out = algo.update(callTime, StAttData{}, RateData{});
+        expectFinite(out, callTime);
+        if (firstFailure < 0.0 && out.filterState.state == anchor.raw()) {
+            firstFailure = callTime;
+        }
+    }
+    ASSERT_GT(firstFailure, 0.0) << "the gap must reach the singularity, where the filter falls back to its anchor";
+    EXPECT_GT(firstFailure, 0.5 * static_cast<double>(kTimeToSingularity))
+        << "the propagation must not fail long before the singularity";
+
+    // Star-tracker and rate readings of the true attitude after the gap.
+    double const readingTime = gapEnd + 1.0;
+    float const trueAngle = kSpinAnchorAngle + kSpinRate * static_cast<float>(readingTime);
+    StAttData st;
+    st.timeTag = readingTime;
+    st.sigma_BN = mrpSwitch(Eigen::Vector3f(0.0F, 0.0F, tanf(trueAngle / 4.0F)), 1.0F);
+    RateData rate;
+    rate.timeTag = readingTime;
+    rate.rate = Eigen::Vector3f(0.0F, 0.0F, kSpinRate);
+    expectFinite(algo.update(readingTime, st, rate), readingTime);
+    EXPECT_TRUE(algo.getState().raw().allFinite());
+    EXPECT_TRUE(algo.getCovariance().allFinite());
 }
 
 // ============================================================================
