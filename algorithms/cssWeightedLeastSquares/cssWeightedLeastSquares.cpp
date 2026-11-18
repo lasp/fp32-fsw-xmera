@@ -105,7 +105,7 @@ void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
         filterBuf.timeTag = timeTag;
         filterBuf.numberOfStates = kHeadingStates;
         Eigen::Vector<double, kFilterStates> state = Eigen::Vector<double, kFilterStates>::Zero();
-        state.head<kHeadingStates>() = out.sunHeading_B.cast<double>();
+        state.head<kHeadingStates>() = out.rHat_SB_B.cast<double>();
         eigenVectorToCArray(state, filterBuf.state);
         this->filterOutMsg.write(filterBuf, this->moduleID, callTime);
     }
@@ -126,7 +126,7 @@ void CssWeightedLeastSquares::updateState(const uint64_t callTime) {
 
     /*! - Populate the navigation output message with the estimated sun state */
     NavAttMsgF32Payload sunlineOutBuffer = {};
-    eigenVectorToCArray(out.sunHeading_B, sunlineOutBuffer.vehSunPntBdy);
+    eigenVectorToCArray(out.rHat_SB_B, sunlineOutBuffer.vehSunPntBdy);
     eigenVectorToCArray(out.omega_BN_B, sunlineOutBuffer.omega_BN_B);
     this->navStateOutMsg.write(sunlineOutBuffer, this->moduleID, callTime);
 }
