@@ -8,8 +8,7 @@ namespace {
 constexpr uint32_t kRows = 100;
 constexpr uint32_t kCols = 100;
 constexpr uint32_t kTile = 10;
-constexpr uint32_t kX0 = 50;
-constexpr uint32_t kY0 = 50;
+const Eigen::Vector2i kCentralPoint{50, 50};
 //! alphaAreaPruneScaling whose area exponent (alpha - 1) is 0: scaledIntensity is the plain intensity.
 constexpr float kIntensityOnly = 1.0F;
 
@@ -32,7 +31,7 @@ Frame fiveObjectDiagonal() {
 }
 
 //! A small 2 x 2 box (intensity 400, rows 10-11, cols 70-71) and a large 8 x 8 box (intensity 3200,
-//! rows 85-92, cols 25-32) whose centers are exactly the same distance from (kX0, kY0): offsets (-39, +21)
+//! rows 85-92, cols 25-32) whose centers are exactly the same distance from kCentralPoint: offsets (-39, +21)
 //! and (+39, -21). Distance cannot order them, so the scaledIntensity tie-break decides.
 Frame equalDistanceSmallAndLarge() { return makeFrame(kRows, kCols, kTile, {{10, 70, 2, 2, 100}, {85, 25, 8, 8, 50}}); }
 constexpr uint32_t kSmallRow = 10;
@@ -47,7 +46,7 @@ constexpr uint32_t kLargeRow = 85;
 // litPixelCount equal to the lit pixels of both tiles it covers.
 TEST(RegionsOfInterestPruneTest, SingleObjectIsFound) {
     const Frame f = makeFrame(kRows, kCols, kTile, {{40, 45, 5, 6, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 1U);
     const auto& c = out.candidates[0];
     EXPECT_EQ(c.row, 40U);
@@ -66,7 +65,7 @@ TEST(RegionsOfInterestPruneTest, SingleObjectIsFound) {
 // Five spans per axis, reference at the center object: the two closest (30 at distance 19, 50 at 1) are
 // kept; 70 (distance 21), 10 and 90 are not.
 TEST(RegionsOfInterestPruneTest, ClosestSpansAreKept) {
-    const RoiCandidates out = testRegionsOfInterestPrune(fiveObjectDiagonal(), kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(fiveObjectDiagonal(), kCentralPoint, kIntensityOnly);
     const std::set<std::pair<uint32_t, uint32_t>> expected{{30, 30}, {50, 50}};
     EXPECT_EQ(corners(out), expected);
 }
@@ -76,11 +75,11 @@ TEST(RegionsOfInterestPruneTest, ReferencePointSelectsSpans) {
     const Frame f = fiveObjectDiagonal();
     const std::set<std::pair<uint32_t, uint32_t>> topLeft{{10, 10}, {30, 30}};
     const std::set<std::pair<uint32_t, uint32_t>> bottomRight{{70, 70}, {90, 90}};
-    EXPECT_EQ(corners(testRegionsOfInterestPrune(f, 0U, 0U, kIntensityOnly)), topLeft);
-    EXPECT_EQ(corners(testRegionsOfInterestPrune(f, 99U, 99U, kIntensityOnly)), bottomRight);
+    EXPECT_EQ(corners(testRegionsOfInterestPrune(f, Eigen::Vector2i(0, 0), kIntensityOnly)), topLeft);
+    EXPECT_EQ(corners(testRegionsOfInterestPrune(f, Eigen::Vector2i(99, 99), kIntensityOnly)), bottomRight);
 }
 
-// Row spans at distances 0, 10, 10, 20, 20 from y0 = 50: the second slot is a tie between the span
+// Row spans at distances 0, 10, 10, 20, 20 from centralPoint.y() = 50: the second slot is a tie between the span
 // at row 39 (earlier) and row 59 (later); the earlier one is kept.
 TEST(RegionsOfInterestPruneTest, EarlierSpanWinsDistanceTieAtCutoff) {
     const Frame f = makeFrame(
@@ -88,7 +87,7 @@ TEST(RegionsOfInterestPruneTest, EarlierSpanWinsDistanceTieAtCutoff) {
         kCols,
         kTile,
         {{49, 10, 2, 2, 100}, {39, 10, 2, 2, 100}, {59, 10, 2, 2, 100}, {29, 10, 2, 2, 100}, {69, 10, 2, 2, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     const std::set<std::pair<uint32_t, uint32_t>> expected{{39, 10}, {49, 10}};
     EXPECT_EQ(corners(out), expected);
 }
@@ -104,7 +103,7 @@ TEST(RegionsOfInterestPruneTest, EarlierSpanWinsDistanceTieAtCutoff) {
 // ghosts pair B's rows with A's cols (4 vs 9 pixels); one of them would otherwise be R2, ahead of A.
 TEST(RegionsOfInterestPruneTest, GhostStepDropsAntiDiagonalGhosts) {
     const Frame f = makeFrame(kRows, kCols, kTile, {{41, 41, 3, 3, 100}, {46, 46, 2, 2, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 2U);
     EXPECT_EQ(std::make_pair(out.candidates[0].row, out.candidates[0].col), std::make_pair(46U, 46U));
     EXPECT_EQ(std::make_pair(out.candidates[1].row, out.candidates[1].col), std::make_pair(41U, 41U));
@@ -114,7 +113,7 @@ TEST(RegionsOfInterestPruneTest, GhostStepDropsAntiDiagonalGhosts) {
 // the reverse. The ghost (A's rows x B's cols) is the box closest to the reference and would be R1.
 TEST(RegionsOfInterestPruneTest, GhostStepDropsDiagonalGhosts) {
     const Frame f = makeFrame(kRows, kCols, kTile, {{47, 41, 3, 3, 100}, {42, 46, 2, 2, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 2U);
     EXPECT_EQ(std::make_pair(out.candidates[0].row, out.candidates[0].col), std::make_pair(42U, 46U));
     EXPECT_EQ(std::make_pair(out.candidates[1].row, out.candidates[1].col), std::make_pair(47U, 41U));
@@ -125,7 +124,7 @@ TEST(RegionsOfInterestPruneTest, GhostStepDropsDiagonalGhosts) {
 // them too. R1 is the real object closest to the reference; R2 is a ghost, ahead of the other real object.
 TEST(RegionsOfInterestPruneTest, IdenticalObjectsInOneTileKeepGhosts) {
     const Frame f = makeFrame(kRows, kCols, kTile, {{20, 20, 3, 3, 100}, {26, 26, 3, 3, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 2U);
     EXPECT_EQ(std::make_pair(out.candidates[0].row, out.candidates[0].col), std::make_pair(26U, 26U));
     const auto r2 = std::make_pair(out.candidates[1].row, out.candidates[1].col);
@@ -148,14 +147,14 @@ TEST(RegionsOfInterestPruneTest, GhostStepMarginIsStrict) {
         f.colSums[60] = x;
         return f;
     };
-    const RoiCandidates atMargin = testRegionsOfInterestPrune(frameWith(3U), kX0, kY0, kIntensityOnly);
+    const RoiCandidates atMargin = testRegionsOfInterestPrune(frameWith(3U), kCentralPoint, kIntensityOnly);
     ASSERT_EQ(atMargin.numCandidates, 2U);
     EXPECT_EQ(std::make_pair(atMargin.candidates[0].row, atMargin.candidates[0].col), std::make_pair(49U, 49U));
     const auto ghost = std::make_pair(atMargin.candidates[1].row, atMargin.candidates[1].col);
     EXPECT_TRUE(ghost == std::make_pair(49U, 60U) || ghost == std::make_pair(60U, 49U))
         << "R2 at (" << ghost.first << ", " << ghost.second << ") should be a ghost";
 
-    const RoiCandidates pastMargin = testRegionsOfInterestPrune(frameWith(4U), kX0, kY0, kIntensityOnly);
+    const RoiCandidates pastMargin = testRegionsOfInterestPrune(frameWith(4U), kCentralPoint, kIntensityOnly);
     ASSERT_EQ(pastMargin.numCandidates, 2U);
     EXPECT_EQ(std::make_pair(pastMargin.candidates[1].row, pastMargin.candidates[1].col), std::make_pair(60U, 60U));
 }
@@ -166,11 +165,11 @@ TEST(RegionsOfInterestPruneTest, GhostStepMarginIsStrict) {
 TEST(RegionsOfInterestPruneTest, GhostStepSkippedBelowTwoByTwoSpans) {
     const Frame sameRows = makeFrame(kRows, kCols, kTile, {{45, 40, 4, 4, 100}, {45, 55, 4, 2, 50}});
     const std::set<std::pair<uint32_t, uint32_t>> rowsExpected{{45, 40}, {45, 55}};
-    EXPECT_EQ(corners(testRegionsOfInterestPrune(sameRows, kX0, kY0, kIntensityOnly)), rowsExpected);
+    EXPECT_EQ(corners(testRegionsOfInterestPrune(sameRows, kCentralPoint, kIntensityOnly)), rowsExpected);
 
     const Frame sameCols = makeFrame(kRows, kCols, kTile, {{40, 45, 4, 4, 100}, {55, 45, 2, 4, 50}});
     const std::set<std::pair<uint32_t, uint32_t>> colsExpected{{40, 45}, {55, 45}};
-    EXPECT_EQ(corners(testRegionsOfInterestPrune(sameCols, kX0, kY0, kIntensityOnly)), colsExpected);
+    EXPECT_EQ(corners(testRegionsOfInterestPrune(sameCols, kCentralPoint, kIntensityOnly)), colsExpected);
 }
 
 // ---------------------------------------------------------------------------
@@ -180,7 +179,7 @@ TEST(RegionsOfInterestPruneTest, GhostStepSkippedBelowTwoByTwoSpans) {
 // Two objects on a diagonal give four boxes; the two ghost boxes cover only unlit tiles and are dropped.
 TEST(RegionsOfInterestPruneTest, GhostBoxesOnUnlitTilesAreDropped) {
     const Frame f = makeFrame(kRows, kCols, kTile, {{20, 20, 4, 4, 100}, {70, 70, 4, 4, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     const std::set<std::pair<uint32_t, uint32_t>> expected{{20, 20}, {70, 70}};
     EXPECT_EQ(corners(out), expected);
 }
@@ -191,47 +190,47 @@ TEST(RegionsOfInterestPruneTest, FilterChecksOnlyTheCoveredTiles) {
     Frame f = makeFrame(kRows, kCols, kTile, {{18, 30, 4, 4, 100}});  // tile rows 1 and 2, tile col 3
     std::fill(f.litCounts.begin(), f.litCounts.end(), 0U);
     f.litCounts[(2 * f.numRegionCols) + 3] = 5U;
-    RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 1U);
     EXPECT_EQ(out.candidates[0].litPixelCount, 5U);
 
     std::fill(f.litCounts.begin(), f.litCounts.end(), 0U);
     f.litCounts[(8 * f.numRegionCols) + 8] = 5U;
-    out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     EXPECT_EQ(out.numCandidates, 0U);
 }
 
 TEST(RegionsOfInterestPruneTest, NoLitTilesYieldsNoCandidates) {
     Frame f = makeFrame(kRows, kCols, kTile, {{20, 20, 4, 4, 100}});
     std::fill(f.litCounts.begin(), f.litCounts.end(), 0U);
-    EXPECT_EQ(testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly).numCandidates, 0U);
+    EXPECT_EQ(testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly).numCandidates, 0U);
 }
 
 // A grid that does not match the image (zero tile size, wrong tile rows/cols, wrong count length, or a
 // tile size inconsistent with the grid dimensions) cannot confirm any box.
 TEST(RegionsOfInterestPruneTest, UnusableGridYieldsNoCandidates) {
     const Frame good = makeFrame(kRows, kCols, kTile, {{20, 20, 4, 4, 100}});
-    ASSERT_EQ(testRegionsOfInterestPrune(good, kX0, kY0, kIntensityOnly).numCandidates, 1U);
+    ASSERT_EQ(testRegionsOfInterestPrune(good, kCentralPoint, kIntensityOnly).numCandidates, 1U);
 
     Frame f = good;
     f.regionSize = 0U;
-    EXPECT_EQ(testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly).numCandidates, 0U) << "regionSize 0";
+    EXPECT_EQ(testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly).numCandidates, 0U) << "regionSize 0";
 
     f = good;
     f.numRegionRows += 1U;
-    EXPECT_EQ(testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly).numCandidates, 0U) << "extra tile row";
+    EXPECT_EQ(testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly).numCandidates, 0U) << "extra tile row";
 
     f = good;
     f.numRegionCols -= 1U;
-    EXPECT_EQ(testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly).numCandidates, 0U) << "missing tile col";
+    EXPECT_EQ(testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly).numCandidates, 0U) << "missing tile col";
 
     f = good;
     f.litCounts.pop_back();
-    EXPECT_EQ(testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly).numCandidates, 0U) << "short litCounts";
+    EXPECT_EQ(testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly).numCandidates, 0U) << "short litCounts";
 
     f = good;
     f.regionSize = 20U;
-    EXPECT_EQ(testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly).numCandidates, 0U) << "tile size vs grid";
+    EXPECT_EQ(testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly).numCandidates, 0U) << "tile size vs grid";
 }
 
 // litPixelCount is the sum over whole covered tiles: a box inside one tile also counts other lit
@@ -239,7 +238,7 @@ TEST(RegionsOfInterestPruneTest, UnusableGridYieldsNoCandidates) {
 TEST(RegionsOfInterestPruneTest, LitPixelCountIsSumOfCoveredTiles) {
     // 4x4 object plus a 1-pixel object in the same tile (4,4): every box in the tile reports 16 + 1.
     const Frame shared = makeFrame(kRows, kCols, kTile, {{42, 42, 4, 4, 100}, {47, 47, 1, 1, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(shared, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(shared, kCentralPoint, kIntensityOnly);
     ASSERT_GT(out.numCandidates, 0U);
     for (uint32_t i = 0; i < out.numCandidates; ++i) {
         EXPECT_EQ(out.candidates[i].litPixelCount, 17U) << "candidate " << i;
@@ -247,7 +246,7 @@ TEST(RegionsOfInterestPruneTest, LitPixelCountIsSumOfCoveredTiles) {
 
     // 4x4 object over the corner of tiles (4,4), (4,5), (5,4), (5,5): 4 lit pixels in each.
     const Frame corner = makeFrame(kRows, kCols, kTile, {{48, 48, 4, 4, 100}});
-    const RoiCandidates c = testRegionsOfInterestPrune(corner, kX0, kY0, kIntensityOnly);
+    const RoiCandidates c = testRegionsOfInterestPrune(corner, kCentralPoint, kIntensityOnly);
     ASSERT_EQ(c.numCandidates, 1U);
     EXPECT_EQ(c.candidates[0].litPixelCount, 16U);
 }
@@ -255,7 +254,7 @@ TEST(RegionsOfInterestPruneTest, LitPixelCountIsSumOfCoveredTiles) {
 TEST(RegionsOfInterestPruneTest, LitPixelCountSaturates) {
     Frame f = makeFrame(kRows, kCols, kTile, {{48, 48, 4, 4, 100}});
     std::fill(f.litCounts.begin(), f.litCounts.end(), std::numeric_limits<uint32_t>::max());
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 1U);
     EXPECT_EQ(out.candidates[0].litPixelCount, std::numeric_limits<uint32_t>::max());
 }
@@ -266,7 +265,7 @@ TEST(RegionsOfInterestPruneTest, LitPixelCountSaturates) {
 
 // alpha 1: exponent alpha - 1 = 0, so scaledIntensity is the plain intensity.
 TEST(RegionsOfInterestPruneTest, AlphaOneScaledIntensityEqualsIntensity) {
-    const RoiCandidates out = testRegionsOfInterestPrune(fiveObjectDiagonal(), kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(fiveObjectDiagonal(), kCentralPoint, kIntensityOnly);
     ASSERT_GT(out.numCandidates, 0U);
     for (uint32_t i = 0; i < out.numCandidates; ++i) {
         EXPECT_EQ(out.candidates[i].scaledIntensity, static_cast<float>(out.candidates[i].intensity));
@@ -280,15 +279,15 @@ TEST(RegionsOfInterestPruneTest, AlphaOneScaledIntensityEqualsIntensity) {
 TEST(RegionsOfInterestPruneTest, AlphaBreaksDistanceTies) {
     const Frame f = equalDistanceSmallAndLarge();
     for (const float alpha : {kIntensityOnly, 0.0F}) {
-        const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, alpha);
+        const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, alpha);
         ASSERT_EQ(out.numCandidates, 2U);
         EXPECT_EQ(out.candidates[0].row, kLargeRow) << "alpha " << alpha;
     }
-    const RoiCandidates atZero = testRegionsOfInterestPrune(f, kX0, kY0, 0.0F);
+    const RoiCandidates atZero = testRegionsOfInterestPrune(f, kCentralPoint, 0.0F);
     EXPECT_EQ(atZero.candidates[0].scaledIntensity, 204800.0F);
     EXPECT_EQ(atZero.candidates[1].scaledIntensity, 1600.0F);
 
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, 2.0F);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, 2.0F);
     ASSERT_EQ(out.numCandidates, 2U);
     EXPECT_EQ(out.candidates[0].row, kSmallRow);
     EXPECT_EQ(out.candidates[0].scaledIntensity, 100.0F);
@@ -302,12 +301,12 @@ TEST(RegionsOfInterestPruneTest, AlphaBreaksDistanceTies) {
 TEST(RegionsOfInterestPruneTest, AlphaSweepSwitchesToSmallBoxAboveCrossover) {
     const Frame f = equalDistanceSmallAndLarge();
     for (const float alpha : {0.0F, 0.25F, 0.5F, 0.75F, 1.0F, 1.25F, 1.5F, 1.7F}) {
-        const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, alpha);
+        const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, alpha);
         ASSERT_EQ(out.numCandidates, 2U) << "alpha " << alpha;
         EXPECT_EQ(out.candidates[0].row, kLargeRow) << "alpha " << alpha;
     }
     for (const float alpha : {1.8F, 1.9F, 2.0F}) {
-        const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, alpha);
+        const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, alpha);
         ASSERT_EQ(out.numCandidates, 2U) << "alpha " << alpha;
         EXPECT_EQ(out.candidates[0].row, kSmallRow) << "alpha " << alpha;
     }
@@ -320,7 +319,7 @@ TEST(RegionsOfInterestPruneTest, AlphaSweepSwitchesToSmallBoxAboveCrossover) {
 TEST(RegionsOfInterestPruneTest, NegativeAlphaBypassesCostFunction) {
     const Frame f = equalDistanceSmallAndLarge();
     for (const float alpha : {-0.001F, -1.0F, -5.0F, -1000.0F, -std::numeric_limits<float>::infinity()}) {
-        const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, alpha);
+        const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, alpha);
         ASSERT_EQ(out.numCandidates, 2U) << "alpha " << alpha;
         EXPECT_EQ(out.candidates[0].row, kSmallRow) << "alpha " << alpha;
         EXPECT_EQ(out.candidates[1].row, kLargeRow) << "alpha " << alpha;
@@ -332,7 +331,7 @@ TEST(RegionsOfInterestPruneTest, NegativeAlphaBypassesCostFunction) {
 // Bypass changes only the tie-break: boxes at different distances are still ranked closest first.
 TEST(RegionsOfInterestPruneTest, NegativeAlphaStillRanksClosestFirst) {
     const Frame f = makeFrame(kRows, kCols, kTile, {{10, 10, 4, 4, 300}, {40, 40, 4, 4, 200}, {70, 70, 4, 4, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, 72U, 72U, -1.0F);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, Eigen::Vector2i(72, 72), -1.0F);
     ASSERT_EQ(out.numCandidates, 2U);
     EXPECT_EQ(out.candidates[0].row, 70U);
     EXPECT_EQ(out.candidates[1].row, 40U);
@@ -344,7 +343,7 @@ TEST(RegionsOfInterestPruneTest, ZeroIntensityGivesZeroScaledIntensity) {
     std::fill(f.rowIntensities.begin(), f.rowIntensities.end(), 0U);
     std::fill(f.colIntensities.begin(), f.colIntensities.end(), 0U);
     for (const float alpha : {-1.0F, 0.0F, 1.0F, 2.0F}) {
-        const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, alpha);
+        const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, alpha);
         ASSERT_EQ(out.numCandidates, 1U);
         EXPECT_EQ(out.candidates[0].intensity, 0U);
         EXPECT_EQ(out.candidates[0].scaledIntensity, 0.0F) << "alpha " << alpha;
@@ -356,7 +355,7 @@ TEST(RegionsOfInterestPruneTest, ZeroIntensityGivesZeroScaledIntensity) {
 TEST(RegionsOfInterestPruneTest, IntensitySumsDoNotWrap) {
     constexpr uint32_t kValue = 1'400'000'000U;
     const Frame f = makeFrame(kRows, kCols, kTile, {{10, 10, 2, 2, kValue}, {60, 60, 3, 3, kValue}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 2U);
     EXPECT_EQ(out.candidates[0].row, 60U);
     EXPECT_EQ(out.candidates[0].intensity, 9ULL * kValue);
@@ -371,7 +370,7 @@ TEST(RegionsOfInterestPruneTest, IntensitySumsDoNotWrap) {
 // ahead of the brighter object at 40 (the brightest, at 10, is not among the closest spans).
 TEST(RegionsOfInterestPruneTest, RankedByDistance) {
     const Frame f = makeFrame(kRows, kCols, kTile, {{10, 10, 4, 4, 300}, {40, 40, 4, 4, 200}, {70, 70, 4, 4, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, 72U, 72U, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, Eigen::Vector2i(72, 72), kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 2U);
     EXPECT_EQ(out.candidates[0].row, 70U);
     EXPECT_EQ(out.candidates[1].row, 40U);
@@ -380,7 +379,7 @@ TEST(RegionsOfInterestPruneTest, RankedByDistance) {
 // Equal scaledIntensity: the box closer to the reference point comes first.
 TEST(RegionsOfInterestPruneTest, EqualScaledIntensityCloserIsFirst) {
     const Frame f = makeFrame(kRows, kCols, kTile, {{10, 10, 2, 2, 100}, {48, 60, 2, 2, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 2U);
     EXPECT_EQ(out.candidates[0].scaledIntensity, out.candidates[1].scaledIntensity);
     EXPECT_EQ(out.candidates[0].row, 48U);
@@ -390,7 +389,7 @@ TEST(RegionsOfInterestPruneTest, EqualScaledIntensityCloserIsFirst) {
 // ordered by distance alone.
 TEST(RegionsOfInterestPruneTest, BoxSizeIsNotATieBreak) {
     const Frame f = makeFrame(kRows, kCols, kTile, {{46, 46, 4, 4, 25}, {10, 80, 2, 2, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 2U);
     EXPECT_EQ(out.candidates[0].row, 46U);
     EXPECT_EQ(out.candidates[1].row, 10U);
@@ -402,17 +401,17 @@ TEST(RegionsOfInterestPruneTest, BoxSizeIsNotATieBreak) {
 
 TEST(RegionsOfInterestPruneTest, EmptyFrameYieldsNoCandidates) {
     const Frame f = makeFrame(0U, 0U, kTile, {});
-    EXPECT_EQ(testRegionsOfInterestPrune(f, 0U, 0U, kIntensityOnly).numCandidates, 0U);
+    EXPECT_EQ(testRegionsOfInterestPrune(f, Eigen::Vector2i(0, 0), kIntensityOnly).numCandidates, 0U);
 }
 
 TEST(RegionsOfInterestPruneTest, DarkFrameYieldsNoCandidates) {
     const Frame f = makeFrame(kRows, kCols, kTile, {});
-    EXPECT_EQ(testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly).numCandidates, 0U);
+    EXPECT_EQ(testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly).numCandidates, 0U);
 }
 
 TEST(RegionsOfInterestPruneTest, EntireFrameLit) {
     const Frame f = makeFrame(kRows, kCols, kTile, {{0, 0, kRows, kCols, 7}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 1U);
     EXPECT_EQ(out.candidates[0].height, kRows);
     EXPECT_EQ(out.candidates[0].width, kCols);
@@ -422,7 +421,7 @@ TEST(RegionsOfInterestPruneTest, EntireFrameLit) {
 // Objects touching the image edges: boxes start at row/col 0 and end on the last row/col.
 TEST(RegionsOfInterestPruneTest, ObjectsOnImageBorder) {
     const Frame f = makeFrame(kRows, kCols, kTile, {{0, 0, 3, 3, 100}, {kRows - 3, kCols - 3, 3, 3, 100}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, kX0, kY0, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, kCentralPoint, kIntensityOnly);
     const std::set<std::pair<uint32_t, uint32_t>> expected{{0, 0}, {kRows - 3, kCols - 3}};
     EXPECT_EQ(corners(out), expected);
     for (uint32_t i = 0; i < out.numCandidates; ++i) {
@@ -433,7 +432,7 @@ TEST(RegionsOfInterestPruneTest, ObjectsOnImageBorder) {
 
 TEST(RegionsOfInterestPruneTest, SinglePixelFrame) {
     const Frame f = makeFrame(1U, 1U, 64U, {{0, 0, 1, 1, 9}});
-    const RoiCandidates out = testRegionsOfInterestPrune(f, 0U, 0U, kIntensityOnly);
+    const RoiCandidates out = testRegionsOfInterestPrune(f, Eigen::Vector2i(0, 0), kIntensityOnly);
     ASSERT_EQ(out.numCandidates, 1U);
     EXPECT_EQ(out.candidates[0].litPixelCount, 1U);
 }
@@ -448,7 +447,7 @@ TEST(RegionsOfInterestPruneTest, AtMostTwoCandidatesReturned) {
         }
     }
     const RoiCandidates out =
-        testRegionsOfInterestPrune(makeFrame(kRows, kCols, kTile, objects), kX0, kY0, kIntensityOnly);
+        testRegionsOfInterestPrune(makeFrame(kRows, kCols, kTile, objects), kCentralPoint, kIntensityOnly);
     EXPECT_EQ(out.numCandidates, ROI_CANDIDATES_OUT_MAX);
 }
 
@@ -465,8 +464,7 @@ namespace {
 constexpr uint32_t kSceneRows = 500;
 constexpr uint32_t kSceneCols = 682;
 constexpr uint32_t kSceneTile = 64;
-constexpr uint32_t kSceneX0 = 341;
-constexpr uint32_t kSceneY0 = 250;
+const Eigen::Vector2i kSceneCentralPoint{341, 250};
 constexpr float kSceneAlpha = 2.0F;  // exponent 1: intensity / area
 
 //! The target's center lies inside R1.
@@ -490,7 +488,7 @@ constexpr float kSceneAlpha = 2.0F;  // exponent 1: intensity / area
 
 RoiCandidates runScene(const std::vector<TestObject>& objects) {
     return testRegionsOfInterestPrune(
-        makeFrame(kSceneRows, kSceneCols, kSceneTile, objects), kSceneX0, kSceneY0, kSceneAlpha);
+        makeFrame(kSceneRows, kSceneCols, kSceneTile, objects), kSceneCentralPoint, kSceneAlpha);
 }
 }  // namespace
 
@@ -526,17 +524,16 @@ TEST(RegionsOfInterestPruneTest, SetupTest) { testRegionsOfInterestPruneSetup();
 TEST(RegionsOfInterestPruneTest, AlphaAboveTwoIsRejected) {
     for (const float alpha :
          {5.0F, 2.01F, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
-        EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(kX0, kY0, alpha), fsw::invalid_argument)
+        EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(kCentralPoint, alpha), fsw::invalid_argument)
             << "alpha " << alpha;
     }
-    RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(kX0, kY0, 2.0F)};
-    EXPECT_THROW(alg.setConfig(RegionsOfInterestPruneConfig::create(kX0, kY0, 5.0F)), fsw::invalid_argument);
+    RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(kCentralPoint, 2.0F)};
+    EXPECT_THROW(alg.setConfig(RegionsOfInterestPruneConfig::create(kCentralPoint, 5.0F)), fsw::invalid_argument);
     const Frame f = equalDistanceSmallAndLarge();
-    const RoiCandidates out = alg.update(f.rowSums.data(),
-                                         f.numRows,
-                                         f.colSums.data(),
-                                         f.numCols,
+    const RoiCandidates out = alg.update(Eigen::Vector2<uint32_t>(f.numCols, f.numRows),
+                                         f.rowSums.data(),
                                          f.rowIntensities.data(),
+                                         f.colSums.data(),
                                          f.colIntensities.data(),
                                          f.binGrid());
     ASSERT_EQ(out.numCandidates, 2U);
@@ -546,25 +543,24 @@ TEST(RegionsOfInterestPruneTest, AlphaAboveTwoIsRejected) {
 // setConfig() changes the reference point and alpha used by the next update().
 TEST(RegionsOfInterestPruneTest, SetConfigUpdatesReferencePointAndAlpha) {
     const Frame diagonal = fiveObjectDiagonal();
-    RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(0U, 0U, kIntensityOnly)};
+    RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(Eigen::Vector2i(0, 0), kIntensityOnly)};
     const auto run = [&alg](const Frame& f) {
-        return alg.update(f.rowSums.data(),
-                          f.numRows,
-                          f.colSums.data(),
-                          f.numCols,
+        return alg.update(Eigen::Vector2<uint32_t>(f.numCols, f.numRows),
+                          f.rowSums.data(),
                           f.rowIntensities.data(),
+                          f.colSums.data(),
                           f.colIntensities.data(),
                           f.binGrid());
     };
     EXPECT_EQ(corners(run(diagonal)).count({90U, 90U}), 0U);
-    alg.setConfig(RegionsOfInterestPruneConfig::create(99U, 99U, kIntensityOnly));
+    alg.setConfig(RegionsOfInterestPruneConfig::create(Eigen::Vector2i(99, 99), kIntensityOnly));
     EXPECT_EQ(corners(run(diagonal)).count({90U, 90U}), 1U);
     EXPECT_EQ(corners(run(diagonal)).count({10U, 10U}), 0U);
 
     const Frame sizes = equalDistanceSmallAndLarge();
-    alg.setConfig(RegionsOfInterestPruneConfig::create(kX0, kY0, kIntensityOnly));
+    alg.setConfig(RegionsOfInterestPruneConfig::create(kCentralPoint, kIntensityOnly));
     EXPECT_EQ(run(sizes).candidates[0].row, kLargeRow);
-    alg.setConfig(RegionsOfInterestPruneConfig::create(kX0, kY0, 2.0F));
+    alg.setConfig(RegionsOfInterestPruneConfig::create(kCentralPoint, 2.0F));
     EXPECT_EQ(run(sizes).candidates[0].row, kSmallRow);
 }
 
@@ -588,8 +584,8 @@ TEST(RegionsOfInterestPruneTest, OutputIsWellFormedOnSampleFrames) {
     };
     for (const Frame& f : frames) {
         for (const float alpha : {-1.0F, -0.3F, 0.0F, 0.5F, 1.0F, 1.5F, 2.0F}) {
-            propertyRegionsOfInterestPruneOutputIsWellFormed(f, kX0, kY0, alpha);
-            propertyRegionsOfInterestPruneOutputIsWellFormed(f, 0U, kRows, alpha);
+            propertyRegionsOfInterestPruneOutputIsWellFormed(f, kCentralPoint, alpha);
+            propertyRegionsOfInterestPruneOutputIsWellFormed(f, Eigen::Vector2i(0, static_cast<int>(kRows)), alpha);
         }
     }
 }

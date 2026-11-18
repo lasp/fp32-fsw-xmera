@@ -6,10 +6,10 @@ adapter adds and what downstream modules rely on:
 
     test_message_connection        both inputs link and regionsIdentifiedOutMsg is written
     test_unlinked_input_raises     reset() rejects a missing rowColSumInMsg or binGridInMsg
-    test_invalid_config_raises     reset() rejects x0, y0 or alphaAreaPruneScaling out of range
+    test_invalid_config_raises     reset() rejects centralPoint.x, centralPoint.y or alphaAreaPruneScaling out of range
     test_single_object_published   corner, size, numberOfPixels and timeTag of one published region
     test_at_most_two_published     no more than the algorithm's 2 candidates are published
-    test_closest_region_first      regions are published closest to (x0, y0) first
+    test_closest_region_first      regions are published closest to centralPoint first
     test_reconfigure               reconfigure() applies a new reference point without a reset
     test_bin_grid_mismatch         a bin grid that does not cover the image publishes no regions
     test_pixel_count_clamped       a saturated litPixelCount is clamped to the int range
@@ -36,8 +36,8 @@ INT_MAX = 2**31 - 1
 NUM_ROWS = 200
 NUM_COLS = 300
 REGION_SIZE = 50
-X0 = NUM_COLS // 2
-Y0 = NUM_ROWS // 2
+CENTRAL_POINT_X = NUM_COLS // 2
+CENTRAL_POINT_Y = NUM_ROWS // 2
 
 STEP_SEC = 1.0
 
@@ -91,11 +91,10 @@ def _padded(values, length):
     return out
 
 
-def make_pruner(x0=X0, y0=Y0, alpha=1.0):
+def make_pruner(central_point_x=CENTRAL_POINT_X, central_point_y=CENTRAL_POINT_Y, alpha=1.0):
     pruner = regionsOfInterestPrune.RegionsOfInterestPrune()
     pruner.ModelTag = "regionsOfInterestPrune"
-    pruner.x0 = x0
-    pruner.y0 = y0
+    pruner.centralPoint = [central_point_x, central_point_y]
     pruner.alphaAreaPruneScaling = alpha
     return pruner
 
@@ -173,15 +172,17 @@ def test_unlinked_input_raises(missing):
 
 
 @pytest.mark.parametrize("field, value, message", [
-    ("x0", MAX_COLS + 1, "x0"),
-    ("y0", MAX_ROWS + 1, "y0"),
+    ("centralPoint", [MAX_COLS + 1, CENTRAL_POINT_Y], r"centralPoint\.x"),
+    ("centralPoint", [CENTRAL_POINT_X, MAX_ROWS + 1], r"centralPoint\.y"),
+    ("centralPoint", [-1, CENTRAL_POINT_Y], r"centralPoint\.x"),
+    ("centralPoint", [CENTRAL_POINT_X, -1], r"centralPoint\.y"),
     ("alphaAreaPruneScaling", 5.0, "alphaAreaPruneScaling"),
     ("alphaAreaPruneScaling", 2.5, "alphaAreaPruneScaling"),
     ("alphaAreaPruneScaling", float("inf"), "alphaAreaPruneScaling"),
     ("alphaAreaPruneScaling", float("nan"), "alphaAreaPruneScaling"),
 ])
 def test_invalid_config_raises(field, value, message):
-    """reset() rejects a reference point outside the full image, or an alpha above 2 or NaN (any negative alpha
+    """reset() rejects a reference point outside the full image (negative included), or an alpha above 2 or NaN (any negative alpha
     is valid: it bypasses the cost function)."""
     pruner = make_pruner()
     setattr(pruner, field, value)
@@ -229,7 +230,7 @@ def test_at_most_two_published():
 
 
 def test_closest_region_first():
-    """Two objects on a diagonal: the one closer to (x0, y0) is published first, even though the
+    """Two objects on a diagonal: the one closer to centralPoint is published first, even though the
     other is brighter and larger."""
     near = (90, 160, 10, 10, 100)  # center (95, 165), 18 px from (100, 150)
     far = (20, 20, 30, 30, 250)  # center (35, 35), brighter and 9x the area
@@ -244,7 +245,7 @@ def test_closest_region_first():
 
 
 def test_reconfigure():
-    """reconfigure() pushes a new reference point into the running algorithm: moving (x0, y0) onto
+    """reconfigure() pushes a new reference point into the running algorithm: moving centralPoint onto
     the far object makes it rank 1 on the next step."""
     near = (90, 160, 10, 10, 100)
     far = (20, 20, 30, 30, 250)
@@ -253,8 +254,7 @@ def test_reconfigure():
     run(sim)
     assert (recorder.cornerX[0][0], recorder.cornerY[0][0]) == (160, 90)
 
-    pruner.x0 = 35
-    pruner.y0 = 35
+    pruner.centralPoint = [35, 35]
     pruner.reconfigure()
     sim.ConfigureStopTime(macros.sec2nano(STEP_SEC))
     sim.ExecuteSimulation()

@@ -59,15 +59,23 @@ typedef struct {
 } RoiBinGrid_c;
 
 /**
+ * @brief POD representation of a signed integer 2-vector (Eigen::Vector2i): x is the column, y the row [px].
+ */
+typedef struct {
+    int32_t x;
+    int32_t y;
+} Vector2i_c;
+
+/**
  * @brief Plain-old-data mirror of the C++ RegionsOfInterestPruneConfig.
- *  - x0, y0 [px]: absolute reference point (x0 = column, y0 = row). Must satisfy
- *    x0 <= MAX_IMAGE_COLS (4096) and y0 <= MAX_IMAGE_ROWS (3000) (regionsOfInterestPruneAlgorithm.h).
+ *  - centralPoint [px]: absolute reference point (x = column, y = row). Must satisfy
+ *    0 <= centralPoint.x <= MAX_IMAGE_COLS (4096) and 0 <= centralPoint.y <= MAX_IMAGE_ROWS (3000)
+ *    (regionsOfInterestPruneAlgorithm.h).
  *  - alphaAreaPruneScaling [-]: at most 2, not NaN. Any negative value bypasses the cost function (rank by
  *    distance only); otherwise the area exponent in scaledIntensity is alphaAreaPruneScaling - 1.
  */
 typedef struct {
-    uint32_t x0;
-    uint32_t y0;
+    Vector2i_c centralPoint;
     float alphaAreaPruneScaling;
 } RegionsOfInterestPruneConfig_c;
 

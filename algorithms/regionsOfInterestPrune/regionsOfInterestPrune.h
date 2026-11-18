@@ -17,7 +17,7 @@
  *  Reads the row/col sums (FpgaRowColSumMsgF32Payload) and the bin grid (FpgaBinGridMsgF32Payload),
  *  delegates computation to RegionsOfInterestPruneAlgorithm, and publishes at most ROI_CANDIDATES_OUT_MAX
  *  candidates to regionsIdentifiedOutMsg (RegionsIdentifiedMsgF32Payload), sorted by distance to the
- *  reference point (x0, y0); ties broken by scaledIntensity, or by span order when the cost is bypassed.
+ *  reference point centralPoint; ties broken by scaledIntensity, or by span order when the cost is bypassed.
  */
 class RegionsOfInterestPrune : public SysModel {
    public:
@@ -27,8 +27,8 @@ class RegionsOfInterestPrune : public SysModel {
     void reconfigure() const;
 
     // Phase 1: Public config properties -- set before reset().
-    uint32_t x0 = DEFAULT_X0;  //!< [px] Reference point column, in [0, MAX_IMAGE_COLS]
-    uint32_t y0 = DEFAULT_Y0;  //!< [px] Reference point row, in [0, MAX_IMAGE_ROWS]
+    //!< [px] Reference point: x() = column in [0, MAX_IMAGE_COLS], y() = row in [0, MAX_IMAGE_ROWS]
+    Eigen::Vector2i centralPoint{DEFAULT_CENTRAL_POINT_X, DEFAULT_CENTRAL_POINT_Y};
     float alphaAreaPruneScaling = DEFAULT_ALPHA_AREA_PRUNE_SCALING;  //!< [-] <= 2; negative bypasses the cost
 
     // --- Message interfaces ---

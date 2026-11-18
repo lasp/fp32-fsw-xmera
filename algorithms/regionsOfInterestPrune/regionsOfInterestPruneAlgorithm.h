@@ -3,6 +3,8 @@
 
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
+#include <Eigen/Core>
+
 #include <array>
 #include <cstdint>
 #include <span>
@@ -25,8 +27,10 @@ static constexpr float GHOST_PAIRING_MARGIN = 0.5F;
 static constexpr uint32_t MAX_IMAGE_ROWS = 3000;  //!< [px] Full camera image height
 static constexpr uint32_t MAX_IMAGE_COLS = 4096;  //!< [px] Full camera image width
 
-static constexpr uint32_t DEFAULT_X0 = MAX_IMAGE_COLS / 2U;  //!< [px] Default reference column (image center)
-static constexpr uint32_t DEFAULT_Y0 = MAX_IMAGE_ROWS / 2U;  //!< [px] Default reference row (image center)
+//!< [px] Default reference column (image center). Signed, like the Eigen::Vector2i centralPoint it initializes.
+static constexpr int32_t DEFAULT_CENTRAL_POINT_X = static_cast<int32_t>(MAX_IMAGE_COLS / 2U);
+//!< [px] Default reference row (image center).
+static constexpr int32_t DEFAULT_CENTRAL_POINT_Y = static_cast<int32_t>(MAX_IMAGE_ROWS / 2U);
 
 //!< alphaAreaPruneScaling: any value below 0 bypasses the cost function (rank by distance only); a value in [0, 2]
 //!< uses the area exponent (alpha - 1), which lies in [-1, 1]. Values above 2 and NaN are rejected.
@@ -75,8 +79,9 @@ struct RoiCandidates {
 /*! @brief Validated configuration for the regions-of-interest pruning algorithm.
  *
  *  The reference point used for span selection and candidate ranking is the absolute pixel
- *  position (x0, y0): x0 is the column, y0 the row, in the same coordinates as the published
- *  cornerX/cornerY. Defaults to the full-image center (DEFAULT_X0, DEFAULT_Y0).
+ *  position centralPoint: centralPoint.x() is the column, centralPoint.y() the row, in the same coordinates
+ *  as the published cornerX/cornerY. Defaults to the full-image center
+ *  (DEFAULT_CENTRAL_POINT_X, DEFAULT_CENTRAL_POINT_Y).
  *
  *  alphaAreaPruneScaling sets the tie-break between boxes equally close to the reference point:
  *    - below 0: the cost function is bypassed. Boxes are ranked by distance alone, equally close boxes keep
@@ -84,47 +89,44 @@ struct RoiCandidates {
  *    - in [0, 2]: scaledIntensity = intensity / area^(alpha - 1), the exponent alpha - 1 lying in [-1, 1].
  *      1 uses intensity alone, 2 divides by the area (favors smaller boxes), 0 multiplies by it (larger).
  *
- *  An instance can only exist if x0 is in [0, MAX_IMAGE_COLS], y0 is in [0, MAX_IMAGE_ROWS] and
+ *  An instance can only exist if centralPoint.x() is in [0, MAX_IMAGE_COLS], centralPoint.y() is in
+ *  [0, MAX_IMAGE_ROWS] and
  *  alphaAreaPruneScaling is at most MAX_ALPHA_AREA_PRUNE_SCALING and not NaN (any negative value is accepted).
  *  Construct via RegionsOfInterestPruneConfig::create(...).
  */
 class RegionsOfInterestPruneConfig final {
    public:
-    // NOLINTBEGIN(bugprone-easily-swappable-parameters) -- x0/y0 are a paired 2-D point.
-    static RegionsOfInterestPruneConfig create(uint32_t x0, uint32_t y0, float alphaAreaPruneScaling) {
-        if (!isValidX0(x0)) {
-            FSW_THROW_INVALID_ARGUMENT("regionsOfInterestPrune: x0 must be in [0, MAX_IMAGE_COLS]");
+    static RegionsOfInterestPruneConfig create(const Eigen::Vector2i& centralPoint, float alphaAreaPruneScaling) {
+        if (!isValidCentralPointX(centralPoint.x())) {
+            FSW_THROW_INVALID_ARGUMENT("regionsOfInterestPrune: centralPoint.x must be in [0, MAX_IMAGE_COLS]");
         }
-        if (!isValidY0(y0)) {
-            FSW_THROW_INVALID_ARGUMENT("regionsOfInterestPrune: y0 must be in [0, MAX_IMAGE_ROWS]");
+        if (!isValidCentralPointY(centralPoint.y())) {
+            FSW_THROW_INVALID_ARGUMENT("regionsOfInterestPrune: centralPoint.y must be in [0, MAX_IMAGE_ROWS]");
         }
         if (!isValidAlphaAreaPruneScaling(alphaAreaPruneScaling)) {
             FSW_THROW_INVALID_ARGUMENT(
                 "regionsOfInterestPrune: alphaAreaPruneScaling must be <= 2 (negative bypasses the cost function)");
         }
-        return {x0, y0, alphaAreaPruneScaling};
+        return {centralPoint, alphaAreaPruneScaling};
     }
-    // NOLINTEND(bugprone-easily-swappable-parameters)
 
-    static bool isValidX0(uint32_t x0) { return x0 <= MAX_IMAGE_COLS; }
-    static bool isValidY0(uint32_t y0) { return y0 <= MAX_IMAGE_ROWS; }
+    // Eigen::Vector2i is signed, so a negative coordinate is possible and rejected here.
+    static bool isValidCentralPointX(int32_t x) { return x >= 0 && static_cast<uint32_t>(x) <= MAX_IMAGE_COLS; }
+    static bool isValidCentralPointY(int32_t y) { return y >= 0 && static_cast<uint32_t>(y) <= MAX_IMAGE_ROWS; }
     // NaN fails the comparison and +infinity is above the maximum; any negative value, -infinity included, is a
     // valid request to bypass the cost function.
     static bool isValidAlphaAreaPruneScaling(float alpha) { return alpha <= MAX_ALPHA_AREA_PRUNE_SCALING; }
 
-    uint32_t getX0() const { return x0; }
-    uint32_t getY0() const { return y0; }
+    Eigen::Vector2i getCentralPoint() const { return centralPoint; }
     float getAlphaAreaPruneScaling() const { return alphaAreaPruneScaling; }
 
    private:
-    // NOLINTBEGIN(bugprone-easily-swappable-parameters) -- private; only reached through the validated create().
-    RegionsOfInterestPruneConfig(uint32_t x0, uint32_t y0, float alphaAreaPruneScaling)
-        : x0(x0), y0(y0), alphaAreaPruneScaling(alphaAreaPruneScaling) {}
-    // NOLINTEND(bugprone-easily-swappable-parameters)
+    // Private; only reached through the validated create().
+    RegionsOfInterestPruneConfig(const Eigen::Vector2i& centralPoint, float alphaAreaPruneScaling)
+        : centralPoint(centralPoint), alphaAreaPruneScaling(alphaAreaPruneScaling) {}
 
-    uint32_t x0;                  //!< [px] Reference point column
-    uint32_t y0;                  //!< [px] Reference point row
-    float alphaAreaPruneScaling;  //!< [-] Below 0: bypass; otherwise the area exponent is alpha - 1
+    Eigen::Vector2i centralPoint;  //!< [px] Reference point (x() = column, y() = row)
+    float alphaAreaPruneScaling;   //!< [-] Below 0: bypass; otherwise the area exponent is alpha - 1
 };
 
 /*! @brief algorithm for the regions-of-interest pruning stage.
@@ -149,11 +151,11 @@ class RegionsOfInterestPruneAlgorithm final {
 
     void setConfig(const RegionsOfInterestPruneConfig& config);
 
-    RoiCandidates update(const uint16_t* rowSums,
-                         uint32_t numRows,
-                         const uint16_t* colSums,
-                         uint32_t numCols,
+    // imageSize: x() = numCols, y() = numRows. Row arrays have numRows entries, column arrays numCols.
+    RoiCandidates update(const Eigen::Vector2<uint32_t>& imageSize,
+                         const uint16_t* rowSums,
                          const uint32_t* rowIntensities,
+                         const uint16_t* colSums,
                          const uint32_t* colIntensities,
                          const RoiBinGrid& binGrid) const;
 
@@ -194,7 +196,7 @@ class RegionsOfInterestPruneAlgorithm final {
 
     // Step 3: drop candidates that overlap no lit tile of the bin grid; set litPixelCount from the covered tiles.
     static RoiCandidates filterByLitTiles(const RoiCandidates& candidates, const RoiBinGrid& binGrid);
-    static bool isBinGridUsable(const RoiBinGrid& binGrid, uint32_t numRows, uint32_t numCols);
+    static bool isBinGridUsable(const RoiBinGrid& binGrid, const Eigen::Vector2<uint32_t>& imageSize);
     static uint32_t sumLitTiles(const RoiCandidateEntry& candidate, const RoiBinGrid& binGrid);
 
     // Step 4: set each candidate's scaledIntensity = intensity / area^(alpha - 1).

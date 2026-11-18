@@ -7,7 +7,8 @@ static_assert(REGIONS_OF_INTEREST_PRUNE_ROI_CANDIDATES_MAX == ROI_CANDIDATES_MAX
 
 namespace {
 RegionsOfInterestPruneConfig configFromC(const RegionsOfInterestPruneConfig_c& c) {
-    return RegionsOfInterestPruneConfig::create(c.x0, c.y0, c.alphaAreaPruneScaling);
+    return RegionsOfInterestPruneConfig::create(Eigen::Vector2i(c.centralPoint.x, c.centralPoint.y),
+                                                c.alphaAreaPruneScaling);
 }
 
 RoiBinGrid binGridFromC(const RoiBinGrid_c& c) {
@@ -68,6 +69,11 @@ RoiCandidates_c RegionsOfInterestPruneAlgorithm_update(const RegionsOfInterestPr
                                                        const uint32_t* colIntensities,
                                                        const RoiBinGrid_c* binGrid) {
     const RoiCandidates out = fsw::fromHandle<const ::RegionsOfInterestPruneAlgorithm>(self)->update(
-        rowSums, numRows, colSums, numCols, rowIntensities, colIntensities, binGridFromC(*binGrid));
+        Eigen::Vector2<uint32_t>(numCols, numRows),
+        rowSums,
+        rowIntensities,
+        colSums,
+        colIntensities,
+        binGridFromC(*binGrid));
     return outputToC(out);
 }

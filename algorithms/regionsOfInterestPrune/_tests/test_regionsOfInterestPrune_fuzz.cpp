@@ -19,8 +19,8 @@ void fuzzOutputIsWellFormed(std::vector<uint16_t> rowSums,
                             std::vector<uint32_t> colIntensities,
                             uint32_t regionSize,
                             std::vector<uint32_t> litCounts,
-                            uint32_t x0,
-                            uint32_t y0,
+                            int32_t centralPointX,
+                            int32_t centralPointY,
                             float alpha) {
     const Frame f = frameFromRaw(std::move(rowSums),
                                  std::move(colSums),
@@ -28,7 +28,7 @@ void fuzzOutputIsWellFormed(std::vector<uint16_t> rowSums,
                                  std::move(colIntensities),
                                  regionSize,
                                  std::move(litCounts));
-    propertyRegionsOfInterestPruneOutputIsWellFormed(f, x0, y0, alpha);
+    propertyRegionsOfInterestPruneOutputIsWellFormed(f, Eigen::Vector2i(centralPointX, centralPointY), alpha);
 }
 
 void fuzzMatchesReference(std::vector<uint16_t> rowSums,
@@ -37,8 +37,8 @@ void fuzzMatchesReference(std::vector<uint16_t> rowSums,
                           std::vector<uint32_t> colIntensities,
                           uint32_t regionSize,
                           std::vector<uint32_t> litCounts,
-                          uint32_t x0,
-                          uint32_t y0,
+                          int32_t centralPointX,
+                          int32_t centralPointY,
                           float alpha) {
     const Frame f = frameFromRaw(std::move(rowSums),
                                  std::move(colSums),
@@ -46,7 +46,7 @@ void fuzzMatchesReference(std::vector<uint16_t> rowSums,
                                  std::move(colIntensities),
                                  regionSize,
                                  std::move(litCounts));
-    (void)testRegionsOfInterestPrune(f, x0, y0, alpha);
+    (void)testRegionsOfInterestPrune(f, Eigen::Vector2i(centralPointX, centralPointY), alpha);
 }
 
 auto countsDomain() { return fuzztest::VectorOf(fuzztest::InRange<uint16_t>(0U, 2U)).WithMaxSize(64U); }
@@ -61,8 +61,8 @@ FUZZ_TEST(RegionsOfInterestPruneFuzz, fuzzOutputIsWellFormed)
                  intensitiesDomain(),
                  fuzztest::InRange<uint32_t>(1U, 16U),
                  litCountsDomain(),
-                 fuzztest::InRange<uint32_t>(0U, 80U),
-                 fuzztest::InRange<uint32_t>(0U, 80U),
+                 fuzztest::InRange<int32_t>(0, 80),
+                 fuzztest::InRange<int32_t>(0, 80),
                  fuzztest::InRange<float>(-2.0F, 2.0F));
 
 FUZZ_TEST(RegionsOfInterestPruneFuzz, fuzzMatchesReference)
@@ -72,6 +72,6 @@ FUZZ_TEST(RegionsOfInterestPruneFuzz, fuzzMatchesReference)
                  intensitiesDomain(),
                  fuzztest::InRange<uint32_t>(1U, 16U),
                  litCountsDomain(),
-                 fuzztest::InRange<uint32_t>(0U, 80U),
-                 fuzztest::InRange<uint32_t>(0U, 80U),
+                 fuzztest::InRange<int32_t>(0, 80),
+                 fuzztest::InRange<int32_t>(0, 80),
                  fuzztest::InRange<float>(-2.0F, 2.0F));

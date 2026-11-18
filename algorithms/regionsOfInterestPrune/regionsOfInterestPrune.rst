@@ -103,20 +103,18 @@ the valid range causes an ``fsw::invalid_argument`` exception, and the module do
     * - Parameter
       - Valid range
       - Description
-    * - ``x0``
-      - 0 to 4096 (``MAX_IMAGE_COLS``)
-      - [px] Column of the reference point. The default is 2048.
-    * - ``y0``
-      - 0 to 3000 (``MAX_IMAGE_ROWS``)
-      - [px] Row of the reference point. The default is 1500.
+    * - ``centralPoint``
+      - x: 0 to 4096 (``MAX_IMAGE_COLS``), y: 0 to 3000 (``MAX_IMAGE_ROWS``)
+      - [px] Reference point ``[x, y]`` (``Eigen::Vector2i``): x is the column, y the row. The default is
+        ``[2048, 1500]``.
     * - ``alphaAreaPruneScaling``
       - :math:`-\infty` to 2
       - [-] Order of the boxes at the same distance. Below 0, the cost function is bypassed. From 0 to 2, the
         cost exponent is :math:`\alpha - 1`. Values above 2, :math:`+\infty` and NaN are not valid. The default
         is 1.
 
-``x0`` and ``y0`` are a column and a row of the image in ``rowColSumInMsg``. ``cornerX`` and ``cornerY`` use the
-same columns and rows.
+The x and y of ``centralPoint`` are a column and a row of the image in ``rowColSumInMsg``. ``cornerX`` and
+``cornerY`` use the same columns and rows.
 
 Two-Phase Initialization
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -127,8 +125,7 @@ validates the configuration.
 .. code-block:: python
 
     pruner = regionsOfInterestPruneF32.RegionsOfInterestPrune()
-    pruner.x0 = 341                      # [px] reference column
-    pruner.y0 = 250                      # [px] reference row
+    pruner.centralPoint = [341, 250]     # [px] reference point [column, row]
     pruner.alphaAreaPruneScaling = 2.0   # [-] on a tie, prefer the denser box
     pruner.rowColSumInMsg.subscribeTo(pipeline.rowColSumOutMsg)
     pruner.binGridInMsg.subscribeTo(pipeline.binGridOutMsg)
@@ -139,7 +136,7 @@ validates the configuration.
 
     msg = pruner.regionsIdentifiedOutMsg.read()   # msg.cornerX[0], ... for R1
 
-To give changed ``x0``, ``y0`` and ``alphaAreaPruneScaling`` values to a running algorithm, call
+To give changed ``centralPoint`` and ``alphaAreaPruneScaling`` values to a running algorithm, call
 ``reconfigure()``. The change has no effect until this call.
 
 The adapter causes an exception in these cases:
@@ -153,7 +150,7 @@ From Python, an invalid configuration has two different results:
 - Through ``reset()`` (for example in ``InitializeSimulation()``), it causes a Python ``RuntimeError``.
 - Through ``reconfigure()`` or ``RegionsOfInterestPruneConfig.create()`` called directly, it stops the Python
   process, because the module has no SWIG exception mapping. Before these calls, make sure that the values are
-  valid with ``isValidX0()``, ``isValidY0()`` and ``isValidAlphaAreaPruneScaling()``.
+  valid with ``isValidCentralPointX()``, ``isValidCentralPointY()`` and ``isValidAlphaAreaPruneScaling()``.
 
 Detailed Module Description
 ---------------------------

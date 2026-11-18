@@ -93,13 +93,12 @@ inline Frame makeFrame(uint32_t numRows,
     return f;
 }
 
-inline RoiCandidates runAlgorithm(const Frame& f, uint32_t x0, uint32_t y0, float alpha) {
-    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(x0, y0, alpha)};
-    return alg.update(f.rowSums.data(),
-                      f.numRows,
-                      f.colSums.data(),
-                      f.numCols,
+inline RoiCandidates runAlgorithm(const Frame& f, const Eigen::Vector2i& centralPoint, float alpha) {
+    const RegionsOfInterestPruneAlgorithm alg{RegionsOfInterestPruneConfig::create(centralPoint, alpha)};
+    return alg.update(Eigen::Vector2<uint32_t>(f.numCols, f.numRows),
+                      f.rowSums.data(),
                       f.rowIntensities.data(),
+                      f.colSums.data(),
                       f.colIntensities.data(),
                       f.binGrid());
 }
@@ -111,8 +110,8 @@ inline RoiCandidates runAlgorithm(const Frame& f, uint32_t x0, uint32_t y0, floa
 // Independently reimplements the six pipeline steps with std::vector and stable sorts, sharing no
 // code with the algorithm under test:
 //   1. contiguous non-zero count spans, each summing its counts (pixels) and intensities; keep the
-//      ROW_SPANS_MAX / COL_SPANS_MAX whose midpoints are closest to y0 / x0 (stable: an earlier span
-//      wins a distance tie),
+//      ROW_SPANS_MAX / COL_SPANS_MAX whose midpoints are closest to the reference row / col, centralPoint.y() /
+//      centralPoint.x() (stable: an earlier span wins a distance tie),
 //   2. row x col cross-product, intensity = min(row-span intensity, col-span intensity),
 //   2b. with 2 row and 2 col spans, score the diagonal pairing {(r0,c0), (r1,c1)} and the anti-diagonal
 //      pairing {(r0,c1), (r1,c0)} by the summed relative mismatch of their spans' pixels and intensities;
@@ -121,7 +120,7 @@ inline RoiCandidates runAlgorithm(const Frame& f, uint32_t x0, uint32_t y0, floa
 //   3. drop boxes whose covered tiles sum to 0 lit pixels (litPixelCount = that sum, saturated);
 //      an unusable grid yields nothing,
 //   4. scaledIntensity = intensity / area^(alpha - 1); left at 0 when alpha < 0 (cost function bypassed),
-//   5. stable sort by box-center distance to (x0, y0) ascending, then scaledIntensity descending (bypass:
+//   5. stable sort by box-center distance to centralPoint ascending, then scaledIntensity descending (bypass:
 //      distance only, so equally close boxes keep the order they were formed in: row span, then col span),
 //   6. keep the first ROI_CANDIDATES_OUT_MAX.
 // The distance, mismatch and scaledIntensity expressions use the same float operations as the
@@ -205,11 +204,10 @@ inline uint32_t referenceLitTileSum(const Frame& f, const RoiCandidateEntry& e) 
 
 //! Steps 1-5: every surviving candidate, ranked (step 6's cut is applied by the caller).
 inline std::vector<RoiCandidateEntry> referenceRegionsOfInterestPrune(const Frame& f,
-                                                                      uint32_t x0,
-                                                                      uint32_t y0,
+                                                                      const Eigen::Vector2i& centralPoint,
                                                                       float alpha) {
-    const auto referenceRow = static_cast<float>(y0);
-    const auto referenceCol = static_cast<float>(x0);
+    const auto referenceRow = static_cast<float>(centralPoint.y());
+    const auto referenceCol = static_cast<float>(centralPoint.x());
     const auto rowSpans = referenceClosestSpans(f.rowSums, f.rowIntensities, referenceRow, ROW_SPANS_MAX);
     const auto colSpans = referenceClosestSpans(f.colSums, f.colIntensities, referenceCol, COL_SPANS_MAX);
     if (!referenceGridUsable(f)) {
@@ -294,10 +292,10 @@ inline void expectSameCandidates(const RoiCandidates& out, const std::vector<Roi
 }
 
 //! Run the algorithm on a frame and require it to match the independent reference exactly.
-inline RoiCandidates testRegionsOfInterestPrune(const Frame& f, uint32_t x0, uint32_t y0, float alpha) {
+inline RoiCandidates testRegionsOfInterestPrune(const Frame& f, const Eigen::Vector2i& centralPoint, float alpha) {
     RoiCandidates out{};
-    EXPECT_NO_THROW(out = runAlgorithm(f, x0, y0, alpha));
-    expectSameCandidates(out, referenceRegionsOfInterestPrune(f, x0, y0, alpha));
+    EXPECT_NO_THROW(out = runAlgorithm(f, centralPoint, alpha));
+    expectSameCandidates(out, referenceRegionsOfInterestPrune(f, centralPoint, alpha));
     return out;
 }
 
@@ -306,26 +304,33 @@ inline RoiCandidates testRegionsOfInterestPrune(const Frame& f, uint32_t x0, uin
 // ---------------------------------------------------------------------------
 
 inline void testRegionsOfInterestPruneSetup() {
-    EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(0U, 0U, 1.0F));
-    EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(MAX_IMAGE_COLS, MAX_IMAGE_ROWS, 1.0F));
+    constexpr auto kMaxCol = static_cast<int32_t>(MAX_IMAGE_COLS);
+    constexpr auto kMaxRow = static_cast<int32_t>(MAX_IMAGE_ROWS);
+    const Eigen::Vector2i kDefaultCentralPoint{DEFAULT_CENTRAL_POINT_X, DEFAULT_CENTRAL_POINT_Y};
+    EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(Eigen::Vector2i(0, 0), 1.0F));
+    EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(Eigen::Vector2i(kMaxCol, kMaxRow), 1.0F));
     // alpha: [0, 2] uses the cost function; any negative value, -infinity included, bypasses it.
     for (const float alpha : {0.0F, 2.0F, -0.001F, -1.0F, -1000.0F, -std::numeric_limits<float>::infinity()}) {
-        EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(DEFAULT_X0, DEFAULT_Y0, alpha)) << "alpha " << alpha;
+        EXPECT_NO_THROW((void)RegionsOfInterestPruneConfig::create(kDefaultCentralPoint, alpha)) << "alpha " << alpha;
     }
 
-    EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(MAX_IMAGE_COLS + 1U, DEFAULT_Y0, 1.0F),
-                 fsw::invalid_argument);
-    EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(DEFAULT_X0, MAX_IMAGE_ROWS + 1U, 1.0F),
-                 fsw::invalid_argument);
+    // Each coordinate is rejected above its image limit and, since Eigen::Vector2i is signed, below 0.
+    for (const Eigen::Vector2i& bad : {Eigen::Vector2i(kMaxCol + 1, DEFAULT_CENTRAL_POINT_Y),
+                                       Eigen::Vector2i(DEFAULT_CENTRAL_POINT_X, kMaxRow + 1),
+                                       Eigen::Vector2i(-1, DEFAULT_CENTRAL_POINT_Y),
+                                       Eigen::Vector2i(DEFAULT_CENTRAL_POINT_X, -1)}) {
+        EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(bad, 1.0F), fsw::invalid_argument)
+            << "centralPoint " << bad.transpose();
+    }
     for (const float alpha :
          {2.01F, 5.0F, std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
-        EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(DEFAULT_X0, DEFAULT_Y0, alpha), fsw::invalid_argument)
+        EXPECT_THROW((void)RegionsOfInterestPruneConfig::create(kDefaultCentralPoint, alpha), fsw::invalid_argument)
             << "alpha " << alpha;
     }
 
-    const RegionsOfInterestPruneConfig cfg = RegionsOfInterestPruneConfig::create(12U, 34U, 0.5F);
-    EXPECT_EQ(cfg.getX0(), 12U);
-    EXPECT_EQ(cfg.getY0(), 34U);
+    const RegionsOfInterestPruneConfig cfg = RegionsOfInterestPruneConfig::create(Eigen::Vector2i(12, 34), 0.5F);
+    EXPECT_EQ(cfg.getCentralPoint().x(), 12);
+    EXPECT_EQ(cfg.getCentralPoint().y(), 34);
     EXPECT_EQ(cfg.getAlphaAreaPruneScaling(), 0.5F);
 }
 
@@ -348,16 +353,18 @@ inline uint64_t rangeSum(const std::vector<uint32_t>& v, uint32_t start, uint32_
 //! min(row-span, col-span) intensity, a finite non-negative scaledIntensity (0 when alpha < 0 bypasses the
 //! cost), sorted by distance ascending then scaledIntensity descending (bypass: distance only), and every
 //! slot after numCandidates zero.
-inline void propertyRegionsOfInterestPruneOutputIsWellFormed(const Frame& f, uint32_t x0, uint32_t y0, float alpha) {
+inline void propertyRegionsOfInterestPruneOutputIsWellFormed(const Frame& f,
+                                                             const Eigen::Vector2i& centralPoint,
+                                                             float alpha) {
     RoiCandidates out{};
-    EXPECT_NO_THROW(out = runAlgorithm(f, x0, y0, alpha));
+    EXPECT_NO_THROW(out = runAlgorithm(f, centralPoint, alpha));
     ASSERT_LE(out.numCandidates, ROI_CANDIDATES_OUT_MAX);
     if (out.numCandidates > 0U) {
         ASSERT_TRUE(referenceGridUsable(f)) << "candidates returned for an unusable grid";
     }
 
-    const auto refRow = static_cast<float>(y0);
-    const auto refCol = static_cast<float>(x0);
+    const auto refRow = static_cast<float>(centralPoint.y());
+    const auto refCol = static_cast<float>(centralPoint.x());
     for (uint32_t i = 0; i < out.numCandidates; ++i) {
         const auto& c = out.candidates[i];
         ASSERT_GT(c.height, 0U) << "candidate " << i;
