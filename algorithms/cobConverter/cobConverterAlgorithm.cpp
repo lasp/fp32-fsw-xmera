@@ -112,23 +112,23 @@ Rotations CobConverterAlgorithm::computeRotations(const Eigen::Vector3f& sigma_B
  * Computes the Binary offset factor @c gamma and the sun direction @c phi in the image plane.
  *
  * @param filterVehPosition Spacecraft position
- * @param vehSunPntBdy Sun-pointing direction
+ * @param rawRHat_SB_B Sun-pointing direction
  * @param dcm_BN Body-to-inertial DCM for the current cycle (from computeRotations).
  * @return alphaPA, phi, gamma, spacecraftRange and Rc.
  */
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) -- position and sun direction are distinct, named inputs.
 PhaseAngleCorrectionResult CobConverterAlgorithm::computePhaseAngleCorrection(const Eigen::Vector3f& filterVehPosition,
-                                                                              const Eigen::Vector3f& vehSunPntBdy,
+                                                                              const Eigen::Vector3f& rawRHat_SB_B,
                                                                               const Eigen::Matrix3f& dcm_BN) const {
     PhaseAngleCorrectionResult correction;
     correction.sc_position = filterVehPosition;
     const Eigen::Vector3f rhat_N = correction.sc_position.stableNormalized();
-    const Eigen::Vector3f shat_B = vehSunPntBdy.stableNormalized();
-    correction.shat_N = dcm_BN.transpose() * shat_B;
-    const Eigen::Vector3f shat_C = this->dcm_CB * shat_B;
+    const Eigen::Vector3f rHat_SB_B = rawRHat_SB_B.stableNormalized();
+    correction.rHat_SB_N = dcm_BN.transpose() * rHat_SB_B;
+    const Eigen::Vector3f rHat_SB_C = this->dcm_CB * rHat_SB_B;
 
-    correction.alphaPA = safeAcosf(rhat_N.transpose() * correction.shat_N);  // phase angle
-    correction.phi = safeAtan2f(shat_C(1), shat_C(0));                       // sun direction in image plane
+    correction.alphaPA = safeAcosf(rhat_N.transpose() * correction.rHat_SB_N);  // phase angle
+    correction.phi = safeAtan2f(rHat_SB_C(1), rHat_SB_C(0));                    // sun direction in image plane
     const float oneMinusCosAlpha = 2.0F * powf(safeSinf(correction.alphaPA / 2.0F), 2.0F);
     correction.gamma = kBinaryPhaseCoeff * oneMinusCosAlpha;
     correction.spacecraftRange = correction.sc_position.stableNorm();
@@ -237,7 +237,7 @@ float CobConverterAlgorithm::computeBetaVar(const Eigen::Matrix3f& filterVehPosi
         (1.0F + powf(kBinaryPhaseCoeff * radius / correction.spacecraftRange * oneMinusCosAlpha, 2.0F));
 
     const Eigen::Matrix3f I = Eigen::Matrix3f::Identity();
-    const Eigen::RowVector3f sr = correction.shat_N / correction.spacecraftRange;
+    const Eigen::RowVector3f sr = correction.rHat_SB_N / correction.spacecraftRange;
     const Eigen::Matrix3f rr =
         I - (correction.sc_position.stableNormalized() * correction.sc_position.stableNormalized().transpose());
     // deltaAlpha_delta_R omits the 1/sin(alpha) factor from the full d(alpha)/d(r) expression
@@ -315,14 +315,14 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         const bool filterUsable = CobConverterConfig::isUsableFilterState(filter);
         bool phaseCorrected = filterUsable && this->cfg.getRadius() > 0.0F &&
                               filter.filterVehPosition.stableNorm() > this->cfg.getRadius() &&
-                              attitude.vehSunPntBdy.allFinite() && attitude.vehSunPntBdy.stableNorm() > 0.0F;
+                              attitude.rHat_SB_B.allFinite() && attitude.rHat_SB_B.stableNorm() > 0.0F;
         PhaseAngleCorrectionResult correction;
         Eigen::Vector3f centerOfMass;
         UndistortedCoordinate comUndistorted;
         Eigen::Matrix2f covarCOMxy;  // P_com_xy (distorted ~= corrected)
         if (phaseCorrected) {
             correction =
-                this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.vehSunPntBdy, rotations.dcm_BN);
+                this->computePhaseAngleCorrection(filter.filterVehPosition, attitude.rHat_SB_B, rotations.dcm_BN);
             const float tanBeta = this->cfg.getRadius() * correction.gamma / correction.spacecraftRange;
             const float cosPhi = safeCosf(correction.phi);
             const float sinPhi = safeSinf(correction.phi);

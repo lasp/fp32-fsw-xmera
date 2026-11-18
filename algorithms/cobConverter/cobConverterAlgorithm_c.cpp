@@ -162,7 +162,7 @@ CobConverterOutput_c CobConverterAlgorithm_updateState(CobConverterAlgorithmHand
                                                        Vector2f_c cobCenterOfBrightness,
                                                        uint64_t cobTimeTag,
                                                        Vector3f_c sigma_BN,
-                                                       Vector3f_c vehSunPntBdy,
+                                                       Vector3f_c rHat_SB_B,
                                                        Vector3f_c filterVehPosition,
                                                        Matrix3f_c filterVehPositionCovariance) {
     const CobMeasurement cob{
@@ -173,7 +173,7 @@ CobConverterOutput_c CobConverterAlgorithm_updateState(CobConverterAlgorithmHand
     };
     const VehicleAttitude attitude{
         .sigma_BN = cArrayToEigenVector3<float>(sigma_BN.data),
-        .vehSunPntBdy = cArrayToEigenVector3<float>(vehSunPntBdy.data),
+        .rHat_SB_B = cArrayToEigenVector3<float>(rHat_SB_B.data),
     };
     const FilterState filter{
         .filterVehPosition = cArrayToEigenVector3<float>(filterVehPosition.data),

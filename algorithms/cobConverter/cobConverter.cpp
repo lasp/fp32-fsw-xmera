@@ -100,7 +100,7 @@ void CobConverter::updateState(const uint64_t currentSimNanos) {
 
     VehicleAttitude attitude;
     attitude.sigma_BN = cArrayToEigenVector(navAttMsg.sigma_BN);
-    attitude.vehSunPntBdy = cArrayToEigenVector(navAttMsg.vehSunPntBdy);
+    attitude.rHat_SB_B = cArrayToEigenVector(navAttMsg.vehSunPntBdy);
 
     // The message carries double; the single-precision algorithm takes the filter state cast to float.
     FilterState filter;

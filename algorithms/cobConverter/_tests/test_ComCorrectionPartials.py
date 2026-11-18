@@ -18,21 +18,21 @@ colorList = []
 for i in range(10):
     colorList.append(matplotlib.colormaps["inferno"].colors[int(i * colorsInt)])
 
-@pytest.mark.parametrize("sunDirection", [[1., 1., -1.], [1., -1., 0.]])
+@pytest.mark.parametrize("rawRHat_SB_N", [[1., 1., -1.], [1., -1., 0.]])
 @pytest.mark.parametrize("distance", [500e3, 200e4])
 
 
-def test_com_partials(show_plots, sunDirection, distance):
-    com_correction_partials(sunDirection, distance)
+def test_com_partials(show_plots, rawRHat_SB_N, distance):
+    com_correction_partials(rawRHat_SB_N, distance)
 
-def get_analytical_sigma(sunDirection, distance):
+def get_analytical_sigma(rawRHat_SB_N, distance):
 
     R_object = 30 * 1e3
     R_object_uncer = 1 * 1e3
     sigma_r = 10e3
     r_BdyZero_N = np.array([-distance, -300. * 1e3, 0.])
-    vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))
-    alpha = np.arccos(-np.dot(r_BdyZero_N.T / np.linalg.norm(r_BdyZero_N), vehSunPntN))
+    rHat_SB_N = np.array(rawRHat_SB_N) / np.linalg.norm(np.array(rawRHat_SB_N))
+    alpha = np.arccos(-np.dot(r_BdyZero_N.T / np.linalg.norm(r_BdyZero_N), rHat_SB_N))
 
     inputFilter = messaging.FilterMsgF32Payload()
     inputEphem = messaging.EphemerisMsgPayload()
@@ -60,7 +60,7 @@ def get_analytical_sigma(sunDirection, distance):
                                     /((1 + (4*R_object/(3*np.pi*np.linalg.norm(position))
                                     *(1 - np.cos(alpha)))**2))))
 
-    deltaAlpha_delta_R = np.dot(vehSunPntN/ (np.linalg.norm(position)), np.eye(3) - np.outer(r_hat, r_hat))
+    deltaAlpha_delta_R = np.dot(rHat_SB_N/ (np.linalg.norm(position)), np.eye(3) - np.outer(r_hat, r_hat))
 
     deltaBinary_r = deltaBinary_delta_r + np.dot(deltaBinary_deltaAlpha,deltaAlpha_delta_R)
     total_deltaBinary_partials = np.dot(np.dot(deltaBinary_r, position_covar), deltaBinary_r.T)
@@ -68,7 +68,7 @@ def get_analytical_sigma(sunDirection, distance):
 
     return sigma_beta_squared
 
-def com_correction_partials(sunDirection,distance):
+def com_correction_partials(rawRHat_SB_N,distance):
 
     unitTaskName = "unitTask"
     unitProcessName = "TestProcess"
@@ -82,9 +82,9 @@ def com_correction_partials(sunDirection,distance):
     R_object_uncer = 1 * 1e3
     sigma_r = 10e3
     r_BdyZero_N = np.array([-distance, -300. * 1e3, 0.])
-    vehSunPntN = np.array(sunDirection) / np.linalg.norm(np.array(sunDirection))
-    alpha = np.arccos(-np.dot(r_BdyZero_N.T / np.linalg.norm(r_BdyZero_N), vehSunPntN))
-    sigma_beta_squared = get_analytical_sigma(sunDirection, distance)
+    rHat_SB_N = np.array(rawRHat_SB_N) / np.linalg.norm(np.array(rawRHat_SB_N))
+    alpha = np.arccos(-np.dot(r_BdyZero_N.T / np.linalg.norm(r_BdyZero_N), rHat_SB_N))
+    sigma_beta_squared = get_analytical_sigma(rawRHat_SB_N, distance)
 
     gamma_mean = 4 / (3 * np.pi) * (1 - np.cos(alpha))
     com_offset_mean = np.arctan(gamma_mean * R_object / np.linalg.norm(r_BdyZero_N)) * 180 / np.pi
@@ -95,7 +95,7 @@ def com_correction_partials(sunDirection,distance):
     com_offset = np.zeros(number_of_mcs)
 
     for i in range(number_of_mcs):
-        alpha_mc = np.arccos(-np.dot(P[i].T / np.linalg.norm(P[i]), vehSunPntN))
+        alpha_mc = np.arccos(-np.dot(P[i].T / np.linalg.norm(P[i]), rHat_SB_N))
         gamma = 4 / (3 * np.pi) * (1 - np.cos(alpha_mc))
         com_offset_factor[i] = gamma
         com_offset[i] = np.arctan(gamma * R[i] / np.linalg.norm(P[i])) * 180 / np.pi * 3600 - com_offset_mean * 3600

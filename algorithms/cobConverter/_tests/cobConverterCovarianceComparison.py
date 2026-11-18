@@ -73,7 +73,7 @@ def scenario(p):
         v_N=v_N,
         dcm_BN=np.array([h1, h2, h3]),
         dcm_CB=np.array([[0.0, 1.0, 0.0], [0.0, 0.0, -1.0], [-1.0, 0.0, 0.0]]),
-        sun_N=np.cos(alpha) * h1 + np.sin(alpha) * (np.cos(psi) * h2 + np.sin(psi) * h3),
+        rHat_SB_N=np.cos(alpha) * h1 + np.sin(alpha) * (np.cos(psi) * h2 + np.sin(psi) * h3),
         cob=np.full(2, p["resolution"] * p["cobFraction"]),
         camera=SimpleNamespace(fieldOfView=[np.deg2rad(p["fovDeg"])] * 2, resolution=[p["resolution"]] * 2),
     )
@@ -84,14 +84,14 @@ def components(p):
     s = scenario(p)
     dcm_NC = (s.dcm_CB @ s.dcm_BN).T
     K = tc.compute_camera_calibration_matrix(s.camera)
-    alpha = np.arccos(np.clip(s.r_N @ s.sun_N / np.linalg.norm(s.r_N), -1.0, 1.0))
-    sun_C = dcm_NC.T @ s.sun_N
-    phi = np.arctan2(sun_C[1], sun_C[0])
+    alpha = np.arccos(np.clip(s.r_N @ s.rHat_SB_N / np.linalg.norm(s.r_N), -1.0, 1.0))
+    rHat_SB_C = dcm_NC.T @ s.rHat_SB_N
+    phi = np.arctan2(rHat_SB_C[1], rHat_SB_C[0])
     tanBeta = p["radius"] * tc.phase_angle_correction(alpha) / np.linalg.norm(s.r_N)
     com = [s.cob[0] - tanBeta * K[0, 0] * np.cos(phi), s.cob[1] - tanBeta * K[1, 1] * np.sin(phi)]
     rhat_COM_C, _ = tc.mapState(com, s.camera)
 
-    covarImage_C = tc.mapComCovar(p["pixels"], s.camera, rhat_COM_C, s.r_N, p["radius"], alpha, s.sun_N,
+    covarImage_C = tc.mapComCovar(p["pixels"], s.camera, rhat_COM_C, s.r_N, p["radius"], alpha, s.rHat_SB_N,
                                   p["radiusUncertaintyRatio"] * p["radius"], phi, p["positionSigma"] ** 2 * np.eye(3),
                                   tanBeta)
     skew_B = tc.skew(s.dcm_CB.T @ rhat_COM_C)
@@ -125,7 +125,7 @@ def module_covar_N(p):
     nav.covar = np.diag([p["positionSigma"] ** 2] * 3 + [0.01] * 3 + [1e-6] * 2).flatten()
     att = messaging.NavAttMsgF32Payload()
     att.sigma_BN = rbk.C2MRP(s.dcm_BN)
-    att.vehSunPntBdy = s.dcm_BN @ s.sun_N
+    att.vehSunPntBdy = s.dcm_BN @ s.rHat_SB_N
     msgs = [messaging.OpNavCOBMsgF32().write(cob), messaging.FilterMsgF32().write(nav),
             messaging.NavAttMsgF32().write(att)]
     module.opnavCOBInMsg.subscribeTo(msgs[0])

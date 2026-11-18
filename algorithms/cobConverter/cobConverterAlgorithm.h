@@ -36,8 +36,8 @@ struct CobMeasurement {
 
 /*! Vehicle attitude knowledge: body orientation and sun direction, both body frame. */
 struct VehicleAttitude {
-    Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();      //!< [--] body-to-inertial MRP
-    Eigen::Vector3f vehSunPntBdy = Eigen::Vector3f::Zero();  //!< [--] sun direction, body frame
+    Eigen::Vector3f sigma_BN = Eigen::Vector3f::Zero();   //!< [--] body-to-inertial MRP
+    Eigen::Vector3f rHat_SB_B = Eigen::Vector3f::Zero();  //!< [--] sun direction, body frame
 };
 
 /*! Filter state: only position (and its covariance) is consumed by this algorithm.
@@ -281,7 +281,7 @@ struct Rotations {
 struct PhaseAngleCorrectionResult {
     Eigen::Vector3f sc_position = Eigen::Vector3f::Zero();
     float spacecraftRange = 0.0F;
-    Eigen::Vector3f shat_N = Eigen::Vector3f::Zero();
+    Eigen::Vector3f rHat_SB_N = Eigen::Vector3f::Zero();
     float alphaPA = 0.0F;
     float phi = 0.0F;
     float gamma = 0.0F;
@@ -313,7 +313,7 @@ class CobConverterAlgorithm final {
     void computeCameraParameters();
     Rotations computeRotations(const Eigen::Vector3f& sigma_BN) const;
     PhaseAngleCorrectionResult computePhaseAngleCorrection(const Eigen::Vector3f& filterVehPosition,
-                                                           const Eigen::Vector3f& vehSunPntBdy,
+                                                           const Eigen::Vector3f& rawRHat_SB_B,
                                                            const Eigen::Matrix3f& dcm_BN) const;
     float computeBetaVar(const Eigen::Matrix3f& filterVehPositionCovariance,
                          const PhaseAngleCorrectionResult& correction) const;

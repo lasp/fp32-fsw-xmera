@@ -38,8 +38,8 @@ TEST(CobConverterTest, RegressionTest) {
     dcm_BN.row(2) = h3.transpose();
     const Eigen::Vector3f sigma_BN = dcmToMrp(dcm_BN).cast<float>();
 
-    const Eigen::Vector3d sunUnit_N = Eigen::Vector3d{-1.0, -1.0, 0.0}.stableNormalized();
-    const Eigen::Vector3f vehSunPntBdy = (dcm_BN * sunUnit_N).cast<float>();
+    const Eigen::Vector3d rHat_SB_N = Eigen::Vector3d{-1.0, -1.0, 0.0}.stableNormalized();
+    const Eigen::Vector3f rHat_SB_B = (dcm_BN * rHat_SB_N).cast<float>();
 
     // run the regression test testCobConverter(...) defined in cobConverterTestHelpers
     testCobConverter(/*radius=*/25.0e3F,
@@ -60,7 +60,7 @@ TEST(CobConverterTest, RegressionTest) {
                      /*cobCenterOfBrightness=*/Eigen::Vector2f{152.0F, 251.0F},
                      /*cobTimeTag=*/12345U,
                      sigma_BN,
-                     vehSunPntBdy,
+                     rHat_SB_B,
                      /*filterVehPosition=*/r_BdyZero_N,
                      /*filterVehPositionCovariance=*/Eigen::Matrix3d::Identity() * 50.0e3);
 }
@@ -94,8 +94,8 @@ TEST(CobConverterTest, BrownConradyCalibrationTest) {
     dcm_BN.row(2) = h3.transpose();
     const Eigen::Vector3f sigma_BN = dcmToMrp(dcm_BN).cast<float>();
 
-    const Eigen::Vector3d sunUnit_N = Eigen::Vector3d{-1.0, -1.0, 0.0}.normalized();
-    const Eigen::Vector3f vehSunPntBdy = (dcm_BN * sunUnit_N).cast<float>();
+    const Eigen::Vector3d rHat_SB_N = Eigen::Vector3d{-1.0, -1.0, 0.0}.normalized();
+    const Eigen::Vector3f rHat_SB_B = (dcm_BN * rHat_SB_N).cast<float>();
 
     // (k1, k2, k3, p1, p2), matching test_cobConverter.py::test_brown_conrady_calibration.
     struct CoefficientCase {
@@ -133,7 +133,7 @@ TEST(CobConverterTest, BrownConradyCalibrationTest) {
                              cobCenterOfBrightness,
                              /*cobTimeTag=*/12345U,
                              sigma_BN,
-                             vehSunPntBdy,
+                             rHat_SB_B,
                              /*filterVehPosition=*/r_BdyZero_N,
                              /*filterVehPositionCovariance=*/Eigen::Matrix3d::Identity() * 50.0e3);
         }
@@ -172,9 +172,9 @@ TEST(CobConverterTest, OutlierDetectionRadiusGateTest) {
                               const Eigen::Vector3f& position,
                               const Eigen::Matrix3f& covariance,
                               bool zeroSunline = false) {
-        const Eigen::Vector3f sunline =
+        const Eigen::Vector3f rHat_SB_B =
             zeroSunline ? Eigen::Vector3f(Eigen::Vector3f::Zero()) : Eigen::Vector3f(position.normalized());
-        const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .vehSunPntBdy = sunline};
+        const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .rHat_SB_B = rHat_SB_B};
         const FilterState filter{.filterVehPosition = position, .filterVehPositionCovariance = covariance};
         const CobConverterUpdateResult result = alg.updateState(cob, attitude, filter);
         EXPECT_TRUE(result.output.rhat_BN_N.isApprox(Eigen::Vector3f{0.0F, 0.0F, -1.0F}));
@@ -220,8 +220,7 @@ TEST(CobConverterTest, PixelsFoundIncreaseIsSizeIncreaseTest) {
     const CobConverterAlgorithm alg(cfg);
 
     // Same attitude/filter geometry throughout -- only cobPixelsFound differs.
-    const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(),
-                                   .vehSunPntBdy = Eigen::Vector3f{1.0F, 0.0F, 0.0F}};
+    const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .rHat_SB_B = Eigen::Vector3f{1.0F, 0.0F, 0.0F}};
     const FilterState filter{.filterVehPosition = Eigen::Vector3f{-500.0e3F, -300.0e3F, 0.0F},
                              .filterVehPositionCovariance = Eigen::Matrix3f::Identity() * 50.0e3F};
     const auto makeCob = [](int32_t pixelsFound) {
@@ -270,7 +269,7 @@ TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
 
     // Sun along the position vector: zero phase angle, so the COM coincides with the COB.
     const Eigen::Vector3f position{-500.0e3F, -300.0e3F, 0.0F};
-    const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .vehSunPntBdy = position.normalized()};
+    const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .rHat_SB_B = position.normalized()};
     const FilterState filter{.filterVehPosition = position,
                              .filterVehPositionCovariance = Eigen::Matrix3f::Identity() * 50.0e3F};
     // Normalized x_d ~= 0.17. With k1 = 1000 the fixed point has k1 * r^2 ~= 2.4 > 1, so the
@@ -345,14 +344,14 @@ TEST(CobConverterTest, PhaseCorrectionUnavailablePublishesCobTest) {
                              .cobCenterOfBrightness = Eigen::Vector2f{256.0F, 256.0F},
                              .cobTimeTag = 12345U};
     const auto updateWith =
-        [&](const CobConverterAlgorithm& alg, const Eigen::Vector3f& position, const Eigen::Vector3f& vehSunPntBdy) {
-            const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .vehSunPntBdy = vehSunPntBdy};
+        [&](const CobConverterAlgorithm& alg, const Eigen::Vector3f& position, const Eigen::Vector3f& rHat_SB_B) {
+            const VehicleAttitude attitude{.sigma_BN = Eigen::Vector3f::Zero(), .rHat_SB_B = rHat_SB_B};
             const FilterState filter{.filterVehPosition = position,
                                      .filterVehPositionCovariance = Eigen::Matrix3f::Identity() * 50.0e3F};
             return alg.updateState(cob, attitude, filter);
         };
-    const auto updateAt = [&](const Eigen::Vector3f& position, const Eigen::Vector3f& vehSunPntBdy) {
-        return updateWith(algorithm, position, vehSunPntBdy);
+    const auto updateAt = [&](const Eigen::Vector3f& position, const Eigen::Vector3f& rHat_SB_B) {
+        return updateWith(algorithm, position, rHat_SB_B);
     };
     const auto expectCobPublished = [&](const CobConverterUpdateResult& result, const std::string& label) {
         EXPECT_TRUE(result.output.unitVecValid) << label;
