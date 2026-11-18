@@ -57,46 +57,46 @@ def test_sun_search_point(show_plots, case):
     deadbandAngle = 0.0
     if case == 1:  # Sun visible, vectors not aligned
         sunPointAxis_B = np.array([0.0, 0.0, 1.0])
-        sun_vec_B = np.array([1.0, 1.0, 0.0])
+        rawRHat_SB_B = np.array([1.0, 1.0, 0.0])
 
     elif case == 2:  # Sun not visible, search rate specified
         sunPointAxis_B = np.array([0.0, 0.0, 1.0])
-        sun_vec_B = np.array([0.0, 0.0, 0.0])
+        rawRHat_SB_B = np.array([0.0, 0.0, 0.0])
 
         omega_RN_B_Search = np.array([0.0, 0.0, 0.1])
 
     elif case == 3:  # Sun visible, vectors aligned
         sunPointAxis_B = np.array([0.0, 0.0, 1.0])
-        sun_vec_B = sunPointAxis_B
+        rawRHat_SB_B = sunPointAxis_B
 
     elif case == 4:  # Sun visible, vectors oppositely aligned
         sunPointAxis_B = np.array([0.0, 0.0, 1.0])
-        sun_vec_B = -sunPointAxis_B
+        rawRHat_SB_B = -sunPointAxis_B
 
     elif case == 5:  # Sun visible, vectors oppositely aligned, sunPointAxis_B is along b1
         sunPointAxis_B = np.array([1.0, 0.0, 0.0])
-        sun_vec_B = -sunPointAxis_B
+        rawRHat_SB_B = -sunPointAxis_B
 
     elif case == 6:  # Sun not visible, no search rate specified
         sunPointAxis_B = np.array([0.0, 0.0, 1.0])
-        sun_vec_B = np.array([0.0, 0.0, 0.0])
+        rawRHat_SB_B = np.array([0.0, 0.0, 0.0])
 
     elif case == 7:  # Sun visible, spin rate about sun heading vector specified
         sunPointAxis_B = np.array([0.0, 0.0, 1.0])
-        sun_vec_B = np.array([1.0, 1.0, 0.0])
+        rawRHat_SB_B = np.array([1.0, 1.0, 0.0])
 
         sunAxisSpinRate = 1.5*mc.D2R
-        omega_RN_B_Search = sun_vec_B/np.linalg.norm(sun_vec_B) * sunAxisSpinRate
+        omega_RN_B_Search = rawRHat_SB_B/np.linalg.norm(rawRHat_SB_B) * sunAxisSpinRate
 
     elif case == 8:  # Sun visible 0.05 rad off sunPointAxis_B, inside the deadband
         sunPointAxis_B = np.array([0.0, 0.0, 1.0])
-        sun_vec_B = np.array([np.sin(0.05), 0.0, np.cos(0.05)])
+        rawRHat_SB_B = np.array([np.sin(0.05), 0.0, np.cos(0.05)])
 
         deadbandAngle = 0.1
 
     elif case == 9:  # Sun visible 0.3 rad off sunPointAxis_B, outside the deadband
         sunPointAxis_B = np.array([0.0, 0.0, 1.0])
-        sun_vec_B = np.array([np.sin(0.3), 0.0, np.cos(0.3)])
+        rawRHat_SB_B = np.array([np.sin(0.3), 0.0, np.cos(0.3)])
 
         deadbandAngle = 0.1
 
@@ -117,7 +117,7 @@ def test_sun_search_point(show_plots, case):
 
     # Create sunSearchPoint sun direction input messages
     input_sun_vec_data = messaging.NavAttMsgF32Payload()
-    input_sun_vec_data.vehSunPntBdy = sun_vec_B
+    input_sun_vec_data.vehSunPntBdy = rawRHat_SB_B
     sun_in_msg = messaging.NavAttMsgF32().write(input_sun_vec_data)
 
     # Create sunSearchPoint body rate input message
@@ -150,15 +150,15 @@ def test_sun_search_point(show_plots, case):
 
     # Build the pointing-phase truth for the final (steady-state) sample
     if case == 1 or case == 7 or case == 9:
-        eHat = np.cross(sun_vec_B, sunPointAxis_B)
+        eHat = np.cross(rawRHat_SB_B, sunPointAxis_B)
         eHat = eHat / np.linalg.norm(eHat)
-        phi = np.arccos(np.dot(sun_vec_B / np.linalg.norm(sun_vec_B), sunPointAxis_B))
+        phi = np.arccos(np.dot(rawRHat_SB_B / np.linalg.norm(rawRHat_SB_B), sunPointAxis_B))
         sigma_BR_truth = eHat * np.tan(max(phi - deadbandAngle, 0.0) / 4.0)
     if case == 2 or case == 3 or case == 6 or case == 8:
         sigma_BR_truth = np.array([0.0, 0.0, 0.0])
     if case == 4 or case == 5:
         eHat = unit_orthogonal(sunPointAxis_B)
-        phi = np.arccos(np.dot(sun_vec_B / np.linalg.norm(sun_vec_B), sunPointAxis_B))
+        phi = np.arccos(np.dot(rawRHat_SB_B / np.linalg.norm(rawRHat_SB_B), sunPointAxis_B))
         sigma_BR_truth = eHat * np.tan(phi / 4.0)
 
     if case == 1 or case == 3 or case == 4 or case == 5 or case == 6 or case == 8 or case == 9:
@@ -213,7 +213,7 @@ def test_search_then_point(show_plots):
     unit_test_sim.AddModelToTask(unit_task_name, sun_search_point)
 
     sunPointAxis_B = np.array([0.0, 0.0, 1.0])
-    sun_vec_B = np.array([1.0, 1.0, 0.0])
+    rawRHat_SB_B = np.array([1.0, 1.0, 0.0])
     sun_search_point.sunPointAxis_B = sunPointAxis_B
     sun_search_point.sunAxisSpinRate = 0.0
     sun_search_point.observationThreshold = 4
@@ -229,7 +229,7 @@ def test_search_then_point(show_plots):
         sun_search_point.setRotation(i, rotation)
 
     input_sun_vec_data = messaging.NavAttMsgF32Payload()
-    input_sun_vec_data.vehSunPntBdy = sun_vec_B
+    input_sun_vec_data.vehSunPntBdy = rawRHat_SB_B
     sun_in_msg = messaging.NavAttMsgF32().write(input_sun_vec_data)
 
     input_rate_data = messaging.NavAttMsgF32Payload()
@@ -260,9 +260,9 @@ def test_search_then_point(show_plots):
     omega_RN_B = att_guid_out_msg_data_log.omega_RN_B
 
     # Pointing truth (sun visible, spin 0): sigma from the eigen-axis, omega_RN_B = 0.
-    eHat = np.cross(sun_vec_B, sunPointAxis_B)
+    eHat = np.cross(rawRHat_SB_B, sunPointAxis_B)
     eHat = eHat / np.linalg.norm(eHat)
-    phi = np.arccos(np.dot(sun_vec_B / np.linalg.norm(sun_vec_B), sunPointAxis_B))
+    phi = np.arccos(np.dot(rawRHat_SB_B / np.linalg.norm(rawRHat_SB_B), sunPointAxis_B))
     sigma_point_truth = eHat * np.tan(phi / 4.0)
 
     tolerance = 1e-6
@@ -303,7 +303,7 @@ def test_reconfigure_applies_params(show_plots):
     unit_test_sim.AddModelToTask(unit_task_name, sun_search_point)
 
     sunPointAxis_B = np.array([0.0, 0.0, 1.0])
-    sun_vec_B = np.array([1.0, 1.0, 0.0])
+    rawRHat_SB_B = np.array([1.0, 1.0, 0.0])
     sun_search_point.sunPointAxis_B = sunPointAxis_B
     sun_search_point.sunAxisSpinRate = 0.0
     sun_search_point.observationThreshold = 4
@@ -318,7 +318,7 @@ def test_reconfigure_applies_params(show_plots):
         sun_search_point.setRotation(i, rotation)
 
     input_sun_vec_data = messaging.NavAttMsgF32Payload()
-    input_sun_vec_data.vehSunPntBdy = sun_vec_B
+    input_sun_vec_data.vehSunPntBdy = rawRHat_SB_B
     sun_in_msg = messaging.NavAttMsgF32().write(input_sun_vec_data)
 
     input_rate_data = messaging.NavAttMsgF32Payload()
@@ -351,7 +351,7 @@ def test_reconfigure_applies_params(show_plots):
     unit_test_sim.ConfigureStopTime(mc.sec2nano(6.0))
     unit_test_sim.ExecuteSimulation()
 
-    expected_omega = sun_vec_B / np.linalg.norm(sun_vec_B) * spin_rate
+    expected_omega = rawRHat_SB_B / np.linalg.norm(rawRHat_SB_B) * spin_rate
     np.testing.assert_allclose(att_guid_out_msg_data_log.omega_RN_B[-1], expected_omega, rtol=1e-6, atol=1e-6)
 
 
@@ -373,7 +373,7 @@ def test_reinitialize_rearms_search(show_plots):
     unit_test_sim.AddModelToTask(unit_task_name, sun_search_point)
 
     sunPointAxis_B = np.array([0.0, 0.0, 1.0])
-    sun_vec_B = np.array([1.0, 1.0, 0.0])
+    rawRHat_SB_B = np.array([1.0, 1.0, 0.0])
     sun_search_point.sunPointAxis_B = sunPointAxis_B
     sun_search_point.sunAxisSpinRate = 0.0
     sun_search_point.observationThreshold = 4
@@ -390,7 +390,7 @@ def test_reinitialize_rearms_search(show_plots):
         sun_search_point.setRotation(i, rotation)
 
     input_sun_vec_data = messaging.NavAttMsgF32Payload()
-    input_sun_vec_data.vehSunPntBdy = sun_vec_B
+    input_sun_vec_data.vehSunPntBdy = rawRHat_SB_B
     sun_in_msg = messaging.NavAttMsgF32().write(input_sun_vec_data)
 
     input_rate_data = messaging.NavAttMsgF32Payload()
