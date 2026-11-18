@@ -12,7 +12,7 @@ using namespace f32;
 inline void testNavAggregate(double attTimeTag,
                              const Eigen::Vector3f& sigma_BN,
                              const Eigen::Vector3f& omega_BN_B,
-                             const Eigen::Vector3f& vehSunPntBdy,
+                             const Eigen::Vector3f& rHat_SB_B,
                              double transTimeTag,
                              const Eigen::Vector3d& r_BN_N,
                              const Eigen::Vector3d& v_BN_N,
@@ -57,7 +57,7 @@ inline void testNavAggregate(double attTimeTag,
             attInputData.omega_BN_B = omega_BN_B;
         }
         if (i == sunIdx) {
-            attInputData.vehSunPntBdy = vehSunPntBdy;
+            attInputData.rHat_SB_B = rHat_SB_B;
         }
         attInputs.at(i) = attInputData;
     }
@@ -90,7 +90,7 @@ inline void testNavAggregate(double attTimeTag,
         // Finiteness
         EXPECT_TRUE(std::isfinite(out.navAttOut.sigma_BN[i]));
         EXPECT_TRUE(std::isfinite(out.navAttOut.omega_BN_B[i]));
-        EXPECT_TRUE(std::isfinite(out.navAttOut.vehSunPntBdy[i]));
+        EXPECT_TRUE(std::isfinite(out.navAttOut.rHat_SB_B[i]));
         EXPECT_TRUE(std::isfinite(out.navTransOut.r_BN_N[i]));
         EXPECT_TRUE(std::isfinite(out.navTransOut.v_BN_N[i]));
         EXPECT_TRUE(std::isfinite(out.navTransOut.vehAccumDV[i]));
@@ -102,7 +102,7 @@ inline void testNavAggregate(double attTimeTag,
         if (attMsgCount > 0U) {
             EXPECT_EQ(out.navAttOut.sigma_BN[i], sigma_BN[i]);
             EXPECT_EQ(out.navAttOut.omega_BN_B[i], omega_BN_B[i]);
-            EXPECT_EQ(out.navAttOut.vehSunPntBdy[i], vehSunPntBdy[i]);
+            EXPECT_EQ(out.navAttOut.rHat_SB_B[i], rHat_SB_B[i]);
         }
         if (transMsgCount > 0U) {
             EXPECT_EQ(out.navTransOut.r_BN_N[i], r_BN_N[i]);

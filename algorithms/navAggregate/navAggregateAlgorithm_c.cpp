@@ -67,7 +67,7 @@ AggregateOutput_c NavAggregateAlgorithm_update(const NavAggregateAlgorithmHandle
         attArray[i].timeTag = attMsgsPayloads->msg[i].timeTag;
         attArray[i].sigma_BN = cArrayToEigenVector(attMsgsPayloads->msg[i].sigma_BN);
         attArray[i].omega_BN_B = cArrayToEigenVector(attMsgsPayloads->msg[i].omega_BN_B);
-        attArray[i].vehSunPntBdy = cArrayToEigenVector(attMsgsPayloads->msg[i].vehSunPntBdy);
+        attArray[i].rHat_SB_B = cArrayToEigenVector(attMsgsPayloads->msg[i].vehSunPntBdy);
 
         transArray[i].timeTag = transMsgsPayloads->msg[i].timeTag;
         transArray[i].r_BN_N = cArrayToEigenVector(transMsgsPayloads->msg[i].r_BN_N);
@@ -84,7 +84,7 @@ AggregateOutput_c NavAggregateAlgorithm_update(const NavAggregateAlgorithmHandle
     out.navAttOut.timeTag = result.navAttOut.timeTag;
     eigenVectorToCArray(result.navAttOut.sigma_BN, out.navAttOut.sigma_BN);
     eigenVectorToCArray(result.navAttOut.omega_BN_B, out.navAttOut.omega_BN_B);
-    eigenVectorToCArray(result.navAttOut.vehSunPntBdy, out.navAttOut.vehSunPntBdy);
+    eigenVectorToCArray(result.navAttOut.rHat_SB_B, out.navAttOut.vehSunPntBdy);
 
     out.navTransOut.timeTag = result.navTransOut.timeTag;
     eigenVectorToCArray(result.navTransOut.r_BN_N, out.navTransOut.r_BN_N);

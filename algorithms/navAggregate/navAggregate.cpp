@@ -103,7 +103,7 @@ void NavAggregate::updateState(uint64_t callTime) {
             attInputData.timeTag = navAttMsgPayload.timeTag;
             attInputData.sigma_BN = cArrayToEigenVector(navAttMsgPayload.sigma_BN);
             attInputData.omega_BN_B = cArrayToEigenVector(navAttMsgPayload.omega_BN_B);
-            attInputData.vehSunPntBdy = cArrayToEigenVector(navAttMsgPayload.vehSunPntBdy);
+            attInputData.rHat_SB_B = cArrayToEigenVector(navAttMsgPayload.vehSunPntBdy);
             attInputs.at(i) = attInputData;
         }
     }
@@ -131,7 +131,7 @@ void NavAggregate::updateState(uint64_t callTime) {
     navAttOutMsgPayload.timeTag = navAggregateOut.navAttOut.timeTag;
     eigenVectorToCArray(navAggregateOut.navAttOut.sigma_BN, navAttOutMsgPayload.sigma_BN);
     eigenVectorToCArray(navAggregateOut.navAttOut.omega_BN_B, navAttOutMsgPayload.omega_BN_B);
-    eigenVectorToCArray(navAggregateOut.navAttOut.vehSunPntBdy, navAttOutMsgPayload.vehSunPntBdy);
+    eigenVectorToCArray(navAggregateOut.navAttOut.rHat_SB_B, navAttOutMsgPayload.vehSunPntBdy);
 
     NavTransMsgF32Payload navTransOutMsgPayload{};
     navTransOutMsgPayload.timeTag = navAggregateOut.navTransOut.timeTag;
