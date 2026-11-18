@@ -33,9 +33,9 @@ inline constexpr float kBeta = 2.0;
 inline constexpr float kBiasLowerBound = 0.5;
 inline constexpr float kBiasUpperBound = 1.5;
 
-inline TestState makeState(Eigen::Vector3f const& sHat, Eigen::Vector3f const& omega, float bias) {
+inline TestState makeState(Eigen::Vector3f const& rHat_SB_B, Eigen::Vector3f const& omega, float bias) {
     TestState s;
-    s.set<filtering::Position<3>>(sHat);
+    s.set<filtering::Position<3>>(rHat_SB_B);
     s.set<filtering::Velocity<3>>(omega);
     Eigen::Vector<float, 1> b;
     b(0) = bias;
@@ -176,11 +176,11 @@ inline SunlineFilterConfig buildConfig(ConfigInputs const& in) {
 // keeps the remaining parameters at fixed valid constants. Returns nullopt for
 // unusable inputs so the fuzz harness skips them.
 // ---------------------------------------------------------------------------
-inline std::optional<SunlineFilterConfig> tryFuzzConfig(Eigen::Vector3f const& sHatRaw,
+inline std::optional<SunlineFilterConfig> tryFuzzConfig(Eigen::Vector3f const& rawRHat_SB_B,
                                                         Eigen::Vector3f const& omega,
                                                         float bias,
                                                         Vector7 const& covDiagRaw) {
-    if (!sHatRaw.allFinite() || sHatRaw.stableNorm() < 1E-3 || !omega.allFinite() || !std::isfinite(bias) ||
+    if (!rawRHat_SB_B.allFinite() || rawRHat_SB_B.stableNorm() < 1E-3 || !omega.allFinite() || !std::isfinite(bias) ||
         !covDiagRaw.allFinite()) {
         return std::nullopt;
     }
@@ -188,7 +188,7 @@ inline std::optional<SunlineFilterConfig> tryFuzzConfig(Eigen::Vector3f const& s
     // the initial bias is clamped into the bounds the config requires.
     Vector7 const covDiag = covDiagRaw.cwiseAbs() + Vector7::Constant(1E-6);
     float const initialBias = std::clamp(bias, kBiasLowerBound, kBiasUpperBound);
-    return threeCssConfig(makeState(sHatRaw.stableNormalized(), omega, initialBias), covDiag.asDiagonal(), 0.0);
+    return threeCssConfig(makeState(rawRHat_SB_B.stableNormalized(), omega, initialBias), covDiag.asDiagonal(), 0.0);
 }
 
 // Drives one update() with the given (possibly non-finite) CSS cos-values and rate at a shared
@@ -214,14 +214,14 @@ inline void driveUpdate(SunlineFilterAlgorithm& algo,
 // meaningful: the state and covariance are finite, the heading is a unit vector (regularize
 // renormalizes it), the CSS bias is inside its configured bounds (a bias outside is reset), and the
 // covariance stays symmetric.
-inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3f sHatRaw,
+inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3f rawRHat_SB_B,
                                                     Eigen::Vector3f omega,
                                                     float bias,
                                                     Vector7 covDiagRaw,
                                                     Eigen::Vector<float, MaxCss> cssCos,
                                                     Eigen::Vector3f rate,
                                                     float dt) {
-    std::optional<SunlineFilterConfig> const cfg = tryFuzzConfig(sHatRaw, omega, bias, covDiagRaw);
+    std::optional<SunlineFilterConfig> const cfg = tryFuzzConfig(rawRHat_SB_B, omega, bias, covDiagRaw);
     if (!cfg || !cssCos.allFinite() || !rate.allFinite() || !std::isfinite(dt) || dt < 0.0) {
         return;
     }
@@ -242,14 +242,14 @@ inline void propertyUpdateKeepsStateValidAndBounded(Eigen::Vector3f sHatRaw,
 // A bad measurement can never corrupt the estimate: even with non-finite CSS cos-values or rate,
 // the SRUKF skips the update (its finite-input guard) so the state stays finite and the heading
 // stays a unit vector. The config inputs are finite; only the measurement data is arbitrary.
-inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3f sHatRaw,
+inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3f rawRHat_SB_B,
                                                        Eigen::Vector3f omega,
                                                        float bias,
                                                        Vector7 covDiagRaw,
                                                        Eigen::Vector<float, MaxCss> cssCos,
                                                        Eigen::Vector3f rate,
                                                        float dt) {
-    std::optional<SunlineFilterConfig> const cfg = tryFuzzConfig(sHatRaw, omega, bias, covDiagRaw);
+    std::optional<SunlineFilterConfig> const cfg = tryFuzzConfig(rawRHat_SB_B, omega, bias, covDiagRaw);
     if (!cfg || !std::isfinite(dt) || dt < 0.0) {
         return;
     }
@@ -265,12 +265,12 @@ inline void propertyArbitraryMeasurementsPreserveState(Eigen::Vector3f sHatRaw,
 // Folding in a measurement never increases the total uncertainty: with no time propagation between
 // them (timeUpdate(0) adds no process noise), the covariance trace after a rate measurementUpdate is
 // no larger than before. This is the defining information-gain property of a Kalman-family update.
-inline void propertyRateMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f sHatRaw,
+inline void propertyRateMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f rawRHat_SB_B,
                                                              Eigen::Vector3f omega,
                                                              float bias,
                                                              Vector7 covDiagRaw,
                                                              Eigen::Vector3f rate) {
-    std::optional<SunlineFilterConfig> const cfg = tryFuzzConfig(sHatRaw, omega, bias, covDiagRaw);
+    std::optional<SunlineFilterConfig> const cfg = tryFuzzConfig(rawRHat_SB_B, omega, bias, covDiagRaw);
     if (!cfg || !rate.allFinite()) {
         return;
     }

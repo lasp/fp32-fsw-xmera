@@ -28,17 +28,18 @@ inline auto boundedOrNonFinite() {
 
 // Thin free-function wrappers so FUZZ_TEST references an unqualified name (the property
 // helpers themselves live in namespace filtering::sunlineFilter).
-inline void fuzzUpdateKeepsStateValidAndBounded(Eigen::Vector3f sHatRaw,
+inline void fuzzUpdateKeepsStateValidAndBounded(Eigen::Vector3f rawRHat_SB_B,
                                                 Eigen::Vector3f omega,
                                                 float bias,
                                                 Vector7 covDiag,
                                                 Eigen::Vector<float, MaxCss> cssCos,
                                                 Eigen::Vector3f rate,
                                                 float dt) {
-    filtering::sunlineFilter::propertyUpdateKeepsStateValidAndBounded(sHatRaw, omega, bias, covDiag, cssCos, rate, dt);
+    filtering::sunlineFilter::propertyUpdateKeepsStateValidAndBounded(
+        rawRHat_SB_B, omega, bias, covDiag, cssCos, rate, dt);
 }
 
-inline void fuzzArbitraryMeasurementsPreserveState(Eigen::Vector3f sHatRaw,
+inline void fuzzArbitraryMeasurementsPreserveState(Eigen::Vector3f rawRHat_SB_B,
                                                    Eigen::Vector3f omega,
                                                    float bias,
                                                    Vector7 covDiag,
@@ -46,15 +47,16 @@ inline void fuzzArbitraryMeasurementsPreserveState(Eigen::Vector3f sHatRaw,
                                                    Eigen::Vector3f rate,
                                                    float dt) {
     filtering::sunlineFilter::propertyArbitraryMeasurementsPreserveState(
-        sHatRaw, omega, bias, covDiag, cssCos, rate, dt);
+        rawRHat_SB_B, omega, bias, covDiag, cssCos, rate, dt);
 }
 
-inline void fuzzRateMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f sHatRaw,
+inline void fuzzRateMeasurementDoesNotIncreaseCovariance(Eigen::Vector3f rawRHat_SB_B,
                                                          Eigen::Vector3f omega,
                                                          float bias,
                                                          Vector7 covDiag,
                                                          Eigen::Vector3f rate) {
-    filtering::sunlineFilter::propertyRateMeasurementDoesNotIncreaseCovariance(sHatRaw, omega, bias, covDiag, rate);
+    filtering::sunlineFilter::propertyRateMeasurementDoesNotIncreaseCovariance(
+        rawRHat_SB_B, omega, bias, covDiag, rate);
 }
 
 }  // namespace

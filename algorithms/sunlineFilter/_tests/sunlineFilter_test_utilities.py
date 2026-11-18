@@ -28,7 +28,7 @@ def states(x, testName):
     plt.subplot(331)
     plt.plot(t, x[:, 1], "b", label='Error Filter')
     plt.legend(loc='lower right')
-    plt.title('First sHat component')
+    plt.title('First rHat_SB_B component')
     plt.grid()
 
     plt.subplot(332)
@@ -38,7 +38,7 @@ def states(x, testName):
 
     plt.subplot(333)
     plt.plot(t, x[:, 2], "b")
-    plt.title('Second sHat component')
+    plt.title('Second rHat_SB_B component')
     plt.grid()
 
     plt.subplot(334)
@@ -50,7 +50,7 @@ def states(x, testName):
     plt.subplot(335)
     plt.plot(t, x[:, 3], "b")
     plt.xlabel('t(s)')
-    plt.title('Third sHat component')
+    plt.title('Third rHat_SB_B component')
     plt.grid()
 
     plt.subplot(336)
