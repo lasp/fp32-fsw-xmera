@@ -43,14 +43,14 @@ class SunAvoidanceReference {
                                        const Eigen::Vector3f& sigma_RN,
                                        const Eigen::Vector3f& omega_RN_N,
                                        const Eigen::Vector3f& domega_RN_N,
-                                       const Eigen::Vector3f& sHat_B,
+                                       const Eigen::Vector3f& rHat_SB_B,
                                        uint64_t callTime) {
         if (!this->maneuverInitialized) {
             // Sun avoidance always runs, but it needs a usable Sun direction: a zero Sun direction leaves
             // no maneuver to perform.
-            if (sHat_B.stableNorm() > 0.0F) {
+            if (rHat_SB_B.stableNorm() > 0.0F) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-                const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.stableNormalized();
+                const Eigen::Vector3f rHat_SB_N = dcm_BN.transpose() * rHat_SB_B.stableNormalized();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
 
                 const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_RN);
@@ -59,7 +59,8 @@ class SunAvoidanceReference {
                 const Eigen::Vector3f sensFinal_N = dcm_BNFinal.transpose() * this->sensitiveHat_B;
 
                 const Eigen::Vector3f sensAxis_N = sensInitial_N.cross(sensFinal_N).stableNormalized();
-                const Eigen::Vector3f pHat_N = (sHat_N - (sensAxis_N.dot(sHat_N)) * sensAxis_N).stableNormalized();
+                const Eigen::Vector3f pHat_N =
+                    (rHat_SB_N - (sensAxis_N.dot(rHat_SB_N)) * sensAxis_N).stableNormalized();
 
                 const float initMnvrAngle = safeAcosf(sensInitial_N.dot(sensFinal_N));
                 const float initCelAngle = safeAcosf(pHat_N.dot(sensInitial_N));
@@ -69,7 +70,7 @@ class SunAvoidanceReference {
                 this->angleStart = prv_BR.stableNorm();
                 this->mnvrAxis_B = prv_BR.stableNormalized();
 
-                const Eigen::Vector3f sensToSunAxis_N = sensInitial_N.cross(sHat_N).stableNormalized();
+                const Eigen::Vector3f sensToSunAxis_N = sensInitial_N.cross(rHat_SB_N).stableNormalized();
                 const Eigen::Vector3f mnvrAxis_N = dcm_BN.transpose() * this->mnvrAxis_B;
                 const float finalCelAngle = sensToSunAxis_N.dot(mnvrAxis_N);
 
@@ -121,12 +122,12 @@ class SunAvoidanceReference {
 // ---------------------------------------------------------------------------
 // Integrated regression helper: drive the sunAvoidance algorithm and the independent
 // reference through a time sequence with fixed, representative navigation/reference
-// inputs, and assert agreement at every step. The Sun direction sHat_B is varied by
+// inputs, and assert agreement at every step. The Sun direction rHat_SB_B is varied by
 // the caller.
 // ---------------------------------------------------------------------------
 inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
                                  float slewRate,
-                                 const Eigen::Vector3f& sHat_B,
+                                 const Eigen::Vector3f& rHat_SB_B,
                                  uint64_t stepNs,
                                  int numSteps) {
     const Eigen::Vector3f sigma_BN{0.25F, -0.45F, 0.75F};
@@ -149,14 +150,14 @@ inline void integratedRegression(const Eigen::Vector3f& sensitiveHat_B,
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
 
         // sunAvoidance produces the maneuver-adjusted reference frame ...
-        const SunAvoidanceAttRef adjustedRef = alg.update(sigma_BN, refIn, sHat_B, callTime);
+        const SunAvoidanceAttRef adjustedRef = alg.update(sigma_BN, refIn, rHat_SB_B, callTime);
         // ... and attTrackingError forms the attitude tracking error from it and the navigation attitude.
         const AttGuidOutput algOut =
             attError.update(AttNavInput{sigma_BN, omega_BN_B},
                             AttRefInput{adjustedRef.sigma_RN, adjustedRef.omega_RN_N, adjustedRef.domega_RN_N});
 
         const SunAvoidanceReferenceOutput refOut =
-            ref.update(sigma_BN, omega_BN_B, sigma_RN, omega_RN_N, domega_RN_N, sHat_B, callTime);
+            ref.update(sigma_BN, omega_BN_B, sigma_RN, omega_RN_N, domega_RN_N, rHat_SB_B, callTime);
 
         // attTrackingError forms sigma_BR via subMrp while the reference uses dcmToMrp; at large errors
         // these can pick different (physically identical) MRP shadow-set representatives, so compare the

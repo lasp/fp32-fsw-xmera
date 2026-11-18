@@ -8,7 +8,7 @@ constexpr uint64_t kHalfSecNs = fsw::kNanosPerSecond / 2U;           // 0.5 s up
 constexpr float kManeuverRate = std::numbers::pi_v<float> / 180.0F;  // 1 deg/s feed-forward slew
 
 // Representative body-frame Sun direction that engages the avoidance maneuver.
-const Eigen::Vector3f kSunHat_B{0.078F, -0.693F, 0.717F};
+const Eigen::Vector3f kRHat_SB_B{0.078F, -0.693F, 0.717F};
 const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 }  // namespace
 
@@ -19,7 +19,7 @@ const Eigen::Vector3f kSensitiveHat_B{0.0F, -1.0F, 0.0F};
 TEST(SunAvoidanceIntegrated, TrackingErrorOnly) {
     integratedRegression(kSensitiveHat_B,
                          kManeuverRate,            // unused: the maneuver angle starts at zero
-                         Eigen::Vector3f::Zero(),  // sHat_B: no Sun information
+                         Eigen::Vector3f::Zero(),  // rHat_SB_B: no Sun information
                          kHalfSecNs,
                          12);
 }
@@ -29,7 +29,7 @@ TEST(SunAvoidanceIntegrated, TrackingErrorOnly) {
 // forward (relativeAngle > 0) throughout, exercising the catch-up rate term.
 // ---------------------------------------------------------------------------
 TEST(SunAvoidanceIntegrated, SunAvoidanceFeedingForward) {
-    integratedRegression(kSensitiveHat_B, kManeuverRate, kSunHat_B, kHalfSecNs, 12);
+    integratedRegression(kSensitiveHat_B, kManeuverRate, kRHat_SB_B, kHalfSecNs, 12);
 }
 
 // ---------------------------------------------------------------------------
@@ -37,5 +37,5 @@ TEST(SunAvoidanceIntegrated, SunAvoidanceFeedingForward) {
 // clamped, exercising the relativeAngle > 0 -> 0 transition and the post-maneuver steady state.
 // ---------------------------------------------------------------------------
 TEST(SunAvoidanceIntegrated, SunAvoidanceDecaysToZero) {
-    integratedRegression(kSensitiveHat_B, kManeuverRate, kSunHat_B, kHalfSecNs, 400);
+    integratedRegression(kSensitiveHat_B, kManeuverRate, kRHat_SB_B, kHalfSecNs, 400);
 }

@@ -55,7 +55,7 @@ class SunAvoidanceAlgorithm final {
     void reInitialize();
     SunAvoidanceAttRef update(const Eigen::Vector3f& sigma_BN,
                               const SunAvoidanceAttRef& ref,
-                              const Eigen::Vector3f& sHat_B,
+                              const Eigen::Vector3f& rHat_SB_B,
                               uint64_t callTime);
 
    private:
@@ -68,7 +68,7 @@ class SunAvoidanceAlgorithm final {
 
     Maneuver initializeManeuver(const Eigen::Vector3f& sigma_BN,
                                 const SunAvoidanceAttRef& ref,
-                                const Eigen::Vector3f& sHat_N) const;
+                                const Eigen::Vector3f& rHat_SB_N) const;
     SunAvoidanceAttRef computeAdjustedReference(const Eigen::Vector3f& sigma_BN,
                                                 const SunAvoidanceAttRef& ref,
                                                 uint64_t callTime) const;

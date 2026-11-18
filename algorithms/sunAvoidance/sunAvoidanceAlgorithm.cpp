@@ -21,20 +21,20 @@ void SunAvoidanceAlgorithm::reInitialize() { this->maneuver.reset(); }
  first call and fed forward at the configured rate thereafter.
  @param sigma_BN measured MRP attitude of B wrt N
  @param ref attitude reference inputs
- @param sHat_B Sun direction in body frame components
+ @param rHat_SB_B Sun direction in body frame components
  @param callTime call time (nanoseconds)
  @return the maneuver-adjusted reference frame
  */
 SunAvoidanceAttRef SunAvoidanceAlgorithm::update(const Eigen::Vector3f& sigma_BN,
                                                  const SunAvoidanceAttRef& ref,
-                                                 const Eigen::Vector3f& sHat_B,
+                                                 const Eigen::Vector3f& rHat_SB_B,
                                                  const uint64_t callTime) {
     if (!this->maneuver.has_value()) {
         Maneuver m{};
-        const Eigen::Vector3f sHat_N = (mrpToDcm(sigma_BN).transpose() * sHat_B).stableNormalized();
+        const Eigen::Vector3f rHat_SB_N = (mrpToDcm(sigma_BN).transpose() * rHat_SB_B).stableNormalized();
         // Skip the maneuver (pass-through) when no usable Sun direction is available (zero vector).
-        if (sHat_N.stableNorm() > 0.0F) {
-            m = initializeManeuver(sigma_BN, ref, sHat_N);
+        if (rHat_SB_N.stableNorm() > 0.0F) {
+            m = initializeManeuver(sigma_BN, ref, rHat_SB_N);
         }
         m.startTime = callTime;
         this->maneuver = m;
@@ -47,12 +47,12 @@ SunAvoidanceAttRef SunAvoidanceAlgorithm::update(const Eigen::Vector3f& sigma_BN
  to coincide with the reference frame.
  @param sigma_BN measured MRP attitude of B wrt N
  @param ref attitude reference inputs
- @param sHat_N inertial unit vector from the spacecraft to the Sun
+ @param rHat_SB_N inertial unit vector from the spacecraft to the Sun
  @return the initialized maneuver (axis and angle; start time is set by the caller)
  */
 SunAvoidanceAlgorithm::Maneuver SunAvoidanceAlgorithm::initializeManeuver(const Eigen::Vector3f& sigma_BN,
                                                                           const SunAvoidanceAttRef& ref,
-                                                                          const Eigen::Vector3f& sHat_N) const {
+                                                                          const Eigen::Vector3f& rHat_SB_N) const {
     // Phase 1: compute the maneuver -- the short-way principal rotation from the body to the reference.
     // The rotation is taken from R to B so the stored axis points the way the slew travels.
     // stableNormalized/stableNorm keep a zero rotation (body already at the reference) finite, not NaN.
@@ -77,8 +77,8 @@ SunAvoidanceAlgorithm::Maneuver SunAvoidanceAlgorithm::initializeManeuver(const 
     //  - initial-to-Sun axis: zero when the Sun is parallel to the initial sensitive axis.
     const Eigen::Vector3f sensitiveSweepAxis_N = (sensitiveInitial_N.cross(sensitiveFinal_N)).stableNormalized();
     const Eigen::Vector3f sunInSweepPlane_N =
-        (sHat_N - (sensitiveSweepAxis_N.dot(sHat_N)) * sensitiveSweepAxis_N).stableNormalized();
-    const Eigen::Vector3f initialToSunAxis_N = (sensitiveInitial_N.cross(sHat_N)).stableNormalized();
+        (rHat_SB_N - (sensitiveSweepAxis_N.dot(rHat_SB_N)) * sensitiveSweepAxis_N).stableNormalized();
+    const Eigen::Vector3f initialToSunAxis_N = (sensitiveInitial_N.cross(rHat_SB_N)).stableNormalized();
     const bool avoidanceGeometryDefined = sensitiveSweepAxis_N.stableNorm() > 0.0F &&
                                           sunInSweepPlane_N.stableNorm() > 0.0F &&
                                           initialToSunAxis_N.stableNorm() > 0.0F;

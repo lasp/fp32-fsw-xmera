@@ -59,12 +59,12 @@ void SunAvoidance::updateState(uint64_t callTime) {
     const AttRefMsgF32Payload ref = this->attRefInMsg();  //!< reference guidance message
 
     const Eigen::Vector3f sigma_BN = cArrayToEigenVector3(nav.sigma_BN);
-    const Eigen::Vector3f sHat_B = cArrayToEigenVector3(nav.vehSunPntBdy);
+    const Eigen::Vector3f rHat_SB_B = cArrayToEigenVector3(nav.vehSunPntBdy);
     const SunAvoidanceAttRef refInputs{cArrayToEigenVector3(ref.sigma_RN),
                                        cArrayToEigenVector3(ref.omega_RN_N),
                                        cArrayToEigenVector3(ref.domega_RN_N)};
 
-    const SunAvoidanceAttRef out = this->algorithm->update(sigma_BN, refInputs, sHat_B, callTime);
+    const SunAvoidanceAttRef out = this->algorithm->update(sigma_BN, refInputs, rHat_SB_B, callTime);
 
     AttRefMsgF32Payload attRef{};
     eigenVectorToCArray(out.sigma_RN, attRef.sigma_RN);

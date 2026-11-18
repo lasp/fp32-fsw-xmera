@@ -26,20 +26,21 @@ class SunAvoidanceReference {
                               const Eigen::Vector3f& sigma_RN,
                               const Eigen::Vector3f& omega_RN_N,
                               const Eigen::Vector3f& domega_RN_N,
-                              const Eigen::Vector3f& sHat_B,
+                              const Eigen::Vector3f& rHat_SB_B,
                               uint64_t callTime) {
         if (!this->maneuverInitialized) {
             // Sun avoidance always runs, but it needs a usable Sun direction: a zero Sun direction leaves
             // no maneuver to perform.
-            if (sHat_B.stableNorm() > 0.0F) {
+            if (rHat_SB_B.stableNorm() > 0.0F) {
                 const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-                const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.stableNormalized();
+                const Eigen::Vector3f rHat_SB_N = dcm_BN.transpose() * rHat_SB_B.stableNormalized();
                 const Eigen::Vector3f sensInitial_N = dcm_BN.transpose() * this->sensitiveHat_B;
                 const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
                 const Eigen::Vector3f sensFinal_N = dcm_RN.transpose() * this->sensitiveHat_B;
 
                 const Eigen::Vector3f sensAxis_N = sensInitial_N.cross(sensFinal_N).stableNormalized();
-                const Eigen::Vector3f pHat_N = (sHat_N - (sensAxis_N.dot(sHat_N)) * sensAxis_N).stableNormalized();
+                const Eigen::Vector3f pHat_N =
+                    (rHat_SB_N - (sensAxis_N.dot(rHat_SB_N)) * sensAxis_N).stableNormalized();
 
                 const float initMnvrAngle = safeAcosf(sensInitial_N.dot(sensFinal_N));
                 const float initCelAngle = safeAcosf(pHat_N.dot(sensInitial_N));
@@ -49,7 +50,7 @@ class SunAvoidanceReference {
                 this->angleStart = prv_BR.stableNorm();
                 this->mnvrAxis_B = prv_BR.stableNormalized();
 
-                const Eigen::Vector3f sensToSunAxis_N = sensInitial_N.cross(sHat_N).stableNormalized();
+                const Eigen::Vector3f sensToSunAxis_N = sensInitial_N.cross(rHat_SB_N).stableNormalized();
                 const Eigen::Vector3f mnvrAxis_N = dcm_BN.transpose() * this->mnvrAxis_B;
                 if (sensToSunAxis_N.dot(mnvrAxis_N) < 0.0F && initCelAngle < initMnvrAngle) {
                     this->angleStart = (2.0F * std::numbers::pi_v<float>)-this->angleStart;
@@ -116,16 +117,16 @@ class SunAvoidanceReference {
 inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
                                          const Eigen::Vector3f& sigma_BN,
                                          const Eigen::Vector3f& sigma_RN,
-                                         const Eigen::Vector3f& sHat_B) {
+                                         const Eigen::Vector3f& rHat_SB_B) {
     constexpr float kMargin = 1e-2F;  // comfortably above fp32 noise; excludes only thin shells
 
-    if (sHat_B.stableNorm() <= 0.0F) {
+    if (rHat_SB_B.stableNorm() <= 0.0F) {
         return true;  // no usable Sun information (the algorithm passes through)
     }
 
     const Eigen::Vector3f sensitive_B = sensitiveHat_B.stableNormalized();
     const Eigen::Matrix3f dcm_BN = mrpToDcm(sigma_BN);
-    const Eigen::Vector3f sHat_N = dcm_BN.transpose() * sHat_B.stableNormalized();
+    const Eigen::Vector3f rHat_SB_N = dcm_BN.transpose() * rHat_SB_B.stableNormalized();
     const Eigen::Matrix3f dcm_RN = mrpToDcm(sigma_RN);
     const Eigen::Vector3f sensitiveInitial_N = dcm_BN.transpose() * sensitive_B;
     const Eigen::Vector3f sensitiveFinal_N = dcm_RN.transpose() * sensitive_B;
@@ -136,11 +137,11 @@ inline bool nearManeuverDecisionBoundary(const Eigen::Vector3f& sensitiveHat_B,
         return true;  // initial and final sensitive axes near parallel / anti-parallel
     }
     const Eigen::Vector3f sweepAxis_N = sweepAxisRaw.stableNormalized();
-    const Eigen::Vector3f sunInPlaneRaw = sHat_N - (sweepAxis_N.dot(sHat_N)) * sweepAxis_N;
+    const Eigen::Vector3f sunInPlaneRaw = rHat_SB_N - (sweepAxis_N.dot(rHat_SB_N)) * sweepAxis_N;
     if (sunInPlaneRaw.stableNorm() < kMargin) {
         return true;  // Sun near parallel to the sweep axis
     }
-    const Eigen::Vector3f initialToSunAxisRaw = sensitiveInitial_N.cross(sHat_N);
+    const Eigen::Vector3f initialToSunAxisRaw = sensitiveInitial_N.cross(rHat_SB_N);
     if (initialToSunAxisRaw.stableNorm() < kMargin) {
         return true;  // Sun near parallel to the initial sensitive axis
     }
@@ -180,10 +181,10 @@ inline void regressionTestSunAvoidance(const Eigen::Vector3f& sensitiveHat_B,
                                        const Eigen::Vector3f& sigma_RN,
                                        const Eigen::Vector3f& omega_RN_N,
                                        const Eigen::Vector3f& domega_RN_N,
-                                       const Eigen::Vector3f& sHat_B,
+                                       const Eigen::Vector3f& rHat_SB_B,
                                        uint64_t stepNs,
                                        int numSteps) {
-    if (nearManeuverDecisionBoundary(sensitiveHat_B, sigma_BN, sigma_RN, sHat_B)) {
+    if (nearManeuverDecisionBoundary(sensitiveHat_B, sigma_BN, sigma_RN, rHat_SB_B)) {
         return;  // ambiguous short/long-way branch: skip
     }
 
@@ -196,8 +197,8 @@ inline void regressionTestSunAvoidance(const Eigen::Vector3f& sensitiveHat_B,
     constexpr float tol = 1e-5F;
     for (int k = 0; k < numSteps; ++k) {
         const uint64_t callTime = static_cast<uint64_t>(k) * stepNs;
-        const SunAvoidanceAttRef algOut = alg.update(sigma_BN, refIn, sHat_B, callTime);
-        const SunAvoidanceAttRef refOut = ref.update(sigma_BN, sigma_RN, omega_RN_N, domega_RN_N, sHat_B, callTime);
+        const SunAvoidanceAttRef algOut = alg.update(sigma_BN, refIn, rHat_SB_B, callTime);
+        const SunAvoidanceAttRef refOut = ref.update(sigma_BN, sigma_RN, omega_RN_N, domega_RN_N, rHat_SB_B, callTime);
 
         EXPECT_TRUE(algOut.sigma_RN.allFinite()) << "sigma_RN not finite at step " << k;
         EXPECT_TRUE(algOut.omega_RN_N.allFinite()) << "omega_RN_N not finite at step " << k;
@@ -228,7 +229,7 @@ namespace detail {
 constexpr uint64_t kStepNs = fsw::kNanosPerSecond / 2U;              // 0.5 s
 constexpr float kManeuverRate = std::numbers::pi_v<float> / 180.0F;  // 1 deg/s
 inline Eigen::Vector3f sensitiveHat_B() { return Eigen::Vector3f{0.0F, -1.0F, 0.0F}; }
-inline Eigen::Vector3f sHat_B() { return Eigen::Vector3f{0.078F, -0.693F, 0.717F}; }
+inline Eigen::Vector3f rHat_SB_B() { return Eigen::Vector3f{0.078F, -0.693F, 0.717F}; }
 }  // namespace detail
 
 // With no usable Sun information (zero Sun direction) there is no maneuver to perform,
@@ -274,7 +275,7 @@ inline void propertyManeuverOutputBoundedAndFinite(const Eigen::Vector3f& sigma_
     constexpr float normBound = 1.0F + 1e-5F;
     for (int k = 0; k < 20; ++k) {
         const SunAvoidanceAttRef out =
-            alg.update(sigma_BN, refIn, detail::sHat_B(), static_cast<uint64_t>(k) * detail::kStepNs);
+            alg.update(sigma_BN, refIn, detail::rHat_SB_B(), static_cast<uint64_t>(k) * detail::kStepNs);
         EXPECT_TRUE(out.sigma_RN.allFinite());
         EXPECT_TRUE(out.omega_RN_N.allFinite());
         EXPECT_TRUE(out.domega_RN_N.allFinite());
@@ -295,7 +296,7 @@ inline void propertyDecayedManeuverEqualsInputRef(const Eigen::Vector3f& sigma_B
     // A full 2*pi maneuver at 1 deg/s decays in <= 360 s; 800 half-second steps guarantees completion.
     SunAvoidanceAttRef out{};
     for (int k = 0; k < 800; ++k) {
-        out = alg.update(sigma_BN, refIn, detail::sHat_B(), static_cast<uint64_t>(k) * detail::kStepNs);
+        out = alg.update(sigma_BN, refIn, detail::rHat_SB_B(), static_cast<uint64_t>(k) * detail::kStepNs);
     }
 
     constexpr float tol = 1e-5F;
@@ -321,12 +322,12 @@ inline void propertyReInitializeRestartsManeuver(const Eigen::Vector3f& sigma_BN
     SunAvoidanceAlgorithm alg{config};
     const SunAvoidanceAttRef refIn{sigma_RN, omega_RN_N, domega_RN_N};
 
-    const SunAvoidanceAttRef first = alg.update(sigma_BN, refIn, detail::sHat_B(), 0);
+    const SunAvoidanceAttRef first = alg.update(sigma_BN, refIn, detail::rHat_SB_B(), 0);
     for (int k = 1; k < 5; ++k) {
-        (void)alg.update(sigma_BN, refIn, detail::sHat_B(), static_cast<uint64_t>(k) * detail::kStepNs);
+        (void)alg.update(sigma_BN, refIn, detail::rHat_SB_B(), static_cast<uint64_t>(k) * detail::kStepNs);
     }
     alg.reInitialize();
-    const SunAvoidanceAttRef afterReinit = alg.update(sigma_BN, refIn, detail::sHat_B(), 0);
+    const SunAvoidanceAttRef afterReinit = alg.update(sigma_BN, refIn, detail::rHat_SB_B(), 0);
 
     constexpr float tol = 1e-6F;
     for (int i = 0; i < 3; ++i) {
@@ -345,14 +346,14 @@ inline void fuzzRegressionSunAvoidance(const Eigen::Vector3f& sigma_BN,
                                        const Eigen::Vector3f& sigma_RN,
                                        const Eigen::Vector3f& omega_RN_N,
                                        const Eigen::Vector3f& domega_RN_N,
-                                       const Eigen::Vector3f& sHat_B) {
+                                       const Eigen::Vector3f& rHat_SB_B) {
     regressionTestSunAvoidance(detail::sensitiveHat_B(),
                                detail::kManeuverRate,
                                sigma_BN,
                                sigma_RN,
                                omega_RN_N,
                                domega_RN_N,
-                               sHat_B,
+                               rHat_SB_B,
                                detail::kStepNs,
                                12);
 }
