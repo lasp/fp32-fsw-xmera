@@ -116,26 +116,16 @@ class CobConverterConfig final {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: calibrationCoefficients must be finite");
         }
         if (!isValidFieldOfView(fieldOfViewX)) {
-            FSW_THROW_INVALID_ARGUMENT("cobConverter: fieldOfViewX must be > 0 and < pi");
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: fieldOfViewX must be in [0.1 deg, 90 deg]");
         }
         if (!isValidFieldOfView(fieldOfViewY)) {
-            FSW_THROW_INVALID_ARGUMENT("cobConverter: fieldOfViewY must be > 0 and < pi");
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: fieldOfViewY must be in [0.1 deg, 90 deg]");
         }
         if (!isValidResolutionX(resolutionX)) {
-            FSW_THROW_INVALID_ARGUMENT("cobConverter: resolutionX must be > 0");
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: resolutionX must be in [1, 10000]");
         }
         if (!isValidResolutionY(resolutionY)) {
-            FSW_THROW_INVALID_ARGUMENT("cobConverter: resolutionY must be > 0");
-        }
-        if (!isValidCameraParam(fieldOfViewX, fieldOfViewY)) {
-            FSW_THROW_INVALID_ARGUMENT(
-                "cobConverter: fieldOfViewX/fieldOfViewY combination pushes the camera "
-                "model's internal tan() argument into the safeTanf clamp zone near +/-pi/2");
-        }
-        if (!isValidFocalScale(fieldOfViewX, fieldOfViewY, resolutionX, resolutionY)) {
-            FSW_THROW_INVALID_ARGUMENT(
-                "cobConverter: fieldOfView/resolution combination makes the focal scale dX or dY "
-                "overflow or underflow in fp32");
+            FSW_THROW_INVALID_ARGUMENT("cobConverter: resolutionY must be in [1, 10000]");
         }
         if (!isValidBodyToCameraMrp(bodyToCameraMrp)) {
             FSW_THROW_INVALID_ARGUMENT("cobConverter: bodyToCameraMrp must be finite");
@@ -158,6 +148,12 @@ class CobConverterConfig final {
     /*! [m] smallest |r| of a usable filter state. Below it r_hat and the 1/r partials are dominated by rounding. Far
      below any real range. */
     static constexpr float kMinPositionNorm = 1e-3F;
+
+    // Camera bounds. They keep dX, dY in [0.5, 5.8e6], so K and K^-1 are finite in fp32.
+    static constexpr float kMinFieldOfView = 0.1F * std::numbers::pi_v<float> / 180.0F;  //!< [rad] 0.1 deg
+    static constexpr float kMaxFieldOfView = std::numbers::pi_v<float> / 2.0F;           //!< [rad] 90 deg
+    static constexpr float kMinResolution = 1.0F;                                        //!< [px]
+    static constexpr float kMaxResolution = 10000.0F;                                    //!< [px]
 
     /*! Check whether a filter state can drive the phase correction and the outlier gate: finite position with
      |r| >= kMinPositionNorm, and finite position covariance.
@@ -190,27 +186,15 @@ class CobConverterConfig final {
     }
     // No isValidCameraId — any int value is valid (camera identifier, no numeric constraint).
     static bool isValidFieldOfView(float fieldOfView) {
-        return fsw::is_finite(fieldOfView) && fieldOfView > 0.0F && fieldOfView < std::numbers::pi_v<float>;
+        return fsw::is_finite(fieldOfView) && fieldOfView >= kMinFieldOfView && fieldOfView <= kMaxFieldOfView;
     }
-    static bool isValidResolutionX(float resolutionX) { return fsw::is_finite(resolutionX) && resolutionX > 0.0F; }
-    static bool isValidResolutionY(float resolutionY) { return fsw::is_finite(resolutionY) && resolutionY > 0.0F; }
+    static bool isValidResolutionX(float resolutionX) {
+        return fsw::is_finite(resolutionX) && resolutionX >= kMinResolution && resolutionX <= kMaxResolution;
+    }
+    static bool isValidResolutionY(float resolutionY) {
+        return fsw::is_finite(resolutionY) && resolutionY >= kMinResolution && resolutionY <= kMaxResolution;
+    }
     static bool isValidBodyToCameraMrp(const Eigen::Vector3f& bodyToCameraMrp) { return bodyToCameraMrp.allFinite(); }
-    // Rejects fieldOfViewX/fieldOfViewY values whose safeTanf() argument (pX's is fieldOfViewX/2,
-    // pY's is fieldOfViewY/2) comes within kMinPoleDistance of +/-pi/2, since dX/dY inherit tan's
-    // ~1/d^2 blowup there and amplify ordinary fp32 rounding error into large errors.
-    static bool isValidCameraParam(float fieldOfViewX, float fieldOfViewY) {
-        constexpr float kMinPoleDistance = 0.017453F;  // [rad], ~1.0 deg away from the tan() singularity
-        constexpr float halfPi = std::numbers::pi_v<float> / 2.0F;
-        const float argTanX = fieldOfViewX / 2.0F;
-        if (argTanX < -halfPi + kMinPoleDistance || argTanX > halfPi - kMinPoleDistance) {
-            return false;
-        }
-        const float argTanY = fieldOfViewY / 2.0F;
-        return argTanY >= -halfPi + kMinPoleDistance && argTanY <= halfPi - kMinPoleDistance;
-    }
-    // Requires the focal scales dX, dY and dX^2, dY^2, dX*dY to be normal fp32 values, so every 1/dX, 1/dY,
-    // 1/(dX*dY) and 1/dX^2 in the camera model is finite and nonzero. Defined in cobConverterAlgorithm.cpp.
-    static bool isValidFocalScale(float fieldOfViewX, float fieldOfViewY, float resolutionX, float resolutionY);
 
     float getRadius() const { return radius; }
     float getRadiusUncertainty() const { return radiusUncertainty; }

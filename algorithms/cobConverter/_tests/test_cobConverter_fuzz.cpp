@@ -77,8 +77,7 @@ auto arbitraryUnitVectorDomain() {
 }
 
 // cobPixelsFound: bright-pixel count. Non-positive values are included to exercise the rejection
-// gate. 1e6 covers a detection filling most of the widest fuzzed resolution (8192x8192) without
-// being physically absurd.
+// gate. 1e6 covers a large detection (~1000x1000 px) without being physically absurd.
 auto cobPixelsFoundDomain() { return fuzztest::InRange(-1000000, 1000000); }
 
 // cobCenterOfBrightness is fuzzed as a fraction of the image in [0, 1]^2 and scaled by the
@@ -170,11 +169,15 @@ FUZZ_TEST(CobConverterFuzz, testCobConverterOnSensor)
                                  fuzztest::Just(false)),  // outlierDetectionEnabled
                  calibrationCoefficientsDomain(),         // calibrationCoefficients
                  fuzztest::Arbitrary<int>(),              // cameraId (unconstrained: no isValidCameraId check)
-                 fuzztest::InRange(0.175F, 2.967F),  // fieldOfViewX [rad]: ~10 deg (narrow) to ~170 deg (wide-angle)
-                 fuzztest::InRange(0.175F, 2.967F),  // fieldOfViewY [rad]: independent of fieldOfViewX
-                 fuzztest::InRange(32.0F, 8192.0F),  // resolutionX [px]: small nav camera to large science imager
-                 fuzztest::InRange(32.0F, 8192.0F),  // resolutionY [px]: independent of resolutionX (see below)
-                 arbitraryMrpDomain(),               // bodyToCameraMrp
+                 fuzztest::InRange(CobConverterConfig::kMinFieldOfView,
+                                   CobConverterConfig::kMaxFieldOfView),  // fieldOfViewX [rad]: 0.1 to 90 deg
+                 fuzztest::InRange(CobConverterConfig::kMinFieldOfView,
+                                   CobConverterConfig::kMaxFieldOfView),  // fieldOfViewY [rad]: independent of X
+                 fuzztest::InRange(CobConverterConfig::kMinResolution,
+                                   CobConverterConfig::kMaxResolution),  // resolutionX [px]: 1 to 10000
+                 fuzztest::InRange(CobConverterConfig::kMinResolution,
+                                   CobConverterConfig::kMaxResolution),  // resolutionY [px]: independent of X
+                 arbitraryMrpDomain(),                                   // bodyToCameraMrp
                  fuzztest::OneOf(fuzztest::Just(true),
                                  fuzztest::Just(false)),  // cobValid
                  cobPixelsFoundDomain(),                  // cobPixelsFound

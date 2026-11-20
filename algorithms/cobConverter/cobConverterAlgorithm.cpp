@@ -11,25 +11,6 @@ static constexpr float kBinaryPhaseCoeff = 4.0F / (3.0F * std::numbers::pi_v<flo
 // Full solid angle of a sphere [sr], used in pixel uncertainty scale factor
 static constexpr float kSphereSolidAngle = 4.0F * std::numbers::pi_v<float>;
 
-// NOLINTBEGIN(bugprone-easily-swappable-parameters)
-bool CobConverterConfig::isValidFocalScale(float fieldOfViewX,
-                                           float fieldOfViewY,
-                                           float resolutionX,
-                                           float resolutionY) {
-    const auto isNormalPositive = [](float value) {
-        return fsw::is_finite(value) && value >= std::numeric_limits<float>::min();
-    };
-    const float pX = 2.0F * safeTanf(fieldOfViewX / 2.0F);
-    const float pY = 2.0F * safeTanf(fieldOfViewY / 2.0F);
-    if (!isNormalPositive(pX) || !isNormalPositive(pY)) {
-        return false;
-    }
-    const float dX = resolutionX / pX;
-    const float dY = resolutionY / pY;
-    return isNormalPositive(dX * dX) && isNormalPositive(dY * dY) && isNormalPositive(dX * dY);
-}
-// NOLINTEND(bugprone-easily-swappable-parameters)
-
 /**
  * @brief Construct a CobConverterAlgorithm.
  * @param config Validated configuration parameters.

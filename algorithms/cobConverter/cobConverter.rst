@@ -283,6 +283,9 @@ add the module to the simulation task (``reset()`` validates the configuration a
 
     sim.AddModelToTask(taskName, module)
 
+``fieldOfViewX`` and ``fieldOfViewY`` must be in [0.1 deg, 90 deg] and ``resolutionX`` and ``resolutionY`` in
+[1, 10000] px. These bounds keep the camera calibration matrix and its inverse finite in single precision.
+
 ``attitudeCovariance`` is the covariance of the attitude error MRP, in the body frame. ``radius = 0`` disables the
 phase-angle correction (the COB is published as the COM) and ``radiusUncertainty`` is then unused.
 
