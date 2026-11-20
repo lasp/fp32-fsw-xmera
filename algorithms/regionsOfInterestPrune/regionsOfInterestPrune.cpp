@@ -3,23 +3,29 @@
 #include "utilities/fsw/timeConversion.hpp"
 #include "utilities/xmera/xmeraLifecycleException.h"
 
+#include <algorithm>
+#include <limits>
 #include <stdexcept>
 
-/*! @brief Reset internal state, validate that rowColSumInMsg is connected, and construct the algorithm
- *         from the currently-set config properties.
+/*! @brief Reset internal state, validate that rowColSumInMsg and binGridInMsg are connected, and
+ *         construct the algorithm from the currently-set config properties.
  *  @param callTime Current simulation time in nanoseconds (unused).
- *  @throws std::invalid_argument If rowColSumInMsg is not connected, or if a config property is invalid.
+ *  @throws std::invalid_argument If rowColSumInMsg or binGridInMsg is not connected, or if a config
+ *          property is invalid.
  */
 void RegionsOfInterestPrune::reset(uint64_t /*callTime*/) {
     if (!this->rowColSumInMsg.isLinked()) {
         throw std::invalid_argument("RegionsOfInterestPrune.rowColSumInMsg wasn't connected.");
+    }
+    if (!this->binGridInMsg.isLinked()) {
+        throw std::invalid_argument("RegionsOfInterestPrune.binGridInMsg wasn't connected.");
     }
     this->algorithm = std::make_unique<RegionsOfInterestPruneAlgorithm>(this->toConfig());
 }
 
 /*! @brief Build a validated RegionsOfInterestPruneConfig from the adapter's stored properties. */
 RegionsOfInterestPruneConfig RegionsOfInterestPrune::toConfig() const {
-    return RegionsOfInterestPruneConfig::create(this->maxRowSpans, this->maxColSpans);
+    return RegionsOfInterestPruneConfig::create(this->centralPoint, this->alphaAreaPruneScaling);
 }
 
 /*! @brief Push a fresh configuration into the algorithm without reconstructing it.
@@ -37,23 +43,42 @@ void RegionsOfInterestPrune::updateState(uint64_t callTime) {
         throw XmeraLifecycleException("RegionsOfInterestPrune reset() has not been called.");
     }
 
-    const FpgaRowColSumMsgF32Payload rcMsg = this->rowColSumInMsg();
-    const auto* rowSums = static_cast<const uint16_t*>(rcMsg.rowSumPointer);
-    const auto* colSums = static_cast<const uint16_t*>(rcMsg.colSumPointer);
+    const FpgaRowColSumMsgF32Payload rowColSumMsg = this->rowColSumInMsg();
+    // The algorithm takes its own grid type, not the payload: copy the lit counts out of the
+    // {x, y, litPixelCount} regions into a contiguous array. numRegions is clamped to the array size;
+    // the algorithm rejects a grid whose tile count does not match the image.
+    const FpgaBinGridMsgF32Payload& gridMsg = this->binGridInMsg();
+    const uint32_t numRegions = std::min(gridMsg.numRegions, static_cast<uint32_t>(FPGA_BIN_GRID_MAX_REGIONS));
+    for (uint32_t i = 0; i < numRegions; ++i) {
+        this->litCounts[i] = gridMsg.regions[i].litPixelCount;
+    }
+    const RoiBinGrid binGrid{.regionSize = gridMsg.regionSize,
+                             .numRegionRows = gridMsg.numRegionRows,
+                             .numRegionCols = gridMsg.numRegionCols,
+                             .litCounts = std::span<const uint32_t>(this->litCounts.data(), numRegions)};
 
-    const RoiCandidates candidates = this->algorithm->update(rowSums, rcMsg.numRows, colSums, rcMsg.numCols);
+    const RoiCandidates candidates =
+        this->algorithm->update(Eigen::Vector2<uint32_t>(rowColSumMsg.numCols, rowColSumMsg.numRows),
+                                rowColSumMsg.rowSums,
+                                rowColSumMsg.rowIntensities,
+                                rowColSumMsg.colSums,
+                                rowColSumMsg.colIntensities,
+                                binGrid);
 
     RegionsIdentifiedMsgF32Payload output{};
     const uint32_t numPublished = std::min(candidates.numCandidates, static_cast<uint32_t>(MAX_NUMBER_REGIONS));
     const double timeTagSec = fsw::nanosToSeconds(callTime);
+    output.numberOfRegions = static_cast<int>(numPublished);
     for (uint32_t k = 0; k < numPublished; ++k) {
-        const auto& cand = candidates.candidates[k];
+        const auto& candidate = candidates.candidates[k];
         output.timeTag[k] = timeTagSec;
-        output.centerX[k] = static_cast<int>(cand.col + cand.width / 2);
-        output.centerY[k] = static_cast<int>(cand.row + cand.height / 2);
-        output.width[k] = static_cast<int>(cand.width);
-        output.height[k] = static_cast<int>(cand.height);
-        output.numberOfPixels[k] = static_cast<int>(cand.count);
+        output.cornerX[k] = static_cast<int>(candidate.col);
+        output.cornerY[k] = static_cast<int>(candidate.row);
+        output.width[k] = static_cast<int>(candidate.width);
+        output.height[k] = static_cast<int>(candidate.height);
+        // litPixelCount is saturated at UINT32_MAX; clamp so the int field cannot wrap negative.
+        output.numberOfPixels[k] =
+            static_cast<int>(std::min(candidate.litPixelCount, static_cast<uint32_t>(std::numeric_limits<int>::max())));
     }
     this->regionsIdentifiedOutMsg.write(output, moduleID, callTime);
 }

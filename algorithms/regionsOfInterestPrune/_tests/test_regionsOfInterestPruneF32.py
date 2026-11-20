@@ -1,424 +1,288 @@
 """
-Unit tests for regionsOfInterestPrune.
+Module tests for regionsOfInterestPruneF32: the adapter between the FPGA messages and the algorithm.
 
-    test_message_connection  — verifies rowColSumInMsg links to fpgaImagePipeline.rowColSumOutMsg
-                               and that regionsIdentifiedOutMsg is written after one step.
-    test_step2_*             — verify bounding-box identification and the center-coordinate
-                               conversion published to regionsIdentifiedOutMsg.
-    test_pruning             — end-to-end integration on a real image; writes an annotated
-                               diagnostic PNG (see diagnostics/diagnostics.py in this directory)
-                               and verifies published regions are in-bounds.
+The algorithm itself is covered by the C++ tests in this directory. These tests check what the
+adapter adds and what downstream modules rely on:
+
+    test_message_connection        both inputs link and regionsIdentifiedOutMsg is written
+    test_unlinked_input_raises     reset() rejects a missing rowColSumInMsg or binGridInMsg
+    test_invalid_config_raises     reset() rejects centralPoint.x, centralPoint.y or alphaAreaPruneScaling out of range
+    test_single_object_published   corner, size, numberOfPixels and timeTag of one published region
+    test_at_most_two_published     no more than the algorithm's 2 candidates are published
+    test_closest_region_first      regions are published closest to centralPoint first
+    test_reconfigure               reconfigure() applies a new reference point without a reset
+    test_bin_grid_mismatch         a bin grid that does not cover the image publishes no regions
+    test_pixel_count_clamped       a saturated litPixelCount is clamped to the int range
+
+The input messages are written directly from Python (no fpgaImagePipeline), so the tests control
+exactly what the module sees: per-row/col counts and intensities and the per-tile lit counts.
 """
-
-import inspect
-import os
-import sys
-import tempfile
-import types
 
 import numpy as np
 import pytest
 
-filename = inspect.getframeinfo(inspect.currentframe()).filename
-path = os.path.dirname(os.path.abspath(filename))
-
-IMAGE_PATH = os.path.join(path, "pia_958_830.tiff")
-
-# diagnostics.py lives in the diagnostics/ subfolder next to this test file;
-# it's a standalone script, not part of the xmera package, so it needs its
-# directory on sys.path.
-sys.path.insert(0, os.path.join(path, "diagnostics"))
-
-importErr = False
-reasonErr = ""
-try:
-    import cv2
-    from xmera.fp32 import fpgaImagePipelineF32 as fpgaImagePipeline
-    from xmera.fp32 import regionsOfInterestPruneF32 as regionsOfInterestPrune
-
-    import diagnostics
-except ImportError as e:
-    importErr = True
-    reasonErr = f"Required module not built: {e}"
-
-# Synthetic image parameters (uniform 500, kernel=5)
-# Interior blur = (500 × 5 × 5) >> 1 = 6250; blurShift(5) = 1
-# Interior region starts at HALF = (5-1)//2 = 2
-HALF = 2
-INTERIOR_BLUR = (500 * 5 * 5) >> 1  # 6250
-
 from xmera.architecture import messaging
-MAX_NUMBER_REGIONS = messaging.MAX_NUMBER_REGIONS
+from xmera.fp32 import regionsOfInterestPruneF32 as regionsOfInterestPrune
 from xmera.utilities import SimulationBaseClass, macros
+
+MAX_ROWS = 3000  # FPGA_ROW_COL_MAX_ROWS
+MAX_COLS = 4096  # FPGA_ROW_COL_MAX_COLS
+MAX_TILES = 3008  # FPGA_BIN_GRID_MAX_REGIONS
+MAX_NUMBER_REGIONS = messaging.MAX_NUMBER_REGIONS
+CANDIDATES_OUT_MAX = 2  # ROI_CANDIDATES_OUT_MAX in regionsOfInterestPruneAlgorithm.h
+INT_MAX = 2**31 - 1
+
+# Small test image: 200 x 300 px, 50 px tiles, reference point at its center.
+NUM_ROWS = 200
+NUM_COLS = 300
+REGION_SIZE = 50
+CENTRAL_POINT_X = NUM_COLS // 2
+CENTRAL_POINT_Y = NUM_ROWS // 2
+
+STEP_SEC = 1.0
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_sim(*modules):
+
+def make_frame(objects, num_rows=NUM_ROWS, num_cols=NUM_COLS, region_size=REGION_SIZE):
+    """Build the two FPGA input payloads for an image holding rectangular objects.
+
+    objects: list of (row, col, height, width, value); every pixel of an object is above threshold with
+    blurred value `value`. Returns (rowColSumPayload, binGridPayload).
+    """
+    image = np.zeros((num_rows, num_cols), dtype=np.uint32)
+    for row, col, height, width, value in objects:
+        image[row:row + height, col:col + width] = value
+    lit = image > 0
+
+    row_col = messaging.FpgaRowColSumMsgF32Payload()
+    row_col.numRows = num_rows
+    row_col.numCols = num_cols
+    row_col.rowSums = _padded(lit.sum(axis=1), MAX_ROWS)
+    row_col.colSums = _padded(lit.sum(axis=0), MAX_COLS)
+    row_col.rowIntensities = _padded(image.sum(axis=1), MAX_ROWS)
+    row_col.colIntensities = _padded(image.sum(axis=0), MAX_COLS)
+
+    tile_rows = -(-num_rows // region_size)
+    tile_cols = -(-num_cols // region_size)
+    tiles = []
+    for tile_row in range(tile_rows):
+        for tile_col in range(tile_cols):
+            tile = messaging.FpgaBinRegionF32()
+            tile.x = tile_col * region_size
+            tile.y = tile_row * region_size
+            tile.litPixelCount = int(lit[tile.y:tile.y + region_size, tile.x:tile.x + region_size].sum())
+            tiles.append(tile)
+    bin_grid = messaging.FpgaBinGridMsgF32Payload()
+    bin_grid.regionSize = region_size
+    bin_grid.numRegionRows = tile_rows
+    bin_grid.numRegionCols = tile_cols
+    bin_grid.numRegions = len(tiles)
+    bin_grid.regions = tiles + [messaging.FpgaBinRegionF32() for _ in range(MAX_TILES - len(tiles))]
+    return row_col, bin_grid
+
+
+def _padded(values, length):
+    out = [0] * length
+    out[:len(values)] = [int(v) for v in values]
+    return out
+
+
+def make_pruner(central_point_x=CENTRAL_POINT_X, central_point_y=CENTRAL_POINT_Y, alpha=1.0):
+    pruner = regionsOfInterestPrune.RegionsOfInterestPrune()
+    pruner.ModelTag = "regionsOfInterestPrune"
+    pruner.centralPoint = [central_point_x, central_point_y]
+    pruner.alphaAreaPruneScaling = alpha
+    return pruner
+
+
+def make_sim(pruner, frame, link_row_col=True, link_bin_grid=True):
+    """Sim with the pruner fed by standalone messages carrying `frame`; returns (sim, recorder, messages).
+
+    The messages are returned so they stay alive as long as the sim does.
+    """
+    row_col, bin_grid = frame
+    row_col_msg = messaging.FpgaRowColSumMsgF32().write(row_col)
+    bin_grid_msg = messaging.FpgaBinGridMsgF32().write(bin_grid)
+    if link_row_col:
+        pruner.rowColSumInMsg.subscribeTo(row_col_msg)
+    if link_bin_grid:
+        pruner.binGridInMsg.subscribeTo(bin_grid_msg)
+
     sim = SimulationBaseClass.SimBaseClass()
-    proc = sim.CreateNewProcess("testProcess")
-    proc.addTask(sim.CreateNewTask("testTask", macros.sec2nano(1.0)))
-    for mod in modules:
-        sim.AddModelToTask("testTask", mod)
-    return sim
+    process = sim.CreateNewProcess("testProcess")
+    process.addTask(sim.CreateNewTask("testTask", macros.sec2nano(STEP_SEC)))
+    sim.AddModelToTask("testTask", pruner)
+    recorder = pruner.regionsIdentifiedOutMsg.recorder()
+    sim.AddModelToTask("testTask", recorder)
+    return sim, recorder, (row_col_msg, bin_grid_msg)
 
 
-def _run_once(sim):
+def run(sim, steps=1):
     sim.InitializeSimulation()
-    sim.TotalSim.singleStepProcesses()
+    sim.ConfigureStopTime(macros.sec2nano(STEP_SEC * (steps - 1)))
+    sim.ExecuteSimulation()
 
 
-def _regions_from_log(roi_log, timestep=-1):
-    """Return valid regions at timestep as SimpleNamespace objects with field attribute access."""
-    regions = []
-    for k in range(MAX_NUMBER_REGIONS):
-        numberOfPixels = roi_log.numberOfPixels[timestep][k]
-        if numberOfPixels > 0:
-            regions.append(types.SimpleNamespace(
-                numberOfPixels=numberOfPixels,
-                centerX=roi_log.centerX[timestep][k],
-                centerY=roi_log.centerY[timestep][k],
-                width=roi_log.width[timestep][k],
-                height=roi_log.height[timestep][k],
-            ))
-    return regions
+def published(recorder, step=-1):
+    """Regions published at `step` as dicts, rank 1 first."""
+    return [
+        {
+            "cornerX": recorder.cornerX[step][k],
+            "cornerY": recorder.cornerY[step][k],
+            "width": recorder.width[step][k],
+            "height": recorder.height[step][k],
+            "numberOfPixels": recorder.numberOfPixels[step][k],
+            "timeTag": recorder.timeTag[step][k],
+        }
+        for k in range(recorder.numberOfRegions[step])
+    ]
 
 
 # ---------------------------------------------------------------------------
-# Test — message connection
+# Wiring and configuration
 # ---------------------------------------------------------------------------
 
-@pytest.mark.skipif(importErr, reason=reasonErr)
+
 def test_message_connection():
-    """Verify rowColSumInMsg connects to fpgaImagePipeline.rowColSumOutMsg and
-    that regionsIdentifiedOutMsg is written with correct image dimensions.
+    """Both inputs link, and regionsIdentifiedOutMsg is written on the first step."""
+    pruner = make_pruner()
+    sim, recorder, _msgs = make_sim(pruner, make_frame([(95, 145, 10, 10, 200)]))
 
-    Assertions
-    ----------
-    1. rowColSumInMsg.isLinked() is True after subscribeTo.
-    2. rowColSumOutMsg carries the correct image dimensions after one step.
-    3. regionsIdentifiedOutMsg is written; any valid region has centre coordinates
-       within the image bounds.
-    """
-    assert os.path.isfile(IMAGE_PATH), f"Test image not found: {IMAGE_PATH}"
-
-    img_info = cv2.imread(IMAGE_PATH, cv2.IMREAD_ANYDEPTH | cv2.IMREAD_GRAYSCALE)
-    assert img_info is not None, f"cv2 could not read: {IMAGE_PATH}"
-    img_h, img_w = img_info.shape
-
-    pipeline = fpgaImagePipeline.FpgaImagePipeline()
-    pipeline.ModelTag = "fpgaPipeline"
-    pipeline.setImageWidth(img_w)
-    pipeline.setImageHeight(img_h)
-    pipeline.setImageFileName(IMAGE_PATH)
-
-    pruner = regionsOfInterestPrune.RegionsOfInterestPrune()
-    pruner.ModelTag = "roiPrune"
-    pruner.rowColSumInMsg.subscribeTo(pipeline.rowColSumOutMsg)
-
-    assert pruner.rowColSumInMsg.isLinked(), \
-        "rowColSumInMsg should be linked after subscribeTo()"
-
-    rc_log  = pipeline.rowColSumOutMsg.recorder()
-    roi_log = pruner.regionsIdentifiedOutMsg.recorder()
-    _run_once(_make_sim(pipeline, pruner, rc_log, roi_log))
-
-    assert rc_log.numRows[-1] == img_h, \
-        f"Expected numRows={img_h}, got {rc_log.numRows[-1]}"
-    assert rc_log.numCols[-1] == img_w, \
-        f"Expected numCols={img_w}, got {rc_log.numCols[-1]}"
-
-    # regionsIdentifiedOutMsg must be written; any valid region must be in-bounds
-    for reg in _regions_from_log(roi_log):
-        assert 0 <= reg.centerX < img_w, \
-            f"centerX={reg.centerX} out of bounds [0, {img_w})"
-        assert 0 <= reg.centerY < img_h, \
-            f"centerY={reg.centerY} out of bounds [0, {img_h})"
+    assert pruner.rowColSumInMsg.isLinked()
+    assert pruner.binGridInMsg.isLinked()
+    run(sim)
+    assert len(recorder.numberOfRegions) == 1
+    assert recorder.numberOfRegions[0] == 1
 
 
-# ---------------------------------------------------------------------------
-# Tests — rank-1/rank-2 identification
-# ---------------------------------------------------------------------------
-#
-# Synthetic image building blocks: bright blocks of pixel value 500 separated
-# by at least one dark pixel so each block produces a distinct row/col span.
-#
-# A 5×5 block at value 500 with kernel=5:
-#   interior blur = (500×5×5)>>1 = 6250 > threshold=6249  → 1 above-threshold pixel
-#   border pixels: ≤4 full rows/cols in kernel → blur ≤ 5000 < 6249
-#
-# Internal (corner-based) representation: row, col, height, width, count
-# Published output (RegionsIdentifiedMsgPayload): centerX, centerY, width, height,
-#   numberOfPixels  where centerX = col + width//2, centerY = row + height//2.
-
-BLOCK  = 5          # 5×5 bright block
-GAP    = 1          # dark gap between blocks
-STRIDE = BLOCK + GAP
-
-LARGE_BLOCK  = 13   # 13×13 block → 9×9 = 81 interior above-threshold pixels
-MEDIUM_BLOCK = 9    # 9×9  block → 5×5 = 25 interior above-threshold pixels
+@pytest.mark.parametrize("missing", ["rowColSumInMsg", "binGridInMsg"])
+def test_unlinked_input_raises(missing):
+    """reset() names the input that is not connected."""
+    pruner = make_pruner()
+    sim, _recorder, _msgs = make_sim(pruner,
+                                     make_frame([]),
+                                     link_row_col=(missing != "rowColSumInMsg"),
+                                     link_bin_grid=(missing != "binGridInMsg"))
+    with pytest.raises(RuntimeError, match=missing):
+        sim.InitializeSimulation()
 
 
-def _write_tmp_image(img):
-    with tempfile.NamedTemporaryFile(suffix=".tiff", delete=False) as f:
-        path = f.name
-    cv2.imwrite(path, img)
-    return path
-
-
-@pytest.mark.skipif(importErr, reason=reasonErr)
-def test_step2_rank1_only():
-    """M=1: single object — one above-threshold pixel at the block interior.
-
-    Published output:  regions[0].numberOfPixels==1, center at (col+0, row+0)
-                       since width==height==1.
-    """
-    H = 2 * HALF + STRIDE
-    W = 2 * HALF + STRIDE
-    img = np.zeros((H, W), dtype=np.uint16)
-    img[HALF:HALF + BLOCK, HALF:HALF + BLOCK] = 500
-
-    # Single above-threshold pixel: interior corner (row=HALF+HALF, col=HALF+HALF) = (4, 4)
-    exp_col, exp_row, exp_w, exp_h = HALF + HALF, HALF + HALF, 1, 1
-    exp_cx = exp_col + exp_w // 2   # = 4
-    exp_cy = exp_row + exp_h // 2   # = 4
-
-    img_path = _write_tmp_image(img)
-    try:
-        pipeline = fpgaImagePipeline.FpgaImagePipeline()
-        pipeline.ModelTag = "fpga"
-        pipeline.setImageWidth(W)
-        pipeline.setImageHeight(H)
-        pipeline.setImageFileName(img_path)
-        pipeline.setKernelSize(5)
-        pipeline.setThreshold(INTERIOR_BLUR - 1)
-
-        pruner = regionsOfInterestPrune.RegionsOfInterestPrune()
-        pruner.ModelTag = "pruner"
-        pruner.rowColSumInMsg.subscribeTo(pipeline.rowColSumOutMsg)
-
-        roi_log = pruner.regionsIdentifiedOutMsg.recorder()
-        _run_once(_make_sim(pipeline, pruner, roi_log))
-
-        # --- published message checks (center coordinates) ---
-        regions = _regions_from_log(roi_log)
-        assert len(regions) == 1, \
-            f"Expected 1 valid region in regionsIdentifiedOutMsg, got {len(regions)}"
-        r = regions[0]
-        assert r.numberOfPixels == 1, \
-            f"Expected numberOfPixels=1, got {r.numberOfPixels}"
-        assert r.centerX == exp_cx and r.centerY == exp_cy, \
-            f"Expected center=({exp_cx},{exp_cy}), got ({r.centerX},{r.centerY})"
-        assert r.width == exp_w and r.height == exp_h, \
-            f"Expected size={exp_w}×{exp_h}, got {r.width}×{r.height}"
-    finally:
-        os.unlink(img_path)
-
-
-@pytest.mark.skipif(importErr, reason=reasonErr)
-def test_step2_rank1_and_rank2():
-    """Two real objects; both appear in regionsIdentifiedOutMsg with correct
-    center coordinates.
-
-    Image layout (160×160):
-      13×13 block at (3, 3)  → rank-1; bounding box row=5,col=5,h=9,w=9
-                               → centerX=9, centerY=9
-       5×5 block at (100, 5) → rank-2; bounding box row=102,col=5,h=1,w=9
-                               → centerX=9, centerY=102
-    """
-    H, W = 160, 160
-    img = np.zeros((H, W), dtype=np.uint16)
-    img[3:3 + LARGE_BLOCK, 3:3 + LARGE_BLOCK] = 500   # large block → rank-1
-    img[100:100 + BLOCK, 5:5 + BLOCK] = 500            # small block → rank-2
-
-    img_path = _write_tmp_image(img)
-    try:
-        pipeline = fpgaImagePipeline.FpgaImagePipeline()
-        pipeline.ModelTag = "fpga"
-        pipeline.setImageWidth(W)
-        pipeline.setImageHeight(H)
-        pipeline.setImageFileName(img_path)
-        pipeline.setKernelSize(5)
-        pipeline.setThreshold(INTERIOR_BLUR - 1)
-
-        pruner = regionsOfInterestPrune.RegionsOfInterestPrune()
-        pruner.ModelTag = "pruner"
-        pruner.rowColSumInMsg.subscribeTo(pipeline.rowColSumOutMsg)
-
-        roi_log = pruner.regionsIdentifiedOutMsg.recorder()
-        _run_once(_make_sim(pipeline, pruner, roi_log))
-
-        # --- published message checks (center coordinates) ---
-        regions = _regions_from_log(roi_log)
-        assert len(regions) == 2, \
-            f"Expected 2 valid regions in regionsIdentifiedOutMsg, got {len(regions)}"
-
-        r1 = regions[0]
-        assert r1.centerX == 9 and r1.centerY == 9, \
-            f"rank-1 center: expected (9,9), got ({r1.centerX},{r1.centerY})"
-        assert r1.width == 9 and r1.height == 9, \
-            f"rank-1 size: expected 9×9, got {r1.width}×{r1.height}"
-        r2 = regions[1]
-        assert r2.centerX == 9 and r2.centerY == 102, \
-            f"rank-2 center: expected (9,102), got ({r2.centerX},{r2.centerY})"
-        assert r2.width == 9 and r2.height == 1, \
-            f"rank-2 size: expected 9×1, got {r2.width}×{r2.height}"
-    finally:
-        os.unlink(img_path)
-
-
-@pytest.mark.skipif(importErr, reason=reasonErr)
-def test_step2_rank2_by_count():
-    """Three objects sorted by pixel count; all three fit in MAX_NUMBER_REGIONS=3
-    and appear in regionsIdentifiedOutMsg in the correct order.
-
-    Image layout (H=100, W=30):
-      13×13 block at (3, 3)   → rank-1; bbox row=5,col=5,h=9,w=9   → center (9,9)
-       9×9  block at (50, 5)  → rank-2; bbox row=52,col=5,h=5,w=9  → center (9,54)
-       5×5  block at (80, 7)  → rank-3; bbox row=82,col=5,h=1,w=9  → center (9,82)
-    """
-    H, W = 100, 30
-    img = np.zeros((H, W), dtype=np.uint16)
-    img[3:3 + LARGE_BLOCK,   3:3 + LARGE_BLOCK]   = 500   # 13×13 → rank-1
-    img[50:50 + MEDIUM_BLOCK, 5:5 + MEDIUM_BLOCK]  = 500   # 9×9  → rank-2
-    img[80:80 + BLOCK,        7:7 + BLOCK]          = 500   # 5×5  → rank-3
-
-    img_path = _write_tmp_image(img)
-    try:
-        pipeline = fpgaImagePipeline.FpgaImagePipeline()
-        pipeline.ModelTag = "fpga"
-        pipeline.setImageWidth(W)
-        pipeline.setImageHeight(H)
-        pipeline.setImageFileName(img_path)
-        pipeline.setKernelSize(5)
-        pipeline.setThreshold(INTERIOR_BLUR - 1)
-
-        pruner = regionsOfInterestPrune.RegionsOfInterestPrune()
-        pruner.ModelTag = "pruner"
-        pruner.rowColSumInMsg.subscribeTo(pipeline.rowColSumOutMsg)
-
-        roi_log = pruner.regionsIdentifiedOutMsg.recorder()
-        _run_once(_make_sim(pipeline, pruner, roi_log))
-
-        # --- published message checks (center coordinates, all 3 fit in MAX_NUMBER_REGIONS) ---
-        regions = _regions_from_log(roi_log)
-        assert len(regions) == 3, \
-            f"Expected 3 valid regions in regionsIdentifiedOutMsg, got {len(regions)}"
-
-        expected_centers = [(9, 9), (9, 54), (9, 82)]
-        for k, (exp_cx, exp_cy) in enumerate(expected_centers):
-            r = regions[k]
-            assert r.centerX == exp_cx and r.centerY == exp_cy, \
-                f"rank-{k+1} center: expected ({exp_cx},{exp_cy}), got ({r.centerX},{r.centerY})"
-        # Verify descending order by pixel count
-        counts = [r.numberOfPixels for r in regions]
-        assert counts == sorted(counts, reverse=True), \
-            f"Regions not sorted by numberOfPixels (descending): {counts}"
-    finally:
-        os.unlink(img_path)
-
-
-# ---------------------------------------------------------------------------
-# Test — end-to-end pipeline on real image
-# ---------------------------------------------------------------------------
-
-PIPELINE_KERNEL = 5
-
-
-def _auto_threshold(image_path, kernel_size, percentile=95.0):
-    """Detect image dimensions and compute a threshold from the image's blur distribution.
-
-    Mirrors _detect_image_info() in run_pipeline_reference.py exactly:
-    applies the same ×16 scaling for 8-bit images, same blurShift lookup,
-    and same percentile default (95.0) so thresholds are consistent across
-    both tools regardless of which pia_ image is used.
-
-    Returns
-    -------
-    (width : int, height : int, threshold : int)
-    """
-    img = cv2.imread(image_path, cv2.IMREAD_ANYDEPTH | cv2.IMREAD_GRAYSCALE)
-    assert img is not None, f"cv2 could not read: {image_path}"
-    h, w = img.shape
-    pixels = img.astype(np.float32) * (16.0 if img.dtype == np.uint8 else 1.0)
-    blur = cv2.boxFilter(pixels, -1, (kernel_size, kernel_size), normalize=False)
-    shift = {5: 1, 7: 2, 9: 3}.get(int(kernel_size), 1)
-    blur_shifted = blur / float(1 << shift)
-    return w, h, max(1, int(np.percentile(blur_shifted.ravel(), percentile)))
-
-
-@pytest.mark.skipif(importErr, reason=reasonErr)
-@pytest.mark.parametrize("test_image_path", [
-    os.path.join(path, "pia_958_830.tiff"),
-    # Additional images can be exercised by copying them into this test directory:
-    # os.path.join(path, "pia_616_592.tiff"),
-    # os.path.join(path, "bennu_1024_1024.tiff"),
-    # os.path.join(path, "jupiter_3000_3000.tiff"),
+@pytest.mark.parametrize("field, value, message", [
+    ("centralPoint", [MAX_COLS + 1, CENTRAL_POINT_Y], r"centralPoint\.x"),
+    ("centralPoint", [CENTRAL_POINT_X, MAX_ROWS + 1], r"centralPoint\.y"),
+    ("centralPoint", [-1, CENTRAL_POINT_Y], r"centralPoint\.x"),
+    ("centralPoint", [CENTRAL_POINT_X, -1], r"centralPoint\.y"),
+    ("alphaAreaPruneScaling", 5.0, "alphaAreaPruneScaling"),
+    ("alphaAreaPruneScaling", 2.5, "alphaAreaPruneScaling"),
+    ("alphaAreaPruneScaling", float("inf"), "alphaAreaPruneScaling"),
+    ("alphaAreaPruneScaling", float("nan"), "alphaAreaPruneScaling"),
 ])
-@pytest.mark.parametrize("row_col_span", [2, 3, 4])
-def test_pruning(test_image_path, row_col_span, threshold=None):
-    """End-to-end integration test: real pia_ image through the full
-    fpgaImagePipeline → regionsOfInterestPrune chain.
+def test_invalid_config_raises(field, value, message):
+    """reset() rejects a reference point outside the full image (negative included), or an alpha above 2 or NaN (any negative alpha
+    is valid: it bypasses the cost function)."""
+    pruner = make_pruner()
+    setattr(pruner, field, value)
+    sim, _recorder, _msgs = make_sim(pruner, make_frame([]))
+    with pytest.raises(RuntimeError, match=message):
+        sim.InitializeSimulation()
 
-    Checks at least one candidate is identified and verifies the published
-    regionsIdentifiedOutMsg contains valid center-coordinate regions.
 
-    Also writes a diagnostic PNG ("<row_col_span>_<image>_pruning_output.png") to this
-    same directory via diagnostics/diagnostics.py: every published region drawn from center
-    coordinates and labeled "R<rank> (<numberOfPixels>)" with a filled center dot, rank-1 in
-    red, rank-2 in blue, all others in thin yellow. The background is the same source image used
-    to drive this test, since there is no fpgaImagePipeline threshold-image message to draw
-    over in this repo.
+# ---------------------------------------------------------------------------
+# Published regions
+# ---------------------------------------------------------------------------
 
-    TODO: this whole test is currently skipped (importErr=True) because
-    xmera.fp32.fpgaImagePipelineF32 does not exist in this repo. Until that module is ported here,
-    this test cannot actually run. See diagnostics/example_run.py in this directory
-    for a workaround that drives RegionsOfInterestPruneAlgorithm directly (bypassing
-    both fpgaImagePipeline and the RegionsOfInterestPrune adapter) to exercise the
-    real algorithm + visualization without it.
+
+def test_single_object_published():
+    """One object: the published region carries its top-left corner (cornerX = column,
+    cornerY = row), its size, the lit pixels of the tiles it covers, and the step time.
+
+    The 10 x 12 object at row 95, col 145 crosses the tile borders at row 100 and col 150, so it
+    covers 4 tiles holding all of its 120 lit pixels.
     """
-    if not os.path.isfile(test_image_path):
-        pytest.skip(f"Test image not found: {test_image_path}")
+    pruner = make_pruner()
+    sim, recorder, _msgs = make_sim(pruner, make_frame([(95, 145, 10, 12, 200)]))
+    run(sim, steps=2)
 
-    img_w, img_h, auto_t = _auto_threshold(test_image_path, PIPELINE_KERNEL)
-    if threshold is None:
-        threshold = auto_t
-    print(f"\ntest_pruning: {img_w}×{img_h}, threshold={threshold}")
+    regions = published(recorder)
+    assert len(regions) == 1
+    region = regions[0]
+    assert (region["cornerX"], region["cornerY"]) == (145, 95)
+    assert (region["width"], region["height"]) == (12, 10)
+    assert region["numberOfPixels"] == 120
+    assert region["timeTag"] == pytest.approx(STEP_SEC)
 
-    pipeline = fpgaImagePipeline.FpgaImagePipeline()
-    pipeline.ModelTag = "fpga"
-    pipeline.setImageWidth(img_w)
-    pipeline.setImageHeight(img_h)
-    pipeline.setImageFileName(test_image_path)
-    pipeline.setKernelSize(PIPELINE_KERNEL)
-    pipeline.setThreshold(threshold)
 
-    pruner = regionsOfInterestPrune.RegionsOfInterestPrune()
-    pruner.ModelTag = "pruner"
-    pruner.rowColSumInMsg.subscribeTo(pipeline.rowColSumOutMsg)
-    pruner.maxRowSpans = row_col_span
-    pruner.maxColSpans = row_col_span
+def test_at_most_two_published():
+    """Four objects in separate rows and cols give 4 boxes per pairing; the module publishes at most
+    the algorithm's 2 candidates and leaves the remaining slots zero."""
+    objects = [(20, 20, 10, 10, 200), (20, 250, 10, 10, 200), (160, 20, 10, 10, 200), (160, 250, 10, 10, 200)]
+    pruner = make_pruner()
+    sim, recorder, _msgs = make_sim(pruner, make_frame(objects))
+    run(sim)
 
-    roi_log = pruner.regionsIdentifiedOutMsg.recorder()
-    _run_once(_make_sim(pipeline, pruner, roi_log))
+    assert recorder.numberOfRegions[0] == CANDIDATES_OUT_MAX
+    for k in range(CANDIDATES_OUT_MAX, MAX_NUMBER_REGIONS):
+        assert recorder.width[0][k] == 0 and recorder.height[0][k] == 0 and recorder.numberOfPixels[0][k] == 0
 
-    regions = _regions_from_log(roi_log)
-    assert len(regions) >= 1, \
-        f"Expected at least 1 candidate, got {len(regions)}"
 
-    for k, reg in enumerate(regions):
-        assert 0 <= reg.centerX < img_w and 0 <= reg.centerY < img_h, \
-            f"Region {k} center ({reg.centerX},{reg.centerY}) out of image bounds {img_w}×{img_h}"
+def test_closest_region_first():
+    """Two objects on a diagonal: the one closer to centralPoint is published first, even though the
+    other is brighter and larger."""
+    near = (90, 160, 10, 10, 100)  # center (95, 165), 18 px from (100, 150)
+    far = (20, 20, 30, 30, 250)  # center (35, 35), brighter and 9x the area
+    pruner = make_pruner()
+    sim, recorder, _msgs = make_sim(pruner, make_frame([near, far]))
+    run(sim)
 
-    r1 = regions[0]
-    count_str = f"R1 pixel count (approx): {r1.numberOfPixels}"
-    if len(regions) >= 2:
-        count_str += f"  |  R2 pixel count (approx): {regions[1].numberOfPixels}"
-    print(count_str)
+    regions = published(recorder)
+    assert len(regions) == 2
+    assert (regions[0]["cornerX"], regions[0]["cornerY"]) == (160, 90)
+    assert (regions[1]["cornerX"], regions[1]["cornerY"]) == (20, 20)
 
-    background = cv2.imread(test_image_path, cv2.IMREAD_ANYDEPTH | cv2.IMREAD_GRAYSCALE)
-    time_tag = f"{row_col_span}_{os.path.splitext(os.path.basename(test_image_path))[0]}"
-    out_path = diagnostics.save_visualization(regions, background, time_tag, save_dir=path)
-    print(f"test_pruning: {len(regions)} candidate(s) identified; diagnostic visualization written to {out_path}")
+
+def test_reconfigure():
+    """reconfigure() pushes a new reference point into the running algorithm: moving centralPoint onto
+    the far object makes it rank 1 on the next step."""
+    near = (90, 160, 10, 10, 100)
+    far = (20, 20, 30, 30, 250)
+    pruner = make_pruner()
+    sim, recorder, _msgs = make_sim(pruner, make_frame([near, far]))
+    run(sim)
+    assert (recorder.cornerX[0][0], recorder.cornerY[0][0]) == (160, 90)
+
+    pruner.centralPoint = [35, 35]
+    pruner.reconfigure()
+    sim.ConfigureStopTime(macros.sec2nano(STEP_SEC))
+    sim.ExecuteSimulation()
+    assert (recorder.cornerX[-1][0], recorder.cornerY[-1][0]) == (20, 20)
+
+
+def test_bin_grid_mismatch():
+    """A bin grid whose tile layout does not cover the image cannot confirm any box, so nothing is
+    published."""
+    row_col, bin_grid = make_frame([(95, 145, 10, 10, 200)])
+    bin_grid.numRegionRows += 1
+    pruner = make_pruner()
+    sim, recorder, _msgs = make_sim(pruner, (row_col, bin_grid))
+    run(sim)
+
+    assert recorder.numberOfRegions[0] == 0
+
+
+def test_pixel_count_clamped():
+    """litPixelCount saturates at UINT32_MAX; the published int numberOfPixels is clamped to INT_MAX
+    instead of wrapping negative."""
+    row_col, bin_grid = make_frame([(95, 145, 10, 12, 200)])
+    tiles = list(bin_grid.regions)
+    tile_index = (95 // REGION_SIZE) * (-(-NUM_COLS // REGION_SIZE)) + (145 // REGION_SIZE)
+    tiles[tile_index].litPixelCount = 2**32 - 1
+    bin_grid.regions = tiles
+    pruner = make_pruner()
+    sim, recorder, _msgs = make_sim(pruner, (row_col, bin_grid))
+    run(sim)
+
+    assert recorder.numberOfPixels[0][0] == INT_MAX

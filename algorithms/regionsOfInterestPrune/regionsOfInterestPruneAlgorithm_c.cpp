@@ -7,7 +7,15 @@ static_assert(REGIONS_OF_INTEREST_PRUNE_ROI_CANDIDATES_MAX == ROI_CANDIDATES_MAX
 
 namespace {
 RegionsOfInterestPruneConfig configFromC(const RegionsOfInterestPruneConfig_c& c) {
-    return RegionsOfInterestPruneConfig::create(c.maxRowSpans, c.maxColSpans);
+    return RegionsOfInterestPruneConfig::create(Eigen::Vector2i(c.centralPoint.x, c.centralPoint.y),
+                                                c.alphaAreaPruneScaling);
+}
+
+RoiBinGrid binGridFromC(const RoiBinGrid_c& c) {
+    return RoiBinGrid{.regionSize = c.regionSize,
+                      .numRegionRows = c.numRegionRows,
+                      .numRegionCols = c.numRegionCols,
+                      .litCounts = std::span<const uint32_t>(c.litCounts, c.numLitCounts)};
 }
 
 RoiCandidates_c outputToC(const RoiCandidates& out) {
@@ -18,7 +26,9 @@ RoiCandidates_c outputToC(const RoiCandidates& out) {
         result.candidates[i].col = out.candidates[i].col;
         result.candidates[i].height = out.candidates[i].height;
         result.candidates[i].width = out.candidates[i].width;
-        result.candidates[i].count = out.candidates[i].count;
+        result.candidates[i].litPixelCount = out.candidates[i].litPixelCount;
+        result.candidates[i].intensity = out.candidates[i].intensity;
+        result.candidates[i].scaledIntensity = out.candidates[i].scaledIntensity;
     }
     return result;
 }
@@ -54,8 +64,16 @@ RoiCandidates_c RegionsOfInterestPruneAlgorithm_update(const RegionsOfInterestPr
                                                        const uint16_t* rowSums,
                                                        uint32_t numRows,
                                                        const uint16_t* colSums,
-                                                       uint32_t numCols) {
-    const RoiCandidates out =
-        fsw::fromHandle<const ::RegionsOfInterestPruneAlgorithm>(self)->update(rowSums, numRows, colSums, numCols);
+                                                       uint32_t numCols,
+                                                       const uint32_t* rowIntensities,
+                                                       const uint32_t* colIntensities,
+                                                       const RoiBinGrid_c* binGrid) {
+    const RoiCandidates out = fsw::fromHandle<const ::RegionsOfInterestPruneAlgorithm>(self)->update(
+        Eigen::Vector2<uint32_t>(numCols, numRows),
+        rowSums,
+        rowIntensities,
+        colSums,
+        colIntensities,
+        binGridFromC(*binGrid));
     return outputToC(out);
 }
