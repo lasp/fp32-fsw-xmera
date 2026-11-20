@@ -260,11 +260,6 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
         (dcm_NC * covarRHat_C * dcm_NC.transpose()) +
         (16.0 * dcm_BN.transpose() * rHatSkew_B * attitudeCovariance * rHatSkew_B.transpose() * dcm_BN);
 
-    // Mirrors updateState's publish gate: COM unit vector and covariance must be finite.
-    if (!rhatCOM_C.allFinite() || !covar_N.allFinite()) {
-        return output;
-    }
-
     const Eigen::Vector3d rhatCOM_N = dcm_NC * rhatCOM_C;
 
     bool goodOutlierCheck = false;  // set only when outlier detection runs

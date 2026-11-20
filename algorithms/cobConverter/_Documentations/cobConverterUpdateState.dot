@@ -14,7 +14,7 @@ digraph cobConverterUpdateState {
     start [label="Inputs: CobMeasurement, VehicleAttitude, FilterState", style="filled", fillcolor="#dde8f5"];
 
     cobValid [label="cobValid and\ncobPixelsFound > 0?", shape=diamond, style="filled", fillcolor="#fff4cc"];
-    zeroResult [label="Default result: output all zero, unitVecValid = false\ndiagnostic all zero, comValid = false\n(brownConradyCOBValid / brownConradyCOMValid\nkept if already set)", fillcolor="#f6d5d5"];
+    zeroResult [label="Default result: output all zero, unitVecValid = false\ndiagnostic all zero, comValid = false", fillcolor="#f6d5d5"];
 
     cob [label="Rotations [BN], [NC]\nCOB pixel → K⁻¹ → Brown-Conrady undistort (brownConradyCOBValid)\nP_cob_xy = S (N_pix / 4π) I Sᵀ"];
 
@@ -24,8 +24,7 @@ digraph cobConverterUpdateState {
     finite [label="COM and σ²_φ\nfinite?", shape=diamond, style="filled", fillcolor="#fff4cc"];
     fallback [label="Fallback: COM = COB\nP_com_xy = P_cob_xy\ncorrection zeroed (offsetFactor = 0)", fillcolor="#e6f2e6"];
 
-    heading [label="r̂_C = −normalize([x, y, 1]) of undistorted COM\nr̂_N = [NC] r̂_C\nP_N = P_image + P_attitude"];
-    headingFinite [label="r̂ and P_N\nfinite?", shape=diamond, style="filled", fillcolor="#fff4cc"];
+    heading [label="r̂_C = −normalize([x, y, 1]) of undistorted COM\nr̂_N = [NC] r̂_C\nn = [x, y, 1] / s,  s = ‖[x, y, 1]‖\nP_image = [NC] J P_com_xy Jᵀ [NC]ᵀ,  J = −(I − n nᵀ)[:, 0:2] / s\nP_N = P_image + P_attitude"];
 
     outlierEnabled [label="Outlier detection\nenabled?", shape=diamond, style="filled", fillcolor="#fff4cc"];
     gate [label="goodOutlierCheck = filterUsable and d ≤ N R + n_σ √tr(P)\nd = ‖r × r̂‖ (or ‖r‖ if r · r̂ ≤ 0)\ncomErrorOutlierTrigger = !goodOutlierCheck"];
@@ -44,9 +43,7 @@ digraph cobConverterUpdateState {
     finite -> heading [label=" yes"];
     finite -> fallback [label=" no"];
     fallback -> heading;
-    heading -> headingFinite;
-    headingFinite -> zeroResult [label=" no"];
-    headingFinite -> outlierEnabled [label=" yes"];
+    heading -> outlierEnabled;
     outlierEnabled -> gate [label=" yes"];
     outlierEnabled -> noGate [label=" no"];
     gate -> publish;

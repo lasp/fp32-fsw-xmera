@@ -358,10 +358,13 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         // P_^C rhat_COM_SC
         const Eigen::Vector3f h{xCOMCorrected, yCOMCorrected, 1.0F};
         const float s = h.stableNorm();
+        // Scale by s first so the entries stay bounded for any finite x, y.
+        const float nx = xCOMCorrected / s;
+        const float ny = yCOMCorrected / s;
+        const float nz = 1.0F / s;
         Eigen::Matrix<float, 3, 2> jacob;
-        jacob << (yCOMCorrected * yCOMCorrected) + 1.0F, -xCOMCorrected * yCOMCorrected, -xCOMCorrected * yCOMCorrected,
-            (xCOMCorrected * xCOMCorrected) + 1.0F, -xCOMCorrected, -yCOMCorrected;
-        jacob *= static_cast<float>(-1.0F / pow(s, 3));
+        jacob << (ny * ny) + (nz * nz), -nx * ny, -nx * ny, (nx * nx) + (nz * nz), -nx * nz, -ny * nz;
+        jacob *= -1.0F / s;
         const Eigen::Matrix3f covarRHatC = jacob * covarCOMxy * jacob.transpose();
 
         // P_^Nrhat
@@ -374,31 +377,29 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
                                                rotations.dcm_BN;
         const Eigen::Matrix3f covarRHat_N_Buffer = covarImageN + covarAttitudeN;
 
-        if (rhatCOM_SC_C_Buffer.allFinite() && covarRHat_N_Buffer.allFinite()) {
-            const bool outlierDetectionEnabled = this->cfg.isOutlierDetectionEnabled();
-            bool goodOutlierCheck = false;  // set only when outlier detection runs
-            if (outlierDetectionEnabled) {
-                // An unusable filter state can't validate the measurement.
-                goodOutlierCheck = filterUsable && this->comOutlierDetection(filter, rhatCOM_SC_N_Buffer);
-                result.diagnostic.comErrorOutlierTrigger = !goodOutlierCheck;
-            }
-            const float lineOfSightVariance = 0.5F * covarRHat_N_Buffer.trace();
-            const Eigen::Matrix3f covarPublished_N =
-                covarRHat_N_Buffer + (lineOfSightVariance * (rhatCOM_SC_N_Buffer * rhatCOM_SC_N_Buffer.transpose()));
-
-            result.output.rhat_BN_N = rhatCOM_SC_N_Buffer;
-            result.output.covar_N = 0.5F * (covarPublished_N + covarPublished_N.transpose());
-            result.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
-            // Disabled outlier detection bypasses the check.
-            result.output.unitVecValid = brownConradyCOMValid && (!outlierDetectionEnabled || goodOutlierCheck);
-
-            result.diagnostic.centerOfMass = centerOfMass.head<2>();
-            result.diagnostic.offsetFactor = correction.gamma;
-            result.diagnostic.objectPixelRadius = static_cast<int>(correction.Rc);
-            result.diagnostic.phaseAngle = correction.alphaPA;
-            result.diagnostic.sunDirection = correction.phi;
-            result.diagnostic.comValid = true;
+        const bool outlierDetectionEnabled = this->cfg.isOutlierDetectionEnabled();
+        bool goodOutlierCheck = false;  // set only when outlier detection runs
+        if (outlierDetectionEnabled) {
+            // An unusable filter state can't validate the measurement.
+            goodOutlierCheck = filterUsable && this->comOutlierDetection(filter, rhatCOM_SC_N_Buffer);
+            result.diagnostic.comErrorOutlierTrigger = !goodOutlierCheck;
         }
+        const float lineOfSightVariance = 0.5F * covarRHat_N_Buffer.trace();
+        const Eigen::Matrix3f covarPublished_N =
+            covarRHat_N_Buffer + (lineOfSightVariance * (rhatCOM_SC_N_Buffer * rhatCOM_SC_N_Buffer.transpose()));
+
+        result.output.rhat_BN_N = rhatCOM_SC_N_Buffer;
+        result.output.covar_N = 0.5F * (covarPublished_N + covarPublished_N.transpose());
+        result.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
+        // Disabled outlier detection bypasses the check.
+        result.output.unitVecValid = brownConradyCOMValid && (!outlierDetectionEnabled || goodOutlierCheck);
+
+        result.diagnostic.centerOfMass = centerOfMass.head<2>();
+        result.diagnostic.offsetFactor = correction.gamma;
+        result.diagnostic.objectPixelRadius = static_cast<int>(correction.Rc);
+        result.diagnostic.phaseAngle = correction.alphaPA;
+        result.diagnostic.sunDirection = correction.phi;
+        result.diagnostic.comValid = true;
     }
     return result;
 }
