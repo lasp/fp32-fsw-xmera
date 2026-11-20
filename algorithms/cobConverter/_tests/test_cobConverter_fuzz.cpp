@@ -39,6 +39,16 @@ auto calibrationCoefficientsDomain() {
     );
 }
 
+// Pincushion-only coefficients: k >= 0 keeps the radial slope >= 1, so the distortion never folds.
+auto pincushionCoefficientsDomain() {
+    return fuzztest::StructOf<CalibrationCoefficients>(fuzztest::InRange(0.0F, 1.0F),       // k1
+                                                       fuzztest::InRange(0.0F, 1.0F),       // k2
+                                                       fuzztest::InRange(0.0F, 1.0F),       // k3
+                                                       fuzztest::InRange(-0.001F, 0.001F),  // p1
+                                                       fuzztest::InRange(-0.001F, 0.001F)   // p2
+    );
+}
+
 // bodyToCameraMrp/sigma_BN (reused below): arbitrary, not-necessarily-near-identity orientations.
 // +/-1/sqrt(3) per component caps the worst-case MRP norm at 1, the standard "short rotation"
 // convention (angle <= 180 deg) that every physical rotation has a representative in. A much wider
@@ -203,7 +213,8 @@ void expectUndistortRoundTrip(float xDistorted,
     EXPECT_LE(std::abs(redistorted(1) - yd), kRoundTripRtol * noiseScale);
 }
 
-// Robustness: any float (NaN, Inf, extremes, subnormals) for every input.
+// Robustness: any float (NaN, Inf, extremes, subnormals) for every input, including folding coefficients where the
+// recovers-input tests can't apply: finite in -> finite out, and valid -> the result re-distorts to the input.
 void fuzzUndistortArbitraryInputs(float xDistorted,
                                   float yDistorted,
                                   float k1,
@@ -239,6 +250,83 @@ void fuzzUndistortZeroCoefficientsIsIdentity(float xDistorted, float yDistorted)
     EXPECT_EQ(result.yUndistorted, yDistorted);
 }
 
+// Distort (xu, yu), undistort it, and expect (xu, yu) back if valid, else the distorted input. The domain must keep
+// the distortion fold-free, |F(a) - F(b)| >= foldFreeMargin |a - b|, so (xu, yu) is the only preimage.
+void expectUndistortRecoversInput(float xu,
+                                  float yu,
+                                  const CalibrationCoefficients& coefficients,
+                                  double foldFreeMargin,
+                                  bool expectConverged) {
+    const auto x = static_cast<double>(xu);
+    const auto y = static_cast<double>(yu);
+    const Eigen::Vector3d distorted =
+        cobConverterReference::applyBrownConrady(Eigen::Vector3d{x, y, 1.0}, coefficients);
+    const auto xDistorted = static_cast<float>(distorted(0));
+    const auto yDistorted = static_cast<float>(distorted(1));
+    ASSERT_TRUE(fsw::is_finite(xDistorted) && fsw::is_finite(yDistorted));
+
+    const UndistortedCoordinate result =
+        CobConverterAlgorithm::undistortNormalizedCoordinate(xDistorted, yDistorted, coefficients);
+    if (expectConverged) {
+        EXPECT_TRUE(result.valid);
+    }
+    EXPECT_TRUE(fsw::is_finite(result.xUndistorted) && fsw::is_finite(result.yUndistorted));
+    if (!result.valid) {
+        EXPECT_EQ(result.xUndistorted, xDistorted);
+        EXPECT_EQ(result.yUndistorted, yDistorted);
+        return;
+    }
+
+    const double r2 = (x * x) + (y * y);
+    const double kPolynomial = 1.0 + (static_cast<double>(coefficients.k1) * r2) +
+                               (static_cast<double>(coefficients.k2) * r2 * r2) +
+                               (static_cast<double>(coefficients.k3) * r2 * r2 * r2);
+    const double scale = std::max({1.0,
+                                   std::abs(static_cast<double>(xDistorted)),
+                                   std::abs(static_cast<double>(yDistorted)),
+                                   std::abs(x * kPolynomial),
+                                   std::abs(y * kPolynomial)});
+    const double tolerance = 2.0 * kRoundTripRtol * scale / foldFreeMargin;
+    EXPECT_LE(std::abs(static_cast<double>(result.xUndistorted) - x), tolerance);
+    EXPECT_LE(std::abs(static_cast<double>(result.yUndistorted) - y), tolerance);
+}
+
+// |x|, |y| <= 0.3 (r^2 <= 0.18) with |k| <= 1: radial slope >= 1 - 3(0.18) - 5(0.18)^2 - 7(0.18)^3 = 0.257, minus
+// tangential 8(|p1| + |p2|) r <= 0.007.
+void fuzzUndistortRecoversInputNarrowFov(float xu, float yu, const CalibrationCoefficients& coefficients) {
+    expectUndistortRecoversInput(xu, yu, coefficients, 0.25, false);
+}
+
+// |x|, |y| <= 12 (r <= 17) with k >= 0: radial slope >= 1, minus tangential 8(|p1| + |p2|) r <= 0.27.
+void fuzzUndistortRecoversInputPincushion(float xu, float yu, const CalibrationCoefficients& coefficients) {
+    expectUndistortRecoversInput(xu, yu, coefficients, 0.7, false);
+}
+
+// Coefficients as distortion at the image corner R = sqrt(2) tan(halfFieldOfView): k1 = a/R^2, k2 = b/R^4, k3 = c/R^6,
+// p = q/R. Fold-free margin >= 1 - 3|a| - 5|b| - 7|c| - 8(|q1| + |q2|) >= 0.4 at any field of view, and must converge.
+void fuzzUndistortRecoversInputFovScaled(float halfFieldOfView,
+                                         float xFraction,
+                                         float yFraction,
+                                         float a,
+                                         float b,
+                                         float c,
+                                         float q1,
+                                         float q2) {
+    const double halfWidth = std::tan(static_cast<double>(halfFieldOfView));
+    const double cornerRadius = std::sqrt(2.0) * halfWidth;
+    const double r2 = cornerRadius * cornerRadius;
+    const CalibrationCoefficients coefficients{.k1 = static_cast<float>(static_cast<double>(a) / r2),
+                                               .k2 = static_cast<float>(static_cast<double>(b) / (r2 * r2)),
+                                               .k3 = static_cast<float>(static_cast<double>(c) / (r2 * r2 * r2)),
+                                               .p1 = static_cast<float>(static_cast<double>(q1) / cornerRadius),
+                                               .p2 = static_cast<float>(static_cast<double>(q2) / cornerRadius)};
+    expectUndistortRecoversInput(static_cast<float>(static_cast<double>(xFraction) * halfWidth),
+                                 static_cast<float>(static_cast<double>(yFraction) * halfWidth),
+                                 coefficients,
+                                 0.4,
+                                 true);
+}
+
 }  // namespace
 
 FUZZ_TEST(CobConverterUndistortFuzz, fuzzUndistortArbitraryInputs)
@@ -253,3 +341,23 @@ FUZZ_TEST(CobConverterUndistortFuzz, fuzzUndistortArbitraryInputs)
 FUZZ_TEST(CobConverterUndistortFuzz, fuzzUndistortZeroCoefficientsIsIdentity)
     .WithDomains(fuzztest::InRange(-1.0e6F, 1.0e6F),   // xDistorted [-]
                  fuzztest::InRange(-1.0e6F, 1.0e6F));  // yDistorted [-]
+
+FUZZ_TEST(CobConverterUndistortFuzz, fuzzUndistortRecoversInputNarrowFov)
+    .WithDomains(fuzztest::InRange(-0.3F, 0.3F),    // xu [-]: ~+/-17 deg off boresight
+                 fuzztest::InRange(-0.3F, 0.3F),    // yu [-]
+                 calibrationCoefficientsDomain());  // barrel and pincushion
+
+FUZZ_TEST(CobConverterUndistortFuzz, fuzzUndistortRecoversInputPincushion)
+    .WithDomains(fuzztest::InRange(-12.0F, 12.0F),  // xu [-]: image edge of a 170 deg FOV (tan 85 deg ~ 11.4)
+                 fuzztest::InRange(-12.0F, 12.0F),  // yu [-]
+                 pincushionCoefficientsDomain());
+
+FUZZ_TEST(CobConverterUndistortFuzz, fuzzUndistortRecoversInputFovScaled)
+    .WithDomains(fuzztest::InRange(0.0873F, 1.4835F),  // halfFieldOfView [rad]: 5 to 85 deg
+                 fuzztest::InRange(-1.0F, 1.0F),       // xu as a fraction of the image half-width
+                 fuzztest::InRange(-1.0F, 1.0F),       // yu as a fraction of the image half-height
+                 fuzztest::InRange(-0.1F, 0.1F),       // a = k1 R^2
+                 fuzztest::InRange(-0.03F, 0.03F),     // b = k2 R^4
+                 fuzztest::InRange(-0.01F, 0.01F),     // c = k3 R^6
+                 fuzztest::InRange(-0.005F, 0.005F),   // q1 = p1 R
+                 fuzztest::InRange(-0.005F, 0.005F));  // q2 = p2 R
