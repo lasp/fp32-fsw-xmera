@@ -330,9 +330,8 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
 
         const float xCOMCorrected = comUndistorted.xUndistorted;
         const float yCOMCorrected = comUndistorted.yUndistorted;
-        const bool brownConradyCOMValid = comUndistorted.valid;
         const Eigen::Vector3f xy1COMCorrected{xCOMCorrected, yCOMCorrected, 1.0F};
-        result.diagnostic.brownConradyCOMValid = brownConradyCOMValid;
+        result.diagnostic.brownConradyCOMValid = comUndistorted.valid;
         const Eigen::Vector3f rhatCOM_SC_C_Buffer = -xy1COMCorrected.stableNormalized();
         const Eigen::Vector3f rhatCOM_SC_N_Buffer = rotations.dcm_NC * rhatCOM_SC_C_Buffer;
 
@@ -373,7 +372,7 @@ CobConverterUpdateResult CobConverterAlgorithm::updateState(const CobMeasurement
         result.output.covar_N = 0.5F * (covarPublished_N + covarPublished_N.transpose());
         result.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
         // Disabled outlier detection bypasses the check.
-        result.output.unitVecValid = brownConradyCOMValid && (!outlierDetectionEnabled || goodOutlierCheck);
+        result.output.unitVecValid = !outlierDetectionEnabled || goodOutlierCheck;
 
         result.diagnostic.centerOfMass = centerOfMass.head<2>();
         result.diagnostic.offsetFactor = correction.gamma;

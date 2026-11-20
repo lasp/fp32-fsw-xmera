@@ -145,7 +145,6 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
                                                             const CobMeasurement& cob,
                                                             const VehicleAttitude& attitude,
                                                             const FilterState& filter,
-                                                            bool* brownConradyConverged = nullptr,
                                                             bool* outlierNearThreshold = nullptr) {
     CobConverterUpdateResult output;
 
@@ -226,9 +225,6 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     // The COB heading is not reported; only its convergence flag is.
     mapState(cobPixels, cameraCalibrationMatrix, coefficients, &cobConverged);
     const Eigen::Vector3d rhatCOM_C = mapState(comPixels, cameraCalibrationMatrix, coefficients, &comConverged);
-    if (brownConradyConverged != nullptr) {
-        *brownConradyConverged = cobConverged && comConverged;
-    }
     output.diagnostic.brownConradyCOMValid = comConverged;
     output.diagnostic.brownConradyCOBValid = cobConverged;
 
@@ -284,8 +280,8 @@ inline CobConverterUpdateResult referenceCobConverterUpdate(const CobConverterCo
     output.output.covar_N = (covar_N + (0.5 * covar_N.trace() * (rhatCOM_N * rhatCOM_N.transpose()))).cast<float>();
     output.output.rhat_BN_N = rhatCOM_N.cast<float>();
     output.output.unitVecTimeTag = fsw::nanosToSeconds(cob.cobTimeTag);
-    // Mirrors updateState: a converged COM undistortion, and the outlier check unless it is disabled.
-    output.output.unitVecValid = comConverged && (!cfg.isOutlierDetectionEnabled() || goodOutlierCheck);
+    // Mirrors updateState: the outlier check unless it is disabled.
+    output.output.unitVecValid = !cfg.isOutlierDetectionEnabled() || goodOutlierCheck;
 
     output.diagnostic.centerOfMass = comPixels.cast<float>();
     output.diagnostic.offsetFactor = static_cast<float>(gamma);
@@ -469,10 +465,9 @@ inline void testCobConverter(float radius,
     CobConverterAlgorithm alg(*cfg);
     CobConverterUpdateResult out;
     EXPECT_NO_THROW(out = alg.updateState(cob, attitude, filter));
-    bool brownConradyConverged = true;
     bool outlierNearThreshold = false;
     const CobConverterUpdateResult ref =
-        referenceCobConverterUpdate(*cfg, cob, attitude, filter, &brownConradyConverged, &outlierNearThreshold);
+        referenceCobConverterUpdate(*cfg, cob, attitude, filter, &outlierNearThreshold);
 
     // An invalid COB or a non-positive pixel count is rejected.
     if (!cob.cobValid || cob.cobPixelsFound <= 0) {
@@ -481,9 +476,8 @@ inline void testCobConverter(float radius,
         return;
     }
 
-    // No well-defined answer: non-converged Brown-Conrady inverse (either precision) or error at the outlier gate.
-    if (!brownConradyConverged || !out.diagnostic.brownConradyCOMValid || !out.diagnostic.brownConradyCOBValid ||
-        outlierNearThreshold) {
+    // No well-defined answer: the precisions disagree on COM convergence, or error at the outlier gate.
+    if (out.diagnostic.brownConradyCOMValid != ref.diagnostic.brownConradyCOMValid || outlierNearThreshold) {
         return;
     }
 

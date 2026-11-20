@@ -246,9 +246,9 @@ TEST(CobConverterTest, PixelsFoundIncreaseIsSizeIncreaseTest) {
     }
 }
 
-// A non-converged COM undistortion falls back to the initial guess (the pinhole heading), so it must
-// not be published as valid; the heading is still populated for debugging.
-TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
+// A non-converged COM undistortion falls back to the initial guess (the pinhole heading), which is
+// still published as valid; the convergence flags are reported only.
+TEST(CobConverterTest, BrownConradyNonConvergenceKeepsHeadingValidTest) {
     const Eigen::Matrix3f zeroCovariance = Eigen::Matrix3f::Zero();
     const Eigen::Vector3f zeroMrp = Eigen::Vector3f::Zero();
     const auto makeAlgorithm = [&](const CalibrationCoefficients& coefficients) {
@@ -283,7 +283,7 @@ TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
         makeAlgorithm(CalibrationCoefficients{.k1 = 1000.0F}).updateState(cob, attitude, filter);
     ASSERT_FALSE(nonConverged.diagnostic.brownConradyCOMValid);
     EXPECT_FALSE(nonConverged.diagnostic.brownConradyCOBValid);
-    EXPECT_FALSE(nonConverged.output.unitVecValid);
+    EXPECT_TRUE(nonConverged.output.unitVecValid);
     EXPECT_TRUE(nonConverged.diagnostic.comValid);
     EXPECT_TRUE(nonConverged.output.rhat_BN_N.allFinite());
     EXPECT_GT(nonConverged.output.rhat_BN_N.norm(), 0.0F);

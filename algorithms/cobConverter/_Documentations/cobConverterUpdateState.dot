@@ -30,7 +30,7 @@ digraph cobConverterUpdateState {
     gate [label="goodOutlierCheck = filterUsable and d ≤ N R + n_σ √tr(P)\nd = ‖r × r̂‖ (or ‖r‖ if r · r̂ ≤ 0)\ncomErrorOutlierTrigger = !goodOutlierCheck"];
     noGate [label="Outlier check bypassed\ngoodOutlierCheck = false (not run)\ncomErrorOutlierTrigger = false"];
 
-    publish [label="Publish\nP_N inflated along r̂ and symmetrized\nunitVecValid = brownConradyCOMValid and\n(outlier detection disabled or goodOutlierCheck)\ndiagnostics filled, comValid = true", fillcolor="#d5ecd5"];
+    publish [label="Publish\nP_N inflated along r̂ and symmetrized\nunitVecValid = outlier detection disabled\nor goodOutlierCheck\ndiagnostics filled, comValid = true", fillcolor="#d5ecd5"];
 
     start -> cobValid;
 
