@@ -165,7 +165,7 @@ class InertialFilterAlgorithm {
     StAttMeasurement packStAttMeasurement(StAttData const& stAttData) const;
     RateMeasurement packRateMeasurement(RateData const& rateData) const;
 
-    static State regularize(State const& state);
+    void regularize();
 
     InertialFilterConfig cfg;  //!< validated configuration, supplied at construction / setConfig()
     SRuKF<State, InertialDynamics> srukf;

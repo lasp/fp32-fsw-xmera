@@ -172,7 +172,9 @@ long runs; only their differences are narrowed to ``float`` before
      ``configure()`` / ``reInitialize()`` / ``timeUpdate(dt)`` /
      ``measurementUpdate<M>(m)`` plus setters/getters and a
      ``getStateAtLastMeasurement()`` / ``setStateLastMeasurement()`` pair for
-     the rolling last-measurement state.
+     the rolling last-measurement state. ``setCovariance()`` and
+     ``setCovarianceLastMeasurement()`` replace a covariance and refactor its
+     square root, for a filter that changes the state's representation.
 
    ``configure()`` re-derives the sigma-point spread (lambda, eta), the sigma
    weights, and the process-noise Cholesky from alpha, beta, and the process
@@ -525,7 +527,9 @@ filter's state and covariance into the plain-data ``FilterStateOutput`` /
 ``CssResidualsOutput`` / ``RateResidualsOutput``. If the filter needs to keep
 the estimate physically meaningful, it post-processes after the queue drains —
 sunline's ``regularize()`` renormalizes the heading to a unit vector and clamps
-the CSS bias to its configured bounds; the SRUKF itself stays agnostic to that.
+the CSS bias to its configured bounds, and the inertial filter's switches an MRP
+past :math:`|\boldsymbol{\sigma}| = 1` to its shadow set together with its covariance;
+the SRUKF itself stays agnostic to that.
 
 
 Time bookkeeping: queue ↔ SRUKF

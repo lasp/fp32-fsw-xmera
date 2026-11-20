@@ -82,8 +82,22 @@ applied with a linear state correction; together with the linear sigma-point mea
 transform this is valid for moderate attitude errors. Unlike the Basilisk inertialUKF, the unscented
 transform here does not switch MRP sigma points across the :math:`|\boldsymbol{\sigma}| = 1` boundary, so
 the filter is intended to operate away from the MRP shadow-set singularity. After each ``update()`` the
-resulting state is regularized (``mrpSwitch``) to the inner MRP set so :math:`|\boldsymbol{\sigma}| \le 1`
-is maintained, without altering the represented attitude.
+resulting state is regularized to the inner MRP set so :math:`|\boldsymbol{\sigma}| \le 1` is maintained,
+without altering the represented attitude. When :math:`|\boldsymbol{\sigma}| > 1`, the attitude is switched to
+its shadow set :math:`\boldsymbol{\sigma}_s = -\boldsymbol{\sigma}/|\boldsymbol{\sigma}|^2`, and the covariance
+with it, through the switch's Jacobian
+
+.. math::
+
+   J = \frac{\partial \boldsymbol{\sigma}_s}{\partial \boldsymbol{\sigma}}
+     = -\frac{1}{|\boldsymbol{\sigma}|^2}\left(I - \frac{2\,\boldsymbol{\sigma}\boldsymbol{\sigma}^T}{|\boldsymbol{\sigma}|^2}\right),
+   \qquad P \leftarrow T P T^T, \quad T = \begin{bmatrix} J & 0 \\ 0 & I \end{bmatrix}.
+
+The attitude block becomes :math:`J P_{\sigma\sigma} J^T` and the attitude-rate correlations
+:math:`J P_{\sigma\omega}`; the rate and its block are untouched. Near the switch :math:`J` keeps the component
+along :math:`\boldsymbol{\sigma}` and flips the two across it, so without this the attitude-rate correlations
+would keep the wrong sign and the next attitude innovations would move the rate the wrong way. The working
+state and the last-measurement anchor are each switched with their own covariance.
 
 
 Module Architecture
