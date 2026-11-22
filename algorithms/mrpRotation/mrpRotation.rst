@@ -269,6 +269,38 @@ boresight :math:`\hat{\mathbf b}`, given in component axes, before the offset. S
 The boresight then stays at :math:`\alpha` from the target and turns around it once every :math:`2\pi/|\Omega|`. The
 spacecraft turns as a rigid body, thus it also turns 360 deg about the target line in each cycle.
 
+Component Pointing Examples
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``_tests/test_mrpRotation_componentPointing.py`` chains the guidance module of each point state into this module,
+with no spacecraft dynamics, and checks where the selected component points. Run it directly to save its figures::
+
+    python test_mrpRotation_componentPointing.py <output directory>
+
+Each figure shows the sky around the target, seen from the spacecraft: the target, the component boresight, the
+nominal body axis that the base frame puts on the target, and arrows toward :math:`+\hat{\mathbf b}_3` that show
+the roll. The angles are exaggerated so they are visible: a 2 deg misalignment and a 6 deg offset about the component
+x axis.
+
+Earth Point with the HGA, and Hill Point and Inertial Point with the MAC, each run four scenarios:
+
+- **Component only.** The boresight is on the target, and the nominal body axis is off it by the misalignment.
+- **Offset only.** The boresight is off the target by the offset angle.
+- **Component and offset.** The component puts the boresight on the target, and the offset then moves it off by
+  exactly the offset angle, about component axes.
+- **Then spin about the boresight.** The boresight holds the offset point and the spacecraft rolls about it. The
+  nominal body axis circles the boresight.
+
+The spin and offset figure keeps the same offset in Hill Point and changes only the spin axis. A second row shows
+where the target appears in the MAC image:
+
+- **Spin about the boresight** (this design). The boresight holds the offset point, and the target circles the image
+  center.
+- **Spin about the target line.** The boresight cones around the target, and the target stays put in the image. An
+  offset applied after the spin gives the same motion.
+- **Spin about the camera x axis**, which is the offset axis. The boresight sweeps back along the offset line, across
+  the target.
+
 Module Assumptions and Limitations
 ----------------------------------
 
@@ -305,3 +337,7 @@ component-only attitude turned about the measured camera axis, and a spin about 
 boresight while the camera rolls. Edge-case tests examine ``reInitialize()``, a new pointing offset through
 ``setConfig()``, the shadow-set switch, and a 10 deg cone around a target. Fuzz tests use random configurations and
 inputs in realistic ranges.
+
+The integrated component pointing test runs the scenarios of the examples above through the guidance modules and
+checks the boresight angles, that a spin about the boresight holds it still, and that the output rate matches the
+central difference of the output attitude.
