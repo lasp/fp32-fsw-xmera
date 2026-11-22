@@ -22,10 +22,12 @@ class MrpRotation final : public SysModel {
     void reInitialize();
 
     // Phase 1: public config properties -- set before reset().
-    Eigen::Vector3f sigma_RbR0 = Eigen::Vector3f::Zero();   //!< [-] base frame, Rb wrt input reference R0
-    Eigen::Vector3f sigma_RpRb = Eigen::Vector3f::Zero();   //!< [-] commanded pointing offset, Rp wrt Rb in body axes
-    Eigen::Vector3f spinAxis_Rp = Eigen::Vector3f::Zero();  //!< [-] unit spin axis of R wrt Rp, Rp axes (must be set)
-    float spinRate = 0.0F;                                  //!< [rad/s] signed spin rate of R wrt Rp about spinAxis_Rp
+    Eigen::Vector3f sigma_RbR0 = Eigen::Vector3f::Zero();    //!< [-] base frame, Rb wrt input reference R0
+    Eigen::Vector3f sigma_CnB = Eigen::Vector3f::Zero();     //!< [-] nominal mounting, component frame Cn wrt body B
+    Eigen::Vector3f sigma_CB = Eigen::Vector3f::Zero();      //!< [-] measured mounting, component frame C wrt body B
+    Eigen::Vector3f sigma_RpRc_C = Eigen::Vector3f::Zero();  //!< [-] pointing offset, Rp wrt Rc in component axes
+    Eigen::Vector3f spinAxis_C = Eigen::Vector3f::Zero();    //!< [-] unit spin axis, component axes (must be set)
+    float spinRate = 0.0F;                                   //!< [rad/s] signed spin rate of R wrt Rp about spinAxis_C
     float controlPeriod = 0.0F;  //!< [s] integration step used by the algorithm (must be > 0)
 
     Message<AttRefMsgF32Payload> attRefOutMsg;     //!< output message containing the Reference

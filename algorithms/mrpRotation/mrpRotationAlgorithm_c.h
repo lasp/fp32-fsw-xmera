@@ -18,32 +18,40 @@ typedef struct MrpRotationAlgorithmHandle MrpRotationAlgorithmHandle;
 /**
  * @brief Report whether a configuration would be accepted by create/setConfig.
  * @param sigma_RbR0    [-] base frame, Rb wrt input reference R0; must be finite.
- * @param sigma_RpRb    [-] commanded pointing offset, frame Rp wrt Rb in body axes; must be finite.
- * @param spinAxis_Rp   [-] spin axis of R wrt Rp in Rp axes; must be finite with norm within 1e-3 of 1.0.
- * @param spinRate      [rad/s] signed spin rate of R wrt Rp about spinAxis_Rp; must be finite.
+ * @param sigma_CnB     [-] nominal mounting, nominal component frame Cn wrt body B; must be finite.
+ * @param sigma_CB      [-] measured mounting, component frame C wrt body B; must be finite.
+ * @param sigma_RpRc_C  [-] commanded pointing offset, frame Rp wrt Rc in component axes; must be finite.
+ * @param spinAxis_C    [-] spin axis of R wrt Rp in component axes; must be finite with norm within 1e-3 of 1.0.
+ * @param spinRate      [rad/s] signed spin rate of R wrt Rp about spinAxis_C; must be finite.
  * @param controlPeriod [s] forward-Euler integration step used every update; must be finite and > 0.
  * @return true when the configuration is valid. Never throws, so it can guard the throwing
  *         create/setConfig from an invalid configuration.
  */
 bool MrpRotationAlgorithm_validateConfig(const Vector3f_c* sigma_RbR0,
-                                         const Vector3f_c* sigma_RpRb,
-                                         const Vector3f_c* spinAxis_Rp,
+                                         const Vector3f_c* sigma_CnB,
+                                         const Vector3f_c* sigma_CB,
+                                         const Vector3f_c* sigma_RpRc_C,
+                                         const Vector3f_c* spinAxis_C,
                                          float spinRate,
                                          float controlPeriod);
 
 /**
  * @brief Construct a new MrpRotationAlgorithm instance from the supplied configuration.
  * @param sigma_RbR0    [-] base frame, Rb wrt input reference R0; must be finite.
- * @param sigma_RpRb    [-] commanded pointing offset, frame Rp wrt Rb in body axes; must be finite.
- * @param spinAxis_Rp   [-] spin axis of R wrt Rp in Rp axes; must be finite with norm within 1e-3 of 1.0.
- * @param spinRate      [rad/s] signed spin rate of R wrt Rp about spinAxis_Rp; must be finite.
+ * @param sigma_CnB     [-] nominal mounting, nominal component frame Cn wrt body B; must be finite.
+ * @param sigma_CB      [-] measured mounting, component frame C wrt body B; must be finite.
+ * @param sigma_RpRc_C  [-] commanded pointing offset, frame Rp wrt Rc in component axes; must be finite.
+ * @param spinAxis_C    [-] spin axis of R wrt Rp in component axes; must be finite with norm within 1e-3 of 1.0.
+ * @param spinRate      [rad/s] signed spin rate of R wrt Rp about spinAxis_C; must be finite.
  * @param controlPeriod [s] forward-Euler integration step used every update; must be finite and > 0.
  * @return Pointer to a new MrpRotationAlgorithm (must be destroyed).
  * Validate the configuration with validateConfig first; invalid input throws.
  */
 MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const Vector3f_c* sigma_RbR0,
-                                                        const Vector3f_c* sigma_RpRb,
-                                                        const Vector3f_c* spinAxis_Rp,
+                                                        const Vector3f_c* sigma_CnB,
+                                                        const Vector3f_c* sigma_CB,
+                                                        const Vector3f_c* sigma_RpRc_C,
+                                                        const Vector3f_c* spinAxis_C,
                                                         float spinRate,
                                                         float controlPeriod);
 
@@ -54,20 +62,24 @@ MrpRotationAlgorithmHandle* MrpRotationAlgorithm_create(const Vector3f_c* sigma_
 void MrpRotationAlgorithm_destroy(MrpRotationAlgorithmHandle* self);
 
 /**
- * @brief Replace the algorithm's configuration at runtime. The new base frame and pointing offset apply
- *        at the next update; the integrated rotation is kept.
+ * @brief Replace the algorithm's configuration at runtime. The new base frame, mountings and pointing offset
+ *        apply at the next update; the integrated rotation is kept.
  * @param self          Pointer to the instance.
  * @param sigma_RbR0    [-] base frame, Rb wrt input reference R0; must be finite.
- * @param sigma_RpRb    [-] commanded pointing offset, frame Rp wrt Rb in body axes; must be finite.
- * @param spinAxis_Rp   [-] spin axis of R wrt Rp in Rp axes; must be finite with norm within 1e-3 of 1.0.
- * @param spinRate      [rad/s] signed spin rate of R wrt Rp about spinAxis_Rp; must be finite.
+ * @param sigma_CnB     [-] nominal mounting, nominal component frame Cn wrt body B; must be finite.
+ * @param sigma_CB      [-] measured mounting, component frame C wrt body B; must be finite.
+ * @param sigma_RpRc_C  [-] commanded pointing offset, frame Rp wrt Rc in component axes; must be finite.
+ * @param spinAxis_C    [-] spin axis of R wrt Rp in component axes; must be finite with norm within 1e-3 of 1.0.
+ * @param spinRate      [rad/s] signed spin rate of R wrt Rp about spinAxis_C; must be finite.
  * @param controlPeriod [s] forward-Euler integration step used every update; must be finite and > 0.
  * Validate the configuration with validateConfig first; invalid input throws.
  */
 void MrpRotationAlgorithm_setConfig(MrpRotationAlgorithmHandle* self,
                                     const Vector3f_c* sigma_RbR0,
-                                    const Vector3f_c* sigma_RpRb,
-                                    const Vector3f_c* spinAxis_Rp,
+                                    const Vector3f_c* sigma_CnB,
+                                    const Vector3f_c* sigma_CB,
+                                    const Vector3f_c* sigma_RpRc_C,
+                                    const Vector3f_c* spinAxis_C,
                                     float spinRate,
                                     float controlPeriod);
 

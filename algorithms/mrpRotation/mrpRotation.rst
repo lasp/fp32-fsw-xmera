@@ -4,17 +4,29 @@
 
 Executive Summary
 -----------------
-This module makes a reference frame :math:`\mathcal R` from an input reference frame :math:`\mathcal R_0`. It applies
-three rotations to the input reference, in this sequence:
+This module points a selected component, such as a camera or an antenna, rather than a nominal body axis. It builds
+the output reference frame :math:`\mathcal R` from the input reference frame :math:`\mathcal R_0` in pointing order:
 
-1. A base frame :math:`\mathbf\sigma_{\mathcal{R}_b/\mathcal{R}_0}`. It sets which body axes align with the
-   input reference axes. For example, it can put the body :math:`-\hat{\mathbf b}_2` axis on the central body of a Hill
-   frame.
-2. A pointing offset :math:`\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_b}`. It tilts the base frame about body axes,
-   for example 10 deg off the target. The operator can change it at runtime.
-3. A constant-rate rotation :math:`{}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} = \Omega\,{}^{\mathcal R_p}\hat{\mathbf e}` about the spin axis
-   :math:`\hat{\mathbf e}` at the spin rate :math:`\Omega`. The spin axis is constant in :math:`\mathcal R_p` axes.
-   The module integrates this rotation from identity with the MRP kinematic differential equation.
+1. A base frame :math:`\mathbf\sigma_{\mathcal{R}_b/\mathcal{R}_0}`. It puts the nominal body axis of the state on
+   the target, for example body :math:`-\hat{\mathbf b}_2` on the central body of a Hill frame.
+2. The component. The body turns so the measured component frame sits where the nominal component frame sits in the
+   base attitude, which puts the real boresight on the target. This step uses the nominal mounting
+   :math:`\mathbf\sigma_{\mathcal{C}_n/\mathcal{B}}` and the measured mounting
+   :math:`\mathbf\sigma_{\mathcal{C}/\mathcal{B}}`, and it is where the misalignment is corrected.
+3. A pointing offset about component axes. It moves the boresight off the target by the offset angle. The operator
+   can change it at runtime.
+4. A constant-rate spin :math:`\Omega\,\hat{\mathbf e}` about a spin axis :math:`\hat{\mathbf e}` that is constant in
+   component axes. The module integrates this spin from identity with the MRP kinematic differential equation.
+
+Each step turns the body. The offset and the spin axis are given in component axes, and the offset comes after the
+component, so the real boresight is off the target by exactly the commanded offset, whatever the misalignment.
+Because the spin comes after the offset, a spin about the boresight holds the boresight on the offset point and rolls
+the spacecraft about it.
+
+Every component, a camera or an antenna alike, has a full frame. Its nominal frame
+:math:`\mathbf\sigma_{\mathcal{C}_n/\mathcal{B}}` comes from the ICD and its measured frame
+:math:`\mathbf\sigma_{\mathcal{C}/\mathcal{B}}` from the alignment survey. Offsets and spin are in its own axes, for
+example image axes for a camera.
 
 The output message contains the attitude :math:`\mathbf\sigma_{\mathcal{R}/\mathcal{N}}`, the inertial angular velocity
 :math:`{}^{\mathcal N}{\mathbf\omega}_{\mathcal{R}/\mathcal{N}}`, and the inertial angular acceleration
@@ -37,8 +49,8 @@ The module is split into two layers:
   messaging-payload includes. Its ``update()`` consumes one Eigen-typed input bundle -- ``MrpRotationAttRefInputs``
   (mirrors ``AttRefMsgF32Payload``) -- and returns its own POD ``MrpRotationOutput`` (shape of the output
   ``AttRefMsgF32Payload``). Both structs are declared at the top of ``mrpRotationAlgorithm.h``. ``update()`` must not
-  throw. The configured ``sigma_RbR0``, ``sigma_RpRb``, ``spinAxis_Rp``, ``spinRate``, and ``controlPeriod`` fully set the output
-  reference frame.
+  throw. The configured ``sigma_RbR0``, ``sigma_CnB``, ``sigma_CB``, ``sigma_RpRc_C``, ``spinAxis_C``, ``spinRate``, and
+  ``controlPeriod`` fully set the output reference frame.
 
 A pure-C shim (``mrpRotationAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant components via
 ``extern "C"`` bindings. The shim's ``_update`` takes a ``MrpRotationAttRefInputs_c`` POD mirror (declared in
@@ -80,28 +92,42 @@ The adapter consumes the following messages and exposes the configuration as pub
       - Eigen::Vector3f
       - [-]
       - zero
-      - Components must be finite (``allFinite``). Base frame: the frame :math:`\mathcal R_b`
-        relative to the input reference :math:`\mathcal R_0`. Row :math:`i` of :math:`[R_bR_0]` is the input reference
-        axis :math:`i` in body components. An MRP with norm greater than 1 is stored as its shadow set
-    * - sigma_RpRb
+      - Components must be finite (``allFinite``). Base frame: the frame :math:`\mathcal R_b` relative to the input
+        reference :math:`\mathcal R_0`, with the nominal body axis on the target. Row :math:`i` of :math:`[R_bR_0]` is
+        body axis :math:`i` in input reference components. An MRP with norm greater than 1 is stored as its shadow set
+    * - sigma_CnB
+      - Eigen::Vector3f
+      - [-]
+      - zero
+      - Components must be finite. Nominal mounting: the nominal component frame :math:`\mathcal C_n` relative to the
+        body frame. Row :math:`i` of :math:`[C_nB]` is nominal component axis :math:`i` in body components. Stored as
+        its shadow set when the norm is greater than 1
+    * - sigma_CB
+      - Eigen::Vector3f
+      - [-]
+      - zero
+      - Components must be finite. Measured mounting: the component frame :math:`\mathcal C` relative to the body
+        frame, as measured. Row :math:`i` of :math:`[CB]` is component axis :math:`i` in body components. Stored as its
+        shadow set when the norm is greater than 1
+    * - sigma_RpRc_C
       - Eigen::Vector3f
       - [-]
       - zero
       - Components must be finite (``allFinite``). Pointing offset: the frame :math:`\mathcal R_p` relative to
-        :math:`\mathcal R_b`, in body axes. An MRP with norm greater than 1 is stored as its shadow set
-    * - spinAxis_Rp
+        :math:`\mathcal R_c`, as an MRP in component axes. An MRP with norm greater than 1 is stored as its shadow set
+    * - spinAxis_C
       - Eigen::Vector3f
       - [-]
       - zero (invalid)
-      - Must be finite with norm within 1e-3 of 1. Spin axis :math:`\hat{\mathbf e}` of :math:`\mathcal R` relative to
-        :math:`\mathcal R_p`, in :math:`\mathcal R_p` components. The configuration stores the normalized axis.
-        Set it also when ``spinRate`` is zero
+      - Must be finite with norm within 1e-3 of 1. Spin axis :math:`\hat{\mathbf e}` of :math:`\mathcal R` relative
+        to :math:`\mathcal R_p`, in component axes. The configuration stores the normalized axis. Set it also when
+        ``spinRate`` is zero
     * - spinRate
       - float
       - [rad/s]
       - 0.0
       - Must be finite. Spin rate :math:`\Omega` of :math:`\mathcal R` relative to :math:`\mathcal R_p` about
-        ``spinAxis_Rp``. A negative value turns in the opposite direction
+        ``spinAxis_C``. A negative value turns in the opposite direction
     * - controlPeriod
       - float
       - [s]
@@ -119,9 +145,11 @@ inputs and constructs the algorithm. ``updateState()`` throws ``XmeraLifecycleEx
 
     module = mrpRotationF32.MrpRotation()
     module.modelTag = "mrpRotation"
-    module.sigma_RbR0 = rbk.C2MRP(RbR0)         # base frame; row i of RbR0 = R0 axis i in body axes
-    module.sigma_RpRb = [0.0437, 0.0, 0.0]      # 10 deg pointing offset about body x
-    module.spinAxis_Rp = [1.0, 0.0, 0.0]        # spin about the Rp x axis
+    module.sigma_RbR0 = rbk.C2MRP(RbR0)         # base frame; row i of RbR0 = body axis i in R0 components
+    module.sigma_CnB = rbk.C2MRP(CnB)           # nominal mounting; row i of CnB = camera axis i in body components
+    module.sigma_CB = rbk.C2MRP(CB)             # measured mounting, from the alignment survey
+    module.sigma_RpRc_C = [0.0437, 0.0, 0.0]    # 10 deg pointing offset about the camera x axis
+    module.spinAxis_C = [0.0, 0.0, 1.0]         # spin about the camera boresight
     module.spinRate = 0.001745                  # [rad/s] ~0.1 deg/s
     module.controlPeriod = 0.5                  # [s] forward-Euler integration step; required (> 0)
 
@@ -131,9 +159,9 @@ inputs and constructs the algorithm. ``updateState()`` throws ``XmeraLifecycleEx
     sim.InitializeSimulation()  # invokes reset(); validators run, algorithm is constructed
 
 To change the pointing offset at runtime, set the property and call ``reconfigure()``. The new offset applies at the
-next update. The integrated rotation continues from its current value::
+next update. The integrated spin continues from its current value::
 
-    module.sigma_RpRb = [0.0, 0.0, 0.0437]
+    module.sigma_RpRc_C = [0.0, 0.0437, 0.0]
     module.reconfigure()
 
 Algorithm Layer
@@ -149,12 +177,32 @@ matrix (DCM)
 
 .. math:: [R_0 N] = [R_0 N(\mathbf\sigma_{\mathcal{R}_0/\mathcal{N}})]
 
-The output reference frame :math:`\mathcal R` comes from three rotations of :math:`\mathcal R_0`:
+The output reference frame :math:`\mathcal R` comes from four rotations of :math:`\mathcal R_0`, in pointing order:
 
-.. math:: [RN] = [RR_p(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p}(t))]\,[R_pR_b]\,[R_bR_0]\,[R_0 N]
+.. math:: [RN] = [RR_p(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p}(t))]\,[R_pR_c]\,[R_cR_b]\,[R_bR_0]\,[R_0 N]
 
-The base frame :math:`[R_bR_0]` and the pointing offset :math:`[R_pR_b]` are constant. The algorithm calculates
-their product :math:`[R_pR_0] = [R_pR_b][R_bR_0]` when it receives a configuration.
+Each rotation turns the body:
+
+- The base frame :math:`[R_bR_0]` puts the nominal body axis on the target.
+- The component rotation :math:`[R_cR_b]` turns the body so the measured component frame :math:`\mathcal C` sits where
+  the nominal component frame :math:`\mathcal C_n` sits in the base attitude, :math:`[CB][R_cN] = [C_nB][R_bN]`:
+
+  .. math:: [R_cR_b] = [BC]\,[C_nB]
+
+  with :math:`[BC] = [CB]^T`. It is the small rotation between the nominal and the measured component frames, and the
+  identity for a perfect mounting. Every component axis, the boresight included, then points where its nominal
+  counterpart points in the base attitude.
+- The pointing offset :math:`[R_pR_c]` turns the body about component axes, so the boresight moves off the target by
+  the offset angle. It is given as the MRP :math:`{}^{\mathcal C}\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_c}` in
+  component axes. An MRP lies along the axis of its rotation, so in body axes it is
+
+  .. math:: {}^{\mathcal B}\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_c} = [BC]\,{}^{\mathcal C}\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_c}
+
+- The spin :math:`[RR_p]` turns the body about the spin axis :math:`{}^{\mathcal C}\hat{\mathbf e}`, given in component
+  axes. In body axes it is :math:`{}^{\mathcal R_p}\hat{\mathbf e} = [BC]\,{}^{\mathcal C}\hat{\mathbf e}`.
+
+The base frame, the mountings and the pointing offset are constant. The algorithm calculates their product
+:math:`[R_pR_0] = [R_pR_c][R_cR_b][R_bR_0]` and the spin axis in body axes when it receives a configuration.
 
 The rotation :math:`[RR_p]` starts at identity. Its rate is constant in :math:`\mathcal R_p` components. The MRP
 kinematic differential equation uses the rate in :math:`\mathcal R` components:
@@ -178,10 +226,10 @@ Each update propagates the MRP set with one forward Euler step. The step :math:`
 ``mrpSwitch`` changes the MRP to its shadow set when its norm is greater than one.
 
 The rotation starts at identity and its axis is constant in :math:`\mathcal R_p`, so the integrated MRP stays on that
-axis. The integration error changes only the rotation angle, not the axis. The axis of a rotation has the same
-components in :math:`\mathcal R` and :math:`\mathcal R_p`. Thus a rate along the :math:`\mathcal R_p` axis
-:math:`\hat{\mathbf r}_{p,1}` also rolls the body about :math:`\hat{\mathbf b}_1`, also when a pointing offset is
-present.
+axis. The integration error changes only the spin angle, not the axis. The axis of a rotation has the same components
+in :math:`\mathcal R` and :math:`\mathcal R_p`. Thus the component axis along :math:`\hat{\mathbf e}` stays fixed in
+:math:`\mathcal R_0`: a spin about the boresight holds the boresight on the offset point and rolls the spacecraft about
+it.
 
 The output MRP set comes from the DCM:
 
@@ -212,11 +260,11 @@ true because the rate is constant in :math:`\mathcal R_p` and :math:`\mathbf\ome
 Cone Around a Target
 ^^^^^^^^^^^^^^^^^^^^
 
-A boresight can turn on a cone around the target. Set the base frame so that the boresight
-:math:`\hat{\mathbf b}` points at the target. Set the pointing offset to the cone half-angle :math:`\alpha`. Set the
-spin axis along the target line in :math:`\mathcal R_p` components and set the spin rate :math:`\Omega`:
+A boresight can also turn on a cone around the target. Set the pointing offset to the cone half-angle
+:math:`\alpha`, and set the spin axis along the target line instead of along the boresight. The target is on the
+boresight :math:`\hat{\mathbf b}`, given in component axes, before the offset. So in component axes after the offset:
 
-.. math:: {}^{\mathcal R_p}\hat{\mathbf e} = [R_pR_b]\,\hat{\mathbf b}
+.. math:: {}^{\mathcal C}\hat{\mathbf e} = [CB]\,[R_pR_c]\,[BC]\,\hat{\mathbf b}
 
 The boresight then stays at :math:`\alpha` from the target and turns around it once every :math:`2\pi/|\Omega|`. The
 spacecraft turns as a rigid body, thus it also turns 360 deg about the target line in each cycle.
@@ -227,11 +275,13 @@ Module Assumptions and Limitations
 - Every ``update()`` advances the MRP by the configured ``controlPeriod``; there is no first-update "warm-up" tick.
   The caller must set ``controlPeriod`` to match the rate at which the adapter is being driven (e.g. the simulation
   task rate), otherwise the integrated reference frame will drift relative to true wall-clock time.
-- A change of the pointing offset through ``reconfigure()`` applies as a step at the next update. The output rate and
-  acceleration do not include a rate for this step.
-- The module uses forward Euler integration. The integration error of the rotation angle increases with
+- A change of the pointing offset or the mountings through ``reconfigure()`` applies as a step at the next update. The
+  output rate and acceleration do not include a rate for this step.
+- The module accepts any finite mountings. It does not check that the measured mounting is close to the nominal one;
+  the caller is responsible for that check before it configures the module.
+- The module uses forward Euler integration. The integration error of the spin angle increases with
   :math:`\Delta t` and :math:`|\Omega|`. Above approximately 0.2 rad per step,
-  float32 rounding errors off the rotation axis increase quickly. Keep
+  float32 rounding errors off the spin axis increase quickly. Keep
   :math:`|\Omega|\,\Delta t` well below 0.2 rad.
 - All math uses single-precision (float32). Compared to the double-precision Xmera implementation, regression
   tolerances are relaxed to roughly :math:`10^{-5}`.
@@ -239,14 +289,19 @@ Module Assumptions and Limitations
 Test Description
 ----------------
 Regression tests run the algorithm for several steps and compare the output with an independent reference
-implementation. Setup tests examine the ``MrpRotationConfig`` validators, the shadow-set storage of the offsets, and
-the normalized storage of the spin axis.
+implementation. Setup tests examine the ``MrpRotationConfig`` validators, the shadow-set storage of the MRPs, and the
+normalized storage of the spin axis.
 Property tests examine:
 
 - The output is finite.
-- With zero rate, the output is the input reference with the two offsets applied.
-- The rotation axis stays fixed in the input reference for 2000 steps.
+- With zero rate, the output is the input reference with the constant rotations applied.
+- With zero offset and zero rate, the measured component frame sits where the nominal frame sits in the base attitude.
+- The component axis along the spin axis stays fixed in the input reference for 2000 steps.
 - The output rate obeys the transport theorem.
 
-Edge-case tests examine ``reInitialize()``, a new pointing offset through ``setConfig()``, the shadow-set switch, and a
-10 deg cone around a target. Fuzz tests use random configurations and inputs in realistic ranges.
+Component pointing tests examine a camera with a 0.5 deg misalignment: the measured boresight lands on the target, an
+offset about a camera axis tilts the boresight off the target by the offset angle, the attitude with the offset is the
+component-only attitude turned about the measured camera axis, and a spin about the boresight holds the offset
+boresight while the camera rolls. Edge-case tests examine ``reInitialize()``, a new pointing offset through
+``setConfig()``, the shadow-set switch, and a 10 deg cone around a target. Fuzz tests use random configurations and
+inputs in realistic ranges.

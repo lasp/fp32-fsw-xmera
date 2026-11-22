@@ -15,30 +15,34 @@ from xmera.utilities import RigidBodyKinematics as rbk
 from xmera.architecture import messaging
 
 
-def compute_truth(sigma_RbR0, segments, spin_axis_Rp, spin_rate, ref_state_in_data, dt):
+def compute_truth(sigma_RbR0, sigma_CnB, sigma_CB, segments, spin_axis_C, spin_rate, ref_state_in_data, dt):
     """Each tick advances sigma_RRp by the configured controlPeriod (dt) and emits the output frame
-    [RN] = [RRp][RpRb][RbR0][R0N]. The algorithm integrates BEFORE computing the output. The rate is
-    given in Rp axes.
+    [RN] = [RRp][RpRc][RcRb][RbR0][R0N], with [RcRb] = [BC][CnB]. The offset and the spin axis are given in component
+    axes, so [RpRc] = [BC][RpRc(sigma_RpRc_C)][CB] and the spin axis in body axes is [BC] spin_axis_C. The algorithm
+    integrates BEFORE computing the output.
 
-    ``segments`` is a list of (sigma_RpRb, num_steps, restart) tuples. ``restart`` is True when reset()
+    ``segments`` is a list of (sigma_RpRc_C, num_steps, restart) tuples. ``restart`` is True when reset()
     rebuilt the algorithm before the segment (sigma_RRp restarts at identity); reconfigure() keeps sigma_RRp.
     """
     sigma_R0N = np.array(ref_state_in_data.sigma_RN)
     R0N = rbk.MRP2C(sigma_R0N)
     RbR0 = rbk.MRP2C(np.array(sigma_RbR0))
+    CnB = rbk.MRP2C(np.array(sigma_CnB))
+    BC = rbk.MRP2C(np.array(sigma_CB)).T
     omega_R0N_N = np.array(ref_state_in_data.omega_RN_N)
     domega_R0N_N = np.array(ref_state_in_data.domega_RN_N)
-    omega_RRp_Rp = spin_rate * np.array(spin_axis_Rp) / np.linalg.norm(spin_axis_Rp)
+    RcRb = BC @ CnB
+    omega_RRp_Rp = spin_rate * BC @ (np.array(spin_axis_C) / np.linalg.norm(spin_axis_C))
 
     truth_sigma = []
     truth_omega_RN_N = []
     truth_domega_RN_N = []
 
     sigma_RRp = np.zeros(3)
-    for sigma_RpRb, num_steps, restart in segments:
+    for sigma_RpRc_C, num_steps, restart in segments:
         if restart:
             sigma_RRp = np.zeros(3)
-        RpRb = rbk.MRP2C(np.array(sigma_RpRb))
+        RpRc = BC @ rbk.MRP2C(np.array(sigma_RpRc_C)) @ BC.T
         for _ in range(num_steps):
             # Forward-Euler MRP integration with mrpSwitch (shadow set when |sigma| > 1).
             B = rbk.BmatMRP(sigma_RRp)
@@ -47,7 +51,7 @@ def compute_truth(sigma_RbR0, segments, spin_axis_Rp, spin_rate, ref_state_in_da
             n_sq = float(np.dot(sigma_RRp, sigma_RRp))
             if n_sq > 1.0:
                 sigma_RRp = -sigma_RRp / n_sq
-            RpN = RpRb @ RbR0 @ R0N
+            RpN = RpRc @ RcRb @ RbR0 @ R0N
             RN = rbk.MRP2C(sigma_RRp) @ RpN
             omega_RRp_N = RpN.T @ omega_RRp_Rp
             truth_sigma.append(rbk.C2MRP(RN).tolist())
@@ -79,10 +83,17 @@ def test_mrp_rotation(show_plots, second_phase):
 
     sigma_RbR0 = np.array([0.3, .5, 0.0])
     module.sigma_RbR0 = sigma_RbR0
-    sigma_RpRb_1 = np.array([0.0, 0.0, 0.05])
-    module.sigma_RpRb = sigma_RpRb_1
-    spin_axis_Rp = np.array([1.0, 0.0, 0.0])
-    module.spinAxis_Rp = spin_axis_Rp
+    # A camera with boresight -Y_B: rows are the camera axes in body components. The measured mounting is the
+    # nominal one turned 0.5 deg.
+    sigma_CnB = rbk.C2MRP(np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]]))
+    module.sigma_CnB = sigma_CnB
+    sigma_CB = rbk.C2MRP(rbk.PRV2C(np.radians(0.5) * np.array([1.0, -2.0, 0.5]) / np.sqrt(5.25))
+                         @ rbk.MRP2C(sigma_CnB))
+    module.sigma_CB = sigma_CB
+    sigma_RpRc_C_1 = np.array([0.0, 0.0, 0.05])
+    module.sigma_RpRc_C = sigma_RpRc_C_1
+    spin_axis_C = np.array([1.0, 0.0, 0.0])
+    module.spinAxis_C = spin_axis_C
     spin_rate = 0.1 * mc.D2R
     module.spinRate = spin_rate
     module.controlPeriod = update_time
@@ -106,22 +117,22 @@ def test_mrp_rotation(show_plots, second_phase):
 
     # Tick count: tasks at rate update_time fire at t=0, dt, 2*dt, ..., total_test_sim_time → that's
     # (total_test_sim_time / update_time) + 1 ticks. The second phase adds 1.0s → 1.0/update_time more.
-    segments = [(sigma_RpRb_1, int(round(total_test_sim_time / update_time)) + 1, True)]
+    segments = [(sigma_RpRc_C_1, int(round(total_test_sim_time / update_time)) + 1, True)]
 
     if second_phase != "none":
         if second_phase == "reset":
             module.reset(1)
-            segments.append((sigma_RpRb_1, int(round(1.0 / update_time)), True))
+            segments.append((sigma_RpRc_C_1, int(round(1.0 / update_time)), True))
         else:
-            sigma_RpRb_2 = np.array([0.04, -0.02, 0.0])
-            module.sigma_RpRb = sigma_RpRb_2
+            sigma_RpRc_C_2 = np.array([0.04, -0.02, 0.0])
+            module.sigma_RpRc_C = sigma_RpRc_C_2
             module.reconfigure()
-            segments.append((sigma_RpRb_2, int(round(1.0 / update_time)), False))
+            segments.append((sigma_RpRc_C_2, int(round(1.0 / update_time)), False))
         unit_test_sim.ConfigureStopTime(mc.sec2nano(total_test_sim_time + 1.0))
         unit_test_sim.ExecuteSimulation()
 
     sigma_RN_true, omega_RN_true, dOmega_RN_true = compute_truth(
-        sigma_RbR0, segments, spin_axis_Rp, spin_rate, ref_state_in_data, update_time
+        sigma_RbR0, sigma_CnB, sigma_CB, segments, spin_axis_C, spin_rate, ref_state_in_data, update_time
     )
 
     accuracy = 1e-6
