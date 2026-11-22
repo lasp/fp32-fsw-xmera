@@ -7,10 +7,10 @@ Executive Summary
 This module makes a reference frame :math:`\mathcal R` from an input reference frame :math:`\mathcal R_0`. It applies
 three rotations to the input reference, in this sequence:
 
-1. A fixed body correction :math:`\mathbf\sigma_{\mathcal{R}_c/\mathcal{R}_0}`. It sets which body axes align with the
+1. A base frame :math:`\mathbf\sigma_{\mathcal{R}_b/\mathcal{R}_0}`. It sets which body axes align with the
    input reference axes. For example, it can put the body :math:`-\hat{\mathbf b}_2` axis on the central body of a Hill
    frame.
-2. A pointing offset :math:`\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_c}`. It tilts the corrected frame about body axes,
+2. A pointing offset :math:`\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_b}`. It tilts the base frame about body axes,
    for example 10 deg off the target. The operator can change it at runtime.
 3. A constant-rate rotation :math:`{}^{\mathcal R_p}{\mathbf\omega}_{\mathcal{R}/\mathcal{R}_p} = \Omega\,{}^{\mathcal R_p}\hat{\mathbf e}` about the spin axis
    :math:`\hat{\mathbf e}` at the spin rate :math:`\Omega`. The spin axis is constant in :math:`\mathcal R_p` axes.
@@ -37,7 +37,7 @@ The module is split into two layers:
   messaging-payload includes. Its ``update()`` consumes one Eigen-typed input bundle -- ``MrpRotationAttRefInputs``
   (mirrors ``AttRefMsgF32Payload``) -- and returns its own POD ``MrpRotationOutput`` (shape of the output
   ``AttRefMsgF32Payload``). Both structs are declared at the top of ``mrpRotationAlgorithm.h``. ``update()`` must not
-  throw. The configured ``sigma_RcR0``, ``sigma_RpRc``, ``spinAxis_Rp``, ``spinRate``, and ``controlPeriod`` fully set the output
+  throw. The configured ``sigma_RbR0``, ``sigma_RpRb``, ``spinAxis_Rp``, ``spinRate``, and ``controlPeriod`` fully set the output
   reference frame.
 
 A pure-C shim (``mrpRotationAlgorithm_c.h``/``.cpp``) wraps the algorithm class for use by Ada/Adamant components via
@@ -76,19 +76,19 @@ The adapter consumes the following messages and exposes the configuration as pub
       - Units
       - Default
       - Bounds
-    * - sigma_RcR0
+    * - sigma_RbR0
       - Eigen::Vector3f
       - [-]
       - zero
-      - Components must be finite (``allFinite``). Fixed body correction: the corrected frame :math:`\mathcal R_c`
-        relative to the input reference :math:`\mathcal R_0`. Row :math:`i` of :math:`[R_cR_0]` is the input reference
+      - Components must be finite (``allFinite``). Base frame: the frame :math:`\mathcal R_b`
+        relative to the input reference :math:`\mathcal R_0`. Row :math:`i` of :math:`[R_bR_0]` is the input reference
         axis :math:`i` in body components. An MRP with norm greater than 1 is stored as its shadow set
-    * - sigma_RpRc
+    * - sigma_RpRb
       - Eigen::Vector3f
       - [-]
       - zero
       - Components must be finite (``allFinite``). Pointing offset: the frame :math:`\mathcal R_p` relative to
-        :math:`\mathcal R_c`, in body axes. An MRP with norm greater than 1 is stored as its shadow set
+        :math:`\mathcal R_b`, in body axes. An MRP with norm greater than 1 is stored as its shadow set
     * - spinAxis_Rp
       - Eigen::Vector3f
       - [-]
@@ -119,8 +119,8 @@ inputs and constructs the algorithm. ``updateState()`` throws ``XmeraLifecycleEx
 
     module = mrpRotationF32.MrpRotation()
     module.modelTag = "mrpRotation"
-    module.sigma_RcR0 = rbk.C2MRP(RcR0)         # fixed body correction; row i of RcR0 = R0 axis i in body axes
-    module.sigma_RpRc = [0.0437, 0.0, 0.0]      # 10 deg pointing offset about body x
+    module.sigma_RbR0 = rbk.C2MRP(RbR0)         # base frame; row i of RbR0 = R0 axis i in body axes
+    module.sigma_RpRb = [0.0437, 0.0, 0.0]      # 10 deg pointing offset about body x
     module.spinAxis_Rp = [1.0, 0.0, 0.0]        # spin about the Rp x axis
     module.spinRate = 0.001745                  # [rad/s] ~0.1 deg/s
     module.controlPeriod = 0.5                  # [s] forward-Euler integration step; required (> 0)
@@ -133,7 +133,7 @@ inputs and constructs the algorithm. ``updateState()`` throws ``XmeraLifecycleEx
 To change the pointing offset at runtime, set the property and call ``reconfigure()``. The new offset applies at the
 next update. The integrated rotation continues from its current value::
 
-    module.sigma_RpRc = [0.0, 0.0, 0.0437]
+    module.sigma_RpRb = [0.0, 0.0, 0.0437]
     module.reconfigure()
 
 Algorithm Layer
@@ -151,10 +151,10 @@ matrix (DCM)
 
 The output reference frame :math:`\mathcal R` comes from three rotations of :math:`\mathcal R_0`:
 
-.. math:: [RN] = [RR_p(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p}(t))]\,[R_pR_c]\,[R_cR_0]\,[R_0 N]
+.. math:: [RN] = [RR_p(\mathbf\sigma_{\mathcal{R}/\mathcal{R}_p}(t))]\,[R_pR_b]\,[R_bR_0]\,[R_0 N]
 
-The body correction :math:`[R_cR_0]` and the pointing offset :math:`[R_pR_c]` are constant. The algorithm calculates
-their product :math:`[R_pR_0] = [R_pR_c][R_cR_0]` when it receives a configuration.
+The base frame :math:`[R_bR_0]` and the pointing offset :math:`[R_pR_b]` are constant. The algorithm calculates
+their product :math:`[R_pR_0] = [R_pR_b][R_bR_0]` when it receives a configuration.
 
 The rotation :math:`[RR_p]` starts at identity. Its rate is constant in :math:`\mathcal R_p` components. The MRP
 kinematic differential equation uses the rate in :math:`\mathcal R` components:
@@ -212,11 +212,11 @@ true because the rate is constant in :math:`\mathcal R_p` and :math:`\mathbf\ome
 Cone Around a Target
 ^^^^^^^^^^^^^^^^^^^^
 
-A boresight can turn on a cone around the target. Set the body correction so that the boresight
+A boresight can turn on a cone around the target. Set the base frame so that the boresight
 :math:`\hat{\mathbf b}` points at the target. Set the pointing offset to the cone half-angle :math:`\alpha`. Set the
 spin axis along the target line in :math:`\mathcal R_p` components and set the spin rate :math:`\Omega`:
 
-.. math:: {}^{\mathcal R_p}\hat{\mathbf e} = [R_pR_c]\,\hat{\mathbf b}
+.. math:: {}^{\mathcal R_p}\hat{\mathbf e} = [R_pR_b]\,\hat{\mathbf b}
 
 The boresight then stays at :math:`\alpha` from the target and turns around it once every :math:`2\pi/|\Omega|`. The
 spacecraft turns as a rigid body, thus it also turns 360 deg about the target line in each cycle.

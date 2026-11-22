@@ -11,20 +11,20 @@ MrpRotationAlgorithm::MrpRotationAlgorithm(const MrpRotationConfig& config) : cf
     reInitialize();
 }
 
-/*! @brief Replace the configuration at runtime. The new body correction and pointing offset apply at the next
+/*! @brief Replace the configuration at runtime. The new base frame and pointing offset apply at the next
  update; the integrated rotation sigma_RRp is kept.
  @param config New validated configuration.
  */
 void MrpRotationAlgorithm::setConfig(const MrpRotationConfig& config) {
     this->cfg = config;
-    this->dcm_RpR0 = mrpToDcm(this->cfg.getSigma_RpRc()) * mrpToDcm(this->cfg.getSigma_RcR0());
+    this->dcm_RpR0 = mrpToDcm(this->cfg.getSigma_RpRb()) * mrpToDcm(this->cfg.getSigma_RbR0());
 }
 
 /*! @brief Restart the integrated rotation sigma_RRp at identity. */
 void MrpRotationAlgorithm::reInitialize() { this->sigma_RRp.setZero(); }
 
 /*! @brief Advance sigma_RRp one forward-Euler step of controlPeriod and compose the output reference
- [RN] = [RRp][RpRc][RcR0][R0N].
+ [RN] = [RRp][RpRb][RbR0][R0N].
  @param attRef Input reference R0 (sigma_R0N, omega_R0N_N, domega_R0N_N).
  @return MrpRotationOutput Output reference R: sigma_RN, omega_RN_N, domega_RN_N.
  */

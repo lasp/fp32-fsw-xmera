@@ -16,13 +16,13 @@
 // algorithm:
 //   sigmaDot_RRp = (1/4) B(sigma_RRp) * [RRp(sigma_RRp(k))] * omega_RRp_Rp
 //   sigma_RRp(k+1) = mrpSwitch(sigma_RRp(k) + dt * sigmaDot_RRp)
-//   [RN] = [RRp(sigma_RRp(k+1))] * [RpRc] * [RcR0] * [R0N]
-//   omega_RRp_N = ([RpRc] * [RcR0] * [R0N])^T * omega_RRp_Rp
+//   [RN] = [RRp(sigma_RRp(k+1))] * [RpRb] * [RbR0] * [R0N]
+//   omega_RRp_N = ([RpRb] * [RbR0] * [R0N])^T * omega_RRp_Rp
 //   omega_RN_N = omega_RRp_N + omega_R0N_N
 //   domega_RN_N = omega_R0N_N x omega_RRp_N + domega_R0N_N
 struct MrpRotationReferenceState {
-    Eigen::Vector3f sigma_RcR0{Eigen::Vector3f::Zero()};
-    Eigen::Vector3f sigma_RpRc{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f sigma_RbR0{Eigen::Vector3f::Zero()};
+    Eigen::Vector3f sigma_RpRb{Eigen::Vector3f::Zero()};
     Eigen::Vector3f omega_RRp_Rp{Eigen::Vector3f::Zero()};
     Eigen::Vector3f sigma_RRp{Eigen::Vector3f::Zero()};
 };
@@ -44,10 +44,10 @@ inline MrpRotationReferenceOutput referenceUpdate(MrpRotationReferenceState& sta
     state.sigma_RRp = mrpSwitch(mrpSetNew);
 
     const Eigen::Matrix3f dcm_RRp = mrpToDcm(state.sigma_RRp);
-    const Eigen::Matrix3f dcm_RpRc = mrpToDcm(state.sigma_RpRc);
-    const Eigen::Matrix3f dcm_RcR0 = mrpToDcm(state.sigma_RcR0);
+    const Eigen::Matrix3f dcm_RpRb = mrpToDcm(state.sigma_RpRb);
+    const Eigen::Matrix3f dcm_RbR0 = mrpToDcm(state.sigma_RbR0);
     const Eigen::Matrix3f dcm_R0N = mrpToDcm(sigma_R0N);
-    const Eigen::Matrix3f dcm_RpN = dcm_RpRc * dcm_RcR0 * dcm_R0N;
+    const Eigen::Matrix3f dcm_RpN = dcm_RpRb * dcm_RbR0 * dcm_R0N;
     const Eigen::Matrix3f dcm_RN = dcm_RRp * dcm_RpN;
 
     MrpRotationReferenceOutput out{};
@@ -71,8 +71,8 @@ inline bool hasSpinDirection(const Eigen::Vector3f& spinAxis_Rp) { return spinAx
 // Regression test helper: drive the algorithm through several time steps and compare
 // to the reference implementation.
 // ---------------------------------------------------------------------------
-inline void regressionTestMrpRotation(const Eigen::Vector3f& sigma_RcR0,
-                                      const Eigen::Vector3f& sigma_RpRc,
+inline void regressionTestMrpRotation(const Eigen::Vector3f& sigma_RbR0,
+                                      const Eigen::Vector3f& sigma_RpRb,
                                       const Eigen::Vector3f& spinAxis_Rp,
                                       float spinRate,
                                       const Eigen::Vector3f& sigma_R0N,
@@ -85,15 +85,15 @@ inline void regressionTestMrpRotation(const Eigen::Vector3f& sigma_RcR0,
     }
     const Eigen::Vector3f spinHat_Rp = spinAxis_Rp.stableNormalized();
     const Eigen::Vector3f omega_RRp_Rp = spinRate * spinHat_Rp;
-    const auto config = MrpRotationConfig::create(sigma_RcR0, sigma_RpRc, spinHat_Rp, spinRate, updateTimeSec);
+    const auto config = MrpRotationConfig::create(sigma_RbR0, sigma_RpRb, spinHat_Rp, spinRate, updateTimeSec);
     MrpRotationAlgorithm alg{config};
 
-    MrpRotationReferenceState refState{sigma_RcR0, sigma_RpRc, omega_RRp_Rp};
+    MrpRotationReferenceState refState{sigma_RbR0, sigma_RpRb, omega_RRp_Rp};
 
     const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, domega_R0N_N};
 
     // Per-component fp32 error of omega is ~ N * eps * (||omega_RRp_Rp|| + ||omega_R0N_N||), summing the extra 3x3
-    // product from the cached [RpRc][RcR0] in the algorithm (~3 ops), the two sigma_RRp integration paths (~1 op),
+    // product from the cached [RpRb][RbR0] in the algorithm (~3 ops), the two sigma_RRp integration paths (~1 op),
     // the matvec that takes omega_RRp_Rp to N (~3 ops) and the final sum (~1 op), so N ~ 8. domega carries the
     // omega_RRp_N error scaled by ||omega_R0N_N|| plus the cross product and sum, about the same N. A 2x safety
     // margin guards the adversarial fuzz corners; the 1e-5 floor covers the small-rate base noise.
@@ -119,15 +119,15 @@ inline void regressionTestMrpRotation(const Eigen::Vector3f& sigma_RcR0,
 // ---------------------------------------------------------------------------
 // Fuzz-compatible regression helper.
 // ---------------------------------------------------------------------------
-inline void fuzzRegressionMrpRotation(const Eigen::Vector3f& sigma_RcR0,
-                                      const Eigen::Vector3f& sigma_RpRc,
+inline void fuzzRegressionMrpRotation(const Eigen::Vector3f& sigma_RbR0,
+                                      const Eigen::Vector3f& sigma_RpRb,
                                       const Eigen::Vector3f& spinAxis_Rp,
                                       float spinRate,
                                       const Eigen::Vector3f& sigma_R0N,
                                       const Eigen::Vector3f& omega_R0N_N,
                                       float updateTimeSec) {
-    regressionTestMrpRotation(sigma_RcR0,
-                              sigma_RpRc,
+    regressionTestMrpRotation(sigma_RbR0,
+                              sigma_RpRb,
                               spinAxis_Rp,
                               spinRate,
                               sigma_R0N,
@@ -142,8 +142,8 @@ inline void fuzzRegressionMrpRotation(const Eigen::Vector3f& sigma_RcR0,
 // ---------------------------------------------------------------------------
 
 // Output reference is finite for any finite inputs and finite configuration.
-inline void propertyOutputIsFinite(const Eigen::Vector3f& sigma_RcR0,
-                                   const Eigen::Vector3f& sigma_RpRc,
+inline void propertyOutputIsFinite(const Eigen::Vector3f& sigma_RbR0,
+                                   const Eigen::Vector3f& sigma_RpRb,
                                    const Eigen::Vector3f& spinAxis_Rp,
                                    float spinRate) {
     if (!hasSpinDirection(spinAxis_Rp)) {
@@ -151,7 +151,7 @@ inline void propertyOutputIsFinite(const Eigen::Vector3f& sigma_RcR0,
     }
     const Eigen::Vector3f spinHat_Rp = spinAxis_Rp.stableNormalized();
     constexpr float kPropertyControlPeriod = 0.5F;
-    const auto config = MrpRotationConfig::create(sigma_RcR0, sigma_RpRc, spinHat_Rp, spinRate, kPropertyControlPeriod);
+    const auto config = MrpRotationConfig::create(sigma_RbR0, sigma_RpRb, spinHat_Rp, spinRate, kPropertyControlPeriod);
     MrpRotationAlgorithm alg{config};
 
     const MrpRotationAttRefInputs attRef{
@@ -206,8 +206,8 @@ inline void propertySigmaRNEqualsSigmaRRpWhenOffsetsAndInputRefAreIdentity(const
 
 // dcmToMrp's contract is to return the MRP with |sigma| <= 1, so the output sigma_RN must satisfy that
 // bound on every step. Drive many steps with a rate large enough to repeatedly cross the boundary.
-inline void propertySigmaRNNormLessOrEqualToOne(const Eigen::Vector3f& sigma_RcR0,
-                                                const Eigen::Vector3f& sigma_RpRc,
+inline void propertySigmaRNNormLessOrEqualToOne(const Eigen::Vector3f& sigma_RbR0,
+                                                const Eigen::Vector3f& sigma_RpRb,
                                                 const Eigen::Vector3f& spinAxis_Rp,
                                                 float spinRate) {
     if (!hasSpinDirection(spinAxis_Rp)) {
@@ -218,7 +218,7 @@ inline void propertySigmaRNNormLessOrEqualToOne(const Eigen::Vector3f& sigma_RcR
     constexpr int kNumSteps = 100;
     constexpr float kMrpNormBound = 1.0F + 1e-5F;  // small fp32 slack at the boundary
 
-    const auto config = MrpRotationConfig::create(sigma_RcR0, sigma_RpRc, spinHat_Rp, spinRate, kControlPeriod);
+    const auto config = MrpRotationConfig::create(sigma_RbR0, sigma_RpRb, spinHat_Rp, spinRate, kControlPeriod);
     MrpRotationAlgorithm alg{config};
 
     const MrpRotationAttRefInputs attRef{
@@ -236,8 +236,8 @@ inline void propertySigmaRNNormLessOrEqualToOne(const Eigen::Vector3f& sigma_RcR
 // The identity omega_RN_N = [RpN]^T * omega_RRp_Rp + omega_R0N_N follows from the transport theorem and
 // from Rp being fixed in R0. Build [RpN] from the configured offsets and the input reference and verify the
 // decomposition on every step, independently of the reference implementation.
-inline void propertyOmegaRNDecomposesCorrectly(const Eigen::Vector3f& sigma_RcR0,
-                                               const Eigen::Vector3f& sigma_RpRc,
+inline void propertyOmegaRNDecomposesCorrectly(const Eigen::Vector3f& sigma_RbR0,
+                                               const Eigen::Vector3f& sigma_RpRb,
                                                const Eigen::Vector3f& spinAxis_Rp,
                                                float spinRate,
                                                const Eigen::Vector3f& sigma_R0N,
@@ -250,7 +250,7 @@ inline void propertyOmegaRNDecomposesCorrectly(const Eigen::Vector3f& sigma_RcR0
     constexpr float kControlPeriod = 0.25F;
     constexpr int kNumSteps = 5;
 
-    const auto config = MrpRotationConfig::create(sigma_RcR0, sigma_RpRc, spinHat_Rp, spinRate, kControlPeriod);
+    const auto config = MrpRotationConfig::create(sigma_RbR0, sigma_RpRb, spinHat_Rp, spinRate, kControlPeriod);
     MrpRotationAlgorithm alg{config};
 
     const MrpRotationAttRefInputs attRef{sigma_R0N, omega_R0N_N, Eigen::Vector3f::Zero()};
@@ -263,7 +263,7 @@ inline void propertyOmegaRNDecomposesCorrectly(const Eigen::Vector3f& sigma_RcR0
     constexpr float kSafetyMargin = 2.0F;
     constexpr float kRelTol = kSafetyMargin * kRoundingOps * std::numeric_limits<float>::epsilon();
     const float tol = 1e-5F + kRelTol * (omega_RRp_Rp.stableNorm() + omega_R0N_N.stableNorm());
-    const Eigen::Matrix3f dcm_RpN = mrpToDcm(sigma_RpRc) * mrpToDcm(sigma_RcR0) * mrpToDcm(sigma_R0N);
+    const Eigen::Matrix3f dcm_RpN = mrpToDcm(sigma_RpRb) * mrpToDcm(sigma_RbR0) * mrpToDcm(sigma_R0N);
     const Eigen::Vector3f expectedOmega_RRp_N = dcm_RpN.transpose() * omega_RRp_Rp;
     for (int k = 0; k < kNumSteps; ++k) {
         const MrpRotationOutput out = alg.update(attRef);
@@ -306,19 +306,19 @@ inline void propertyOutputRefEqualsInputRefWhenRotationIsZero(const Eigen::Vecto
 }
 
 // With zero rate, the output attitude is the input reference with both constant offsets applied:
-// [RN] = [RpRc][RcR0][R0N] on every step.
-inline void propertyOutputEqualsOffsetInputRefWhenRateIsZero(const Eigen::Vector3f& sigma_RcR0,
-                                                             const Eigen::Vector3f& sigma_RpRc,
+// [RN] = [RpRb][RbR0][R0N] on every step.
+inline void propertyOutputEqualsOffsetInputRefWhenRateIsZero(const Eigen::Vector3f& sigma_RbR0,
+                                                             const Eigen::Vector3f& sigma_RpRb,
                                                              const Eigen::Vector3f& sigma_R0N) {
     constexpr float kControlPeriod = 0.5F;
     constexpr int kNumSteps = 5;
 
     const auto config = MrpRotationConfig::create(
-        sigma_RcR0, sigma_RpRc, /* spinAxis_Rp = */ Eigen::Vector3f::UnitX(), /* spinRate = */ 0.0F, kControlPeriod);
+        sigma_RbR0, sigma_RpRb, /* spinAxis_Rp = */ Eigen::Vector3f::UnitX(), /* spinRate = */ 0.0F, kControlPeriod);
     MrpRotationAlgorithm alg{config};
 
     const MrpRotationAttRefInputs attRef{sigma_R0N, Eigen::Vector3f::Zero(), Eigen::Vector3f::Zero()};
-    const Eigen::Matrix3f expectedDcm_RN = mrpToDcm(sigma_RpRc) * mrpToDcm(sigma_RcR0) * mrpToDcm(sigma_R0N);
+    const Eigen::Matrix3f expectedDcm_RN = mrpToDcm(sigma_RpRb) * mrpToDcm(sigma_RbR0) * mrpToDcm(sigma_R0N);
 
     constexpr float tol = 1e-5F;
     for (int k = 0; k < kNumSteps; ++k) {
@@ -333,8 +333,8 @@ inline void propertyOutputEqualsOffsetInputRefWhenRateIsZero(const Eigen::Vector
 // dcm_RN = dcm_RR0.
 // Forward Euler keeps the integrated MRP on the axis only for small steps: above about 0.2 rad per step,
 // fp32 rounding off the axis grows exponentially, so callers keep |spinRate| * controlPeriod well below that.
-inline void propertyRotationAxisFixedInInputRef(const Eigen::Vector3f& sigma_RcR0,
-                                                const Eigen::Vector3f& sigma_RpRc,
+inline void propertyRotationAxisFixedInInputRef(const Eigen::Vector3f& sigma_RbR0,
+                                                const Eigen::Vector3f& sigma_RpRb,
                                                 const Eigen::Vector3f& spinAxis_Rp,
                                                 float spinRate) {
     if (!hasSpinDirection(spinAxis_Rp)) {
@@ -345,10 +345,10 @@ inline void propertyRotationAxisFixedInInputRef(const Eigen::Vector3f& sigma_RcR
     constexpr int kNumSteps = 2000;
     constexpr float tol = 1e-4F;
 
-    const auto config = MrpRotationConfig::create(sigma_RcR0, sigma_RpRc, spinHat_Rp, spinRate, kControlPeriod);
+    const auto config = MrpRotationConfig::create(sigma_RbR0, sigma_RpRb, spinHat_Rp, spinRate, kControlPeriod);
     MrpRotationAlgorithm alg{config};
 
-    const Eigen::Matrix3f dcm_RpR0 = mrpToDcm(sigma_RpRc) * mrpToDcm(sigma_RcR0);
+    const Eigen::Matrix3f dcm_RpR0 = mrpToDcm(sigma_RpRb) * mrpToDcm(sigma_RbR0);
     const Eigen::Vector3f expectedAxis_R0 = dcm_RpR0.transpose() * spinHat_Rp;
 
     const MrpRotationAttRefInputs identityRef{};
