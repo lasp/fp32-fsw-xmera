@@ -246,9 +246,9 @@ TEST(CobConverterTest, PixelsFoundIncreaseIsSizeIncreaseTest) {
     }
 }
 
-// A non-converged COM undistortion falls back to the initial guess (the pinhole heading), so it must
-// not be published as valid; the heading is still populated for debugging.
-TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
+// A non-converged COM undistortion falls back to the initial guess (the pinhole heading), which is
+// still published as valid; the convergence flags are reported only.
+TEST(CobConverterTest, BrownConradyNonConvergenceKeepsHeadingValidTest) {
     const Eigen::Matrix3f zeroCovariance = Eigen::Matrix3f::Zero();
     const Eigen::Vector3f zeroMrp = Eigen::Vector3f::Zero();
     const auto makeAlgorithm = [&](const CalibrationCoefficients& coefficients) {
@@ -283,7 +283,7 @@ TEST(CobConverterTest, BrownConradyNonConvergenceInvalidatesHeadingTest) {
         makeAlgorithm(CalibrationCoefficients{.k1 = 1000.0F}).updateState(cob, attitude, filter);
     ASSERT_FALSE(nonConverged.diagnostic.brownConradyCOMValid);
     EXPECT_FALSE(nonConverged.diagnostic.brownConradyCOBValid);
-    EXPECT_FALSE(nonConverged.output.unitVecValid);
+    EXPECT_TRUE(nonConverged.output.unitVecValid);
     EXPECT_TRUE(nonConverged.diagnostic.comValid);
     EXPECT_TRUE(nonConverged.output.rhat_BN_N.allFinite());
     EXPECT_GT(nonConverged.output.rhat_BN_N.norm(), 0.0F);
@@ -460,24 +460,34 @@ TEST(CobConverterTest, SetupTest) {
     nanCoefficients.k1 = nan;
     EXPECT_FALSE(CobConverterConfig::isValidCalibrationCoefficients(nanCoefficients));
 
-    // fieldOfViewX / fieldOfViewY: each must be in (0, pi), checked independently via the same
+    // fieldOfViewX / fieldOfViewY: each must be in [0.1 deg, 90 deg], checked independently via the same
     // isValidFieldOfView helper.
+    constexpr float kMinFov = CobConverterConfig::kMinFieldOfView;
+    constexpr float kMaxFov = CobConverterConfig::kMaxFieldOfView;
     EXPECT_TRUE(CobConverterConfig::isValidFieldOfView(0.35F));
+    EXPECT_TRUE(CobConverterConfig::isValidFieldOfView(kMinFov));
+    EXPECT_TRUE(CobConverterConfig::isValidFieldOfView(kMaxFov));
+    EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(std::nextafter(kMinFov, 0.0F)));
+    EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(std::nextafter(kMaxFov, 4.0F)));
+    EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(2.0F));
     EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(0.0F));
     EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(std::numbers::pi_v<float>));
     EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(-0.1F));
+    EXPECT_FALSE(CobConverterConfig::isValidFieldOfView(nan));
 
-    // resolutionX / resolutionY: must be > 0.
+    // resolutionX / resolutionY: must be in [1, 10000].
     EXPECT_TRUE(CobConverterConfig::isValidResolutionX(512.0F));
+    EXPECT_TRUE(CobConverterConfig::isValidResolutionX(1.0F));
+    EXPECT_TRUE(CobConverterConfig::isValidResolutionX(10000.0F));
     EXPECT_FALSE(CobConverterConfig::isValidResolutionX(0.0F));
+    EXPECT_FALSE(CobConverterConfig::isValidResolutionX(0.5F));
+    EXPECT_FALSE(CobConverterConfig::isValidResolutionX(10001.0F));
     EXPECT_TRUE(CobConverterConfig::isValidResolutionY(512.0F));
+    EXPECT_TRUE(CobConverterConfig::isValidResolutionY(1.0F));
+    EXPECT_TRUE(CobConverterConfig::isValidResolutionY(10000.0F));
     EXPECT_FALSE(CobConverterConfig::isValidResolutionY(0.0F));
-
-    // Focal scale: pX = 2 tan(fov/2) and dX = resolution / pX must be normal fp32.
-    const float tinyFov = std::numeric_limits<float>::denorm_min();  // valid fov, but pX underflows to 0
-    EXPECT_TRUE(CobConverterConfig::isValidFocalScale(0.35F, 0.30F, 512.0F, 512.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidFocalScale(tinyFov, 0.30F, 512.0F, 512.0F));
-    EXPECT_FALSE(CobConverterConfig::isValidFocalScale(0.35F, tinyFov, 512.0F, 512.0F));
+    EXPECT_FALSE(CobConverterConfig::isValidResolutionY(0.5F));
+    EXPECT_FALSE(CobConverterConfig::isValidResolutionY(10001.0F));
 
     // bodyToCameraMrp: must be finite.
     EXPECT_TRUE(CobConverterConfig::isValidBodyToCameraMrp(zeroMrp));
@@ -557,9 +567,7 @@ TEST(CobConverterTest, SetupTest) {
                                   512.0F,
                                   0.0F /* invalid resolutionY */),
                  fsw::invalid_argument);
-    // fieldOfViewX/fieldOfViewY are each individually valid (in (0, pi)) but their combination
-    // pushes the camera model's internal tan(fieldOfView/2) argument within ~1 deg of the +/-pi/2
-    // singularity that isValidCameraParam guards against (see cobConverterAlgorithm.h).
+    // fieldOfViewX just outside [0.1 deg, 90 deg].
     EXPECT_THROW((void)makeConfig(25.0e3F,
                                   8.0e3F,
                                   zeroCovariance,
@@ -568,7 +576,7 @@ TEST(CobConverterTest, SetupTest) {
                                   true,
                                   coefficients,
                                   0,
-                                  std::numbers::pi_v<float> - 0.01F /* fieldOfViewX pushes tan() near +/-pi/2 */,
+                                  std::nextafter(kMaxFov, 4.0F) /* fieldOfViewX above 90 deg */,
                                   0.30F,
                                   512.0F,
                                   512.0F),
@@ -581,7 +589,7 @@ TEST(CobConverterTest, SetupTest) {
                                   true,
                                   coefficients,
                                   0,
-                                  tinyFov /* fieldOfViewX underflows the focal scale */,
+                                  std::nextafter(kMinFov, 0.0F) /* fieldOfViewX below 0.1 deg */,
                                   0.30F,
                                   512.0F,
                                   512.0F),

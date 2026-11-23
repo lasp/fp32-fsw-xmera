@@ -230,8 +230,8 @@ stopping when :math:`\max(|x_d - x_u L - \Delta x_t|, |y_d - y_u L - \Delta y_t|
 of the field of view may not converge; the initial guess is then returned. For realistic lenses the iteration contracts
 and converges in a few iterations; it fails only where the model has no inverse or is not a contraction, which no
 starting point fixes. This is flagged separately for the COM and the COB (``brownConradyCOMValid`` and
-``brownConradyCOBValid`` on the diagnostic message). A non-converged COM undistortion invalidates the published
-heading; a non-converged COB undistortion is only reported via ``brownConradyCOBValid``. With all coefficients zero
+``brownConradyCOBValid`` on the diagnostic message). Both flags are reported only: a non-converged COM undistortion
+publishes the heading from the distorted coordinates without invalidating it. With all coefficients zero
 (the default) the module is an ideal pinhole camera.
 
 COM outlier detection
@@ -282,6 +282,9 @@ add the module to the simulation task (``reset()`` validates the configuration a
     module.navAttInMsg.subscribeTo(attInMsg)
 
     sim.AddModelToTask(taskName, module)
+
+``fieldOfViewX`` and ``fieldOfViewY`` must be in [0.1 deg, 90 deg] and ``resolutionX`` and ``resolutionY`` in
+[1, 10000] px. These bounds keep the camera calibration matrix and its inverse finite in single precision.
 
 ``attitudeCovariance`` is the covariance of the attitude error MRP, in the body frame. ``radius = 0`` disables the
 phase-angle correction (the COB is published as the COM) and ``radiusUncertainty`` is then unused.
