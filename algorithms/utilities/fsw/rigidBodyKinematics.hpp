@@ -12,9 +12,10 @@ struct Types {
 };
 
 /**
- *  Switch from the current mrp to its shadow set
- * @param mrp
- * @return Eigen::Vector3d
+ * Map an MRP to its shadow set, sigma_s = -sigma / |sigma|^2. Both describe the same attitude.
+ * @param mrp [-] MRP set; must be non-zero, because the shadow set is singular at the zero rotation (zero gives
+ *            non-finite output). In float, |mrp| below about 1e-19 loses accuracy or overflows.
+ * @return [-] shadow MRP set
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> mrpShadow(const Eigen::Vector3<ScalarT>& mrp) {
@@ -22,13 +23,13 @@ Eigen::Vector3<ScalarT> mrpShadow(const Eigen::Vector3<ScalarT>& mrp) {
 }
 
 /**
- * Check if mrp norm is larger than s. If so, map mrp to its shadow set.
- * @param mrp
- * @param s
- * @return Eigen::Vector3d
+ * Map an MRP set to its shadow set when its norm is larger than s.
+ * @param mrp [-] MRP set
+ * @param s [-] switching threshold on the MRP norm; must be >= 1 (default 1)
+ * @return [-] mrp, or its shadow set if |mrp| > s; with s = 1 the result represents the shortest rotation
  */
 template <typename ScalarT>
-Eigen::Vector3<ScalarT> mrpSwitch(const Eigen::Vector3<ScalarT>& mrp, const ScalarT s = 1.0) {
+Eigen::Vector3<ScalarT> mrpSwitch(const Eigen::Vector3<ScalarT>& mrp, const ScalarT s = ScalarT(1)) {
     if (mrp.squaredNorm() > s * s) {
         return mrpShadow(mrp);
     }
@@ -153,10 +154,14 @@ Eigen::Matrix<ScalarT, 4, 3> bmatEp(const Eigen::Vector4<ScalarT>& ep) {
 }
 
 /**
- * Return the matrix which relates the body angular velocity vector w to the derivative of mrp vector
- * dQ/dt = 1/4 [B(Q)] omega
- * @param mrp
- * @return Eigen::Matrix3d
+ * Compute the matrix [B(sigma)] that maps the angular velocity to the MRP time derivative:
+ *   d(sigma)/dt = 1/4 [B(sigma)] omega
+ *   [B(sigma)] = (1 - |sigma|^2) I + 2 [sigma~] + 2 sigma sigma^T
+ * where omega is the angular velocity of the frame relative to the reference frame, in components
+ * of the frame the MRP set describes. B satisfies B B^T = (1 + |sigma|^2)^2 I.
+ *
+ * @param mrp [-] MRP set of a frame relative to a reference frame
+ * @return [-] matrix [B(sigma)]
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> bmatMrp(const Eigen::Vector3<ScalarT>& mrp) {
@@ -245,68 +250,69 @@ Eigen::Matrix3<ScalarT> bmatEulerAngles321(const Eigen::Vector3<ScalarT>& euler3
 }
 
 /**
- * Translate the direction cosine matrix into the corresponding Euler parameter vector,
- * where the first component of is the non-dimensional Euler parameter >= 0. Transformation is done
- * using the Stanley method.
- * @param dcm
- * @return Eigen::Vector4d
+ * Convert a direction cosine matrix to Euler parameters using Stanley's method.
+ * The largest of the four squared Euler parameters is found first and the other three are
+ * computed from it, which avoids dividing by a small number at any rotation angle.
+ *
+ * @param dcm [-] direction cosine matrix; must be a proper rotation (orthonormal, det = +1)
+ * @return [-] unit Euler parameters (q0, q1, q2, q3), scalar first, with q0 >= 0
  */
 template <typename ScalarT>
 Eigen::Vector4<ScalarT> dcmToEp(const Eigen::Matrix3<ScalarT>& dcm) {
+    const ScalarT trace = dcm.trace();
     Eigen::Vector4<ScalarT> ep;
 
-    ep(0) = (1.0 + dcm.trace()) / 4.0;
-    ep(1) = (1.0 + 2.0 * dcm(0, 0) - dcm.trace()) / 4.0;
-    ep(2) = (1.0 + 2.0 * dcm(1, 1) - dcm.trace()) / 4.0;
-    ep(3) = (1.0 + 2.0 * dcm(2, 2) - dcm.trace()) / 4.0;
+    ep(0) = (ScalarT(1) + trace) / ScalarT(4);
+    ep(1) = (ScalarT(1) + ScalarT(2) * dcm(0, 0) - trace) / ScalarT(4);
+    ep(2) = (ScalarT(1) + ScalarT(2) * dcm(1, 1) - trace) / ScalarT(4);
+    ep(3) = (ScalarT(1) + ScalarT(2) * dcm(2, 2) - trace) / ScalarT(4);
 
-    if (ScalarT maxVal = ep.maxCoeff(); maxVal == ep(0)) {
+    if (const ScalarT maxVal = ep.maxCoeff(); maxVal == ep(0)) {
         ep(0) = std::sqrt(ep(0));
-        ep(1) = (dcm(1, 2) - dcm(2, 1)) / (4.0 * ep(0));
-        ep(2) = (dcm(2, 0) - dcm(0, 2)) / (4.0 * ep(0));
-        ep(3) = (dcm(0, 1) - dcm(1, 0)) / (4.0 * ep(0));
+        ep(1) = (dcm(1, 2) - dcm(2, 1)) / (ScalarT(4) * ep(0));
+        ep(2) = (dcm(2, 0) - dcm(0, 2)) / (ScalarT(4) * ep(0));
+        ep(3) = (dcm(0, 1) - dcm(1, 0)) / (ScalarT(4) * ep(0));
     } else if (maxVal == ep(1)) {
         ep(1) = std::sqrt(ep(1));
-        ep(0) = (dcm(1, 2) - dcm(2, 1)) / (4.0 * ep(1));
-        if (ep(0) < 0.0) {
+        ep(0) = (dcm(1, 2) - dcm(2, 1)) / (ScalarT(4) * ep(1));
+        if (ep(0) < ScalarT(0)) {
             ep(1) = -ep(1);
             ep(0) = -ep(0);
         }
-        ep(2) = (dcm(0, 1) + dcm(1, 0)) / (4.0 * ep(1));
-        ep(3) = (dcm(2, 0) + dcm(0, 2)) / (4.0 * ep(1));
+        ep(2) = (dcm(0, 1) + dcm(1, 0)) / (ScalarT(4) * ep(1));
+        ep(3) = (dcm(2, 0) + dcm(0, 2)) / (ScalarT(4) * ep(1));
     } else if (maxVal == ep(2)) {
         ep(2) = std::sqrt(ep(2));
-        ep(0) = (dcm(2, 0) - dcm(0, 2)) / (4.0 * ep(2));
-        if (ep(0) < 0.0) {
+        ep(0) = (dcm(2, 0) - dcm(0, 2)) / (ScalarT(4) * ep(2));
+        if (ep(0) < ScalarT(0)) {
             ep(2) = -ep(2);
             ep(0) = -ep(0);
         }
-        ep(1) = (dcm(0, 1) + dcm(1, 0)) / (4.0 * ep(2));
-        ep(3) = (dcm(1, 2) + dcm(2, 1)) / (4.0 * ep(2));
+        ep(1) = (dcm(0, 1) + dcm(1, 0)) / (ScalarT(4) * ep(2));
+        ep(3) = (dcm(1, 2) + dcm(2, 1)) / (ScalarT(4) * ep(2));
     } else if (maxVal == ep(3)) {
         ep(3) = std::sqrt(ep(3));
-        ep(0) = (dcm(0, 1) - dcm(1, 0)) / (4.0 * ep(3));
-        if (ep(0) < 0.0) {
+        ep(0) = (dcm(0, 1) - dcm(1, 0)) / (ScalarT(4) * ep(3));
+        if (ep(0) < ScalarT(0)) {
             ep(3) = -ep(3);
             ep(0) = -ep(0);
         }
-        ep(1) = (dcm(2, 0) + dcm(0, 2)) / (4.0 * ep(3));
-        ep(2) = (dcm(1, 2) + dcm(2, 1)) / (4.0 * ep(3));
+        ep(1) = (dcm(2, 0) + dcm(0, 2)) / (ScalarT(4) * ep(3));
+        ep(2) = (dcm(1, 2) + dcm(2, 1)) / (ScalarT(4) * ep(3));
     }
 
     return ep;
 }
 
 /**
- * Translate a direction cosine matrix into the corresponding mrp vector where the mrp vector is chosen such
- * that its norm is less than 1
- * @param dcm
- * @return Eigen::Vector3d
+ * Convert a direction cosine matrix to the MRP set with norm at most 1.
+ * @param dcm [-] direction cosine matrix; must be a proper rotation (orthonormal, det = +1)
+ * @return [-] MRP set, norm <= 1 up to rounding (equal to 1 at a 180 deg rotation)
  */
 template <typename ScalarT>
-Eigen::Vector3<ScalarT> dcmToMrp(const Eigen::Matrix<ScalarT, 3, 3>& dcm) {
+Eigen::Vector3<ScalarT> dcmToMrp(const Eigen::Matrix3<ScalarT>& dcm) {
     Eigen::Vector4<ScalarT> ep = dcmToEp(dcm);
-    return ep.template tail<3>() / (1.0 + ep(0));
+    return ep.template tail<3>() / (ScalarT(1) + ep(0));
 }
 
 /**
@@ -317,17 +323,25 @@ Eigen::Vector3<ScalarT> dcmToMrp(const Eigen::Matrix<ScalarT, 3, 3>& dcm) {
  * sine and the cosine of the half angle. This gives two results.
  *
  * First, for a rotation of less than approximately 2e-8 radians, ep(0) becomes equal to 1. Then
- * acos gives 0 and the previous code gave a zero vector. atan2 calculates the angle from the vector
+ * 2*acos(ep(0)) would give a zero vector. atan2 calculates the angle from the vector
  * part and keeps the rotation. Second, atan2 accepts an ep(0) that is more than 1. A decode step or
  * a normalize step can make this value, and acos gives NaN for it.
  *
- * The result is a zero vector only when the vector part is exactly zero, which is the identity
- * quaternion. Every other input has a direction, and the division by the norm gives a unit vector
+ * The result is a zero vector only when the vector part is exactly zero. With a nonzero ep(0), such a
+ * quaternion is a rotation of 0 deg (ep(0) > 0) or 360 deg (ep(0) < 0). An all-zero quaternion also
+ * returns zero, but it is not a valid rotation.
+ * Every other input has a direction, and the division by the norm gives a unit vector
  * for it. stableNorm scales the terms before it squares them, so the norm of a vector part that is
  * near the smallest number of the scalar type is not zero.
  *
- * @param ep Euler parameters, scalar part first
- * @return Eigen::Vector3d
+ * The function deliberately keeps the sign of ep(0) and does not switch to the short rotation:
+ * q and -q give the same rotation with angles phi and 2*pi - phi about opposite axes. Callers that
+ * need the short rotation must flip the sign themselves. For a nonzero vector part the angle is in
+ * (0, 2*pi), up to rounding. The result does not depend on the norm of ep, so ep does not need to
+ * be unit length.
+ *
+ * @param ep [-] Euler parameters (q0, q1, q2, q3), scalar first
+ * @return [-] principal rotation vector, angle times unit axis; zero if the vector part is zero
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> epToPrv(const Eigen::Vector4<ScalarT>& ep) {
@@ -341,10 +355,16 @@ Eigen::Vector3<ScalarT> epToPrv(const Eigen::Vector4<ScalarT>& ep) {
 }
 
 /**
- * Translate a direction cosine matrix into the corresponding principal rotation vector,
- * where the first component is the principal rotation angle 0<= phi <= Pi
- * @param dcm
- * @return Eigen::Vector3d
+ * Translate a direction cosine matrix into the principal rotation vector of the same rotation:
+ * the unit axis times the angle, so the norm of the result is the angle.
+ *
+ * The function converts the DCM to Euler parameters with dcmToEp, which returns q0 >= 0, and then
+ * to a principal rotation vector with epToPrv. The angle is therefore in [0, pi], up to rounding.
+ * The result represents the shortest rotation. At an angle of exactly pi, both axis directions give
+ * the same rotation. The identity matrix gives a zero vector.
+ *
+ * @param dcm [-] direction cosine matrix of a frame relative to a reference frame, a proper rotation
+ * @return [-] principal rotation vector of the frame relative to the reference frame, norm in [0, pi]
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> dcmToPrv(const Eigen::Matrix3<ScalarT>& dcm) {
@@ -389,16 +409,18 @@ Eigen::Vector4<ScalarT> dep(const Eigen::Vector4<ScalarT>& ep, const Eigen::Vect
 }
 
 /**
- * Return the mrp derivative for a given mrp vector and body angular velocity vector.
- * dQ/dt = 1/4 [B(Q)] omega
- * @param mrp
- * @param omega
- * @return Eigen::Vector3d
+ * Compute the MRP time derivative from the angular velocity,
+ * d(sigma)/dt = 1/4 [B(sigma)] omega.
+ *
+ * @param mrp [-] MRP set of a frame relative to a reference frame
+ * @param omega [rad/s] angular velocity of the same frame relative to the reference frame, in components of the
+ * frame the MRP set describes
+ * @return [1/s] MRP time derivative
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> dmrp(const Eigen::Vector3<ScalarT>& mrp, const Eigen::Vector3<ScalarT>& omega) {
-    Eigen::Matrix3<ScalarT> B = bmatMrp(mrp);
-    return B * omega / 4.0;
+    const Eigen::Matrix3<ScalarT> B = bmatMrp(mrp);
+    return B * omega / ScalarT(4);
 }
 
 /**
@@ -501,17 +523,20 @@ Eigen::Matrix3<ScalarT> epToDcm(const Eigen::Vector4<ScalarT>& ep) {
 }
 
 /**
- * Translate a Euler parameter vector into an mrp vector.
- * @param ep
- * @return Eigen::Vector3d
+ * Convert Euler parameters to the MRP set with norm at most 1.
+ * q and -q give the same MRP set, so the result is the short rotation for either sign.
+ * An all-zero quaternion is not a valid rotation, but it returns a zero MRP set (identity) without
+ * an error; callers must reject it before the call.
+ *
+ * @param ep [-] unit Euler parameters (q0, q1, q2, q3), scalar first
+ * @return [-] MRP set, norm <= 1
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> epToMrp(const Eigen::Vector4<ScalarT>& ep) {
-    if (ep(0) >= 0.0) {
-        return ep.template tail<3>() / (1.0 + ep(0));
-    } else {
-        return -ep.template tail<3>() / (1.0 - ep(0));
+    if (ep(0) >= ScalarT(0)) {
+        return ep.template tail<3>() / (ScalarT(1) + ep(0));
     }
+    return -ep.template tail<3>() / (ScalarT(1) - ep(0));
 }
 
 /**
@@ -542,9 +567,15 @@ Eigen::Vector3<ScalarT> epToEulerAngles321(const Eigen::Vector4<ScalarT>& ep) {
 }
 
 /**
- * Return the the cross product matrix
- * @param vector
- * @return Eigen::Matrix3d
+ * Compute the skew-symmetric cross-product matrix of a 3D vector.
+ *
+ * The matrix satisfies [v~]u = v x u, where
+ *   [v~] = [  0  -v3   v2 ]
+ *          [ v3    0  -v1 ]
+ *          [-v2   v1    0 ]
+ *
+ * @param vector input 3D vector v = (v1, v2, v3)
+ * @return skew-symmetric cross-product matrix
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> tildeMatrix(const Eigen::Vector3<ScalarT>& vector) {
@@ -554,17 +585,23 @@ Eigen::Matrix3<ScalarT> tildeMatrix(const Eigen::Vector3<ScalarT>& vector) {
 }
 
 /**
- * Return the direction cosine matrix in terms of an mrp vector.
- * @param mrp
- * @return Eigen::Matrix3d
+ * Convert an MRP set to its direction cosine matrix.
+ * [C] = I + (8 [sigma~]^2 - 4 (1 - |sigma|^2) [sigma~]) / (1 + |sigma|^2)^2
+ *
+ * Principal and shadow MRP sets produce the same DCM.
+ * The denominator (1 + |sigma|^2)^2 overflows above |sigma| ~4e9 in float (~1e77 in double); the output is
+ * non-finite above ~5e12 in float (~4e102 in double). Principal MRP sets (|sigma| <= 1) are far from both limits.
+ *
+ * @param mrp [-] MRP set
+ * @return [-] 3x3 direction cosine matrix
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> mrpToDcm(const Eigen::Vector3<ScalarT>& mrp) {
-    Eigen::Matrix3<ScalarT> dcm;
-
-    Eigen::Matrix3<ScalarT> t = tildeMatrix(mrp);
-    ScalarT denom = (1.0 + mrp.dot(mrp));
-    dcm = (8.0 * t * t - 4.0 * (1.0 - mrp.dot(mrp)) * t) / (denom * denom);
+    const ScalarT mrpSquared = mrp.squaredNorm();
+    const Eigen::Matrix3<ScalarT> tilde = tildeMatrix(mrp);
+    const ScalarT denom = ScalarT(1) + mrpSquared;
+    const Eigen::Matrix3<ScalarT> dcm =
+        (ScalarT(8) * tilde * tilde - ScalarT(4) * (ScalarT(1) - mrpSquared) * tilde) / (denom * denom);
 
     return dcm + Eigen::Matrix3<ScalarT>::Identity();
 }
@@ -610,33 +647,36 @@ Eigen::Vector3<ScalarT> mrpToEulerAngles321(const Eigen::Vector3<ScalarT>& mrp) 
 }
 
 /**
- * Return the direction cosine matrix corresponding to a principal rotation vector
- * @param prv
- * @return Eigen::Matrix3d
+ * Convert a principal rotation vector to its direction cosine matrix,
+ * [C] = cos(phi) I + (1 - cos(phi)) u u^T - sin(phi) [u~], with phi = |prv| and u = prv / phi.
+ * The matrix maps vector components from the reference frame to the rotated frame. Any angle is valid.
+ *
+ * @param prv [-] principal rotation vector, angle times unit axis
+ * @return [-] direction cosine matrix; identity if prv is zero
  */
 template <typename ScalarT>
 Eigen::Matrix3<ScalarT> prvToDcm(const Eigen::Vector3<ScalarT>& prv) {
-    ScalarT angle = prv.stableNorm();
+    const ScalarT angle = prv.stableNorm();
 
-    if (angle < Types<ScalarT>::eps) {
+    if (angle == ScalarT(0)) {
         return Eigen::Matrix3<ScalarT>::Identity();
     }
 
-    Eigen::Vector3<ScalarT> u = prv / angle;
-    ScalarT c = std::cos(angle);
-    ScalarT s = std::sin(angle);
-    ScalarT one_minus_c = 1.0 - c;
+    const Eigen::Vector3<ScalarT> u = prv / angle;
+    const ScalarT c = std::cos(angle);
+    const ScalarT s = std::sin(angle);
+    const ScalarT oneMinusC = ScalarT(1) - c;
 
     Eigen::Matrix3<ScalarT> dcm;
-    dcm(0, 0) = u(0) * u(0) * one_minus_c + c;
-    dcm(0, 1) = u(0) * u(1) * one_minus_c + u(2) * s;
-    dcm(0, 2) = u(0) * u(2) * one_minus_c - u(1) * s;
-    dcm(1, 0) = u(1) * u(0) * one_minus_c - u(2) * s;
-    dcm(1, 1) = u(1) * u(1) * one_minus_c + c;
-    dcm(1, 2) = u(1) * u(2) * one_minus_c + u(0) * s;
-    dcm(2, 0) = u(2) * u(0) * one_minus_c + u(1) * s;
-    dcm(2, 1) = u(2) * u(1) * one_minus_c - u(0) * s;
-    dcm(2, 2) = u(2) * u(2) * one_minus_c + c;
+    dcm(0, 0) = u(0) * u(0) * oneMinusC + c;
+    dcm(0, 1) = u(0) * u(1) * oneMinusC + u(2) * s;
+    dcm(0, 2) = u(0) * u(2) * oneMinusC - u(1) * s;
+    dcm(1, 0) = u(1) * u(0) * oneMinusC - u(2) * s;
+    dcm(1, 1) = u(1) * u(1) * oneMinusC + c;
+    dcm(1, 2) = u(1) * u(2) * oneMinusC + u(0) * s;
+    dcm(2, 0) = u(2) * u(0) * oneMinusC + u(1) * s;
+    dcm(2, 1) = u(2) * u(1) * oneMinusC - u(0) * s;
+    dcm(2, 2) = u(2) * u(2) * oneMinusC + c;
 
     return dcm;
 }
@@ -809,84 +849,101 @@ Eigen::Vector3<ScalarT> addEulerAngles321(const Eigen::Vector3<ScalarT>& euler32
 }
 
 /**
- * Provide the principal rotation vector which corresponds to performing successive principal rotations Q1 and Q2.
+ * Compute the principal rotation vector of two successive rotations: first prv1, then prv2 relative
+ * to the frame that prv1 reaches. For example, prv_BN = addPrv(prv_PN, prv_BP).
  *
- * The function calculates the angle of the composed rotation as 2*atan2(|vectorPart|, realPart). It
- * does not use 2*acos(realPart). The code calculates the vector part of the composed quaternion
+ * The composition is:
+ *   cos(Phi/2)   = cos(phi1)cos(phi2) - sin(phi1)sin(phi2) (e1 . e2)
+ *   e sin(Phi/2) = cos(phi2)sin(phi1) e1 + cos(phi1)sin(phi2) e2 + sin(phi1)sin(phi2) (e1 x e2)
+ * where Phi and e are the angle and unit axis of the result, phi1 = |prv1|/2, phi2 = |prv2|/2, and
+ * e1, e2 are the unit axes of prv1 and prv2.
+ *
+ * If either input is exactly zero, the result is the other input, which is exact. Any nonzero
+ * input, however small, uses the full composition, because prv1 + prv2 drops the
+ * 1/2 (prv1 x prv2) term.
+ *
+ * The function converts both rotations to Euler parameters, composes them into epScalar and
+ * epVector, and converts the result back to a principal rotation vector.
+ *
+ * The sign of epScalar sets the angle of the result: epScalar >= 0 gives an angle in [0, pi]
+ * (the short rotation), and epScalar < 0 gives an angle in (pi, 2*pi) (the long rotation). The
+ * function does not switch to the short rotation. Callers that need an angle <= pi must convert it.
+ *
+ * The function calculates the angle of the composed rotation as 2*atan2(|epVector|, epScalar).
+ * It does not use 2*acos(epScalar). The code calculates the vector part of the composed quaternion
  * first, because atan2 must have its norm, which is equal to sin(angle/2).
  *
- * The composition operates correctly when the two rotations almost cancel. In that condition
- * realPart becomes equal to 1 and acos gives 0. The previous code thus discarded a net rotation of
- * less than a few times 1e-8 radians. The previous code also had an assert that realPart is more
- * than -1 and less than 1. This assert is not possible, because cancellation makes realPart equal
- * to 1. Rounding can also make realPart more than 1, and then acos gives NaN.
+ * When the two rotations almost cancel, epScalar rounds to 1, and 2*acos(epScalar) would give 0 for a
+ * net rotation of less than a few times 1e-8 radians. Rounding can also make epScalar more than 1,
+ * where acos gives NaN. atan2 has neither problem.
  *
  * The result is a zero vector only when the vector part of the composed quaternion is exactly zero,
  * which is a composition equal to identity.
  *
- * @param prv1 Eigen::Vector3d
- * @param prv2 Eigen::Vector3d
- * @return Eigen::Vector3d
+ * @param prv1 [-] principal rotation vector of the first rotation, frame 1 relative to the reference frame
+ * @param prv2 [-] principal rotation vector of the second rotation, frame 2 relative to frame 1
+ * @return [-] principal rotation vector of frame 2 relative to the reference frame
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> addPrv(const Eigen::Vector3<ScalarT>& prv1, const Eigen::Vector3<ScalarT>& prv2) {
-    if (prv1.stableNorm() < ScalarT(1.0E-7) || prv2.stableNorm() < ScalarT(1.0E-7)) {
+    const ScalarT norm1 = prv1.stableNorm();
+    const ScalarT norm2 = prv2.stableNorm();
+    if (norm1 == ScalarT(0) || norm2 == ScalarT(0)) {
         return prv1 + prv2;
     }
 
-    ScalarT phi1 = prv1.stableNorm() / 2.0;
-    ScalarT phi2 = prv2.stableNorm() / 2.0;
+    const ScalarT phi1 = norm1 / ScalarT(2);
+    const ScalarT phi2 = norm2 / ScalarT(2);
 
-    ScalarT cosPhi1 = std::cos(phi1);
-    ScalarT cosPhi2 = std::cos(phi2);
-    ScalarT sinPhi1 = std::sin(phi1);
-    ScalarT sinPhi2 = std::sin(phi2);
+    const ScalarT cosPhi1 = std::cos(phi1);
+    const ScalarT cosPhi2 = std::cos(phi2);
+    const ScalarT sinPhi1 = std::sin(phi1);
+    const ScalarT sinPhi2 = std::sin(phi2);
 
-    Eigen::Vector3<ScalarT> unitVector1 = prv1 / prv1.stableNorm();
-    Eigen::Vector3<ScalarT> unitVector2 = prv2 / prv2.stableNorm();
+    const Eigen::Vector3<ScalarT> unitAxis1 = prv1 / norm1;
+    const Eigen::Vector3<ScalarT> unitAxis2 = prv2 / norm2;
 
-    ScalarT dotProduct = unitVector1.dot(unitVector2);
-    ScalarT realPart = cosPhi1 * cosPhi2 - sinPhi1 * sinPhi2 * dotProduct;
+    const ScalarT dotProduct = unitAxis1.dot(unitAxis2);
+    const ScalarT epScalar = cosPhi1 * cosPhi2 - sinPhi1 * sinPhi2 * dotProduct;
 
-    Eigen::Vector3<ScalarT> vectorPart = cosPhi1 * sinPhi2 * unitVector2 + cosPhi2 * sinPhi1 * unitVector1 +
-                                         sinPhi1 * sinPhi2 * unitVector1.cross(unitVector2);
+    const Eigen::Vector3<ScalarT> epVector =
+        cosPhi1 * sinPhi2 * unitAxis2 + cosPhi2 * sinPhi1 * unitAxis1 + sinPhi1 * sinPhi2 * unitAxis1.cross(unitAxis2);
 
-    ScalarT vectorNorm = vectorPart.stableNorm();
-    if (vectorNorm == ScalarT(0)) {
+    const ScalarT epVectorNorm = epVector.stableNorm();
+    if (epVectorNorm == ScalarT(0)) {
         return Eigen::Vector3<ScalarT>::Zero();
     }
-    ScalarT angle = ScalarT(2) * std::atan2(vectorNorm, realPart);
+    const ScalarT angle = ScalarT(2) * std::atan2(epVectorNorm, epScalar);
 
-    return vectorPart * angle / vectorNorm;
+    return (epVector / epVectorNorm) * angle;
 }
 
 /**
- * Provide the mrp parameter vector which corresponds to performing to successive rotations q1 and q2
- * @param mrp1 Eigen::Vector3d
- * @param mrp2 Eigen::Vector3d
- * @return Eigen::Vector3d
+ * Compute the MRP set of two successive rotations: first mrp1, then mrp2 relative to the frame that
+ * mrp1 reaches. For example, sigma_BN = addMrp(sigma_PN, sigma_BP).
+ * If the denominator is near zero, the shadow set of mrp1 is used instead.
+ * The result represents the shortest total rotation. Near 180 deg both MRP sets are almost equally
+ * short, so a small change in the inputs can switch the result to the other set.
+ *
+ * @param mrp1 [-] MRP set of the first rotation, frame 1 relative to the reference frame
+ * @param mrp2 [-] MRP set of the second rotation, frame 2 relative to frame 1
+ * @return [-] MRP set of frame 2 relative to the reference frame, norm <= 1
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> addMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen::Vector3<ScalarT>& mrp2) {
-    Eigen::Vector3<ScalarT> sigma1 = mrp1;
-    ScalarT denominator = 1.0 + mrp1.dot(mrp1) * mrp2.dot(mrp2) - 2.0 * mrp1.dot(mrp2);
-
+    const ScalarT mrp2Squared = mrp2.squaredNorm();
+    Eigen::Vector3<ScalarT> mrp1Shadow(mrp1);
+    ScalarT denominator = ScalarT(1) + mrp1.squaredNorm() * mrp2Squared - ScalarT(2) * mrp1.dot(mrp2);
     if (std::abs(denominator) < ScalarT(0.1)) {
-        sigma1 = mrpShadow<ScalarT>(mrp1);  // Shadow set
-        denominator = 1.0 + sigma1.dot(sigma1) * mrp2.dot(mrp2) - 2.0 * sigma1.dot(mrp2);
+        mrp1Shadow = mrpShadow(mrp1);  // Shadow set
+        denominator = ScalarT(1) + mrp1Shadow.squaredNorm() * mrp2Squared - ScalarT(2) * mrp1Shadow.dot(mrp2);
     }
-
     assert(std::abs(denominator) > Types<ScalarT>::eps);
-
-    Eigen::Vector3<ScalarT> numerator =
-        (1.0 - sigma1.dot(sigma1)) * mrp2 + (1.0 - mrp2.dot(mrp2)) * sigma1 - 2.0 * mrp2.cross(sigma1);
-
-    Eigen::Vector3<ScalarT> mrp = numerator / denominator;
-
-    // Map MRP to the inner set
-    mrp = mrpSwitch<ScalarT>(mrp, 1.0);
-
-    return mrp;
+    const Eigen::Vector3<ScalarT> numerator = (ScalarT(1) - mrp1Shadow.squaredNorm()) * mrp2 +
+                                              (ScalarT(1) - mrp2Squared) * mrp1Shadow -
+                                              ScalarT(2) * mrp2.cross(mrp1Shadow);
+    // Return the principal MRP set (norm <= 1).
+    return mrpSwitch(Eigen::Vector3<ScalarT>(numerator / denominator), ScalarT(1));
 }
 
 /**
@@ -908,81 +965,102 @@ Eigen::Vector4<ScalarT> subEp(const Eigen::Vector4<ScalarT>& ep1, const Eigen::V
 }
 
 /**
- * Provide the MRP vector which corresponds to relative rotation from Q2 to Q1.
- * @param mrp1
- * @param mrp2
- * @return Eigen::Vector3d
+ * Compute the MRP set of the relative rotation from frame 2 to frame 1, given the MRP sets of both
+ * frames relative to a common reference frame. For example, sigma_BR = subMrp(sigma_BN, sigma_RN).
+ * If the denominator is near zero, the shadow set of mrp1 is used instead.
+ * The result represents the shortest rotation between the two frames. Near 180 deg both MRP sets are
+ * almost equally short, so a small change in the inputs can switch the result to the other set.
+ *
+ * @param mrp1 [-] MRP set of frame 1 relative to the reference frame
+ * @param mrp2 [-] MRP set of frame 2 relative to the reference frame
+ * @return [-] MRP set of frame 1 relative to frame 2, norm <= 1
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> subMrp(const Eigen::Vector3<ScalarT>& mrp1, const Eigen::Vector3<ScalarT>& mrp2) {
+    const ScalarT mrp2Squared = mrp2.squaredNorm();
     Eigen::Vector3<ScalarT> mrp1Shadow(mrp1);
-    ScalarT denominator = ScalarT(1) + mrp2.dot(mrp2) * mrp1.dot(mrp1) + ScalarT(2) * mrp2.dot(mrp1);
+    ScalarT denominator = ScalarT(1) + mrp2Squared * mrp1.squaredNorm() + ScalarT(2) * mrp2.dot(mrp1);
     if (std::abs(denominator) < ScalarT(0.1)) {
         mrp1Shadow = mrpShadow(mrp1);  // Shadow set
-        denominator = ScalarT(1) + mrp2.dot(mrp2) * mrp1Shadow.dot(mrp1Shadow) + ScalarT(2) * mrp2.dot(mrp1Shadow);
+        denominator = ScalarT(1) + mrp2Squared * mrp1Shadow.squaredNorm() + ScalarT(2) * mrp2.dot(mrp1Shadow);
     }
     assert(std::abs(denominator) > Types<ScalarT>::eps);
-    Eigen::Vector3<ScalarT> numerator;
-    numerator = (ScalarT(1) - mrp2.dot(mrp2)) * mrp1Shadow - (ScalarT(1) - mrp1Shadow.dot(mrp1Shadow)) * mrp2 +
-                ScalarT(2) * mrp1Shadow.cross(mrp2);
-    Eigen::Vector3<ScalarT> mrp = numerator / denominator;
-    /* map mrp to inner set */
-    mrp = mrpSwitch(mrp, ScalarT(1));
-
-    return mrp;
+    const Eigen::Vector3<ScalarT> numerator = (ScalarT(1) - mrp2Squared) * mrp1Shadow -
+                                              (ScalarT(1) - mrp1Shadow.squaredNorm()) * mrp2 +
+                                              ScalarT(2) * mrp1Shadow.cross(mrp2);
+    // Return the principal MRP set (norm <= 1).
+    return mrpSwitch(Eigen::Vector3<ScalarT>(numerator / denominator), ScalarT(1));
 }
 
 /**
- * Provide the principal rotation vector which corresponds to relative principal rotation from Q2
- * to Q1.
+ * Compute the principal rotation vector of the relative rotation from prv2 to prv1.
+ * For example, prv_BR = subPrv(prv_BN, prv_RN).
  *
- * The function calculates the angle as 2*atan2(|prv|, realPart) and not 2*acos(realPart). The code
- * calculates the vector part of the relative quaternion first, because atan2 must have its norm,
- * which is equal to sin(angle/2).
+ * The relative rotation is:
+ *   cos(Phi/2)   = cos(phi1)cos(phi2) + sin(phi1)sin(phi2) (e1 . e2)
+ *   e sin(Phi/2) = cos(phi2)sin(phi1) e1 - cos(phi1)sin(phi2) e2 + sin(phi1)sin(phi2) (e1 x e2)
+ * where Phi and e are the angle and unit axis of the result, phi1 = |prv1|/2, phi2 = |prv2|/2, and
+ * e1, e2 are the unit axes of prv1 and prv2.
  *
- * This has the most effect when the function measures a small attitude error. When the two rotations
- * are almost the same, realPart becomes equal to 1 and acos gives 0. The previous code thus gave a
- * zero result for a relative rotation of less than a few times 1e-8 radians. Rounding can also make
- * realPart more than 1. Then acos gives NaN, and the previous assert on its argument stopped the
- * program.
+ * If either input is exactly zero, the result is prv1 - prv2, which is exact. Any nonzero
+ * input, however small, uses the full formula, because prv1 - prv2 drops the
+ * 1/2 (prv1 x prv2) term.
+ *
+ * The function converts both rotations to Euler parameters, computes the relative Euler parameters
+ * epScalar and epVector, and converts the result back to a principal rotation vector.
+ *
+ * The sign of epScalar sets the angle of the result: epScalar >= 0 gives an angle in [0, pi]
+ * (the short rotation), and epScalar < 0 gives an angle in (pi, 2*pi) (the long rotation). The
+ * function does not switch to the short rotation. Callers that need an angle <= pi must convert it.
+ *
+ * The function calculates the angle as 2*atan2(|epVector|, epScalar) and not
+ * 2*acos(epScalar). The code calculates the vector part of the relative quaternion first, because
+ * atan2 must have its norm, which is equal to sin(angle/2).
+ *
+ * This matters most when the function measures a small attitude error. When the two rotations are
+ * almost the same, epScalar rounds to 1, and 2*acos(epScalar) would give 0 for a relative rotation of
+ * less than a few times 1e-8 radians. Rounding can also make epScalar more than 1, where acos gives
+ * NaN. atan2 has neither problem.
  *
  * The result is a zero vector only when the vector part of the relative quaternion is exactly zero,
  * which is a relative rotation equal to identity.
  *
- * @param prv1
- * @param prv2
- * @return Eigen::Vector3d
+ * @param prv1 [-] principal rotation vector of frame 1 relative to the reference frame
+ * @param prv2 [-] principal rotation vector of frame 2 relative to the reference frame
+ * @return [-] principal rotation vector of frame 1 relative to frame 2
  */
 template <typename ScalarT>
 Eigen::Vector3<ScalarT> subPrv(const Eigen::Vector3<ScalarT>& prv1, const Eigen::Vector3<ScalarT>& prv2) {
-    if (constexpr ScalarT threshold = ScalarT(1.0E-7); prv1.stableNorm() < threshold || prv2.stableNorm() < threshold) {
+    const ScalarT norm1 = prv1.stableNorm();
+    const ScalarT norm2 = prv2.stableNorm();
+    if (norm1 == ScalarT(0) || norm2 == ScalarT(0)) {
         return prv1 - prv2;
     }
 
-    ScalarT norm1 = prv1.stableNorm();
-    ScalarT norm2 = prv2.stableNorm();
+    const ScalarT phi1 = norm1 / ScalarT(2);
+    const ScalarT phi2 = norm2 / ScalarT(2);
 
-    ScalarT cosPhi1 = std::cos(norm1 / ScalarT(2));
-    ScalarT cosPhi2 = std::cos(norm2 / ScalarT(2));
-    ScalarT sinPhi1 = std::sin(norm1 / ScalarT(2));
-    ScalarT sinPhi2 = std::sin(norm2 / ScalarT(2));
+    const ScalarT cosPhi1 = std::cos(phi1);
+    const ScalarT cosPhi2 = std::cos(phi2);
+    const ScalarT sinPhi1 = std::sin(phi1);
+    const ScalarT sinPhi2 = std::sin(phi2);
 
-    Eigen::Vector3<ScalarT> unitVector1 = prv1 / norm1;
-    Eigen::Vector3<ScalarT> unitVector2 = prv2 / norm2;
+    const Eigen::Vector3<ScalarT> unitAxis1 = prv1 / norm1;
+    const Eigen::Vector3<ScalarT> unitAxis2 = prv2 / norm2;
 
-    ScalarT dotUV = unitVector1.dot(unitVector2);
-    ScalarT realPart = cosPhi1 * cosPhi2 + sinPhi1 * sinPhi2 * dotUV;
+    const ScalarT dotProduct = unitAxis1.dot(unitAxis2);
+    const ScalarT epScalar = cosPhi1 * cosPhi2 + sinPhi1 * sinPhi2 * dotProduct;
 
-    Eigen::Vector3<ScalarT> prv = cosPhi2 * sinPhi1 * unitVector1 - cosPhi1 * sinPhi2 * unitVector2 +
-                                  sinPhi1 * sinPhi2 * unitVector1.cross(unitVector2);
+    const Eigen::Vector3<ScalarT> epVector =
+        cosPhi2 * sinPhi1 * unitAxis1 - cosPhi1 * sinPhi2 * unitAxis2 + sinPhi1 * sinPhi2 * unitAxis1.cross(unitAxis2);
 
-    ScalarT vectorNorm = prv.stableNorm();
-    if (vectorNorm == ScalarT(0)) {
+    const ScalarT epVectorNorm = epVector.stableNorm();
+    if (epVectorNorm == ScalarT(0)) {
         return Eigen::Vector3<ScalarT>::Zero();
     }
-    ScalarT angle = ScalarT(2) * std::atan2(vectorNorm, realPart);
+    const ScalarT angle = ScalarT(2) * std::atan2(epVectorNorm, epScalar);
 
-    return prv * angle / vectorNorm;
+    return (epVector / epVectorNorm) * angle;
 }
 
 /**
