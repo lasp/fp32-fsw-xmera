@@ -380,8 +380,8 @@ inline void propertyOutputEqualsOffsetInputRefWhenRateIsZero(const Eigen::Vector
 }
 
 // With zero offset and zero rate, the measured component frame C sits exactly where the nominal frame Cn sits when
-// the body is on the base: [CB][RN] = [CnB][RbR0][R0N]. Every component axis, the boresight included, points where
-// its nominal counterpart points in the base attitude, whatever the misalignment between the two mountings.
+// the body is on the base: [CB][RN] = [CnB][RbR0][R0N]. Every component axis points where its nominal counterpart
+// points in the base attitude, whatever the misalignment between the two mountings.
 inline void propertyComponentFrameSitsOnNominalFrameAtBase(const Eigen::Vector3f& sigma_RbR0,
                                                            const Eigen::Vector3f& sigma_CnB,
                                                            const Eigen::Vector3f& sigma_CB,
@@ -408,8 +408,8 @@ inline void propertyComponentFrameSitsOnNominalFrameAtBase(const Eigen::Vector3f
 
 // The spin starts at identity and its axis spinHat_C is constant in component axes, so the component axis along
 // spinHat_C, which is [BC] * spinHat_C in body axes, stays fixed in the input reference R0 at
-// [RpR0]^T * [BC] * spinHat_C over many steps, whatever the base frame, mountings and offset. A spin about the
-// boresight therefore holds the boresight on the offset point. The axis has the same components in R and Rp, so
+// [RpR0]^T * [BC] * spinHat_C over many steps, whatever the base frame, mountings and offset. The axis has the same
+// components in R and Rp, so
 // [RN]^T [BC] * spinHat_C must give that vector. The input reference is identity, so dcm_RN = dcm_RR0.
 // Forward Euler keeps the integrated MRP on the axis only for small steps: above about 0.2 rad per step,
 // fp32 rounding off the axis grows exponentially, so callers keep |spinRate| * controlPeriod well below that.

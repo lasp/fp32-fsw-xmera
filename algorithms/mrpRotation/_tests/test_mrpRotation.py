@@ -83,7 +83,7 @@ def test_mrp_rotation(show_plots, second_phase):
 
     sigma_RbR0 = np.array([0.3, .5, 0.0])
     module.sigma_RbR0 = sigma_RbR0
-    # A camera with boresight -Y_B: rows are the camera axes in body components. The measured mounting is the
+    # A camera with +Z_C on -Y_B: rows are the camera axes in body components. The measured mounting is the
     # nominal one turned 0.5 deg.
     sigma_CnB = rbk.C2MRP(np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]]))
     module.sigma_CnB = sigma_CnB

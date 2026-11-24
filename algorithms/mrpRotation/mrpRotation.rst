@@ -10,18 +10,18 @@ the output reference frame :math:`\mathcal R` from the input reference frame :ma
 1. A base frame :math:`\mathbf\sigma_{\mathcal{R}_b/\mathcal{R}_0}`. It puts the nominal body axis of the state on
    the target, for example body :math:`-\hat{\mathbf b}_2` on the central body of a Hill frame.
 2. The component. The body turns so the measured component frame sits where the nominal component frame sits in the
-   base attitude, which puts the real boresight on the target. This step uses the nominal mounting
-   :math:`\mathbf\sigma_{\mathcal{C}_n/\mathcal{B}}` and the measured mounting
+   base attitude, so every measured component axis points where its nominal axis would. This step uses the nominal
+   mounting :math:`\mathbf\sigma_{\mathcal{C}_n/\mathcal{B}}` and the measured mounting
    :math:`\mathbf\sigma_{\mathcal{C}/\mathcal{B}}`, and it is where the misalignment is corrected.
-3. A pointing offset about component axes. It moves the boresight off the target by the offset angle. The operator
-   can change it at runtime.
+3. A pointing offset about component axes. It turns the component frame by the offset angle. The operator can change
+   it at runtime.
 4. A constant-rate spin :math:`\Omega\,\hat{\mathbf e}` about a spin axis :math:`\hat{\mathbf e}` that is constant in
    component axes. The module integrates this spin from identity with the MRP kinematic differential equation.
 
 Each step turns the body. The offset and the spin axis are given in component axes, and the offset comes after the
-component, so the real boresight is off the target by exactly the commanded offset, whatever the misalignment.
-Because the spin comes after the offset, a spin about the boresight holds the boresight on the offset point and rolls
-the spacecraft about it.
+component, so the measured component frame is off its nominal place in the base attitude by exactly the commanded
+offset, whatever the misalignment. Because the spin comes after the offset, the spin axis holds its direction while
+the spacecraft turns about it.
 
 Every component, a camera or an antenna alike, has a full frame. Its nominal frame
 :math:`\mathbf\sigma_{\mathcal{C}_n/\mathcal{B}}` comes from the ICD and its measured frame
@@ -149,7 +149,7 @@ inputs and constructs the algorithm. ``updateState()`` throws ``XmeraLifecycleEx
     module.sigma_CnB = rbk.C2MRP(CnB)           # nominal mounting; row i of CnB = camera axis i in body components
     module.sigma_CB = rbk.C2MRP(CB)             # measured mounting, from the alignment survey
     module.sigma_RpRc_C = [0.0437, 0.0, 0.0]    # 10 deg pointing offset about the camera x axis
-    module.spinAxis_C = [0.0, 0.0, 1.0]         # spin about the camera boresight
+    module.spinAxis_C = [0.0, 0.0, 1.0]         # spin about the camera z axis
     module.spinRate = 0.001745                  # [rad/s] ~0.1 deg/s
     module.controlPeriod = 0.5                  # [s] forward-Euler integration step; required (> 0)
 
@@ -190,10 +190,10 @@ Each rotation turns the body:
   .. math:: [R_cR_b] = [BC]\,[C_nB]
 
   with :math:`[BC] = [CB]^T`. It is the small rotation between the nominal and the measured component frames, and the
-  identity for a perfect mounting. Every component axis, the boresight included, then points where its nominal
-  counterpart points in the base attitude.
-- The pointing offset :math:`[R_pR_c]` turns the body about component axes, so the boresight moves off the target by
-  the offset angle. It is given as the MRP :math:`{}^{\mathcal C}\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_c}` in
+  identity for a perfect mounting. Every component axis then points where its nominal counterpart points in the
+  base attitude.
+- The pointing offset :math:`[R_pR_c]` turns the body about component axes, so the component frame turns by the
+  offset angle. It is given as the MRP :math:`{}^{\mathcal C}\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_c}` in
   component axes. An MRP lies along the axis of its rotation, so in body axes it is
 
   .. math:: {}^{\mathcal B}\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_c} = [BC]\,{}^{\mathcal C}\mathbf\sigma_{\mathcal{R}_p/\mathcal{R}_c}
@@ -228,8 +228,7 @@ Each update propagates the MRP set with one forward Euler step. The step :math:`
 The rotation starts at identity and its axis is constant in :math:`\mathcal R_p`, so the integrated MRP stays on that
 axis. The integration error changes only the spin angle, not the axis. The axis of a rotation has the same components
 in :math:`\mathcal R` and :math:`\mathcal R_p`. Thus the component axis along :math:`\hat{\mathbf e}` stays fixed in
-:math:`\mathcal R_0`: a spin about the boresight holds the boresight on the offset point and rolls the spacecraft about
-it.
+:math:`\mathcal R_0`, and the spacecraft turns about it.
 
 The output MRP set comes from the DCM:
 
@@ -260,13 +259,16 @@ true because the rate is constant in :math:`\mathcal R_p` and :math:`\mathbf\ome
 Cone Around a Target
 ^^^^^^^^^^^^^^^^^^^^
 
-A boresight can also turn on a cone around the target. Set the pointing offset to the cone half-angle
-:math:`\alpha`, and set the spin axis along the target line instead of along the boresight. The target is on the
-boresight :math:`\hat{\mathbf b}`, given in component axes, before the offset. So in component axes after the offset:
+A component axis can also turn on a cone around the target. Let :math:`\hat{\mathbf a}` be the component axis that
+the base puts on the target, in component axes: :math:`[C_nB]` times the body axis of the base frame entry. Set the
+pointing offset to the cone half-angle :math:`\alpha` about an axis normal to :math:`\hat{\mathbf a}`, and set the
+spin axis along the target line. The target is on :math:`\hat{\mathbf a}` before the offset. So in component axes
+after the offset:
 
-.. math:: {}^{\mathcal C}\hat{\mathbf e} = [CB]\,[R_pR_c]\,[BC]\,\hat{\mathbf b}
+.. math:: {}^{\mathcal C}\hat{\mathbf e} = [CB]\,[R_pR_c]\,[BC]\,\hat{\mathbf a}
 
-The boresight then stays at :math:`\alpha` from the target and turns around it once every :math:`2\pi/|\Omega|`. The
+The axis :math:`\hat{\mathbf a}` then stays at :math:`\alpha` from the target and turns around it once every
+:math:`2\pi/|\Omega|`. The
 spacecraft turns as a rigid body, thus it also turns 360 deg about the target line in each cycle.
 
 Component Pointing Examples
@@ -277,29 +279,33 @@ with no spacecraft dynamics, and checks where the selected component points. Run
 
     python test_mrpRotation_componentPointing.py <output directory>
 
-Each figure shows the sky around the target, seen from the spacecraft: the target, the component boresight, the
-nominal body axis that the base frame puts on the target, and arrows toward :math:`+\hat{\mathbf b}_3` that show
-the roll. The angles are exaggerated so they are visible: a 2 deg misalignment and a 6 deg offset about the component
+Each figure shows the sky around the target, seen from the spacecraft: the target, the component axis that the base
+puts on the target, the nominal body axis that the base frame puts on the target, and arrows toward
+:math:`+\hat{\mathbf b}_3` that show the roll. The angles are exaggerated so they are visible: a 2 deg misalignment and a 6 deg offset about the component
 x axis.
 
-Earth Point with the HGA, and Hill Point and Inertial Point with the MAC, each run four scenarios:
+Earth Point uses the HGA, whose frame is aligned with the body frame when it is mounted perfectly, so the base puts
+:math:`+\hat{\mathbf c}_2` on Earth and the example spins about it: ``spinAxis_C = [0, 1, 0]``. Hill Point and
+Inertial Point use the MAC, with :math:`+\hat{\mathbf c}_3` on the target and the spin about it. Each state runs four
+scenarios:
 
-- **Component only.** The boresight is on the target, and the nominal body axis is off it by the misalignment.
-- **Offset only.** The boresight is off the target by the offset angle.
-- **Component and offset.** The component puts the boresight on the target, and the offset then moves it off by
-  exactly the offset angle, about component axes.
-- **Then spin about the boresight.** The boresight holds the offset point and the spacecraft rolls about it. The
-  nominal body axis circles the boresight.
+- **Component only.** The measured component frame sits where the nominal one sits in the base attitude, so the
+  component axis is on the target and the nominal body axis is off it by the misalignment.
+- **Offset only.** The component axis is off the target by the offset angle.
+- **Component and offset.** The component puts its axis on the target, and the offset then turns it off by exactly
+  the offset angle, about component axes.
+- **Then spin.** The spin axis holds its direction and the spacecraft turns about it. The nominal body axis circles
+  it.
 
 The spin and offset figure keeps the same offset in Hill Point and changes only the spin axis. A second row shows
 where the target appears in the MAC image:
 
-- **Spin about the boresight** (this design). The boresight holds the offset point, and the target circles the image
-  center.
-- **Spin about the target line.** The boresight cones around the target, and the target stays put in the image. An
-  offset applied after the spin gives the same motion.
-- **Spin about the camera x axis**, which is the offset axis. The boresight sweeps back along the offset line, across
-  the target.
+- **Spin about** :math:`+\hat{\mathbf c}_3` (this design). :math:`+\hat{\mathbf c}_3` holds the offset point, and
+  the target circles the image center.
+- **Spin about the target line.** :math:`+\hat{\mathbf c}_3` cones around the target, and the target stays put in the
+  image. An offset applied after the spin gives the same motion.
+- **Spin about** :math:`+\hat{\mathbf c}_1`, which is the offset axis. :math:`+\hat{\mathbf c}_3` sweeps back along
+  the offset line, across the target.
 
 Module Assumptions and Limitations
 ----------------------------------
@@ -331,13 +337,14 @@ Property tests examine:
 - The component axis along the spin axis stays fixed in the input reference for 2000 steps.
 - The output rate obeys the transport theorem.
 
-Component pointing tests examine a camera with a 0.5 deg misalignment: the measured boresight lands on the target, an
-offset about a camera axis tilts the boresight off the target by the offset angle, the attitude with the offset is the
-component-only attitude turned about the measured camera axis, and a spin about the boresight holds the offset
-boresight while the camera rolls. Edge-case tests examine ``reInitialize()``, a new pointing offset through
+Component pointing tests examine a camera with a 0.5 deg misalignment: the measured camera z axis lands on the
+target, an offset about the camera x axis turns it off the target by the offset angle, the attitude with the offset is
+the component-only attitude turned about the measured camera axis, and a spin about the camera z axis holds that axis
+still while the camera turns about it. Edge-case tests examine ``reInitialize()``, a new pointing offset through
 ``setConfig()``, the shadow-set switch, and a 10 deg cone around a target. Fuzz tests use random configurations and
 inputs in realistic ranges.
 
 The integrated component pointing test runs the scenarios of the examples above through the guidance modules and
-checks the boresight angles, that a spin about the boresight holds it still, and that the output rate matches the
-central difference of the output attitude.
+checks that the measured component frame sits where the nominal one sits in the base attitude, turned by the
+offset, that the spin axis holds its direction, and that the output rate matches the central difference of the output
+attitude.

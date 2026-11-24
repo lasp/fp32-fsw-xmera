@@ -5,7 +5,7 @@
 namespace {
 constexpr float kDeg = std::numbers::pi_v<float> / 180.0F;
 
-// Nominal mounting of a camera whose boresight +Z_C is -Y_B: rows are the camera axes in body components.
+// Nominal mounting of a camera whose +Z_C is -Y_B: rows are the camera axes in body components.
 Eigen::Vector3f cameraNominalMounting() {
     Eigen::Matrix3f dcm_CnB;
     dcm_CnB << 0.0F, 0.0F, 1.0F, -1.0F, 0.0F, 0.0F, 0.0F, -1.0F, 0.0F;
@@ -351,9 +351,9 @@ TEST(MrpRotationTest, RotationAxisFixedInInputRef) {
 // ---------------------------------------------------------------------------
 
 // With the measured mounting 0.5 deg off the nominal one and no offset or spin, the body turns so that the
-// measured boresight +Z_C, not the nominal body axis -Y_B, lands on the target. The nominal axis is then off the
-// target by the angle between the nominal and measured boresights.
-TEST(MrpRotationTest, MeasuredMountingPutsRealBoresightOnTarget) {
+// measured camera +Z_C, not the nominal body axis -Y_B, lands on the target. -Y_B is then off the target by the angle
+// between it and the measured +Z_C.
+TEST(MrpRotationTest, MeasuredMountingPutsCameraZOnTarget) {
     const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
     const auto cfg = MrpRotationConfig::create(baseMinusYOnTarget(),
                                                cameraNominalMounting(),
@@ -367,16 +367,16 @@ TEST(MrpRotationTest, MeasuredMountingPutsRealBoresightOnTarget) {
 
     const Eigen::Vector3f target_R0 = Eigen::Vector3f::UnitX();
     const Eigen::Matrix3f dcm_R0B = mrpToDcm(out.sigma_RN).transpose();  // identity input reference: N = R0
-    const Eigen::Vector3f boresight_B = mrpToDcm(cameraMeasuredMounting()).transpose() * Eigen::Vector3f::UnitZ();
-    EXPECT_LT(angleBetween(dcm_R0B * boresight_B, target_R0), 1e-5F);
-    const float boresightMisalignment = angleBetween(boresight_B, -Eigen::Vector3f::UnitY());
-    EXPECT_GT(boresightMisalignment, 0.4F * kDeg) << "Test setup: the measured boresight must be visibly misaligned";
-    EXPECT_NEAR(angleBetween(dcm_R0B * -Eigen::Vector3f::UnitY(), target_R0), boresightMisalignment, 1e-5F);
+    const Eigen::Vector3f cameraZ_B = mrpToDcm(cameraMeasuredMounting()).transpose() * Eigen::Vector3f::UnitZ();
+    EXPECT_LT(angleBetween(dcm_R0B * cameraZ_B, target_R0), 1e-5F);
+    const float cameraZMisalignment = angleBetween(cameraZ_B, -Eigen::Vector3f::UnitY());
+    EXPECT_GT(cameraZMisalignment, 0.4F * kDeg) << "Test setup: the measured camera z must be visibly misaligned";
+    EXPECT_NEAR(angleBetween(dcm_R0B * -Eigen::Vector3f::UnitY(), target_R0), cameraZMisalignment, 1e-5F);
 }
 
-// The offset is about component axes: a positive rotation of 10 deg about the camera x-axis moves the boresight
-// 10 deg off the target, toward the nominal camera -y axis.
-TEST(MrpRotationTest, OffsetInComponentAxesTiltsBoresightOffTarget) {
+// The offset is about component axes: a positive rotation of 10 deg about the camera x-axis turns camera +Z_C 10 deg
+// off the target, toward the nominal camera -y axis.
+TEST(MrpRotationTest, OffsetInComponentAxesTurnsCameraZOffTarget) {
     const float offsetAngle = 10.0F * kDeg;
     const auto cfg = MrpRotationConfig::create(baseMinusYOnTarget(),
                                                cameraNominalMounting(),
@@ -392,11 +392,11 @@ TEST(MrpRotationTest, OffsetInComponentAxesTiltsBoresightOffTarget) {
     const Eigen::Matrix3f dcm_CR0 = mrpToDcm(cameraNominalMounting()) * mrpToDcm(baseMinusYOnTarget());
     const Eigen::Vector3f target_R0 = Eigen::Vector3f::UnitX();
     const Eigen::Vector3f minusYCamera_R0 = dcm_CR0.transpose() * -Eigen::Vector3f::UnitY();
-    const Eigen::Vector3f boresight_R0 =
+    const Eigen::Vector3f cameraZ_R0 =
         mrpToDcm(out.sigma_RN).transpose() * (mrpToDcm(cameraNominalMounting()).transpose() * Eigen::Vector3f::UnitZ());
 
-    EXPECT_NEAR(angleBetween(boresight_R0, target_R0), offsetAngle, 1e-5F);
-    EXPECT_NEAR(boresight_R0.dot(minusYCamera_R0), std::sin(offsetAngle), 1e-5F);
+    EXPECT_NEAR(angleBetween(cameraZ_R0, target_R0), offsetAngle, 1e-5F);
+    EXPECT_NEAR(cameraZ_R0.dot(minusYCamera_R0), std::sin(offsetAngle), 1e-5F);
 }
 
 // The offset comes after the component: with the measured mounting 0.5 deg off the nominal one, the attitude with the
@@ -427,9 +427,9 @@ TEST(MrpRotationTest, OffsetComesAfterTheComponent) {
     EXPECT_LT(dcmMaxAbsDiff(dcm_RpN * dcm_RcN.transpose(), expectedDcm_RpRc), 1e-5F);
 }
 
-// The spin comes after the offset, so a spin about the boresight +Z_C holds the offset boresight still and rolls the
-// spacecraft about it: the camera x-axis turns by the spin angle while the boresight does not move.
-TEST(MrpRotationTest, SpinAboutBoresightHoldsOffsetBoresight) {
+// The spin comes after the offset, so a spin about camera +Z_C holds that axis still at the offset point and turns the
+// spacecraft about it: the camera x-axis turns by the spin angle while +Z_C does not move.
+TEST(MrpRotationTest, SpinAfterOffsetHoldsSpinAxis) {
     const float offsetAngle = 10.0F * kDeg;
     constexpr float kRate = 1.0F * kDeg;
     constexpr float kControlPeriod = 0.5F;
@@ -445,22 +445,22 @@ TEST(MrpRotationTest, SpinAboutBoresightHoldsOffsetBoresight) {
 
     const Eigen::Matrix3f dcm_BC = mrpToDcm(cameraMeasuredMounting()).transpose();
     const Eigen::Vector3f target_R0 = Eigen::Vector3f::UnitX();
-    Eigen::Vector3f firstBoresight_R0 = Eigen::Vector3f::Zero();
+    Eigen::Vector3f firstCameraZ_R0 = Eigen::Vector3f::Zero();
     Eigen::Vector3f firstCameraX_R0 = Eigen::Vector3f::Zero();
     Eigen::Vector3f lastCameraX_R0 = Eigen::Vector3f::Zero();
-    float maxBoresightDrift = 0.0F;
+    float maxCameraZDrift = 0.0F;
     for (int k = 0; k < kNumSteps; ++k) {
         const Eigen::Matrix3f dcm_R0B = mrpToDcm(alg.update(MrpRotationAttRefInputs{}).sigma_RN).transpose();
-        const Eigen::Vector3f boresight_R0 = dcm_R0B * dcm_BC * Eigen::Vector3f::UnitZ();
+        const Eigen::Vector3f cameraZ_R0 = dcm_R0B * dcm_BC * Eigen::Vector3f::UnitZ();
         lastCameraX_R0 = dcm_R0B * dcm_BC * Eigen::Vector3f::UnitX();
         if (k == 0) {
-            firstBoresight_R0 = boresight_R0;
+            firstCameraZ_R0 = cameraZ_R0;
             firstCameraX_R0 = lastCameraX_R0;
         }
-        maxBoresightDrift = std::max(maxBoresightDrift, angleBetween(boresight_R0, firstBoresight_R0));
-        EXPECT_NEAR(angleBetween(boresight_R0, target_R0), offsetAngle, 1e-4F);
+        maxCameraZDrift = std::max(maxCameraZDrift, angleBetween(cameraZ_R0, firstCameraZ_R0));
+        EXPECT_NEAR(angleBetween(cameraZ_R0, target_R0), offsetAngle, 1e-4F);
     }
-    EXPECT_LT(maxBoresightDrift, 1e-4F);
+    EXPECT_LT(maxCameraZDrift, 1e-4F);
     EXPECT_NEAR(angleBetween(lastCameraX_R0, firstCameraX_R0), (kNumSteps - 1) * kRate * kControlPeriod, 1e-3F);
 }
 
@@ -613,10 +613,10 @@ TEST(MrpRotationTest, SetConfigAppliesNewOffsetAndKeepsRotationPhase) {
     }
 }
 
-// The base frame puts body -y on the target (input reference x-axis), the pointing offset tilts the boresight 10 deg
-// about body x, and the rate points along the target line in component axes after the offset. With identity mountings
-// the component axes are the body axes. The boresight then sweeps a cone around the target: constant 10 deg from it,
-// reaching 20 deg from its start after half a turn.
+// The base frame puts body -y on the target (input reference x-axis), the pointing offset turns body -y 10 deg about
+// body x, and the rate points along the target line in component axes after the offset. With identity mountings the
+// component axes are the body axes. Body -y then sweeps a cone around the target: constant 10 deg from it, reaching
+// 20 deg from its start after half a turn.
 TEST(MrpRotationTest, ConeAroundTargetKeepsConstantHalfAngle) {
     constexpr float halfAngle = 10.0F * kDeg;
     constexpr float rate = 0.02F;
@@ -627,8 +627,8 @@ TEST(MrpRotationTest, ConeAroundTargetKeepsConstantHalfAngle) {
     dcm_RbR0 << 0.0F, 1.0F, 0.0F, -1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F;
     const Eigen::Vector3f sigma_RbR0 = dcmToMrp(dcm_RbR0);
     const Eigen::Vector3f sigma_RpRc_C = std::tan(halfAngle / 4.0F) * Eigen::Vector3f::UnitX();
-    const Eigen::Vector3f boresight_B = -Eigen::Vector3f::UnitY();
-    const Eigen::Vector3f spinAxis_C = mrpToDcm(sigma_RpRc_C) * boresight_B;
+    const Eigen::Vector3f minusY_B = -Eigen::Vector3f::UnitY();
+    const Eigen::Vector3f spinAxis_C = mrpToDcm(sigma_RpRc_C) * minusY_B;
     const Eigen::Vector3f zero = Eigen::Vector3f::Zero();
 
     const auto cfg = MrpRotationConfig::create(sigma_RbR0, zero, zero, sigma_RpRc_C, spinAxis_C, rate, kControlPeriod);
@@ -637,16 +637,16 @@ TEST(MrpRotationTest, ConeAroundTargetKeepsConstantHalfAngle) {
     const Eigen::Vector3f target_R0 = Eigen::Vector3f::UnitX();
     const MrpRotationAttRefInputs identityRef{};
 
-    Eigen::Vector3f initialBoresight_R0 = Eigen::Vector3f::Zero();
+    Eigen::Vector3f initialMinusY_R0 = Eigen::Vector3f::Zero();
     float minCosFromStart = 1.0F;
     for (int k = 0; k < kNumSteps; ++k) {
         const MrpRotationOutput out = alg.update(identityRef);
-        const Eigen::Vector3f boresight_R0 = mrpToDcm(out.sigma_RN).transpose() * boresight_B;
+        const Eigen::Vector3f minusY_R0 = mrpToDcm(out.sigma_RN).transpose() * minusY_B;
         if (k == 0) {
-            initialBoresight_R0 = boresight_R0;
+            initialMinusY_R0 = minusY_R0;
         }
-        EXPECT_NEAR(std::acos(std::clamp(boresight_R0.dot(target_R0), -1.0F, 1.0F)), halfAngle, 1e-4F);
-        minCosFromStart = std::min(minCosFromStart, boresight_R0.dot(initialBoresight_R0));
+        EXPECT_NEAR(std::acos(std::clamp(minusY_R0.dot(target_R0), -1.0F, 1.0F)), halfAngle, 1e-4F);
+        minCosFromStart = std::min(minCosFromStart, minusY_R0.dot(initialMinusY_R0));
     }
     EXPECT_NEAR(minCosFromStart, std::cos(2.0F * halfAngle), 1e-3F);
 }
