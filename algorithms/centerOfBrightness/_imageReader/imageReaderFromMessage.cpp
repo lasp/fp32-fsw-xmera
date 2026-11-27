@@ -49,6 +49,17 @@ void ImageReaderFromMessage::getImageAsArray(const Eigen::Vector2i& center,
     extractImageWindow(vector, center, window, output);
 }
 
+/*! Read the image message and return the thresholded image (CV_8UC1).
+ * If there is no image to read, return an empty image.
+ */
+cv::Mat ImageReaderFromMessage::getImage() {
+    const cv::Mat imageCV = this->readImageFromMessage();
+    if (imageCV.empty()) {
+        return {};
+    }
+    return thresholdImage(imageCV, this->blurSize, this->pixelThreshold);
+}
+
 Eigen::Vector2i ImageReaderFromMessage::getFullImageSize(int32_t cameraId) { return this->imageSize; };
 void ImageReaderFromMessage::setBlurSize(int blur) { this->blurSize = blur; }
 int ImageReaderFromMessage::getBlurSize() const { return this->blurSize; }

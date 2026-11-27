@@ -2,6 +2,7 @@
 #define F32XMERA_IMAGE_READER_INTERFACE_H
 
 #include <Eigen/Core>
+#include <opencv2/core/mat.hpp>
 
 #include "centerOfBrightnessAlgorithm.h"
 
@@ -35,6 +36,13 @@ class ImageReaderInterface {
     virtual void getImageAsArray(const Eigen::Vector2i& center,
                                  const Eigen::Vector2i& windowSize,
                                  std::array<Eigen::Vector2i, kMaxWindowSize>& output) = 0;
+
+    /*! Get the full thresholded image. The reader converts the image to grayscale, then does a box blur
+     *  and a binary threshold on it.
+     @return single-channel 8-bit image (CV_8UC1) where bright pixels are 255 and all others are 0,
+             or an empty image if no image is available
+     */
+    virtual cv::Mat getImage() = 0;
 };
 
 #endif  // F32XMERA_IMAGE_READER_INTERFACE_H

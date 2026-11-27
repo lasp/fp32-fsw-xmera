@@ -170,6 +170,28 @@ TEST_F(ImageReaderFromFileTest, NonZeroPixelLocations) {
 }
 
 // ============================================================================
+// THRESHOLDED IMAGE
+// ============================================================================
+
+TEST_F(ImageReaderFromFileTest, GetImageReturnsThresholdedImage) {
+    std::vector<Eigen::Vector2i> whitePixels = {Eigen::Vector2i(5, 5), Eigen::Vector2i(15, 3)};
+    std::string path = createTestImage(20, 10, whitePixels);
+
+    reader.setFileName(path);
+    reader.setBlurSize(1);
+    reader.setPixelThreshold(50);
+
+    const cv::Mat image = reader.getImage();
+
+    ASSERT_EQ(CV_8UC1, image.type());
+    EXPECT_EQ(10, image.rows);
+    EXPECT_EQ(20, image.cols);
+    EXPECT_EQ(2, cv::countNonZero(image));
+    EXPECT_EQ(255, image.at<uint8_t>(5, 5));
+    EXPECT_EQ(255, image.at<uint8_t>(3, 15));
+}
+
+// ============================================================================
 // WINDOW FILTERING
 // ============================================================================
 

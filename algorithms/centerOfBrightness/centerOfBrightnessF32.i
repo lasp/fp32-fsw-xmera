@@ -15,6 +15,8 @@
 %include <architecture/_GeneralModuleFiles/swig_eigen.i>
 %include <std_shared_ptr.i>
 
+%ignore getImage;
+
 %shared_ptr(ImageReaderInterface)
 %shared_ptr(ImageReaderFromFile)
 %shared_ptr(ImageReaderFromMessage)

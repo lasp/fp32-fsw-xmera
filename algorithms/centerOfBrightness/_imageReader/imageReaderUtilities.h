@@ -36,23 +36,29 @@ inline void extractImageWindow(const std::vector<Eigen::Vector2i>& data,
     }
 }
 
-/*! Convert a BGR cv::Mat to a vector of non-zero pixel coordinates after
- *  grayscale conversion, box blur, and binary thresholding.
+/*! Convert a BGR cv::Mat to grayscale, then do a box blur and a binary threshold on it.
+ *  @return single-channel 8-bit image (CV_8UC1) with bright pixels set to 255 and all others set to 0
  */
-inline std::vector<Eigen::Vector2i> cvMatToCoordinates(const cv::Mat& mat, int32_t blurSize, float pixelThreshold) {
-    cv::Mat blured;
+inline cv::Mat thresholdImage(const cv::Mat& mat, int32_t blurSize, float pixelThreshold) {
     cv::Mat imageGray;
+    cv::Mat blured;
     cv::Mat thresholded;
-    std::vector<cv::Vec2i> locations;
 
-    /*! - Grayscale, blur, and threshold image*/
     cv::cvtColor(mat, imageGray, cv::COLOR_BGR2GRAY);
     cv::blur(imageGray, blured, cv::Size(blurSize, blurSize));
     // cv::threshold requires a double threshold value (OpenCV API boundary).
     cv::threshold(blured, thresholded, static_cast<double>(pixelThreshold), 255, cv::THRESH_BINARY);
+    return thresholded;
+}
 
-    /*! - Find all the non-zero pixels in the image*/
-    cv::findNonZero(thresholded, locations);
+/*! Convert a BGR cv::Mat to a vector of non-zero pixel coordinates after
+ *  grayscale conversion, box blur, and binary thresholding.
+ */
+inline std::vector<Eigen::Vector2i> cvMatToCoordinates(const cv::Mat& mat, int32_t blurSize, float pixelThreshold) {
+    std::vector<cv::Vec2i> locations;
+
+    /*! - Find all the non-zero pixels in the thresholded image*/
+    cv::findNonZero(thresholdImage(mat, blurSize, pixelThreshold), locations);
     std::vector<Eigen::Vector2i> result;
 
     for (auto coord : locations) {

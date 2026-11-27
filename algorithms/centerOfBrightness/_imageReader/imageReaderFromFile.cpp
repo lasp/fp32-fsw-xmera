@@ -29,6 +29,12 @@ void ImageReaderFromFile::getImageAsArray(const Eigen::Vector2i& center,
     extractImageWindow(vector, center, window, output);
 }
 
+/*! Read the image file and return the thresholded image (CV_8UC1).
+ */
+cv::Mat ImageReaderFromFile::getImage() {
+    return thresholdImage(this->readImageFromFile(), this->blurSize, this->pixelThreshold);
+}
+
 Eigen::Vector2i ImageReaderFromFile::getFullImageSize(int32_t cameraId) { return this->imageSize; };
 
 void ImageReaderFromFile::setBlurSize(int blur) { this->blurSize = blur; }

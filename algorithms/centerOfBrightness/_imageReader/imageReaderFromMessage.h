@@ -15,6 +15,7 @@ class ImageReaderFromMessage : public ImageReaderInterface {
     void getImageAsArray(const Eigen::Vector2i& center,
                          const Eigen::Vector2i& windowSize,
                          std::array<Eigen::Vector2i, kMaxWindowSize>& output) final;
+    cv::Mat getImage() final;
     int64_t getCurrentImageTimeTag(int32_t cameraId, int64_t previousImageTimeTag) final;
 
     void setBlurSize(int blur);
