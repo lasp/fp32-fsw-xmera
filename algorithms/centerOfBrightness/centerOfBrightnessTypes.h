@@ -1,6 +1,7 @@
 #ifndef F32XMERA_CENTER_OF_BRIGHTNESS_TYPES_H
 #define F32XMERA_CENTER_OF_BRIGHTNESS_TYPES_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -32,6 +33,19 @@ typedef struct {
     int32_t width;   /*!< [px] region width */
     int32_t height;  /*!< [px] region height */
 } RegionOfInterest_c;
+
+/**
+ * @brief Plain-old-data (POD) equivalent of the C++ CenterOfBrightnessResult.
+ */
+typedef struct {
+    float centerOfBrightness[2];    /*!< [px] centroid, full-image coordinates: [0] column (x), [1] row (y) */
+    int32_t pixelsFound;            /*!< [-] number of bright pixels. It is 0 when valid is false. */
+    float rollingAverageBrightness; /*!< [-] rolling average of the bright pixel count */
+    bool valid;                     /*!< [-] true when the brightness increase is equal to or more than the threshold */
+    bool noPixelTrigger;            /*!< [-] diagnostic flag for no bright pixels */
+    bool notExceedingBrightnessIncreaseTrigger; /*!< [-] diagnostic flag for a brightness increase less than the
+                                                   threshold */
+} CenterOfBrightnessResult_c;
 
 #ifdef __cplusplus
 }  // extern "C"
