@@ -1,6 +1,9 @@
 add_executable(test_centerOfBrightnessF32
   ../centerOfBrightnessAlgorithm.cpp
+  ../centerOfBrightnessAlgorithm_c.cpp
+  centerOfBrightnessShimFromC.c
   test_centerOfBrightness.cpp
+  test_centerOfBrightnessAlgorithm_c.cpp
 )
 
 target_include_directories(test_centerOfBrightnessF32 PRIVATE "../..")
