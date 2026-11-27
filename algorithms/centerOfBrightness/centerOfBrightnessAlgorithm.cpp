@@ -83,16 +83,6 @@ void CenterOfBrightnessAlgorithm::setConfig(const CenterOfBrightnessConfig& conf
 /*! Reset algorithm state: clears brightness history */
 void CenterOfBrightnessAlgorithm::reset() { this->brightnessHistory.resize(0); }
 
-/*! Main entry point: computes the center of brightness from a pre-populated pixel array.
- @return CenterOfBrightnessResult
- @param pixels Non-zero pixel coordinates within the windowed region (zero entries are sentinel/unused)
- */
-CenterOfBrightnessResult CenterOfBrightnessAlgorithm::update(
-    const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels) {
-    const auto [coordinates, pixelsFound] = this->computeCenterOfBrightness(pixels);
-    return this->evaluateBrightness(coordinates, pixelsFound);
-}
-
 /*! Primary entry point: calculates the center of brightness of the non-zero pixels inside a region of interest.
  * The function clips the region to the image bounds. If the image view is incorrect or the region is
  * fully outside the image, the function gives the default result and does not change the brightness history.
@@ -128,26 +118,6 @@ CenterOfBrightnessResult CenterOfBrightnessAlgorithm::evaluateBrightness(const E
         result.rollingAverageBrightness = this->brightnessHistory.mean();
     }
     return result;
-}
-
-/*! Compute the unweighted centroid of non-zero pixels. (0,0) is treated as sentinel / invalid.
- @return pair of centroid coordinates and count of valid pixels
- @param pixels Array of pixel coordinates from image reader
- */
-std::pair<Eigen::Vector2f, int32_t> CenterOfBrightnessAlgorithm::computeCenterOfBrightness(
-    const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels) const {
-    Eigen::Vector2f coordinates = Eigen::Vector2f::Zero();
-    int32_t count = 0;
-    for (const auto& pixel : pixels) {
-        if (pixel.isZero()) continue;
-        coordinates[0] += pixel[0];
-        coordinates[1] += pixel[1];
-        ++count;
-    }
-    if (count > 0) {
-        coordinates /= static_cast<float>(count);
-    }
-    return {coordinates, count};
 }
 
 /*! Compute relative brightness increase from the rolling average.

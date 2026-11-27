@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <Eigen/Core>
 #include <array>
-#include <utility>
 
 #include "centerOfBrightnessTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
@@ -64,23 +63,21 @@ class CenterOfBrightnessConfig final {
 /**
  * @brief Center of brightness detection algorithm
  *
- * Computes the unweighted center of brightness from a caller-supplied array of non-zero
- * pixel coordinates. Image acquisition is not this class's concern: the adapter reads the
- * image via an ImageReaderInterface and passes the resulting pixel array to update().
+ * Calculates the unweighted center of brightness of the non-zero pixels of a single-channel 8-bit
+ * image inside a region of interest. The caller keeps control of the image buffer, and ImageView_c
+ * describes it. Thus the interface uses only C data. This class does not read or threshold images.
+ * The adapter gets the thresholded image from an ImageReaderInterface.
  */
 class CenterOfBrightnessAlgorithm final {
    public:
     explicit CenterOfBrightnessAlgorithm(const CenterOfBrightnessConfig& config);
     ~CenterOfBrightnessAlgorithm();
 
-    CenterOfBrightnessResult update(const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels);
     CenterOfBrightnessResult update(const ImageView_c& image, const RegionOfInterest_c& roi);
     void reset();
     void setConfig(const CenterOfBrightnessConfig& config);
 
    private:
-    std::pair<Eigen::Vector2f, int32_t> computeCenterOfBrightness(
-        const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels) const;
     CenterOfBrightnessResult evaluateBrightness(const Eigen::Vector2f& coordinates, int32_t pixelsFound);
     float computeBrightnessIncrease(int32_t pixelsFound);
     void updateBrightnessHistory(float brightness);
