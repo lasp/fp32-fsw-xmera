@@ -44,11 +44,19 @@ void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
     if (imageTimeTag > this->previousImageTimeTag) {
         this->previousImageTimeTag = imageTimeTag;
 
-        const Eigen::Vector2i roiCenter(roiPayload.centerX, roiPayload.centerY);
-        const Eigen::Vector2i roiSize(roiPayload.width, roiPayload.height);
-        this->imageReader->getImageAsArray(roiCenter, roiSize, *this->pixelBuffer);
+        // If no image is available, getImage gives an empty image. An empty image gives a null view, and the
+        // algorithm then gives the default result.
+        const cv::Mat image = this->imageReader->getImage();
+        const ImageView_c imageView{.pixels = image.empty() ? nullptr : image.ptr<uint8_t>(0),
+                                    .rows = image.rows,
+                                    .cols = image.cols,
+                                    .strideBytes = static_cast<int32_t>(image.step[0])};
+        const RegionOfInterest_c roi{.centerX = roiPayload.centerX,
+                                     .centerY = roiPayload.centerY,
+                                     .width = roiPayload.width,
+                                     .height = roiPayload.height};
 
-        result = this->algorithm->update(*this->pixelBuffer);
+        result = this->algorithm->update(imageView, roi);
     }
 
     cobBuffer.valid = result.valid;
