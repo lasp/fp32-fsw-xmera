@@ -202,7 +202,7 @@ def test_diagnostics():
         sim_bi.ConfigureStopTime(PROCESS_RATE)
         sim_bi.ExecuteSimulation()
         np.testing.assert_equal(diag_bi.noPixelTrigger[0], False)
-        np.testing.assert_equal(diag_bi.notExceedingBrightnessIncreaseTrigger[0], False)
+        np.testing.assert_equal(diag_bi.notExceedingBrightnessIncreaseTrigger[0], True)
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)

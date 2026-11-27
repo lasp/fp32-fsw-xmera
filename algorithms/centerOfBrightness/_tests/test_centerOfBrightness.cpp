@@ -103,12 +103,12 @@ TEST_F(CenterOfBrightnessAlgorithmTest, BrightnessIncreaseThresholdInvalidatesRe
     CenterOfBrightnessResult result1 = update();
     EXPECT_FALSE(result1.valid);
     EXPECT_FALSE(result1.noPixelTrigger);  // pixels were found
-    EXPECT_FALSE(result1.notExceedingBrightnessIncreaseTrigger);
+    EXPECT_TRUE(result1.notExceedingBrightnessIncreaseTrigger);
 
     // Second call with same data: increase = 0.0 < 0.5 threshold, still not valid
     CenterOfBrightnessResult result2 = update();
     EXPECT_FALSE(result2.valid);
-    EXPECT_FALSE(result2.notExceedingBrightnessIncreaseTrigger);
+    EXPECT_TRUE(result2.notExceedingBrightnessIncreaseTrigger);
 }
 
 TEST_F(CenterOfBrightnessAlgorithmTest, BrightnessIncreaseAboveThresholdValidatesResult) {

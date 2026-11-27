@@ -121,7 +121,8 @@ inline CenterOfBrightnessResult referenceUpdate(const std::vector<Eigen::Vector2
             result.valid = true;
             result.centerOfBrightness = centroid;
             result.pixelsFound = count;
-            result.notExceedingBrightnessIncreaseTrigger = false;
+        } else {
+            result.notExceedingBrightnessIncreaseTrigger = true;
         }
         result.rollingAverageBrightness = avgNew;
     }

@@ -128,7 +128,8 @@ CenterOfBrightnessResult CenterOfBrightnessAlgorithm::evaluateBrightness(const E
             result.valid = true;
             result.centerOfBrightness = coordinates;
             result.pixelsFound = pixelsFound;
-            result.notExceedingBrightnessIncreaseTrigger = false;
+        } else {
+            result.notExceedingBrightnessIncreaseTrigger = true;
         }
         result.rollingAverageBrightness = this->brightnessHistory.mean();
     }
