@@ -1,5 +1,6 @@
 #include "centerOfBrightnessTestHelpers.hpp"
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <vector>
@@ -362,4 +363,32 @@ TEST_F(CenterOfBrightnessAlgorithmTest, ImageInvalidInputDoesNotChangeBrightness
 
     EXPECT_EQ(expected.rollingAverageBrightness, result.rollingAverageBrightness);
     EXPECT_EQ(expected.valid, result.valid);
+}
+
+TEST_F(CenterOfBrightnessAlgorithmTest, ImageLargeRegionCentroidIsExact) {
+    // All pixels of a 2001 x 3001 image are bright. The coordinate sums (approximately 4.5e9 and 3.0e9) are
+    // much more than 2^24. For values more than 2^24, float sums do not keep integer precision.
+    // The correct centroid is (1500, 1000).
+    image = TestImage(2001, 3001);
+    std::fill(image.buffer.begin(), image.buffer.end(), uint8_t{255});
+
+    const CenterOfBrightnessResult result = update();
+
+    EXPECT_EQ(2001 * 3001, result.pixelsFound);
+    EXPECT_EQ(1500.0F, result.centerOfBrightness[0]);
+    EXPECT_EQ(1000.0F, result.centerOfBrightness[1]);
+}
+
+TEST_F(CenterOfBrightnessAlgorithmTest, ImageCentroidKeepsFraction) {
+    // Pixels at columns 1000, 1001, and 1001 give x = 1000 + 2 / 3.
+    // Pixels at rows 7, 7, and 6 give y = 6 + 2 / 3.
+    image = TestImage(8, 1002);
+    image.set(1000, 7);
+    image.set(1001, 7);
+    image.set(1001, 6);
+
+    const CenterOfBrightnessResult result = update();
+
+    EXPECT_FLOAT_EQ(1000.0F + 2.0F / 3.0F, result.centerOfBrightness[0]);
+    EXPECT_FLOAT_EQ(6.0F + 2.0F / 3.0F, result.centerOfBrightness[1]);
 }

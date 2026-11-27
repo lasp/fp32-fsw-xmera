@@ -45,7 +45,21 @@ struct BrightPixels {
     int32_t count;             //!< [-] number of non-zero pixels
 };
 
+/*! Calculate sum / count as a float. The function does not convert the large sum to float.
+ * The quotient is a pixel coordinate, so float holds it with no error. Only the fraction has a rounding error.
+ @return mean value
+ @param sum Non-negative sum of pixel coordinates
+ @param count Number of coordinates in the sum. It must be more than 0.
+ */
+float meanOf(const int64_t sum, const int32_t count) {
+    const int64_t quotient = sum / count;
+    const int64_t remainder = sum % count;
+    return static_cast<float>(quotient) + static_cast<float>(remainder) / static_cast<float>(count);
+}
+
 /*! Calculate the unweighted centroid of the non-zero pixels inside a window of the image.
+ * The function adds the coordinates in 64-bit integers. Float sums do not keep integer precision for
+ * values more than 2^24.
  @return centroid and count of the bright pixels
  @param image Correct image view (isValidImage is true)
  @param window Window inside the image bounds
@@ -53,7 +67,8 @@ struct BrightPixels {
 BrightPixels computeBrightPixels(const ImageView_c& image, const PixelWindow& window) {
     const auto [rowBegin, rowEnd, colBegin, colEnd] = window;
 
-    Eigen::Vector2f centroid = Eigen::Vector2f::Zero();
+    int64_t sumX = 0;
+    int64_t sumY = 0;
     int32_t count = 0;
     for (int32_t row = rowBegin; row < rowEnd; ++row) {
         const uint8_t* const rowPixels = rowPointer(image, row);
@@ -61,15 +76,15 @@ BrightPixels computeBrightPixels(const ImageView_c& image, const PixelWindow& wi
             if (rowPixels[col] == 0U) {
                 continue;
             }
-            centroid[0] += static_cast<float>(col);
-            centroid[1] += static_cast<float>(row);
+            sumX += col;
+            sumY += row;
             ++count;
         }
     }
-    if (count > 0) {
-        centroid /= static_cast<float>(count);
+    if (count == 0) {
+        return {.centroid = Eigen::Vector2f::Zero(), .count = 0};
     }
-    return {.centroid = centroid, .count = count};
+    return {.centroid = Eigen::Vector2f(meanOf(sumX, count), meanOf(sumY, count)), .count = count};
 }
 
 }  // namespace
