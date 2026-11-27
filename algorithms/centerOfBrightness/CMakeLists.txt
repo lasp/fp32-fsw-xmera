@@ -9,6 +9,7 @@ find_package(OpenCV REQUIRED)
 xmera_add_swig_module("${module}")
 target_sources("${module}" PRIVATE
   centerOfBrightnessAlgorithm.cpp
+  centerOfBrightnessAlgorithm_c.cpp
   centerOfBrightness.cpp
   _imageReader/imageReaderFromFile.cpp
   _imageReader/imageReaderFromMessage.cpp
