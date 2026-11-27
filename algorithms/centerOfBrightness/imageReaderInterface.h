@@ -4,9 +4,9 @@
 #include <Eigen/Core>
 #include <opencv2/core/mat.hpp>
 
-#include "centerOfBrightnessAlgorithm.h"
+#include <cstdint>
 
-/*! @brief Image acquisition used by CenterOfBrightnessAlgorithm to obtain pixel data,
+/*! @brief Image source that the CenterOfBrightness adapter uses to get a thresholded image,
  *  independent of how or where the underlying image is sourced.
  */
 class ImageReaderInterface {
@@ -25,17 +25,6 @@ class ImageReaderInterface {
      @param previousImageTimeTag Time tag of the most recently processed image
      */
     virtual int64_t getCurrentImageTimeTag(int32_t cameraId, int64_t previousImageTimeTag) = 0;
-
-    /*! Extract non-zero pixel coordinates within the given window, writing up to kMaxWindowSize
-     *  entries to output (unused slots left as (0,0)).
-     @return void
-     @param center Center pixel coordinate of the window
-     @param windowSize Width/height of the window in pixels
-     @param output Array populated with non-zero pixel coordinates found within the window
-     */
-    virtual void getImageAsArray(const Eigen::Vector2i& center,
-                                 const Eigen::Vector2i& windowSize,
-                                 std::array<Eigen::Vector2i, kMaxWindowSize>& output) = 0;
 
     /*! Get the full thresholded image. The reader converts the image to grayscale, then does a box blur
      *  and a binary threshold on it.

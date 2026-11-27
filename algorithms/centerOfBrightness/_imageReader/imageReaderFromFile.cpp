@@ -19,16 +19,6 @@ cv::Mat ImageReaderFromFile::readImageFromFile() {
     return imageCV;
 }
 
-/*! Read image and parse
- */
-void ImageReaderFromFile::getImageAsArray(const Eigen::Vector2i& center,
-                                          const Eigen::Vector2i& window,
-                                          std::array<Eigen::Vector2i, kMaxWindowSize>& output) {
-    cv::Mat imageCV = this->readImageFromFile();
-    std::vector<Eigen::Vector2i> vector = cvMatToCoordinates(imageCV, this->blurSize, this->pixelThreshold);
-    extractImageWindow(vector, center, window, output);
-}
-
 /*! Read the image file and return the thresholded image (CV_8UC1).
  */
 cv::Mat ImageReaderFromFile::getImage() {

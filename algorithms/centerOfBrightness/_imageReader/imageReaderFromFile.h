@@ -11,9 +11,6 @@ class ImageReaderFromFile : public ImageReaderInterface {
     ImageReaderFromFile() = default;
     ~ImageReaderFromFile() override = default;
     Eigen::Vector2i getFullImageSize(int32_t cameraId) final;
-    void getImageAsArray(const Eigen::Vector2i& center,
-                         const Eigen::Vector2i& windowSize,
-                         std::array<Eigen::Vector2i, kMaxWindowSize>& output) final;
     cv::Mat getImage() final;
     int64_t getCurrentImageTimeTag(int32_t cameraId, int64_t previousImageTimeTag) final;
 
@@ -35,7 +32,7 @@ class ImageReaderFromFile : public ImageReaderInterface {
     Eigen::Vector2i imageSize{};  //!< [px] Full image dimensions (width, height)
     float pixelThreshold{};       //!< [-] minimum pixel brightness threshold used for detecting bright pixels
     int32_t blurSize{};           //!< [px] Size of the blurring box in pixels
-    bool saveImages{};            //!< [-] flag to save images on each getImageAsArray call
+    bool saveImages{};            //!< [-] flag to save images on each getImage call
     std::string saveDir{};        //!< [-] path to save the image to
 };
 

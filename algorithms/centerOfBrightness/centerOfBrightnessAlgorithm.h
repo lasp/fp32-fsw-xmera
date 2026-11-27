@@ -3,13 +3,9 @@
 
 #include <stdint.h>
 #include <Eigen/Core>
-#include <array>
 
 #include "centerOfBrightnessTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
-
-//!< [-] Maximum number of non-zero pixel coordinates the algorithm can consume per update()
-constexpr int kMaxWindowSize = 1024 * 1024;
 
 /**
  * @brief Result struct for the center of brightness algorithm

@@ -35,20 +35,6 @@ cv::Mat ImageReaderFromMessage::readImageFromMessage() {
     return imageCV;
 }
 
-/*! Read image and parse
- */
-void ImageReaderFromMessage::getImageAsArray(const Eigen::Vector2i& center,
-                                             const Eigen::Vector2i& window,
-                                             std::array<Eigen::Vector2i, kMaxWindowSize>& output) {
-    cv::Mat imageCV = this->readImageFromMessage();
-    if (imageCV.empty()) {
-        output.fill(Eigen::Vector2i::Zero());
-        return;
-    }
-    auto vector = cvMatToCoordinates(imageCV, this->blurSize, this->pixelThreshold);
-    extractImageWindow(vector, center, window, output);
-}
-
 /*! Read the image message and return the thresholded image (CV_8UC1).
  * If there is no image to read, return an empty image.
  */
