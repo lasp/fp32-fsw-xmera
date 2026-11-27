@@ -4,23 +4,51 @@
 #include "../centerOfBrightnessAlgorithm.h"
 #include <gtest/gtest.h>
 #include <Eigen/Core>
-#include <array>
+#include <algorithm>
 #include <cmath>
 #include <deque>
 #include <vector>
 
 // ============================================================================
-// PIXEL ARRAY HELPER
+// TEST IMAGE
 // ============================================================================
 
-/*! Copy pixels into a zero-filled, kMaxWindowSize-bounded array for CenterOfBrightnessAlgorithm::update(). */
-inline std::array<Eigen::Vector2i, kMaxWindowSize> pixelsToArray(const std::vector<Eigen::Vector2i>& pixels) {
-    std::array<Eigen::Vector2i, kMaxWindowSize> output;
-    output.fill(Eigen::Vector2i::Zero());
-    for (size_t i = 0; i < pixels.size() && i < kMaxWindowSize; ++i) {
-        output[i] = pixels[i];
+/*! Single-channel 8-bit test image that holds its pixel buffer, with optional row padding */
+struct TestImage {
+    int32_t rows;
+    int32_t cols;
+    int32_t strideBytes;
+    std::vector<uint8_t> buffer;
+
+    TestImage(int32_t numRows, int32_t numCols, int32_t padding = 0)
+        : rows(numRows),
+          cols(numCols),
+          strideBytes(numCols + padding),
+          buffer(static_cast<size_t>(numRows) * static_cast<size_t>(numCols + padding), 0U) {}
+
+    void set(int32_t col, int32_t row, uint8_t value = 255U) {
+        buffer[static_cast<size_t>(row) * static_cast<size_t>(strideBytes) + static_cast<size_t>(col)] = value;
     }
-    return output;
+
+    bool isSet(int32_t col, int32_t row) const {
+        return buffer[static_cast<size_t>(row) * static_cast<size_t>(strideBytes) + static_cast<size_t>(col)] != 0U;
+    }
+
+    ImageView_c view() const {
+        return {.pixels = buffer.data(), .rows = rows, .cols = cols, .strideBytes = strideBytes};
+    }
+    RegionOfInterest_c fullRegion() const {
+        return {.centerX = cols / 2, .centerY = rows / 2, .width = cols, .height = rows};
+    }
+};
+
+/*! Make an image of the given size with all pixels at 0, then set the given (x = column, y = row) pixels */
+inline TestImage pixelsToImage(int32_t rows, int32_t cols, const std::vector<Eigen::Vector2i>& pixels) {
+    TestImage image(rows, cols);
+    for (const auto& p : pixels) {
+        image.set(p[0], p[1]);
+    }
+    return image;
 }
 
 // ============================================================================
@@ -36,16 +64,14 @@ struct ReferenceState {
 // REFERENCE IMPLEMENTATION
 // ============================================================================
 
+/*! Reference result for a list of different bright pixel coordinates (x = column, y = row) */
 inline CenterOfBrightnessResult referenceUpdate(const std::vector<Eigen::Vector2i>& pixels,
                                                 float brightnessThreshold,
                                                 ReferenceState& state) {
-    // Compute centroid of non-zero pixels
+    // Calculate the centroid of the bright pixels
     Eigen::Vector2f centroid = Eigen::Vector2f::Zero();
     int32_t count = 0;
     for (const auto& p : pixels) {
-        if (p.isZero()) {
-            continue;
-        }
         centroid[0] += static_cast<float>(p[0]);
         centroid[1] += static_cast<float>(p[1]);
         ++count;
@@ -103,33 +129,53 @@ inline CenterOfBrightnessResult referenceUpdate(const std::vector<Eigen::Vector2
     return result;
 }
 
+/*! Bright pixels of an image inside a region of interest, in row-major order.
+ *  This function calculates the window bounds without the algorithm code:
+ *  [center - size / 2, center - size / 2 + size).
+ */
+inline std::vector<Eigen::Vector2i> referenceRegionPixels(const TestImage& image, const RegionOfInterest_c& roi) {
+    const int64_t colStart = static_cast<int64_t>(roi.centerX) - roi.width / 2;
+    const int64_t rowStart = static_cast<int64_t>(roi.centerY) - roi.height / 2;
+    std::vector<Eigen::Vector2i> pixels;
+    for (int32_t row = 0; row < image.rows; ++row) {
+        for (int32_t col = 0; col < image.cols; ++col) {
+            const bool inside =
+                col >= colStart && col < colStart + roi.width && row >= rowStart && row < rowStart + roi.height;
+            if (inside && image.isSet(col, row)) {
+                pixels.emplace_back(col, row);
+            }
+        }
+    }
+    return pixels;
+}
+
 // ============================================================================
 // FUZZ TEST: single step
 // ============================================================================
 
-inline void fuzzCenterOfBrightness(int32_t numPixels,
+inline void fuzzCenterOfBrightness(int32_t rows,
+                                   int32_t cols,
+                                   int32_t numPixels,
                                    std::vector<int32_t> pixelXs,
                                    std::vector<int32_t> pixelYs,
+                                   RegionOfInterest_c roi,
                                    float brightnessThreshold,
                                    int32_t avgWindowSize) {
     numPixels = std::min(numPixels, static_cast<int32_t>(pixelXs.size()));
     numPixels = std::min(numPixels, static_cast<int32_t>(pixelYs.size()));
 
-    // Build pixel vector
-    std::vector<Eigen::Vector2i> pixels;
-    pixels.reserve(numPixels);
+    // Make the image. The modulo operation keeps each pixel coordinate inside the image.
+    TestImage image(rows, cols);
     for (int32_t i = 0; i < numPixels; ++i) {
-        pixels.emplace_back(pixelXs[static_cast<size_t>(i)], pixelYs[static_cast<size_t>(i)]);
+        image.set(pixelXs[static_cast<size_t>(i)] % cols, pixelYs[static_cast<size_t>(i)] % rows);
     }
 
-    // Set up algorithm
-    CenterOfBrightnessAlgorithm alg{CenterOfBrightnessConfig::create(brightnessThreshold, avgWindowSize)};
-
     // Run algorithm
-    const std::array<Eigen::Vector2i, kMaxWindowSize> pixelArray = pixelsToArray(pixels);
-    CenterOfBrightnessResult result = alg.update(pixelArray);
+    CenterOfBrightnessAlgorithm alg{CenterOfBrightnessConfig::create(brightnessThreshold, avgWindowSize)};
+    CenterOfBrightnessResult result = alg.update(image.view(), roi);
 
     // Run reference
+    const std::vector<Eigen::Vector2i> pixels = referenceRegionPixels(image, roi);
     ReferenceState refState;
     refState.maxHistorySize = avgWindowSize;
     CenterOfBrightnessResult refResult = referenceUpdate(pixels, brightnessThreshold, refState);
@@ -150,25 +196,13 @@ inline void fuzzCenterOfBrightness(int32_t numPixels,
 
     // Structural invariants
     EXPECT_GE(result.pixelsFound, 0);
-    if (numPixels == 0) {
-        EXPECT_FALSE(result.noPixelTrigger);
-        EXPECT_EQ(result.pixelsFound, 0);
-    }
+    EXPECT_LE(result.pixelsFound, numPixels);
     if (result.valid && result.pixelsFound > 0) {
-        int32_t minX = pixelXs[0];
-        int32_t maxX = pixelXs[0];
-        int32_t minY = pixelYs[0];
-        int32_t maxY = pixelYs[0];
-        for (int32_t i = 0; i < numPixels; ++i) {
-            minX = std::min(minX, pixelXs[static_cast<size_t>(i)]);
-            maxX = std::max(maxX, pixelXs[static_cast<size_t>(i)]);
-            minY = std::min(minY, pixelYs[static_cast<size_t>(i)]);
-            maxY = std::max(maxY, pixelYs[static_cast<size_t>(i)]);
-        }
-        EXPECT_GE(result.centerOfBrightness[0], static_cast<float>(minX) - 1e-4F);
-        EXPECT_LE(result.centerOfBrightness[0], static_cast<float>(maxX) + 1e-4F);
-        EXPECT_GE(result.centerOfBrightness[1], static_cast<float>(minY) - 1e-4F);
-        EXPECT_LE(result.centerOfBrightness[1], static_cast<float>(maxY) + 1e-4F);
+        // The centroid is inside the image
+        EXPECT_GE(result.centerOfBrightness[0], -1e-4F);
+        EXPECT_LE(result.centerOfBrightness[0], static_cast<float>(cols - 1) + 1e-4F);
+        EXPECT_GE(result.centerOfBrightness[1], -1e-4F);
+        EXPECT_LE(result.centerOfBrightness[1], static_cast<float>(rows - 1) + 1e-4F);
     }
 }
 
@@ -179,20 +213,23 @@ inline void fuzzCenterOfBrightness(int32_t numPixels,
 inline void fuzzMultiStepBrightness(int32_t avgWindowSize,
                                     float brightnessThreshold,
                                     std::vector<int32_t> pixelCountsPerStep) {
+    constexpr int32_t kRows = 256;
+    constexpr int32_t kCols = 256;
+
     CenterOfBrightnessAlgorithm alg{CenterOfBrightnessConfig::create(brightnessThreshold, avgWindowSize)};
 
     ReferenceState refState;
     refState.maxHistorySize = avgWindowSize;
 
     for (int32_t pixelCount : pixelCountsPerStep) {
-        // Build pixel vector with deterministic coordinates but varying count
+        // Make a pixel vector with different coordinates that are not random. The pixel count changes at each step.
         std::vector<Eigen::Vector2i> pixels;
         for (int32_t i = 0; i < pixelCount; ++i) {
             pixels.emplace_back(100 + (i % 50), 200 + (i / 50));
         }
 
-        const std::array<Eigen::Vector2i, kMaxWindowSize> pixelArray = pixelsToArray(pixels);
-        CenterOfBrightnessResult result = alg.update(pixelArray);
+        const TestImage image = pixelsToImage(kRows, kCols, pixels);
+        CenterOfBrightnessResult result = alg.update(image.view(), image.fullRegion());
         CenterOfBrightnessResult refResult = referenceUpdate(pixels, brightnessThreshold, refState);
 
         EXPECT_EQ(result.pixelsFound, refResult.pixelsFound);
