@@ -42,7 +42,7 @@ typedef struct {
     int32_t pixelsFound;            /*!< [-] number of bright pixels. It is 0 when valid is false. */
     float rollingAverageBrightness; /*!< [-] rolling average of the bright pixel count */
     bool valid;                     /*!< [-] true when the brightness increase is equal to or more than the threshold */
-    bool noPixelTrigger;            /*!< [-] diagnostic flag for no bright pixels */
+    bool noPixelTrigger;            /*!< [-] diagnostic flag: true when update() found no bright pixels */
     bool notExceedingBrightnessIncreaseTrigger; /*!< [-] diagnostic flag for a brightness increase less than the
                                                    threshold */
 } CenterOfBrightnessResult_c;

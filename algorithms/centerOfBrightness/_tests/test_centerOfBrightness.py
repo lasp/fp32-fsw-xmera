@@ -182,7 +182,7 @@ def test_diagnostics():
     roi_size = [w, h]
 
     try:
-        # threshold=255 -> no pixels above threshold -> defaults remain (both False)
+        # threshold=255 -> no pixels more than threshold -> update sets noPixelTrigger
         sim_np, _, _, diag_np, _ = setup_cob_sim(
             temp_path, blur=1, pixel_threshold=255,
             roi_center=roi_center, roi_size=roi_size,
@@ -190,7 +190,7 @@ def test_diagnostics():
         sim_np.InitializeSimulation()
         sim_np.ConfigureStopTime(PROCESS_RATE)
         sim_np.ExecuteSimulation()
-        np.testing.assert_equal(diag_np.noPixelTrigger[0], False)
+        np.testing.assert_equal(diag_np.noPixelTrigger[0], True)
         np.testing.assert_equal(diag_np.notExceedingBrightnessIncreaseTrigger[0], False)
 
         # relativeBrightnessIncreaseThreshold=inf -> pixels found but brightness check fails

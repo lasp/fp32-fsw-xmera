@@ -61,8 +61,9 @@ void CenterOfBrightnessAlgorithm_reInitialize(CenterOfBrightnessAlgorithmHandle*
 /**
  * @brief Calculate the center of brightness of the non-zero pixels inside a region of interest.
  * The function clips the region to the image bounds. If the image view is incorrect (null pixels, rows or
- * cols <= 0, strideBytes < cols) or the region is fully outside the image, the function gives the default result
- * (zero, valid is false) and does not change the brightness history. This function does not throw exceptions.
+ * cols <= 0, strideBytes < cols) or the region is fully outside the image, the function finds no bright pixels.
+ * Then the result has only noPixelTrigger set, and the brightness history does not change. This function does not
+ * throw exceptions.
  * @param self  Pointer to the handle.
  * @param image Single-channel 8-bit image. Non-zero pixels are bright. The caller keeps control of the
  *              pixel buffer, which must hold rows * strideBytes bytes.

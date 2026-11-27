@@ -45,7 +45,7 @@ void CenterOfBrightness::updateState(const uint64_t currentSimNanos) {
         this->previousImageTimeTag = imageTimeTag;
 
         // If no image is available, getImage gives an empty image. An empty image gives a null view, and the
-        // algorithm then gives the default result.
+        // algorithm then sets noPixelTrigger.
         const cv::Mat image = this->imageReader->getImage();
         const ImageView_c imageView{.pixels = image.empty() ? nullptr : image.ptr<uint8_t>(0),
                                     .rows = image.rows,

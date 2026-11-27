@@ -15,7 +15,7 @@ struct CenterOfBrightnessResult {
     int32_t pixelsFound{};
     float rollingAverageBrightness{};
     bool valid{};
-    bool noPixelTrigger{false};
+    bool noPixelTrigger{false};  //!< [-] true when update() found no bright pixels
     bool notExceedingBrightnessIncreaseTrigger{false};
 };
 

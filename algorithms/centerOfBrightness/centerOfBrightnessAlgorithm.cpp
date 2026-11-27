@@ -100,14 +100,15 @@ void CenterOfBrightnessAlgorithm::reset() { this->brightnessHistory.resize(0); }
 
 /*! Primary entry point: calculates the center of brightness of the non-zero pixels inside a region of interest.
  * The function clips the region to the image bounds. If the image view is incorrect or the region is
- * fully outside the image, the function gives the default result and does not change the brightness history.
+ * fully outside the image, the function finds no bright pixels. Then the result has only noPixelTrigger set,
+ * and the brightness history does not change.
  @return CenterOfBrightnessResult with coordinates in full-image pixels, [0] = column (x), [1] = row (y)
  @param image Single-channel 8-bit image. Non-zero pixels are bright.
  @param roi Region of interest in full-image pixel coordinates
  */
 CenterOfBrightnessResult CenterOfBrightnessAlgorithm::update(const ImageView_c& image, const RegionOfInterest_c& roi) {
     if (!isValidImage(image)) {
-        return {};
+        return this->evaluateBrightness(Eigen::Vector2f::Zero(), 0);
     }
     const auto [centroid, pixelsFound] = computeBrightPixels(image, clipToImage(image, roi));
     return this->evaluateBrightness(centroid, pixelsFound);
@@ -120,10 +121,9 @@ CenterOfBrightnessResult CenterOfBrightnessAlgorithm::update(const ImageView_c& 
  */
 CenterOfBrightnessResult CenterOfBrightnessAlgorithm::evaluateBrightness(const Eigen::Vector2f& coordinates,
                                                                          const int32_t pixelsFound) {
-    CenterOfBrightnessResult result{};
+    CenterOfBrightnessResult result{.noPixelTrigger = pixelsFound == 0};
     if (pixelsFound > 0) {
         const float brightnessIncrease = this->computeBrightnessIncrease(pixelsFound);
-        result.noPixelTrigger = false;
         if (brightnessIncrease >= this->cfg.getRelativeBrightnessIncreaseThreshold()) {
             result.valid = true;
             result.centerOfBrightness = coordinates;

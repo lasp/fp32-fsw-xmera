@@ -82,6 +82,7 @@ inline CenterOfBrightnessResult referenceUpdate(const std::vector<Eigen::Vector2
 
     // Build result (matching defaults in CenterOfBrightnessResult)
     CenterOfBrightnessResult result{};
+    result.noPixelTrigger = count == 0;
 
     if (count > 0) {
         // Compute old brightness average
@@ -116,7 +117,6 @@ inline CenterOfBrightnessResult referenceUpdate(const std::vector<Eigen::Vector2
             brightnessIncrease = (avgNew - avgOld) / avgOld;
         }
 
-        result.noPixelTrigger = false;
         if (brightnessIncrease >= brightnessThreshold) {
             result.valid = true;
             result.centerOfBrightness = centroid;

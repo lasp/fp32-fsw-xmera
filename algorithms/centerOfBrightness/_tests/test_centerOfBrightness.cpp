@@ -38,10 +38,10 @@ TEST(CenterOfBrightnessConfigTest, RoundTripNumberOfPointsBrightnessAverage) {
 }
 
 // ============================================================================
-// IMAGE WITH NO BRIGHT PIXELS → DEFAULT RESULT
+// IMAGE WITH NO BRIGHT PIXELS → NO PIXEL TRIGGER
 // ============================================================================
 
-TEST_F(CenterOfBrightnessAlgorithmTest, DarkImageReturnsDefaultResult) {
+TEST_F(CenterOfBrightnessAlgorithmTest, DarkImageSetsNoPixelTrigger) {
     CenterOfBrightnessResult result = update();
 
     EXPECT_FALSE(result.valid);
@@ -49,7 +49,7 @@ TEST_F(CenterOfBrightnessAlgorithmTest, DarkImageReturnsDefaultResult) {
     EXPECT_NEAR(0.0F, result.centerOfBrightness[0], kTestTolerance);
     EXPECT_NEAR(0.0F, result.centerOfBrightness[1], kTestTolerance);
     EXPECT_NEAR(0.0F, result.rollingAverageBrightness, kTestTolerance);
-    EXPECT_FALSE(result.noPixelTrigger);
+    EXPECT_TRUE(result.noPixelTrigger);
     EXPECT_FALSE(result.notExceedingBrightnessIncreaseTrigger);
 }
 
@@ -178,13 +178,14 @@ TEST_F(CenterOfBrightnessAlgorithmTest, ResetClearsBrightnessHistory) {
 
 namespace {
 
-void expectDefaultResult(const CenterOfBrightnessResult& result) {
+/*! Make sure that the result is correct for an update that found no bright pixels */
+void expectNoPixelResult(const CenterOfBrightnessResult& result) {
     EXPECT_FALSE(result.valid);
     EXPECT_EQ(0, result.pixelsFound);
     EXPECT_EQ(0.0F, result.centerOfBrightness[0]);
     EXPECT_EQ(0.0F, result.centerOfBrightness[1]);
     EXPECT_EQ(0.0F, result.rollingAverageBrightness);
-    EXPECT_FALSE(result.noPixelTrigger);
+    EXPECT_TRUE(result.noPixelTrigger);
     EXPECT_FALSE(result.notExceedingBrightnessIncreaseTrigger);
 }
 
@@ -284,19 +285,19 @@ TEST_F(CenterOfBrightnessAlgorithmTest, ImageRegionIsClippedAtImageEdges) {
     EXPECT_EQ(2.5F, all.centerOfBrightness[1]);
 }
 
-TEST_F(CenterOfBrightnessAlgorithmTest, ImageRegionOutsideImageReturnsDefaultResult) {
+TEST_F(CenterOfBrightnessAlgorithmTest, ImageRegionOutsideImageSetsNoPixelTrigger) {
     image = TestImage(6, 8);
     image.set(0, 0);
-    expectDefaultResult(algorithm.update(image.view(), {.centerX = 100, .centerY = 100, .width = 4, .height = 4}));
-    expectDefaultResult(algorithm.update(image.view(), {.centerX = -100, .centerY = 3, .width = 4, .height = 4}));
+    expectNoPixelResult(algorithm.update(image.view(), {.centerX = 100, .centerY = 100, .width = 4, .height = 4}));
+    expectNoPixelResult(algorithm.update(image.view(), {.centerX = -100, .centerY = 3, .width = 4, .height = 4}));
 }
 
-TEST_F(CenterOfBrightnessAlgorithmTest, ImageEmptyRegionReturnsDefaultResult) {
+TEST_F(CenterOfBrightnessAlgorithmTest, ImageEmptyRegionSetsNoPixelTrigger) {
     image = TestImage(6, 8);
     image.set(4, 3);
-    expectDefaultResult(algorithm.update(image.view(), {.centerX = 4, .centerY = 3, .width = 0, .height = 4}));
-    expectDefaultResult(algorithm.update(image.view(), {.centerX = 4, .centerY = 3, .width = 4, .height = 0}));
-    expectDefaultResult(algorithm.update(image.view(), {.centerX = 4, .centerY = 3, .width = -4, .height = 4}));
+    expectNoPixelResult(algorithm.update(image.view(), {.centerX = 4, .centerY = 3, .width = 0, .height = 4}));
+    expectNoPixelResult(algorithm.update(image.view(), {.centerX = 4, .centerY = 3, .width = 4, .height = 0}));
+    expectNoPixelResult(algorithm.update(image.view(), {.centerX = 4, .centerY = 3, .width = -4, .height = 4}));
 }
 
 TEST_F(CenterOfBrightnessAlgorithmTest, ImageExtremeRegionValuesDoNotOverflow) {
@@ -307,9 +308,9 @@ TEST_F(CenterOfBrightnessAlgorithmTest, ImageExtremeRegionValuesDoNotOverflow) {
 
     EXPECT_EQ(1,
               algorithm.update(image.view(), {.centerX = 0, .centerY = 0, .width = kMax, .height = kMax}).pixelsFound);
-    expectDefaultResult(
+    expectNoPixelResult(
         algorithm.update(image.view(), {.centerX = kMax, .centerY = kMax, .width = kMax, .height = kMax}));
-    expectDefaultResult(
+    expectNoPixelResult(
         algorithm.update(image.view(), {.centerX = kMin, .centerY = kMin, .width = kMax, .height = kMax}));
 }
 
@@ -331,17 +332,17 @@ TEST_F(CenterOfBrightnessAlgorithmTest, ImageRowPaddingIsIgnored) {
     EXPECT_EQ(2.0F, result.centerOfBrightness[1]);
 }
 
-TEST_F(CenterOfBrightnessAlgorithmTest, ImageInvalidViewReturnsDefaultResult) {
+TEST_F(CenterOfBrightnessAlgorithmTest, ImageInvalidViewSetsNoPixelTrigger) {
     image = TestImage(4, 4);
     image.set(1, 1);
     const RegionOfInterest_c roi = image.fullRegion();
 
-    expectDefaultResult(algorithm.update({.pixels = nullptr, .rows = 4, .cols = 4, .strideBytes = 4}, roi));
-    expectDefaultResult(algorithm.update({.pixels = image.buffer.data(), .rows = 0, .cols = 4, .strideBytes = 4}, roi));
-    expectDefaultResult(algorithm.update({.pixels = image.buffer.data(), .rows = 4, .cols = 0, .strideBytes = 4}, roi));
-    expectDefaultResult(
+    expectNoPixelResult(algorithm.update({.pixels = nullptr, .rows = 4, .cols = 4, .strideBytes = 4}, roi));
+    expectNoPixelResult(algorithm.update({.pixels = image.buffer.data(), .rows = 0, .cols = 4, .strideBytes = 4}, roi));
+    expectNoPixelResult(algorithm.update({.pixels = image.buffer.data(), .rows = 4, .cols = 0, .strideBytes = 4}, roi));
+    expectNoPixelResult(
         algorithm.update({.pixels = image.buffer.data(), .rows = -1, .cols = 4, .strideBytes = 4}, roi));
-    expectDefaultResult(algorithm.update({.pixels = image.buffer.data(), .rows = 4, .cols = 4, .strideBytes = 3}, roi));
+    expectNoPixelResult(algorithm.update({.pixels = image.buffer.data(), .rows = 4, .cols = 4, .strideBytes = 3}, roi));
 }
 
 TEST_F(CenterOfBrightnessAlgorithmTest, ImageInvalidInputDoesNotChangeBrightnessHistory) {

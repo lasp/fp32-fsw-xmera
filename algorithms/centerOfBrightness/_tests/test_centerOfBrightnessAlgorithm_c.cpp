@@ -110,14 +110,14 @@ TEST(CenterOfBrightnessShimTest, ReInitializeClearsBrightnessHistory) {
     EXPECT_EQ(static_cast<float>(6 * 7), result.rollingAverageBrightness);
 }
 
-TEST(CenterOfBrightnessShimTest, InvalidImageReturnsDefaultResult) {
+TEST(CenterOfBrightnessShimTest, InvalidImageSetsNoPixelTrigger) {
     const UniqueHandle handle = makeHandle(kThreshold, kAveragePoints);
     const RegionOfInterest_c roi{.centerX = 2, .centerY = 2, .width = 4, .height = 4};
 
     const CenterOfBrightnessResult_c result = CenterOfBrightnessAlgorithm_update(
         handle.get(), {.pixels = nullptr, .rows = 4, .cols = 4, .strideBytes = 4}, roi);
 
-    expectSameResult(CenterOfBrightnessResult{}, result);
+    expectSameResult(CenterOfBrightnessResult{.noPixelTrigger = true}, result);
 }
 
 // ============================================================================
