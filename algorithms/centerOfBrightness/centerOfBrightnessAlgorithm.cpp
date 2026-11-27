@@ -1,5 +1,79 @@
 #include "centerOfBrightnessAlgorithm.h"
 
+#include <algorithm>
+
+namespace {
+
+/*! Half-open pixel ranges [rowBegin, rowEnd) x [colBegin, colEnd) inside the image */
+struct PixelWindow {
+    int32_t rowBegin;
+    int32_t rowEnd;
+    int32_t colBegin;
+    int32_t colEnd;
+};
+
+/*! Make sure that the image view describes a buffer that the function can read */
+bool isValidImage(const ImageView_c& image) {
+    return image.pixels != nullptr && image.rows > 0 && image.cols > 0 && image.strideBytes >= image.cols;
+}
+
+/*! Clip the region of interest to the image bounds.
+ @return pixel window. The window is empty (begin >= end) when the region is fully outside the image
+ @param image Image view
+ @param roi Region of interest in full-image coordinates
+ */
+PixelWindow clipToImage(const ImageView_c& image, const RegionOfInterest_c& roi) {
+    // The function uses 64-bit arithmetic. Thus int32 inputs at their limits cannot cause an overflow.
+    const int64_t colStart = static_cast<int64_t>(roi.centerX) - roi.width / 2;
+    const int64_t rowStart = static_cast<int64_t>(roi.centerY) - roi.height / 2;
+    const int64_t colStop = colStart + roi.width;
+    const int64_t rowStop = rowStart + roi.height;
+    return {.rowBegin = static_cast<int32_t>(std::clamp<int64_t>(rowStart, 0, image.rows)),
+            .rowEnd = static_cast<int32_t>(std::clamp<int64_t>(rowStop, 0, image.rows)),
+            .colBegin = static_cast<int32_t>(std::clamp<int64_t>(colStart, 0, image.cols)),
+            .colEnd = static_cast<int32_t>(std::clamp<int64_t>(colStop, 0, image.cols))};
+}
+
+/*! Get the address of the first pixel of a row */
+const uint8_t* rowPointer(const ImageView_c& image, int32_t row) {
+    return image.pixels + static_cast<std::ptrdiff_t>(row) * image.strideBytes;
+}
+
+/*! Centroid and count of the bright pixels in a window */
+struct BrightPixels {
+    Eigen::Vector2f centroid;  //!< [px] [0] = column (x), [1] = row (y). Zero when count is 0.
+    int32_t count;             //!< [-] number of non-zero pixels
+};
+
+/*! Calculate the unweighted centroid of the non-zero pixels inside a window of the image.
+ @return centroid and count of the bright pixels
+ @param image Correct image view (isValidImage is true)
+ @param window Window inside the image bounds
+ */
+BrightPixels computeBrightPixels(const ImageView_c& image, const PixelWindow& window) {
+    const auto [rowBegin, rowEnd, colBegin, colEnd] = window;
+
+    Eigen::Vector2f centroid = Eigen::Vector2f::Zero();
+    int32_t count = 0;
+    for (int32_t row = rowBegin; row < rowEnd; ++row) {
+        const uint8_t* const rowPixels = rowPointer(image, row);
+        for (int32_t col = colBegin; col < colEnd; ++col) {
+            if (rowPixels[col] == 0U) {
+                continue;
+            }
+            centroid[0] += static_cast<float>(col);
+            centroid[1] += static_cast<float>(row);
+            ++count;
+        }
+    }
+    if (count > 0) {
+        centroid /= static_cast<float>(count);
+    }
+    return {.centroid = centroid, .count = count};
+}
+
+}  // namespace
+
 CenterOfBrightnessAlgorithm::CenterOfBrightnessAlgorithm(const CenterOfBrightnessConfig& config) : cfg(config) {}
 
 CenterOfBrightnessAlgorithm::~CenterOfBrightnessAlgorithm() = default;
@@ -15,9 +89,33 @@ void CenterOfBrightnessAlgorithm::reset() { this->brightnessHistory.resize(0); }
  */
 CenterOfBrightnessResult CenterOfBrightnessAlgorithm::update(
     const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels) {
-    CenterOfBrightnessResult result{};
     const auto [coordinates, pixelsFound] = this->computeCenterOfBrightness(pixels);
+    return this->evaluateBrightness(coordinates, pixelsFound);
+}
 
+/*! Primary entry point: calculates the center of brightness of the non-zero pixels inside a region of interest.
+ * The function clips the region to the image bounds. If the image view is incorrect or the region is
+ * fully outside the image, the function gives the default result and does not change the brightness history.
+ @return CenterOfBrightnessResult with coordinates in full-image pixels, [0] = column (x), [1] = row (y)
+ @param image Single-channel 8-bit image. Non-zero pixels are bright.
+ @param roi Region of interest in full-image pixel coordinates
+ */
+CenterOfBrightnessResult CenterOfBrightnessAlgorithm::update(const ImageView_c& image, const RegionOfInterest_c& roi) {
+    if (!isValidImage(image)) {
+        return {};
+    }
+    const auto [centroid, pixelsFound] = computeBrightPixels(image, clipToImage(image, roi));
+    return this->evaluateBrightness(centroid, pixelsFound);
+}
+
+/*! Do the brightness-increase check on a calculated centroid and update the brightness history.
+ @return CenterOfBrightnessResult
+ @param coordinates Centroid of the bright pixels
+ @param pixelsFound Number of bright pixels
+ */
+CenterOfBrightnessResult CenterOfBrightnessAlgorithm::evaluateBrightness(const Eigen::Vector2f& coordinates,
+                                                                         const int32_t pixelsFound) {
+    CenterOfBrightnessResult result{};
     if (pixelsFound > 0) {
         const float brightnessIncrease = this->computeBrightnessIncrease(pixelsFound);
         result.noPixelTrigger = false;

@@ -6,6 +6,7 @@
 #include <array>
 #include <utility>
 
+#include "centerOfBrightnessTypes.h"
 #include "utilities/fsw/freestandingInvalidArgument.h"
 
 //!< [-] Maximum number of non-zero pixel coordinates the algorithm can consume per update()
@@ -73,12 +74,14 @@ class CenterOfBrightnessAlgorithm final {
     ~CenterOfBrightnessAlgorithm();
 
     CenterOfBrightnessResult update(const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels);
+    CenterOfBrightnessResult update(const ImageView_c& image, const RegionOfInterest_c& roi);
     void reset();
     void setConfig(const CenterOfBrightnessConfig& config);
 
    private:
     std::pair<Eigen::Vector2f, int32_t> computeCenterOfBrightness(
         const std::array<Eigen::Vector2i, kMaxWindowSize>& pixels) const;
+    CenterOfBrightnessResult evaluateBrightness(const Eigen::Vector2f& coordinates, int32_t pixelsFound);
     float computeBrightnessIncrease(int32_t pixelsFound);
     void updateBrightnessHistory(float brightness);
 
